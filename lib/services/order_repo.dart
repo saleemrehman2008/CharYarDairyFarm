@@ -34,12 +34,16 @@ class OrderRepo {
     required String slot,
     required String repeat,
     required PayMethod pay,
+    required String address,
+    required String mobile,
   }) async {
     final number = await _nextNumber();
     final doc = await Db.orders.add({
       'number': number,
       'customerId': actor.uid,
       'customerName': actor.name,
+      'address': address,
+      'mobile': mobile,
       'items': {for (final i in items) i.productId: i.toMap()},
       'total': total,
       'mode': mode,
@@ -74,6 +78,22 @@ class OrderRepo {
       refId: doc.id,
     );
     return doc.id;
+  }
+
+  /// Called off before the farm has started on it.
+  ///
+  /// Only while the order is still new: once a co-founder has approved it the
+  /// milk is being got ready, and that is a conversation, not a button.
+  static Future<void> cancel(Actor actor, FarmOrder order) async {
+    if (order.status != OrderStatus.newOrder || order.isApproved) return;
+    await Db.orders.doc(order.id).update({'status': OrderStatus.cancelled.key});
+    await Log.write(
+      actor,
+      LogKind.order,
+      'cancelled order #${order.number}',
+      refType: 'order',
+      refId: order.id,
+    );
   }
 
   /// The first co-founder or the master to tap Approve owns the approval.

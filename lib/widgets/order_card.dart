@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
+import '../util/phone.dart';
 import 'ui.dart';
 
 /// The order card used on Orders, Approvals and the customer's My orders.
@@ -13,19 +14,29 @@ class OrderCard extends StatelessWidget {
     required this.order,
     this.onApprove,
     this.onAdvance,
+    this.onCancel,
     this.busy = false,
+    this.showAddress = false,
   });
 
   final FarmOrder order;
   final VoidCallback? onApprove;
   final VoidCallback? onAdvance;
+
+  /// Offered to the customer while the order is still theirs to call off.
+  final VoidCallback? onCancel;
+
   final bool busy;
+
+  /// The round needs the address; the customer already knows it.
+  final bool showAddress;
 
   @override
   Widget build(BuildContext context) {
     final needsApproval = order.status == OrderStatus.newOrder;
     final canApprove = needsApproval && !order.isApproved && onApprove != null;
     final advanceLabel = order.status.advanceLabel;
+    final canCancel = onCancel != null && needsApproval && !order.isApproved;
     final canAdvance =
         onAdvance != null &&
         advanceLabel != null &&
@@ -57,6 +68,13 @@ class OrderCard extends StatelessWidget {
               '${order.pay.short} · ${rs(order.total)}',
               style: T.meta,
             ),
+            // Where it goes, for whoever is doing the round.
+            if (showAddress && order.address.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(order.address, style: T.bodyMid),
+              if (order.mobile.isNotEmpty)
+                Text(Phone.pretty(order.mobile), style: T.meta),
+            ],
             const SizedBox(height: 10),
             StepBar(step: order.status.step),
             const SizedBox(height: 8),
@@ -85,6 +103,17 @@ class OrderCard extends StatelessWidget {
                       onPressed: busy ? null : onAdvance,
                     ),
                 ],
+              ),
+            ],
+
+            // Only while the farm has not started on it.
+            if (canCancel) ...[
+              const SizedBox(height: 12),
+              GhostButton(
+                label: 'Cancel this order',
+                compact: true,
+                danger: true,
+                onPressed: busy ? null : onCancel,
               ),
             ],
           ],

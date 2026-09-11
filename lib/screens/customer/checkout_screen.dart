@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/order_repo.dart';
+import '../../services/user_repo.dart';
 import '../../state/cart.dart';
 import '../../state/customer_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
+import '../../util/phone.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
 
@@ -26,6 +28,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _repeat = 'once';
   PayMethod _pay = PayMethod.cod;
   bool _busy = false;
+
+  /// True while the customer is typing an address other than their saved one.
+  bool _newAddress = false;
+
+  final _address = TextEditingController();
+  final _mobile = TextEditingController();
+
+  @override
+  void dispose() {
+    _address.dispose();
+    _mobile.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +101,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
           onChanged: (v) => setState(() => _mode = v),
         ),
+
+        // Where to take it. Asked once; after that the saved address is
+        // offered back, because most orders go to the same door.
+        if (_mode == 'delivery') ...[
+          const SizedBox(height: T.gap),
+          if (user != null && user.hasDeliveryDetails && !_newAddress) ...[
+            RegCard(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Kicker('Deliver to'),
+                  const SizedBox(height: 6),
+                  Text(user.address, style: T.body),
+                  Text(Phone.pretty(user.mobile), style: T.meta),
+                  const SizedBox(height: 10),
+                  GhostButton(
+                    label: 'Somewhere else this time',
+                    compact: true,
+                    onPressed: () => setState(() {
+                      _newAddress = true;
+                      _address.text = user.address;
+                      _mobile.text = user.mobile;
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Field(
+              label: 'Delivery address',
+              controller: _address,
+              hint: 'House, street, area, city',
+              maxLines: 2,
+            ),
+            const SizedBox(height: T.gap),
+            Field(
+              label: 'Mobile number',
+              controller: _mobile,
+              keyboardType: TextInputType.phone,
+              hint: Phone.hint,
+              textCapitalization: TextCapitalization.none,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              user != null && user.hasDeliveryDetails
+                  ? 'This becomes your saved address.'
+                  : 'Saved for next time, so you only type it once.',
+              style: T.meta,
+            ),
+          ],
+        ],
         const SizedBox(height: T.gap),
 
         const Kicker('Time slot'),
@@ -144,8 +211,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: T.meta,
           ),
         ],
+        const SizedBox(height: 10),
+        GhostButton(
+          label: 'Cancel and empty the cart',
+          onPressed: _busy ? null : _cancel,
+        ),
       ],
     );
+  }
+
+  Future<void> _cancel() async {
+    final ok = await confirm(
+      context,
+      title: 'Empty the cart?',
+      body: 'Everything in it is taken out. Nothing is ordered.',
+      confirmLabel: 'Empty it',
+    );
+    if (!ok || !mounted) return;
+    context.read<Cart>().clear();
+    toast(context, 'Cart emptied');
   }
 
   String? _detail(PayMethod m, CustomerStore store, bool udhaarBlocked) =>
@@ -171,18 +255,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       };
 
   Future<void> _place(List<OrderItem> lines, num total) async {
+    final session = context.read<Session>();
+    final user = session.user;
+
+    // Whatever is on screen: the saved address, or the one being typed.
+    final saved = user != null && user.hasDeliveryDetails && !_newAddress;
+    final address = saved ? user.address : _address.text.trim();
+    final mobile = saved ? user.mobile : _mobile.text.trim();
+
+    if (_mode == 'delivery') {
+      if (address.isEmpty) {
+        toast(context, 'Where should the milk go? Add a delivery address.');
+        return;
+      }
+      if (!Phone.isValid(mobile)) {
+        toast(context, Phone.error);
+        return;
+      }
+    }
+
     setState(() => _busy = true);
     try {
+      if (_mode == 'delivery' && !saved && user != null) {
+        await UserRepo.saveDeliveryDetails(
+          user.uid,
+          address: address,
+          mobile: mobile,
+        );
+      }
+
       await OrderRepo.place(
-        actor: context.read<Session>().actor,
+        actor: session.actor,
         items: lines,
         total: total,
         mode: _mode,
         slot: _slot,
         repeat: _repeat,
         pay: _pay,
+        address: _mode == 'delivery' ? address : '',
+        mobile: _mode == 'delivery' ? Phone.normalise(mobile) : '',
       );
       if (!mounted) return;
+      setState(() => _newAddress = false);
       context.read<Cart>().clear();
       widget.onOrdered();
       toast(context, 'Order placed · the farm has been notified');

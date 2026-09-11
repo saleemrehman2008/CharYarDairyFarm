@@ -86,6 +86,7 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
             OrderCard(
               order: o,
               busy: _busyId == o.id,
+              showAddress: true,
               onAdvance: () => _advance(o),
             ),
       ],

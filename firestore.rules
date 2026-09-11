@@ -102,9 +102,10 @@ service cloud.firestore {
             || becomesListed());
 
       allow update: if isMaster()
+        // Own profile and delivery details. A role or status is not in here.
         || (signedIn() && request.auth.uid == uid
             && changedKeys().hasOnly(['name', 'email', 'photoUrl',
-                                      'fcmTokens']))
+                                      'fcmTokens', 'address', 'mobile']))
         // Customers left waiting from before are activated on next sign-in.
         // A blocked account cannot let itself back in.
         || (signedIn() && request.auth.uid == uid
@@ -181,7 +182,16 @@ service cloud.firestore {
       // Staff move an order along the round; only a partner approves one.
       allow update: if isPartner()
         || (isDelivery()
-            && changedKeys().hasOnly(['status', 'deliveredAt']));
+            && changedKeys().hasOnly(['status', 'deliveredAt']))
+        // A customer may call off their own order while the farm has not
+        // started on it — nothing else about it, and never once approved.
+        || (signedIn()
+            && resource.data.customerId == request.auth.uid
+            && resource.data.status == 'new'
+            && !('approvedAt' in resource.data)
+            && request.resource.data.status == 'cancelled'
+            && changedKeys().hasOnly(['status']));
+
       allow delete: if false;
     }
 

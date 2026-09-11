@@ -4,6 +4,7 @@ import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
+import 'package:char_yar_dairy_farm/util/phone.dart';
 
 /// Helper so each case reads as the entry a farmer would type.
 var _seq = 0;
@@ -283,6 +284,44 @@ void main() {
       );
       expect(running.assetsBought, 0);
       expect(running.costs, 38000);
+    });
+  });
+
+  group('mobile numbers', () {
+    test('a Pakistani mobile is eleven digits starting 03', () {
+      expect(Phone.isValid('03001234567'), isTrue);
+      expect(Phone.isValid('0300 1234567'), isTrue);
+      expect(Phone.isValid('0300-123-4567'), isTrue);
+    });
+
+    test('the extra digit that slipped through before is caught', () {
+      expect(Phone.isValid('030012345678'), isFalse);
+      expect(Phone.isValid('0300123456'), isFalse);
+    });
+
+    test('a number that is not a mobile is refused', () {
+      expect(Phone.isValid('02112345678'), isFalse);
+      expect(Phone.isValid(''), isFalse);
+      expect(Phone.isValid('not a number'), isFalse);
+    });
+
+    test('country code and missing zero are both understood', () {
+      expect(Phone.normalise('+92 300 1234567'), '03001234567');
+      expect(Phone.normalise('00923001234567'), '03001234567');
+      expect(Phone.normalise('3001234567'), '03001234567');
+      expect(Phone.isValid('+923001234567'), isTrue);
+    });
+
+    test('however it was typed, it is stored one way', () {
+      const written = ['0300 1234567', '0300-1234567', '+92 300 1234567'];
+      for (final w in written) {
+        expect(Phone.normalise(w), '03001234567');
+      }
+    });
+
+    test('it reads back the way people say it', () {
+      expect(Phone.pretty('03001234567'), '0300 1234567');
+      expect(Phone.pretty('+923001234567'), '0300 1234567');
     });
   });
 

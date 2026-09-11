@@ -125,6 +125,8 @@ class FarmOrder {
     required this.number,
     required this.customerId,
     required this.customerName,
+    required this.address,
+    required this.mobile,
     required this.items,
     required this.total,
     required this.mode,
@@ -143,6 +145,13 @@ class FarmOrder {
   final String number;
   final String customerId;
   final String customerName;
+
+  /// Where it goes and who to ring — carried on the order so the person doing
+  /// the round has it in front of them, and so a later move does not rewrite
+  /// where an old order actually went.
+  final String address;
+  final String mobile;
+
   final List<OrderItem> items;
   final num total;
   final String mode; // delivery | pickup
@@ -187,6 +196,8 @@ class FarmOrder {
       number: s(m['number']).isEmpty ? doc.id : s(m['number']),
       customerId: s(m['customerId']),
       customerName: s(m['customerName']),
+      address: s(m['address']),
+      mobile: s(m['mobile']),
       items: items,
       total: n(m['total']),
       mode: s(m['mode']).isEmpty ? 'delivery' : s(m['mode']),

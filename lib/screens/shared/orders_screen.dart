@@ -67,6 +67,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             OrderCard(
               order: o,
               busy: _busyId == o.id,
+              showAddress: true,
               onApprove: () => _run(o, approve: true),
               onAdvance: () => _run(o, approve: false),
             ),

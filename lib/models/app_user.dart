@@ -55,6 +55,8 @@ class AppUser {
     required this.photoUrl,
     required this.role,
     required this.status,
+    required this.address,
+    required this.mobile,
     this.partnerId,
     required this.createdAt,
   });
@@ -65,10 +67,20 @@ class AppUser {
   final String photoUrl;
   final Role role;
   final UserStatus status;
+
+  /// Where to deliver, and the number to ring at the gate. Asked once at the
+  /// first order and reused after that.
+  final String address;
+  final String mobile;
+
   final String? partnerId;
   final DateTime createdAt;
 
   bool get canOrder => status == UserStatus.active;
+
+  /// True once the farm knows where this customer lives.
+  bool get hasDeliveryDetails =>
+      address.trim().isNotEmpty && mobile.trim().isNotEmpty;
   bool get isBlocked => status == UserStatus.blocked;
 
   factory AppUser.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -82,6 +94,8 @@ class AppUser {
       photoUrl: s(m['photoUrl']),
       role: Role.parse(m['role']),
       status: UserStatus.parse(m['status']),
+      address: s(m['address']),
+      mobile: s(m['mobile']),
       partnerId: m['partnerId'] == null ? null : s(m['partnerId']),
       createdAt: dtOr(m['createdAt']),
     );

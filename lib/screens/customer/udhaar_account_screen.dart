@@ -7,6 +7,7 @@ import '../../state/customer_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
+import '../../util/phone.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
 
@@ -136,14 +137,32 @@ class _RegisterFormState extends State<_RegisterForm> {
     super.dispose();
   }
 
+  /// Clears the form without sending anything.
+  void _clear() {
+    setState(() {
+      _address.clear();
+      _mobile.clear();
+      _litres.clear();
+      _slot = 'morning';
+      _name.text = context.read<Session>().user?.name ?? '';
+    });
+    toast(context, 'Cleared');
+  }
+
   Future<void> _submit() async {
     final name = _name.text.trim();
     final address = _address.text.trim();
     final mobile = _mobile.text.trim();
     final litres = num.tryParse(_litres.text.trim()) ?? 0;
 
-    if (name.isEmpty || address.isEmpty || mobile.isEmpty || litres <= 0) {
+    if (name.isEmpty || address.isEmpty || litres <= 0) {
       toast(context, 'Please fill in every field.');
+      return;
+    }
+    // A wrong digit means a knock at the wrong door, so it is checked here
+    // rather than discovered on the round.
+    if (!Phone.isValid(mobile)) {
+      toast(context, Phone.error);
       return;
     }
 
@@ -153,7 +172,7 @@ class _RegisterFormState extends State<_RegisterForm> {
         context.read<Session>().actor,
         name: name,
         address: address,
-        mobile: mobile,
+        mobile: Phone.normalise(mobile),
         slot: _slot,
         litresPerDay: litres,
         milkRate: context.read<CustomerStore>().milkRate,
@@ -191,9 +210,18 @@ class _RegisterFormState extends State<_RegisterForm> {
             label: 'Mobile number',
             controller: _mobile,
             keyboardType: TextInputType.phone,
-            hint: '03xx xxx xxxx',
+            hint: Phone.hint,
             textCapitalization: TextCapitalization.none,
+            onChanged: (_) => setState(() {}),
           ),
+          if (_mobile.text.trim().isNotEmpty && !Phone.isValid(_mobile.text))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                Phone.error,
+                style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+              ),
+            ),
           const SizedBox(height: T.gap),
           const Kicker('Delivery timing'),
           const SizedBox(height: 6),
@@ -228,6 +256,8 @@ class _RegisterFormState extends State<_RegisterForm> {
             busy: _busy,
             onPressed: _submit,
           ),
+          const SizedBox(height: 10),
+          GhostButton(label: 'Cancel', onPressed: _busy ? null : _clear),
         ],
       ),
     );

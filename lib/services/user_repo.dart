@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 import '../models/models.dart';
+import '../util/phone.dart';
 import 'auth_service.dart';
 import 'db.dart';
 import 'log_service.dart';
@@ -156,6 +157,19 @@ class UserRepo {
     } catch (_) {
       // The master can still add the partner by hand from Co-founders.
     }
+  }
+
+  /// Remembers where a customer wants milk delivered, so the next order does
+  /// not ask again.
+  static Future<void> saveDeliveryDetails(
+    String uid, {
+    required String address,
+    required String mobile,
+  }) async {
+    await Db.users.doc(uid).set({
+      'address': address.trim(),
+      'mobile': Phone.normalise(mobile),
+    }, SetOptions(merge: true));
   }
 
   static Future<void> saveFcmToken(String uid, String token) async {
