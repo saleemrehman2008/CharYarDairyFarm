@@ -389,6 +389,34 @@ karein.
 
 ---
 
+## Backup — Google Sheet
+
+Do tareeqe hain. Dono ke columns bilkul ek jaise hain, to baad mein badalna
+aasan hai.
+
+### Abhi — More → Export books to Sheets (muft)
+
+Master **More → Export books to Sheets** dabaye. Saat CSV files ban kar phone
+ke share menu mein aa jayengi — Google Drive, Gmail ya WhatsApp par bhej dein.
+Drive par rakh kar Google Sheets mein kholein to poora hisaab sheet mein aa
+jata hai.
+
+Mahine mein ek dafa, aur month close se pehle, yeh zaroor kar lein.
+
+### Baad mein — khud-ba-khud (Blaze chahiye)
+
+Cloud Functions deploy karte hi har entry apne aap Sheet par chali jayegi,
+saat tabs khud ban jayengi, aur upar tag **"Sheets synced"** ho jayega. Code
+poora likha hua hai (`functions/src/`), bas Step 5 wala deploy baqi hai.
+
+> App se seedha Sheet mein likhwane ka tareeqa **jaan boojh kar nahi** banaya
+> gaya. Us ke liye service account ki chaabi APK ke andar rakhni padti hai, aur
+> jo bhi APK khole usay aapki sheet ka poora Editor access mil jata hai — poora
+> hisaab, customers ke pate aur phone number. Backup ke liye yeh sauda theek
+> nahi.
+
+---
+
 ## Kuch ghalat ho jaye to
 
 | Masla | Wajah / Hal |
