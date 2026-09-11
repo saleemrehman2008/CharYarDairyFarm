@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../services/db.dart';
+import '../services/links.dart';
+import '../services/update_check.dart';
 import '../state/session.dart';
 import '../theme/tokens.dart';
 import 'ui.dart';
@@ -55,6 +57,7 @@ class FarmScaffold extends StatelessWidget {
           children: [
             _TopBar(title: title, showBack: showBack, user: user),
             const Divider(),
+            const UpdateBanner(),
             Expanded(child: body),
           ],
         ),
@@ -173,6 +176,67 @@ class _SheetsTag extends StatelessWidget {
       );
     },
   );
+}
+
+/// Quiet strip that appears only when a newer APK has been published.
+///
+/// The farm installs by hand, so left to itself a fix would sit on the Releases
+/// page unnoticed. Dismissing it lasts for this run of the app.
+class UpdateBanner extends StatefulWidget {
+  const UpdateBanner({super.key});
+
+  @override
+  State<UpdateBanner> createState() => _UpdateBannerState();
+}
+
+class _UpdateBannerState extends State<UpdateBanner> {
+  static bool _dismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return const SizedBox.shrink();
+
+    return FutureBuilder<AppUpdate?>(
+      future: UpdateCheck.latest(),
+      builder: (context, snap) {
+        final update = snap.data;
+        if (update == null) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(T.pad, 8, 8, 8),
+          decoration: const BoxDecoration(
+            color: T.accent100,
+            border: Border(bottom: BorderSide(color: T.divider, width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Update ${update.version} is ready to install.',
+                  style: T.bodyMid.copyWith(color: T.accent800),
+                ),
+              ),
+              GhostButton(
+                label: 'Get it',
+                compact: true,
+                onPressed: () async {
+                  final opened = await Links.open(update.apkUrl);
+                  if (!opened && context.mounted) {
+                    toast(context, 'Could not open the download page.');
+                  }
+                },
+              ),
+              IconButton(
+                onPressed: () => setState(() => _dismissed = true),
+                icon: const Icon(Icons.close, size: 16, color: T.n600),
+                tooltip: 'Not now',
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// Bottom tab bar: 11 px labels, thin icons, badge count in an accent square.
