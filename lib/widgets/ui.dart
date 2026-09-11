@@ -466,20 +466,33 @@ void toast(BuildContext context, String message) {
     );
 }
 
+/// What the person settling an entry said happened to the money.
+class Settlement {
+  const Settlement({required this.payVia, required this.handledBy});
+
+  /// Null when nothing was collected — the entry stays owed.
+  final PayVia? payVia;
+  final String handledBy;
+
+  bool get collected => payVia != null;
+}
+
 /// Asks how the money moved and who handled it, before settling an entry.
 ///
 /// Returns null if the sheet is dismissed, so the caller can leave the entry
-/// alone rather than settling it on a guess.
-Future<(PayVia, String)?> askSettlement(
+/// alone rather than settling it on a guess. With [allowUnpaid] the sheet also
+/// offers "nothing taken", which is how a delivery made on trust is recorded.
+Future<Settlement?> askSettlement(
   BuildContext context, {
   required bool incoming,
   required String party,
   required num amount,
+  bool allowUnpaid = false,
 }) {
   var via = PayVia.cash;
   final who = TextEditingController();
 
-  return showModalBottomSheet<(PayVia, String)>(
+  return showModalBottomSheet<Settlement>(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => Padding(
@@ -518,9 +531,21 @@ Future<(PayVia, String)?> askSettlement(
             const SizedBox(height: 18),
             PrimaryButton(
               label: 'Save',
-              onPressed: () =>
-                  Navigator.pop(sheetContext, (via, who.text.trim())),
+              onPressed: () => Navigator.pop(
+                sheetContext,
+                Settlement(payVia: via, handledBy: who.text.trim()),
+              ),
             ),
+            if (allowUnpaid) ...[
+              const SizedBox(height: 10),
+              GhostButton(
+                label: 'Nothing taken — they still owe it',
+                onPressed: () => Navigator.pop(
+                  sheetContext,
+                  Settlement(payVia: null, handledBy: who.text.trim()),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
           ],
         ),

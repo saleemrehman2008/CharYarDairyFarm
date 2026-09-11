@@ -97,7 +97,16 @@ class OrderRepo {
   ///
   /// Delivering an udhaar order books the sale as an unpaid receivable against
   /// the customer and raises their udhaar balance.
-  static Future<void> advance(Actor actor, FarmOrder order) async {
+  /// [payVia] and [handledBy] describe the money taken on delivery. Leave
+  /// [collected] false when the customer did not pay — the sale is then booked
+  /// as a receivable, exactly like a khaata order.
+  static Future<void> advance(
+    Actor actor,
+    FarmOrder order, {
+    bool collected = true,
+    PayVia payVia = PayVia.cash,
+    String handledBy = '',
+  }) async {
     final next = order.status.next;
     if (next == null) return;
 
@@ -116,9 +125,13 @@ class OrderRepo {
         customerId: order.customerId,
         category: _categoryFor(order),
         amount: order.total,
-        paid: !order.isUdhaar,
+        // A khaata order always goes on the account; anything else is paid at
+        // the door unless the person delivering says otherwise.
+        paid: !order.isUdhaar && collected,
         note: 'Order #${order.number} · ${order.itemsText}',
         orderId: order.id,
+        payVia: payVia,
+        handledBy: handledBy,
         date: now,
       );
 

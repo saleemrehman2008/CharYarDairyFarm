@@ -167,8 +167,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
       await TxnRepo.markPaid(
         context.read<Session>().actor,
         txn,
-        payVia: settled.$1,
-        handledBy: settled.$2,
+        payVia: settled.payVia ?? PayVia.cash,
+        handledBy: settled.handledBy,
       );
       if (mounted) toast(context, '${txn.party} marked paid');
     } catch (e) {

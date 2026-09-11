@@ -149,8 +149,8 @@ class _BillCardState extends State<_BillCard> {
         context.read<Session>().actor,
         bill: bill,
         amount: amount,
-        payVia: settled.$1,
-        handledBy: settled.$2,
+        payVia: settled.payVia ?? PayVia.cash,
+        handledBy: settled.handledBy,
       );
       if (!mounted) return;
       final left = bill.balance - amount;

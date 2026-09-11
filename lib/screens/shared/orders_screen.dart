@@ -8,6 +8,7 @@ import '../../services/udhaar_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
+import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/order_card.dart';
 import '../../widgets/ui.dart';
@@ -84,10 +85,47 @@ class _OrdersScreenState extends State<OrdersScreen> {
         toast(context, 'Order #${order.number} approved');
         await _offerWhatsApp(order, store);
       } else {
-        final label = order.status.next?.label ?? '';
-        await OrderRepo.advance(actor, order);
+        final next = order.status.next;
+        final label = next?.label ?? '';
+
+        // Delivery is the moment the money changes hands, so ask then — unless
+        // it is a khaata order, which goes on the customer's account.
+        var collected = true;
+        var payVia = PayVia.cash;
+        var handledBy = '';
+        if (next == OrderStatus.delivered && !order.isUdhaar) {
+          if (!mounted) return;
+          final settled = await askSettlement(
+            context,
+            incoming: true,
+            party: order.customerName,
+            amount: order.total,
+            allowUnpaid: true,
+          );
+          if (settled == null || !mounted) {
+            setState(() => _busyId = null);
+            return;
+          }
+          collected = settled.collected;
+          payVia = settled.payVia ?? PayVia.cash;
+          handledBy = settled.handledBy;
+        }
+
+        await OrderRepo.advance(
+          actor,
+          order,
+          collected: collected,
+          payVia: payVia,
+          handledBy: handledBy,
+        );
         if (!mounted) return;
-        toast(context, 'Order #${order.number} · ${label.toLowerCase()}');
+        toast(
+          context,
+          collected
+              ? 'Order #${order.number} · ${label.toLowerCase()}'
+              : 'Order #${order.number} delivered · ${rs(order.total)} still to '
+                    'collect',
+        );
       }
     } catch (e) {
       if (mounted) toast(context, 'Could not update the order. $e');
