@@ -6,13 +6,14 @@ import '../models/models.dart';
 import '../services/accounting.dart';
 import '../services/db.dart';
 import '../services/month_repo.dart';
+import 'round_data.dart';
 
 /// One subscription set for the whole farm side of the app.
 ///
 /// Home, Accounts, Orders, Co-founders and Close month all read the same
 /// figures, so they are gathered once here instead of each screen opening its
 /// own listeners.
-class FarmStore extends ChangeNotifier {
+class FarmStore extends ChangeNotifier implements RoundData {
   FarmStore({required this.isMaster}) {
     _subs.addAll(<StreamSubscription<dynamic>>[
       MonthRepo.watchOpen().listen((m) {
@@ -102,13 +103,24 @@ class FarmStore extends ChangeNotifier {
   List<UdhaarAccount> get udhaarAccounts => _udhaar;
 
   /// Khaata customers who are approved and so on the daily round.
+  @override
   List<UdhaarAccount> get khaataCustomers =>
       _udhaar.where((u) => u.isApproved).toList()
         ..sort((a, b) => a.name.compareTo(b.name));
 
+  @override
   List<Bill> get bills => _bills;
+  @override
   List<Bill> get unpaidBills => _bills.where((b) => !b.isSettled).toList();
+  @override
   List<Delivery> get monthDeliveries => _deliveries;
+
+  /// Months already closed, newest first — the ledger can be looked back at.
+  List<FarmMonth> get closedMonths => _closedMonths;
+
+  @override
+  @override
+  String get monthId => month.id;
   List<AppUser> get users => _users;
   FarmSettings get settings => _settings;
 

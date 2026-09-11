@@ -4,22 +4,29 @@ import 'helpers.dart';
 enum Role {
   master,
   investor,
+  staff,
   customer;
 
   static Role parse(Object? v) => switch (s(v)) {
     'master' => Role.master,
     'investor' => Role.investor,
+    'staff' => Role.staff,
     _ => Role.customer,
   };
 
   String get label => switch (this) {
     Role.master => 'Master',
     Role.investor => 'Co-founder',
+    Role.staff => 'Delivery staff',
     Role.customer => 'Customer',
   };
 
-  /// Master and co-founders share the farm-side screens.
-  bool get isStaff => this == Role.master || this == Role.investor;
+  /// The partners — they hold capital and see the farm's books.
+  bool get isPartner => this == Role.master || this == Role.investor;
+
+  /// Everyone who goes out on the round: the partners and the delivery staff.
+  /// Staff can record milk and take money, and see nothing of the books.
+  bool get canDeliver => isPartner || this == Role.staff;
 }
 
 enum UserStatus {

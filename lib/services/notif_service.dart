@@ -20,7 +20,7 @@ class Notifs {
       fm.onTokenRefresh.listen((t) => UserRepo.saveFcmToken(user.uid, t));
 
       // Co-founders and the master share one topic for farm-wide alerts.
-      if (user.role.isStaff) {
+      if (user.role.isPartner) {
         await fm.subscribeToTopic(cofounderTopic);
       } else {
         await fm.unsubscribeFromTopic(cofounderTopic);

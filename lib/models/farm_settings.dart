@@ -9,6 +9,8 @@ class FarmSettings {
     required this.jazzcashNumber,
     required this.sheetId,
     required this.whatsappNumbers,
+    required this.cofounderEmails,
+    required this.staffEmails,
     required this.lastSyncAt,
     required this.syncOk,
   });
@@ -19,6 +21,11 @@ class FarmSettings {
   final String jazzcashNumber;
   final String sheetId;
   final List<String> whatsappNumbers;
+
+  /// Emails the master set aside, so those people arrive in the right place
+  /// the first time they sign in.
+  final List<String> cofounderEmails;
+  final List<String> staffEmails;
   final DateTime? lastSyncAt;
   final bool syncOk;
 
@@ -32,6 +39,8 @@ class FarmSettings {
     jazzcashNumber: '',
     sheetId: '',
     whatsappNumbers: [],
+    cofounderEmails: [],
+    staffEmails: [],
     lastSyncAt: null,
     syncOk: true,
   );
@@ -47,12 +56,17 @@ class FarmSettings {
       bankAccount: s(m['bankAccount']),
       jazzcashNumber: s(m['jazzcashNumber']),
       sheetId: s(m['sheetId']),
-      whatsappNumbers: ((m['whatsappNumbers'] as List?) ?? const [])
-          .map((e) => s(e))
-          .where((e) => e.isNotEmpty)
-          .toList(),
+      whatsappNumbers: _strings(m['whatsappNumbers']),
+      cofounderEmails: _strings(m['autoCofounderEmails']),
+      staffEmails: _strings(m['staffEmails']),
       lastSyncAt: dt(m['lastSyncAt']),
       syncOk: m['syncOk'] == null ? true : b(m['syncOk']),
     );
   }
 }
+
+/// Firestore arrays arrive loosely typed and sometimes with blanks in them.
+List<String> _strings(Object? value) => ((value as List?) ?? const [])
+    .map((e) => s(e).trim())
+    .where((e) => e.isNotEmpty)
+    .toList();

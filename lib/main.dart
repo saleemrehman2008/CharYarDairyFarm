@@ -11,6 +11,7 @@ import 'screens/login_screen.dart';
 import 'screens/master/master_root.dart';
 import 'screens/notice_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/staff/staff_root.dart';
 import 'state/cart.dart';
 import 'state/session.dart';
 import 'theme/app_theme.dart';
@@ -112,6 +113,7 @@ class AuthGate extends StatelessWidget {
     return switch (user.role) {
       Role.master => const MasterRoot(),
       Role.investor => const CofounderRoot(),
+      Role.staff => const StaffRoot(),
       Role.customer => const CustomerRoot(),
     };
   }

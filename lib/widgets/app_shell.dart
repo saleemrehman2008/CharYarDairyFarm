@@ -114,7 +114,7 @@ class _TopBar extends StatelessWidget {
               ],
             ),
           ),
-          if (user != null && user!.role.isStaff) const _SheetsTag(),
+          if (user != null && user!.role.isPartner) const _SheetsTag(),
           const SizedBox(width: 6),
           TextButton(
             onPressed: session.signOut,

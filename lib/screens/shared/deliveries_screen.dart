@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/delivery_repo.dart';
-import '../../state/farm_store.dart';
+import '../../state/round_data.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
@@ -16,7 +16,10 @@ import '../../widgets/ui.dart';
 /// litres are already filled in, so an ordinary day is a single tap per house,
 /// and only the exceptions need typing.
 class DeliveriesScreen extends StatefulWidget {
-  const DeliveriesScreen({super.key});
+  const DeliveriesScreen({super.key, this.asTab = false});
+
+  /// True when a root already provides the chrome, as it does for staff.
+  final bool asTab;
 
   @override
   State<DeliveriesScreen> createState() => _DeliveriesScreenState();
@@ -41,7 +44,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<FarmStore>();
+    final store = context.watch<RoundData>();
     final customers = store.khaataCustomers;
     final dayKey = Delivery.dayKey(_day);
     final today = {
@@ -55,80 +58,77 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     final litres = today.values.fold<num>(0, (a, d) => a + d.litres);
     final amount = today.values.fold<num>(0, (a, d) => a + d.amount);
 
-    return FarmScaffold(
-      title: 'Daily round',
-      showBack: true,
-      body: PageBody(
-        children: [
-          RegCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => _shiftDay(-1),
-                      icon: const Icon(Icons.chevron_left, size: 20),
-                      tooltip: 'Previous day',
+    final body = PageBody(
+      children: [
+        RegCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => _shiftDay(-1),
+                    icon: const Icon(Icons.chevron_left, size: 20),
+                    tooltip: 'Previous day',
+                  ),
+                  Expanded(
+                    child: Text(
+                      _isToday ? 'Today · ${fmtDate(_day)}' : fmtDateFull(_day),
+                      textAlign: TextAlign.center,
+                      style: T.cardTitle,
                     ),
-                    Expanded(
-                      child: Text(
-                        _isToday
-                            ? 'Today · ${fmtDate(_day)}'
-                            : fmtDateFull(_day),
-                        textAlign: TextAlign.center,
-                        style: T.cardTitle,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _isToday ? null : () => _shiftDay(1),
-                      icon: const Icon(Icons.chevron_right, size: 20),
-                      tooltip: 'Next day',
-                    ),
-                  ],
-                ),
-                const Divider(height: 16),
-                Text(
-                  '$done of ${customers.length} delivered · ${qty(litres)} L · '
-                  '${rs(amount)}',
-                  style: T.meta,
-                ),
-              ],
-            ),
+                  ),
+                  IconButton(
+                    onPressed: _isToday ? null : () => _shiftDay(1),
+                    icon: const Icon(Icons.chevron_right, size: 20),
+                    tooltip: 'Next day',
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+              Text(
+                '$done of ${customers.length} delivered · ${qty(litres)} L · '
+                '${rs(amount)}',
+                style: T.meta,
+              ),
+            ],
           ),
-          const SizedBox(height: T.pad),
+        ),
+        const SizedBox(height: T.pad),
 
-          if (customers.isEmpty)
-            const EmptyNote(
-              'No khaata customers yet. Once someone registers and a co-founder '
-              'approves them, they appear here every day.',
+        if (customers.isEmpty)
+          const EmptyNote(
+            'No khaata customers yet. Once someone registers and a co-founder '
+            'approves them, they appear here every day.',
+          ),
+
+        if (morning.isNotEmpty) ...[
+          const SectionTitle('Morning 6–9'),
+          for (final c in morning)
+            _RoundRow(
+              key: ValueKey('${c.uid}_$dayKey'),
+              account: c,
+              delivery: today[c.uid],
+              day: _day,
             ),
-
-          if (morning.isNotEmpty) ...[
-            const SectionTitle('Morning 6–9'),
-            for (final c in morning)
-              _RoundRow(
-                key: ValueKey('${c.uid}_$dayKey'),
-                account: c,
-                delivery: today[c.uid],
-                day: _day,
-              ),
-            const SizedBox(height: 10),
-          ],
-
-          if (evening.isNotEmpty) ...[
-            const SectionTitle('Evening 5–8'),
-            for (final c in evening)
-              _RoundRow(
-                key: ValueKey('${c.uid}_$dayKey'),
-                account: c,
-                delivery: today[c.uid],
-                day: _day,
-              ),
-          ],
+          const SizedBox(height: 10),
         ],
-      ),
+
+        if (evening.isNotEmpty) ...[
+          const SectionTitle('Evening 5–8'),
+          for (final c in evening)
+            _RoundRow(
+              key: ValueKey('${c.uid}_$dayKey'),
+              account: c,
+              delivery: today[c.uid],
+              day: _day,
+            ),
+        ],
+      ],
     );
+
+    if (widget.asTab) return body;
+    return FarmScaffold(title: 'Daily round', showBack: true, body: body);
   }
 }
 

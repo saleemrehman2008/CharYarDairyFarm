@@ -17,10 +17,10 @@ class UserRepo {
   /// — and making people wait to see a price list only loses the farm sales.
   /// The master can still block anyone.
   ///
-  /// The exception is an email on the master's co-founder list in
-  /// `settings/farm.autoCofounderEmails`, which arrives as a co-founder with
-  /// its own partner record. An existing account otherwise only refreshes its
-  /// profile fields, so a role the master set by hand is never overwritten.
+  /// The exceptions are the emails the master set aside on `settings/farm` —
+  /// `autoCofounderEmails` and `staffEmails` — which take that role on their
+  /// own sign-in. An existing account otherwise only refreshes its profile
+  /// fields, so a role the master set by hand is never overwritten.
   static Future<void> ensureDoc(fb.User user) async {
     final ref = Db.users.doc(user.uid);
     final snap = await ref.get();
@@ -28,40 +28,45 @@ class UserRepo {
         ? (user.email ?? 'New user').split('@').first
         : user.displayName!.trim();
     final actor = Actor(uid: user.uid, name: name);
-    final listed = await _isListedCofounder(user.email);
+    final listed = await _listedRole(user.email);
 
     if (!snap.exists) {
       await ref.set({
         'name': name,
         'email': user.email ?? '',
         'photoUrl': user.photoURL ?? '',
-        'role': listed ? 'investor' : 'customer',
+        'role': (listed ?? Role.customer).name,
         'status': 'active',
         'fcmTokens': <String>[],
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if (listed) await _ensurePartner(actor);
+      if (listed == Role.investor) await _ensurePartner(actor);
       await Log.write(
         actor,
         LogKind.user,
-        listed ? 'joined as a co-founder' : 'signed up as a customer',
+        switch (listed) {
+          Role.investor => 'joined as a co-founder',
+          Role.staff => 'joined as delivery staff',
+          _ => 'signed up as a customer',
+        },
         refType: 'user',
         refId: user.uid,
       );
       return;
     }
 
-    // Someone on the list who already signed in as a customer is upgraded on
-    // their next sign-in. A blocked account stays blocked.
+    // Someone on a list who already signed in as a customer is moved across on
+    // their next sign-in. A blocked account stays blocked, and the master's own
+    // role is never touched.
     final data = snap.data() ?? const {};
     final role = s(data['role']);
     final status = s(data['status']);
     final upgrade =
-        listed &&
+        listed != null &&
         role != 'master' &&
         status != 'blocked' &&
-        !(role == 'investor' && status == 'active');
+        !(role == listed.name && status == 'active');
 
     // Anyone left waiting from before customers were let straight in is
     // activated on their next sign-in.
@@ -71,7 +76,7 @@ class UserRepo {
       'name': name,
       'email': user.email ?? '',
       'photoUrl': user.photoURL ?? '',
-      if (upgrade) 'role': 'investor',
+      if (upgrade) 'role': listed.name,
       if (upgrade || activate) 'status': 'active',
     }, SetOptions(merge: true));
 
@@ -79,7 +84,9 @@ class UserRepo {
       await Log.write(
         actor,
         LogKind.user,
-        'joined as a co-founder',
+        listed == Role.staff
+            ? 'joined as delivery staff'
+            : 'joined as a co-founder',
         refType: 'user',
         refId: user.uid,
       );
@@ -87,7 +94,7 @@ class UserRepo {
 
     // Anyone on the farm side holds capital — the master is a co-founder too,
     // so they need a partner record or they would be left out of the ratios.
-    final finalRole = upgrade ? 'investor' : role;
+    final finalRole = upgrade ? listed.name : role;
     if (finalRole == 'master' || finalRole == 'investor') {
       await _ensurePartner(actor);
     }
@@ -101,17 +108,27 @@ class UserRepo {
     );
   }
 
-  /// The master's list of emails that skip the approval queue.
-  static Future<bool> _isListedCofounder(String? email) async {
+  /// The role the master set aside for this email, if any.
+  ///
+  /// The lists live on `settings/farm`, which only the partners can write, so a
+  /// person's own sign-in can take the role without anyone having to be at a
+  /// console when they do. Everyone else arrives as a customer.
+  static Future<Role?> _listedRole(String? email) async {
     final address = (email ?? '').trim().toLowerCase();
-    if (address.isEmpty) return false;
+    if (address.isEmpty) return null;
     try {
-      final snap = await Db.farmSettings.get();
-      final listed = (snap.data()?['autoCofounderEmails'] as List?) ?? const [];
-      return listed.map((e) => s(e).trim().toLowerCase()).contains(address);
+      final data = (await Db.farmSettings.get()).data() ?? const {};
+
+      bool listedIn(String field) => ((data[field] as List?) ?? const [])
+          .map((e) => s(e).trim().toLowerCase())
+          .contains(address);
+
+      if (listedIn('autoCofounderEmails')) return Role.investor;
+      if (listedIn('staffEmails')) return Role.staff;
+      return null;
     } catch (_) {
       // No settings document yet, or offline — treat as not listed.
-      return false;
+      return null;
     }
   }
 

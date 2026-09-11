@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/bill_repo.dart';
-import '../../state/farm_store.dart';
+import '../../state/round_data.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
@@ -12,7 +12,10 @@ import '../../widgets/ui.dart';
 
 /// Monthly khaata bills and the money taken against them.
 class BillsScreen extends StatefulWidget {
-  const BillsScreen({super.key});
+  const BillsScreen({super.key, this.asTab = false});
+
+  /// True when a root already provides the chrome, as it does for staff.
+  final bool asTab;
 
   @override
   State<BillsScreen> createState() => _BillsScreenState();
@@ -23,10 +26,10 @@ class _BillsScreenState extends State<BillsScreen> {
   bool _busy = false;
 
   Future<void> _raiseAll() async {
-    final store = context.read<FarmStore>();
+    final store = context.read<RoundData>();
     final ok = await confirm(
       context,
-      title: 'Raise bills for ${monthName(store.month.id)}?',
+      title: 'Raise bills for ${monthName(store.monthId)}?',
       body:
           'Each khaata customer gets a bill for the milk taken this month, '
           'plus anything still owing from before. Running it again is safe — '
@@ -39,7 +42,7 @@ class _BillsScreenState extends State<BillsScreen> {
     try {
       final count = await BillRepo.raiseAll(
         context.read<Session>().actor,
-        monthId: store.month.id,
+        monthId: store.monthId,
         accounts: store.khaataCustomers,
         monthDeliveries: store.monthDeliveries,
       );
@@ -58,30 +61,31 @@ class _BillsScreenState extends State<BillsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<FarmStore>();
+    final store = context.watch<RoundData>();
+    final isPartner = context.watch<Session>().role.isPartner;
     final bills = _onlyUnpaid ? store.unpaidBills : store.bills;
     final owed = store.unpaidBills.fold<num>(0, (a, b) => a + b.balance);
 
-    return FarmScaffold(
-      title: 'Khaata bills',
-      showBack: true,
-      body: PageBody(
-        children: [
-          RegCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Kicker('Still owed to the farm'),
-                const SizedBox(height: 6),
-                Text(rs(owed), style: T.num28),
-                const SizedBox(height: 4),
-                Text(
-                  '${store.unpaidBills.length} bills not fully paid',
-                  style: T.meta,
-                ),
+    final body = PageBody(
+      children: [
+        RegCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Kicker('Still owed to the farm'),
+              const SizedBox(height: 6),
+              Text(rs(owed), style: T.num28),
+              const SizedBox(height: 4),
+              Text(
+                '${store.unpaidBills.length} bills not fully paid',
+                style: T.meta,
+              ),
+              // Raising a bill is the farm's decision; staff collect against
+              // the ones already raised.
+              if (isPartner) ...[
                 const SizedBox(height: 14),
                 PrimaryButton(
-                  label: 'Raise ${monthShort(store.month.id)} bills',
+                  label: 'Raise ${monthShort(store.monthId)} bills',
                   busy: _busy,
                   onPressed: store.khaataCustomers.isEmpty ? null : _raiseAll,
                 ),
@@ -92,29 +96,32 @@ class _BillsScreenState extends State<BillsScreen> {
                   style: T.meta,
                 ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: T.pad),
+        ),
+        const SizedBox(height: T.pad),
 
-          Segmented<bool>(
-            value: _onlyUnpaid,
-            compact: true,
-            options: const [(true, 'Unpaid'), (false, 'All')],
-            onChanged: (v) => setState(() => _onlyUnpaid = v),
-          ),
-          const SizedBox(height: T.pad),
+        Segmented<bool>(
+          value: _onlyUnpaid,
+          compact: true,
+          options: const [(true, 'Unpaid'), (false, 'All')],
+          onChanged: (v) => setState(() => _onlyUnpaid = v),
+        ),
+        const SizedBox(height: T.pad),
 
-          if (bills.isEmpty)
-            EmptyNote(
-              _onlyUnpaid
-                  ? 'Every bill is settled.'
-                  : 'No bills yet. Raise them above, or close the month.',
-            )
-          else
-            for (final b in bills) _BillCard(key: ValueKey(b.id), bill: b),
-        ],
-      ),
+        if (bills.isEmpty)
+          EmptyNote(
+            _onlyUnpaid
+                ? 'Every bill is settled.'
+                : 'No bills yet. Raise them above, or close the month.',
+          )
+        else
+          for (final b in bills) _BillCard(key: ValueKey(b.id), bill: b),
+      ],
     );
+
+    if (widget.asTab) return body;
+    return FarmScaffold(title: 'Khaata bills', showBack: true, body: body);
   }
 }
 

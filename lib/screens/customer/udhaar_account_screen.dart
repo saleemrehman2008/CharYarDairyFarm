@@ -87,6 +87,8 @@ class UdhaarAccountScreen extends StatelessWidget {
 
           const SizedBox(height: 22),
           const SectionTitle('Milk taken this month'),
+          _MonthGrid(deliveries: store.deliveries),
+          const SizedBox(height: 14),
           if (store.deliveries.isEmpty)
             const EmptyNote('Nothing delivered yet this month.')
           else
@@ -305,4 +307,90 @@ class _DeliveryRow extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Every day of the month so far, so the customer can see at a glance which
+/// days milk came and which it did not.
+///
+/// A khaata is a running total someone else keeps; being able to check it day
+/// by day is what makes it trustworthy.
+class _MonthGrid extends StatelessWidget {
+  const _MonthGrid({required this.deliveries});
+
+  final List<Delivery> deliveries;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final byDay = {for (final d in deliveries) d.date.day: d};
+    final days = List.generate(now.day, (i) => i + 1);
+    final missed = days.where((d) => !byDay.containsKey(d)).length;
+
+    return RegCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${days.length - missed} days delivered · $missed missed',
+            style: T.bodyMid,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final day in days) _DayBox(day: day, delivery: byDay[day]),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'The number under each date is the litres taken that day. A dash '
+            'means nothing was delivered.',
+            style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayBox extends StatelessWidget {
+  const _DayBox({required this.day, required this.delivery});
+
+  final int day;
+  final Delivery? delivery;
+
+  @override
+  Widget build(BuildContext context) {
+    final got = delivery != null;
+    return Container(
+      width: 38,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: got ? T.accent100 : Colors.transparent,
+        border: Border.all(color: got ? T.accent300 : T.divider),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '$day',
+            style: T.meta.copyWith(
+              fontSize: 10,
+              color: got ? T.accent700 : T.n500,
+            ),
+          ),
+          Text(
+            got ? qty(delivery!.litres) : '–',
+            style: T.bodyMid.copyWith(
+              fontSize: 13,
+              color: got ? T.accent800 : T.n400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

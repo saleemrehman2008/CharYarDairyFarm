@@ -2,9 +2,15 @@ rules_version = '2';
 
 // Char Yar Dairy Farm.
 //
-// Roles live on users/{uid}.role: master | investor (co-founder) | customer.
-// The farm ledger is staff-only; customers can reach the shop, their own
-// orders and their own udhaar account and nothing else.
+// Roles live on users/{uid}.role:
+//   master    — everything
+//   investor  — co-founder: the books, approvals, the round
+//   staff     — delivery: the round, orders to drop off, money collected
+//   customer  — the shop, their own orders, their own khaata
+//
+// The ledger is readable only by the partners. Delivery staff can write the
+// money they take in but never read it back, and a customer sees nothing but
+// their own.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -25,10 +31,21 @@ service cloud.firestore {
       return hasProfile() && me().role == 'master' && me().status != 'blocked';
     }
 
-    // Master and co-founders run the farm side. A co-founder must be approved.
-    function isStaff() {
+    // The partners run the farm side. A co-founder must be approved.
+    function isPartner() {
       return isMaster() ||
         (hasProfile() && me().role == 'investor' && me().status == 'active');
+    }
+
+    // Delivery staff walk the round and take money at the door. They can read
+    // none of the farm's books: every rule below spells out the little they
+    // touch, and their phone never even asks for the rest.
+    function isDelivery() {
+      return hasProfile() && me().role == 'staff' && me().status == 'active';
+    }
+
+    function onTheRound() {
+      return isPartner() || isDelivery();
     }
 
     // Customers must be approved before they can order.
@@ -40,22 +57,30 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    // Emails the master listed on settings/farm take the co-founder role on
-    // their own first sign-in, instead of waiting to be approved by hand.
+    // Emails the master set aside on settings/farm take their role on their own
+    // first sign-in, instead of waiting to be granted by hand.
     //
-    // Only staff can write that list, and Google vouches for the address, so
-    // this cannot be used to grant yourself anything the master did not
-    // already intend.
-    function autoCofounder() {
+    // Only the partners can write those lists, and Google vouches for the
+    // address, so this cannot be used to take anything the master did not
+    // already set aside.
+    function listedOn(field) {
       return signedIn()
         && request.auth.token.email_verified == true
         && request.auth.token.email.lower() in
            get(/databases/$(database)/documents/settings/farm).data
-             .get('autoCofounderEmails', []);
+             .get(field, []);
     }
 
-    function becomesCofounder() {
-      return request.resource.data.role == 'investor'
+    /// The role this email was set aside for, if the account is claiming one.
+    function claimsListedRole() {
+      return (listedOn('autoCofounderEmails')
+              && request.resource.data.role == 'investor')
+        || (listedOn('staffEmails')
+            && request.resource.data.role == 'staff');
+    }
+
+    function becomesListed() {
+      return claimsListedRole()
         && request.resource.data.status == 'active';
     }
 
@@ -74,7 +99,7 @@ service cloud.firestore {
         && request.auth.uid == uid
         && ((request.resource.data.role == 'customer'
              && request.resource.data.status in ['active', 'pending'])
-            || (autoCofounder() && becomesCofounder()));
+            || becomesListed());
 
       allow update: if isMaster()
         || (signedIn() && request.auth.uid == uid
@@ -89,11 +114,10 @@ service cloud.firestore {
             && request.resource.data.status == 'active'
             && changedKeys().hasOnly(['name', 'email', 'photoUrl', 'fcmTokens',
                                       'status']))
-        // A listed co-founder who first signed in as a customer is upgraded on
-        // their next sign-in. Blocked accounts stay blocked.
+        // Someone on a list who first signed in as a customer is moved across
+        // on their next sign-in. Blocked accounts stay blocked.
         || (signedIn() && request.auth.uid == uid
-            && autoCofounder()
-            && becomesCofounder()
+            && becomesListed()
             && resource.data.status != 'blocked'
             && resource.data.role != 'master'
             && changedKeys().hasOnly(['name', 'email', 'photoUrl', 'fcmTokens',
@@ -104,12 +128,12 @@ service cloud.firestore {
 
     // ---- Partners (capital and share ratios) ----
     match /partners/{id} {
-      allow read: if isStaff();
+      allow read: if isPartner();
 
       // A co-founder may open their own record, but only an empty one — every
       // rupee of capital is still the master's to enter.
       allow create: if isMaster()
-        || (isStaff()
+        || (isPartner()
             && request.resource.data.userId == request.auth.uid
             && request.resource.data.invested == 0
             && request.resource.data.reinvested == 0
@@ -121,15 +145,23 @@ service cloud.firestore {
     // ---- Products (the shop catalogue) ----
     match /products/{id} {
       allow read: if signedIn();
-      allow write: if isStaff();
+      allow write: if isPartner();
     }
 
     // ---- The ledger ----
     // Entries are never hard-deleted; the master sets deletedAt instead, so the
     // row survives in the Google Sheet marked deleted.
     match /transactions/{id} {
-      allow read: if isStaff();
-      allow create, update: if isStaff();
+      allow read: if isPartner();
+
+      // Delivery staff may write the money they took in — a sale at the door
+      // or a receipt against a khaata — and nothing else. They cannot read the
+      // ledger back, so a delivery phone can never show the farm's books.
+      allow create: if isPartner()
+        || (isDelivery()
+            && request.resource.data.type in ['sale', 'receipt']);
+
+      allow update: if isPartner();
       allow delete: if false;
     }
 
@@ -137,25 +169,28 @@ service cloud.firestore {
     // A customer raises their own order and cannot touch it afterwards; only
     // staff approve it and move it along.
     match /orders/{id} {
-      allow read: if isStaff()
+      allow read: if onTheRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
 
-      allow create: if isStaff()
+      allow create: if isPartner()
         || (isActiveCustomer()
             && request.resource.data.customerId == request.auth.uid
             && request.resource.data.status == 'new'
             && !('approvedBy' in request.resource.data));
 
-      allow update: if isStaff();
+      // Staff move an order along the round; only a partner approves one.
+      allow update: if isPartner()
+        || (isDelivery()
+            && changedKeys().hasOnly(['status', 'deliveredAt']));
       allow delete: if false;
     }
 
     // ---- Standing daily orders ----
     match /subscriptions/{id} {
-      allow read, update, delete: if isStaff()
+      allow read, update, delete: if isPartner()
         || (signedIn() && resource.data.customerId == request.auth.uid);
 
-      allow create: if isStaff()
+      allow create: if isPartner()
         || (isActiveCustomer()
             && request.resource.data.customerId == request.auth.uid);
     }
@@ -164,14 +199,17 @@ service cloud.firestore {
     // The customer registers; staff set the limit, approve, and move the
     // balance. A customer can never approve themselves.
     match /udhaar_accounts/{uid} {
-      allow read: if isStaff() || (signedIn() && request.auth.uid == uid);
+      allow read: if onTheRound() || (signedIn() && request.auth.uid == uid);
 
-      allow create: if isStaff()
+      allow create: if isPartner()
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.status == 'pending'
             && request.resource.data.balance == 0);
 
-      allow update: if isStaff()
+      allow update: if isPartner()
+        // Delivering milk and taking money move the balance; the rate, the
+        // limit and the approval stay the master's.
+        || (isDelivery() && changedKeys().hasOnly(['balance', 'billedAt']))
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.status == 'pending'
             && !changedKeys().hasAny(['limit', 'balance', 'approvedBy',
@@ -184,24 +222,27 @@ service cloud.firestore {
     // Staff write it; the customer may read their own days so they can check
     // the bill against what they actually took.
     match /deliveries/{id} {
-      allow read: if isStaff()
+      allow read: if onTheRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
-      allow create, update, delete: if isStaff();
+      allow create, update, delete: if onTheRound();
     }
 
     // ---- Khaata bills ----
     // Only the farm raises a bill or records a payment. A customer can read
     // their own, and nothing more.
     match /bills/{id} {
-      allow read: if isStaff()
+      allow read: if onTheRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
-      allow create, update: if isStaff();
+      // A partner raises a bill; staff record what they collect against it.
+      allow create: if isPartner();
+      allow update: if isPartner()
+        || (isDelivery() && changedKeys().hasOnly(['paid', 'settledAt']));
       allow delete: if isMaster();
     }
 
     // ---- Farm months and closes ----
     match /months/{id} {
-      allow read: if isStaff();
+      allow read: if isPartner();
       allow write: if isMaster();
     }
 
@@ -210,7 +251,7 @@ service cloud.firestore {
     // order bumps the order counter, which is the one field a customer writes.
     match /settings/{doc} {
       allow read: if signedIn();
-      allow write: if isStaff();
+      allow write: if isPartner();
       allow update: if isActiveCustomer() && changedKeys().hasOnly(['orderSeq']);
       allow create: if isActiveCustomer()
         && request.resource.data.keys().hasOnly(['orderSeq']);

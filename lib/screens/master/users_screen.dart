@@ -107,9 +107,10 @@ class _UserCardState extends State<_UserCard> {
             else
               Picker<Role>(
                 label: 'Role',
-                value: u.role == Role.investor ? Role.investor : Role.customer,
+                value: u.role == Role.master ? Role.customer : u.role,
                 items: const [
                   (Role.investor, 'Co-founder'),
+                  (Role.staff, 'Delivery staff'),
                   (Role.customer, 'Customer'),
                 ],
                 onChanged: _busy

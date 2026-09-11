@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/export_service.dart';
 import '../../services/links.dart';
 import '../../state/farm_store.dart';
+import '../../state/round_data.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_shell.dart';
@@ -14,6 +15,7 @@ import '../shared/deliveries_screen.dart';
 import '../shared/products_screen.dart';
 import 'activity_log_screen.dart';
 import 'udhaar_registrations_screen.dart';
+import 'team_access_screen.dart';
 import 'users_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -53,6 +55,11 @@ class MoreScreen extends StatelessWidget {
         ),
         if (isMaster) ...[
           _Row(
+            label: 'Team access',
+            icon: Icons.badge_outlined,
+            onTap: () => _push(context, store, const TeamAccessScreen()),
+          ),
+          _Row(
             label: 'Users & roles',
             icon: Icons.manage_accounts_outlined,
             badge: store.pendingUsers.length,
@@ -89,12 +96,19 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
+  /// The round and the bills read [RoundData], which a partner's store also
+  /// satisfies, so it is offered under both names.
   void _push(BuildContext context, FarmStore store, Widget screen) =>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              ChangeNotifierProvider.value(value: store, child: screen),
+          builder: (_) => MultiProvider(
+            providers: [
+              ChangeNotifierProvider<FarmStore>.value(value: store),
+              ChangeNotifierProvider<RoundData>.value(value: store),
+            ],
+            child: screen,
+          ),
         ),
       );
 }
