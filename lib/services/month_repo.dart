@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/models.dart';
 import '../util/money.dart';
 import 'accounting.dart';
+import 'bill_repo.dart';
 import 'db.dart';
 import 'log_service.dart';
 
@@ -38,7 +39,7 @@ class MonthRepo {
   }
 
   /// Master only. Posts every partner's share, opens the next month with the
-  /// cash that is actually left, and bills each udhaar customer for the month.
+  /// cash that is actually left, and bills every khaata customer for the month.
   ///
   /// Unpaid entries are not touched: they carry forward and stay in AR/AP until
   /// someone marks them paid.
@@ -49,7 +50,8 @@ class MonthRepo {
     required List<Partner> partners,
     required bool arIncluded,
     required Map<String, String> choices,
-    required List<Txn> unpaidTxns,
+    required List<UdhaarAccount> khaataAccounts,
+    required List<Delivery> monthDeliveries,
   }) async {
     final profitToShare = books.profitToShare(arIncluded: arIncluded);
     final shares = shareOut(
@@ -116,7 +118,14 @@ class MonthRepo {
     }, SetOptions(merge: true));
 
     await batch.commit();
-    await _billUdhaarCustomers(unpaidTxns);
+
+    // Closing the month is also when every khaata customer gets their bill.
+    await BillRepo.raiseAll(
+      actor,
+      monthId: month.id,
+      accounts: khaataAccounts,
+      monthDeliveries: monthDeliveries,
+    );
 
     await Log.write(
       actor,
@@ -126,26 +135,5 @@ class MonthRepo {
       refType: 'month',
       refId: month.id,
     );
-  }
-
-  /// An udhaar customer's balance is the sum of their sales still unpaid.
-  static Future<void> _billUdhaarCustomers(List<Txn> unpaidTxns) async {
-    final owed = <String, num>{};
-    for (final t in unpaidTxns) {
-      final id = t.customerId;
-      if (t.isReceivable && id != null && id.isNotEmpty) {
-        owed[id] = (owed[id] ?? 0) + t.amount;
-      }
-    }
-    if (owed.isEmpty) return;
-
-    final batch = Db.fs.batch();
-    owed.forEach((uid, amount) {
-      batch.set(Db.udhaarAccounts.doc(uid), {
-        'balance': amount,
-        'billedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    });
-    await batch.commit();
   }
 }

@@ -106,7 +106,7 @@ class CofounderHome extends StatelessWidget {
             ),
           for (final u in store.pendingUdhaar)
             _Row(
-              tag: 'Udhaar',
+              tag: 'Khaata',
               text: '${u.name} wants a monthly account',
               meta: '${qty(u.litresPerDay)} L/day · limit ${rs(u.limit)}',
             ),

@@ -53,7 +53,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         const SizedBox(height: T.pad),
 
         if (widget.showUdhaarRequests && store.pendingUdhaar.isNotEmpty) ...[
-          const SectionTitle('Udhaar registrations'),
+          const SectionTitle('Khaata registrations'),
           for (final u in store.pendingUdhaar) _UdhaarRequestCard(account: u),
           const SizedBox(height: 10),
           const SectionTitle('Orders'),
@@ -174,7 +174,7 @@ class _ApproveUdhaarButtonState extends State<_ApproveUdhaarButton> {
 
   @override
   Widget build(BuildContext context) => GhostButton(
-    label: 'Approve udhaar',
+    label: 'Approve khaata',
     icon: Icons.check,
     onPressed: _busy ? null : _approve,
   );
@@ -185,7 +185,7 @@ class _ApproveUdhaarButtonState extends State<_ApproveUdhaarButton> {
       final actor = context.read<Session>().actor;
       await UdhaarRepo.approve(actor, widget.account);
       if (mounted) {
-        toast(context, '${widget.account.name} can now buy on udhaar');
+        toast(context, '${widget.account.name} now has a khaata');
       }
     } catch (e) {
       if (mounted) toast(context, 'Could not approve. $e');

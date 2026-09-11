@@ -33,7 +33,7 @@ enum TxnType {
 
   /// Label for the "not settled yet" option on the entry form.
   String get unpaidLabel => switch (this) {
-    TxnType.sale => 'Not received yet (udhaar / AR)',
+    TxnType.sale => 'Not received yet (khaata / AR)',
     _ => 'Not paid yet (AP)',
   };
 
@@ -71,7 +71,7 @@ enum TxnType {
       'Fodder / feed',
       'Other expense',
     ],
-    TxnType.receipt => const ['Udhaar receipt', 'Advance', 'Other receipt'],
+    TxnType.receipt => const ['Khaata receipt', 'Advance', 'Other receipt'],
     TxnType.payment => const [
       'Supplier payment',
       'Rent',

@@ -25,6 +25,8 @@ class UdhaarRepo {
       'mobile': mobile,
       'slot': slot,
       'litresPerDay': litresPerDay,
+      // Starts at the shop rate; the master can give a regular a better one.
+      'rate': milkRate,
       'limit': UdhaarAccount.suggestLimit(litresPerDay, milkRate),
       'balance': 0,
       'status': 'pending',
@@ -34,7 +36,7 @@ class UdhaarRepo {
     await Log.write(
       actor,
       LogKind.udhaar,
-      'requested an udhaar account for $litresPerDay L/day',
+      'opened a khaata for $litresPerDay L/day',
       refType: 'udhaar',
       refId: actor.uid,
     );
@@ -44,10 +46,12 @@ class UdhaarRepo {
     Actor actor,
     UdhaarAccount account, {
     num? limit,
+    num? rate,
   }) async {
     await Db.udhaarAccounts.doc(account.uid).update({
       'status': 'approved',
       'limit': ?limit,
+      'rate': ?rate,
       'approvedBy': actor.uid,
       'approvedByName': actor.name,
       'approvedAt': FieldValue.serverTimestamp(),
@@ -78,16 +82,23 @@ class UdhaarRepo {
     );
   }
 
-  static Future<void> setLimit(
+  /// Master only. The rate and the limit are the two terms of a khaata, so
+  /// they are changed together.
+  static Future<void> setTerms(
     Actor actor,
-    UdhaarAccount account,
-    num limit,
-  ) async {
-    await Db.udhaarAccounts.doc(account.uid).update({'limit': limit});
+    UdhaarAccount account, {
+    required num limit,
+    num? rate,
+  }) async {
+    await Db.udhaarAccounts.doc(account.uid).update({
+      'limit': limit,
+      'rate': ?rate,
+    });
     await Log.write(
       actor,
       LogKind.udhaar,
-      'set ${account.name}\'s udhaar limit to ${rs(limit)}',
+      'set ${account.name}\'s khaata to ${rs(limit)} limit'
+      '${rate == null ? '' : ' at ${rs(rate)} / L'}',
       refType: 'udhaar',
       refId: account.uid,
     );

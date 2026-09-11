@@ -165,7 +165,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'limit.'
                 : 'Added to your month-end bill.',
           UdhaarStatus.pending => 'Your registration is still being approved.',
-          _ => 'Register for udhaar first, in the Udhaar tab.',
+          _ => 'Register for a khaata first, in the Khaata tab.',
         },
         PayMethod.cod => null,
       };

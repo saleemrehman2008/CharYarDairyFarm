@@ -19,7 +19,12 @@ class Db {
   static Col get transactions => fs.collection('transactions');
   static Col get orders => fs.collection('orders');
   static Col get subscriptions => fs.collection('subscriptions');
+
+  /// Khaata accounts. The collection keeps its original `udhaar_accounts` name
+  /// so no data has to be migrated; everything the farm reads says "khaata".
   static Col get udhaarAccounts => fs.collection('udhaar_accounts');
+  static Col get deliveries => fs.collection('deliveries');
+  static Col get bills => fs.collection('bills');
   static Col get months => fs.collection('months');
   static Col get logs => fs.collection('logs');
   static DocumentReference<Map<String, dynamic>> get farmSettings =>
@@ -124,6 +129,47 @@ class Db {
       .where('status', isEqualTo: 'pending')
       .snapshots()
       .map((q) => q.docs.map(UdhaarAccount.fromDoc).toList());
+
+  /// Every delivery in one farm month — the round sheet and the bills both
+  /// read from this.
+  static Stream<List<Delivery>> watchMonthDeliveries(String monthId) =>
+      deliveries
+          .where('monthId', isEqualTo: monthId)
+          .snapshots()
+          .map(
+            (q) =>
+                q.docs.map(Delivery.fromDoc).toList()
+                  ..sort((a, b) => b.date.compareTo(a.date)),
+          );
+
+  static Stream<List<Delivery>> watchCustomerDeliveries(
+    String uid,
+    String monthId,
+  ) => deliveries
+      .where('customerId', isEqualTo: uid)
+      .where('monthId', isEqualTo: monthId)
+      .snapshots()
+      .map(
+        (q) =>
+            q.docs.map(Delivery.fromDoc).toList()
+              ..sort((a, b) => b.date.compareTo(a.date)),
+      );
+
+  /// Bills that still have something owing, newest first.
+  static Stream<List<Bill>> watchBills() => bills
+      .orderBy('createdAt', descending: true)
+      .limit(300)
+      .snapshots()
+      .map((q) => q.docs.map(Bill.fromDoc).toList());
+
+  static Stream<List<Bill>> watchCustomerBills(String uid) => bills
+      .where('customerId', isEqualTo: uid)
+      .snapshots()
+      .map(
+        (q) =>
+            q.docs.map(Bill.fromDoc).toList()
+              ..sort((a, b) => b.monthId.compareTo(a.monthId)),
+      );
 
   static Stream<FarmMonth?> watchMonth(String id) => months
       .doc(id)

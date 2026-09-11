@@ -23,6 +23,14 @@ class CustomerStore extends ChangeNotifier {
         _udhaar = v;
         notifyListeners();
       }),
+      Db.watchCustomerBills(uid).listen((v) {
+        _bills = v;
+        notifyListeners();
+      }),
+      Db.watchCustomerDeliveries(uid, monthIdOf(DateTime.now())).listen((v) {
+        _deliveries = v;
+        notifyListeners();
+      }),
       Db.watchSettings().listen((v) {
         _settings = v;
         notifyListeners();
@@ -36,11 +44,21 @@ class CustomerStore extends ChangeNotifier {
   List<Product> _products = const [];
   List<FarmOrder> _orders = const [];
   UdhaarAccount? _udhaar;
+  List<Bill> _bills = const [];
+  List<Delivery> _deliveries = const [];
   FarmSettings _settings = FarmSettings.fallback;
 
   List<Product> get products => _products;
   List<FarmOrder> get orders => _orders;
   UdhaarAccount? get udhaar => _udhaar;
+
+  /// This month's milk, newest first, and every bill raised so far.
+  List<Delivery> get deliveries => _deliveries;
+  List<Bill> get bills => _bills;
+  List<Bill> get unpaidBills => _bills.where((b) => !b.isSettled).toList();
+
+  num get litresThisMonth => _deliveries.fold<num>(0, (a, d) => a + d.litres);
+  num get amountThisMonth => _deliveries.fold<num>(0, (a, d) => a + d.amount);
   FarmSettings get settings => _settings;
 
   UdhaarStatus get udhaarStatus => _udhaar?.status ?? UdhaarStatus.none;

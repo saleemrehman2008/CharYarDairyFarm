@@ -15,7 +15,7 @@ enum UdhaarStatus {
   };
 
   String get label => switch (this) {
-    UdhaarStatus.none => 'Not registered',
+    UdhaarStatus.none => 'No khaata',
     UdhaarStatus.pending => 'Pending approval',
     UdhaarStatus.approved => 'Approved',
     UdhaarStatus.rejected => 'Not approved',
@@ -30,6 +30,7 @@ class UdhaarAccount {
     required this.mobile,
     required this.slot,
     required this.litresPerDay,
+    required this.rate,
     required this.limit,
     required this.balance,
     required this.status,
@@ -45,6 +46,12 @@ class UdhaarAccount {
   final String mobile;
   final String slot; // morning | evening
   final num litresPerDay;
+
+  /// This customer's own rate per litre. Regulars are often given a little
+  /// off the shop price, so it is kept per account rather than read from the
+  /// product list.
+  final num rate;
+
   final num limit;
   final num balance;
   final UdhaarStatus status;
@@ -73,6 +80,7 @@ class UdhaarAccount {
       mobile: s(m['mobile']),
       slot: s(m['slot']).isEmpty ? 'morning' : s(m['slot']),
       litresPerDay: n(m['litresPerDay']),
+      rate: n(m['rate']),
       limit: n(m['limit']),
       balance: n(m['balance']),
       status: UdhaarStatus.parse(m['status']),

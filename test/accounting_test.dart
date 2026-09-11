@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 
 /// Helper so each case reads as the entry a farmer would type.
@@ -282,6 +283,104 @@ void main() {
       );
       expect(running.assetsBought, 0);
       expect(running.costs, 38000);
+    });
+  });
+
+  group('khaata bills carry what is left over', () {
+    Bill billOf({
+      required num thisMonth,
+      num previousBalance = 0,
+      num paid = 0,
+      String monthId = '2026-09',
+    }) => Bill(
+      id: 'ahmed_$monthId',
+      customerId: 'ahmed',
+      customerName: 'Ahmed',
+      monthId: monthId,
+      litres: thisMonth / 180,
+      thisMonth: thisMonth,
+      previousBalance: previousBalance,
+      paid: paid,
+      createdAt: DateTime(2026, 9, 30),
+    );
+
+    test('a fresh bill is just the month', () {
+      final bill = billOf(thisMonth: 6600);
+      expect(bill.total, 6600);
+      expect(bill.balance, 6600);
+      expect(bill.statusLabel, 'Unpaid');
+    });
+
+    test('paying part of it leaves the rest owing', () {
+      // Saleem's own example: a 6,600 bill, 6,000 handed over.
+      final bill = billOf(thisMonth: 6600, paid: 6000);
+      expect(bill.balance, 600);
+      expect(bill.isPartPaid, isTrue);
+      expect(bill.isSettled, isFalse);
+      expect(bill.statusLabel, 'Part paid');
+    });
+
+    test('the 600 turns up again on next month\'s bill', () {
+      final next = billOf(
+        thisMonth: 5400,
+        previousBalance: 600,
+        monthId: '2026-10',
+      );
+      expect(next.total, 6000);
+      expect(next.balance, 6000);
+    });
+
+    test('paying in full settles it', () {
+      final bill = billOf(thisMonth: 6600, paid: 6600);
+      expect(bill.balance, 0);
+      expect(bill.isSettled, isTrue);
+      expect(bill.statusLabel, 'Paid');
+    });
+
+    test('overpaying does not leave a phantom balance', () {
+      final bill = billOf(thisMonth: 6600, paid: 7000);
+      expect(bill.isSettled, isTrue);
+    });
+  });
+
+  group('the daily round', () {
+    Delivery dayOf(String customerId, int day, num litres, {num rate = 180}) =>
+        Delivery(
+          id: '${customerId}_2026-09-$day',
+          customerId: customerId,
+          customerName: customerId,
+          date: DateTime(2026, 9, day),
+          monthId: '2026-09',
+          litres: litres,
+          rate: rate,
+          slot: 'morning',
+          deliveredByName: 'Rafique',
+          createdAt: DateTime(2026, 9, day),
+        );
+
+    test('a day is worth its litres at that customer\'s rate', () {
+      expect(dayOf('ahmed', 1, 4).amount, 720);
+      expect(dayOf('bilal', 1, 4, rate: 170).amount, 680);
+    });
+
+    test('the month adds up per customer, not across them', () {
+      final month = [
+        dayOf('ahmed', 1, 4),
+        dayOf('ahmed', 2, 4),
+        dayOf('ahmed', 3, 2),
+        dayOf('bilal', 1, 5, rate: 170),
+      ];
+      expect(DeliveryRepo.litresIn(month, 'ahmed'), 10);
+      expect(DeliveryRepo.amountIn(month, 'ahmed'), 1800);
+      expect(DeliveryRepo.amountIn(month, 'bilal'), 850);
+    });
+
+    test('the same day from two phones is one record', () {
+      // The id is the customer and the day, so the second write overwrites.
+      expect(
+        Delivery.idFor('ahmed', DateTime(2026, 9, 4)),
+        Delivery.idFor('ahmed', DateTime(2026, 9, 4, 18, 30)),
+      );
     });
   });
 

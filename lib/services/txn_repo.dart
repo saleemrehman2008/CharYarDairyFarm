@@ -92,7 +92,7 @@ class TxnRepo {
       monthId: monthIdOf(now),
       type: isSale ? TxnType.receipt : TxnType.payment,
       party: txn.party,
-      category: isSale ? 'Udhaar receipt' : _paymentCategory(txn),
+      category: isSale ? 'Khaata receipt' : _paymentCategory(txn),
       amount: txn.amount,
       paid: true,
       note: 'Settles ${txn.type.label.toLowerCase()} of ${fmtDate(txn.date)}',

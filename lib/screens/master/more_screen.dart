@@ -8,6 +8,9 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
+import '../../models/models.dart';
+import '../shared/bills_screen.dart';
+import '../shared/deliveries_screen.dart';
 import '../shared/products_screen.dart';
 import 'activity_log_screen.dart';
 import 'udhaar_registrations_screen.dart';
@@ -21,32 +24,47 @@ class MoreScreen extends StatelessWidget {
     final store = context.watch<FarmStore>();
     final session = context.watch<Session>();
 
+    final isMaster = session.role == Role.master;
+
     return PageBody(
       children: [
+        _Row(
+          label: 'Daily round',
+          icon: Icons.local_shipping_outlined,
+          onTap: () => _push(context, store, const DeliveriesScreen()),
+        ),
+        _Row(
+          label: 'Khaata bills',
+          icon: Icons.receipt_outlined,
+          badge: store.unpaidBills.length,
+          onTap: () => _push(context, store, const BillsScreen()),
+        ),
+        _Row(
+          label: 'Khaata registrations',
+          icon: Icons.handshake_outlined,
+          badge: store.pendingUdhaar.length,
+          onTap: () => _push(context, store, const UdhaarRegistrationsScreen()),
+        ),
         _Row(
           label: 'Products & rates',
           icon: Icons.sell_outlined,
           onTap: () =>
               _push(context, store, const ProductsScreen(asSubScreen: true)),
         ),
-        _Row(
-          label: 'Users & roles',
-          icon: Icons.manage_accounts_outlined,
-          badge: store.pendingUsers.length,
-          onTap: () => _push(context, store, const UsersScreen()),
-        ),
-        _Row(
-          label: 'Udhaar registrations',
-          icon: Icons.handshake_outlined,
-          badge: store.pendingUdhaar.length,
-          onTap: () => _push(context, store, const UdhaarRegistrationsScreen()),
-        ),
-        _Row(
-          label: 'Activity log',
-          icon: Icons.history,
-          onTap: () => _push(context, store, const ActivityLogScreen()),
-        ),
-        const _ExportRow(),
+        if (isMaster) ...[
+          _Row(
+            label: 'Users & roles',
+            icon: Icons.manage_accounts_outlined,
+            badge: store.pendingUsers.length,
+            onTap: () => _push(context, store, const UsersScreen()),
+          ),
+          _Row(
+            label: 'Activity log',
+            icon: Icons.history,
+            onTap: () => _push(context, store, const ActivityLogScreen()),
+          ),
+          const _ExportRow(),
+        ],
         _Row(
           label: 'Google Sheets',
           icon: Icons.table_chart_outlined,

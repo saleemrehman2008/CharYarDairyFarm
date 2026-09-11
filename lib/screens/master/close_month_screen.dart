@@ -166,7 +166,8 @@ class _CloseMonthScreenState extends State<CloseMonthScreen> {
         partners: store.partners,
         arIncluded: _arIncluded,
         choices: _choices,
-        unpaidTxns: store.unpaidTxns,
+        khaataAccounts: store.khaataCustomers,
+        monthDeliveries: store.monthDeliveries,
       );
       if (!mounted) return;
       Navigator.pop(context);

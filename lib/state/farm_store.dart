@@ -54,6 +54,10 @@ class FarmStore extends ChangeNotifier {
         _udhaar = v;
         notifyListeners();
       }),
+      Db.watchBills().listen((v) {
+        _bills = v;
+        notifyListeners();
+      }),
       if (isMaster)
         Db.watchUsers().listen((v) {
           _users = v;
@@ -65,6 +69,7 @@ class FarmStore extends ChangeNotifier {
   final bool isMaster;
   final List<StreamSubscription<dynamic>> _subs = [];
   StreamSubscription<List<Txn>>? _monthTxnSub;
+  StreamSubscription<List<Delivery>>? _deliverySub;
 
   FarmMonth? _month;
   List<Txn> _monthTxns = const [];
@@ -75,6 +80,8 @@ class FarmStore extends ChangeNotifier {
   List<Product> _products = const [];
   List<FarmOrder> _orders = const [];
   List<UdhaarAccount> _udhaar = const [];
+  List<Bill> _bills = const [];
+  List<Delivery> _deliveries = const [];
   List<AppUser> _users = const [];
   FarmSettings _settings = FarmSettings.fallback;
 
@@ -93,6 +100,15 @@ class FarmStore extends ChangeNotifier {
   List<Product> get allProducts => _products;
   List<FarmOrder> get orders => _orders;
   List<UdhaarAccount> get udhaarAccounts => _udhaar;
+
+  /// Khaata customers who are approved and so on the daily round.
+  List<UdhaarAccount> get khaataCustomers =>
+      _udhaar.where((u) => u.isApproved).toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+
+  List<Bill> get bills => _bills;
+  List<Bill> get unpaidBills => _bills.where((b) => !b.isSettled).toList();
+  List<Delivery> get monthDeliveries => _deliveries;
   List<AppUser> get users => _users;
   FarmSettings get settings => _settings;
 
@@ -182,6 +198,11 @@ class FarmStore extends ChangeNotifier {
       _monthTxns = v;
       notifyListeners();
     });
+    _deliverySub?.cancel();
+    _deliverySub = Db.watchMonthDeliveries(monthId).listen((v) {
+      _deliveries = v;
+      notifyListeners();
+    });
   }
 
   @override
@@ -190,6 +211,7 @@ class FarmStore extends ChangeNotifier {
       s.cancel();
     }
     _monthTxnSub?.cancel();
+    _deliverySub?.cancel();
     super.dispose();
   }
 }

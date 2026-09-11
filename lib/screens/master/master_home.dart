@@ -189,7 +189,7 @@ class MasterHome extends StatelessWidget {
     for (final u in store.pendingUdhaar) {
       rows.add(
         _AttentionRow(
-          tag: 'Udhaar',
+          tag: 'Khaata',
           tone: TagTone.warn,
           text: '${u.name} wants a monthly account',
           meta: '${qty(u.litresPerDay)} L/day · limit ${rs(u.limit)}',
@@ -299,7 +299,7 @@ class _MoneyCard extends StatelessWidget {
           _MoneyLine(
             label: 'Still to collect',
             value: money.receivable,
-            note: 'udhaar not received yet',
+            note: 'khaata not collected yet',
           ),
         if (money.payable > 0)
           _MoneyLine(

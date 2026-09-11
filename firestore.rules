@@ -180,6 +180,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- The daily milk round ----
+    // Staff write it; the customer may read their own days so they can check
+    // the bill against what they actually took.
+    match /deliveries/{id} {
+      allow read: if isStaff()
+        || (signedIn() && resource.data.customerId == request.auth.uid);
+      allow create, update, delete: if isStaff();
+    }
+
+    // ---- Khaata bills ----
+    // Only the farm raises a bill or records a payment. A customer can read
+    // their own, and nothing more.
+    match /bills/{id} {
+      allow read: if isStaff()
+        || (signedIn() && resource.data.customerId == request.auth.uid);
+      allow create, update: if isStaff();
+      allow delete: if isMaster();
+    }
+
     // ---- Farm months and closes ----
     match /months/{id} {
       allow read: if isStaff();

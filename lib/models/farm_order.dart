@@ -77,14 +77,14 @@ enum PayMethod {
     PayMethod.cod => 'Cash on delivery',
     PayMethod.bank => 'Bank transfer',
     PayMethod.jazzcash => 'JazzCash / EasyPaisa',
-    PayMethod.udhaar => 'Monthly udhaar',
+    PayMethod.udhaar => 'Monthly khaata',
   };
 
   String get short => switch (this) {
     PayMethod.cod => 'Cash on delivery',
     PayMethod.bank => 'Bank transfer',
     PayMethod.jazzcash => 'JazzCash / EasyPaisa',
-    PayMethod.udhaar => 'Udhaar',
+    PayMethod.udhaar => 'Khaata',
   };
 }
 

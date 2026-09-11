@@ -60,9 +60,9 @@ class _CustomerTabsState extends State<_CustomerTabs> {
         body: const MyOrdersScreen(),
       ),
       const TabDef(
-        label: 'Udhaar',
+        label: 'Khaata',
         icon: Icons.handshake_outlined,
-        title: 'Udhaar account',
+        title: 'Khaata',
         body: UdhaarAccountScreen(),
       ),
     ];

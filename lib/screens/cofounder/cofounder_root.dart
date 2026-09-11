@@ -6,7 +6,7 @@ import '../../widgets/app_shell.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/cofounders_screen.dart';
 import '../shared/orders_screen.dart';
-import '../shared/products_screen.dart';
+import '../master/more_screen.dart';
 import 'cofounder_home.dart';
 
 class CofounderRoot extends StatelessWidget {
@@ -59,11 +59,12 @@ class _CofounderTabsState extends State<_CofounderTabs> {
         title: 'Co-founders',
         body: CofoundersScreen(),
       ),
-      const TabDef(
-        label: 'Products',
-        icon: Icons.sell_outlined,
-        title: 'Products & rates',
-        body: ProductsScreen(),
+      TabDef(
+        label: 'More',
+        icon: Icons.more_horiz,
+        title: 'More',
+        badge: store.unpaidBills.length,
+        body: const MoreScreen(),
       ),
     ];
 

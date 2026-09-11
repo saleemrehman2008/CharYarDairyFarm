@@ -19,18 +19,19 @@ class UdhaarRegistrationsScreen extends StatelessWidget {
     final accounts = context.watch<FarmStore>().udhaarAccounts;
 
     return FarmScaffold(
-      title: 'Udhaar registrations',
+      title: 'Khaata registrations',
       showBack: true,
       body: PageBody(
         children: [
           Text(
-            'An udhaar customer buys through the month and is billed when the '
-            'farm closes the month. The limit caps how much they can owe.',
+            'A khaata customer takes milk through the month and is billed at '
+            'month end. The rate is theirs alone; the limit caps how much they '
+            'can owe before the farm stops delivering.',
             style: T.meta,
           ),
           const SizedBox(height: 14),
           if (accounts.isEmpty)
-            const EmptyNote('No udhaar registrations yet.')
+            const EmptyNote('No khaata registrations yet.')
           else
             for (final a in accounts)
               _UdhaarCard(key: ValueKey(a.uid), account: a),
@@ -53,15 +54,20 @@ class _UdhaarCardState extends State<_UdhaarCard> {
   late final _limit = TextEditingController(
     text: widget.account.limit.round().toString(),
   );
+  late final _rate = TextEditingController(
+    text: widget.account.rate.round().toString(),
+  );
   bool _busy = false;
 
   @override
   void dispose() {
     _limit.dispose();
+    _rate.dispose();
     super.dispose();
   }
 
   num? get _typedLimit => num.tryParse(_limit.text.trim());
+  num? get _typedRate => num.tryParse(_rate.text.trim());
 
   Future<void> _run(Future<void> Function() action, String done) async {
     setState(() => _busy = true);
@@ -127,15 +133,33 @@ class _UdhaarCardState extends State<_UdhaarCard> {
               children: [
                 Expanded(
                   child: Field(
+                    label: 'Rate / litre',
+                    controller: _rate,
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Field(
                     label: 'Limit (Rs)',
                     controller: _limit,
                     keyboardType: TextInputType.number,
                   ),
                 ),
-                const SizedBox(width: 8),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'This customer pays their own rate — a regular can be given a '
+              'little off the shop price.',
+              style: T.meta,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
                 if (a.status == UdhaarStatus.pending)
                   GhostButton(
-                    label: 'Approve udhaar',
+                    label: 'Approve khaata',
                     icon: Icons.check,
                     onPressed: _busy
                         ? null
@@ -144,18 +168,24 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                               actor,
                               a,
                               limit: _typedLimit,
+                              rate: _typedRate,
                             ),
-                            '${a.name} can now buy on udhaar',
+                            '${a.name} now has a khaata',
                           ),
                   )
                 else
                   GhostButton(
-                    label: 'Save limit',
+                    label: 'Save rate & limit',
                     onPressed: _busy || _typedLimit == null
                         ? null
                         : () => _run(
-                            () => UdhaarRepo.setLimit(actor, a, _typedLimit!),
-                            'Limit saved',
+                            () => UdhaarRepo.setTerms(
+                              actor,
+                              a,
+                              limit: _typedLimit!,
+                              rate: _typedRate,
+                            ),
+                            'Saved',
                           ),
                   ),
               ],

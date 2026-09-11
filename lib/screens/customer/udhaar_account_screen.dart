@@ -27,7 +27,7 @@ class UdhaarAccountScreen extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(child: Kicker('Udhaar account')),
+                  const Expanded(child: Kicker('Your khaata')),
                   Tag(
                     store.udhaarStatus.label,
                     tone: _tone(store.udhaarStatus),
@@ -39,12 +39,18 @@ class UdhaarAccountScreen extends StatelessWidget {
                 Text(rs(u.balance), style: T.num30),
                 const SizedBox(height: 6),
                 Text(
-                  'limit ${rs(u.limit)} · billed when the farm closes the '
-                  'month',
+                  'What you owe right now · limit ${rs(u.limit)}',
                   style: T.meta,
                 ),
                 const SizedBox(height: 10),
                 RatioBar(fraction: u.limit <= 0 ? 0 : u.balance / u.limit),
+                const SizedBox(height: 12),
+                Text(
+                  'This month so far: ${qty(store.litresThisMonth)} L · '
+                  '${rs(store.amountThisMonth)} at ${rs(u.rate)} / L. '
+                  'Your bill comes at month end.',
+                  style: T.meta,
+                ),
               ] else if (store.udhaarStatus == UdhaarStatus.pending) ...[
                 Text(
                   'Your request is with the co-founders. Any one of them can '
@@ -69,6 +75,22 @@ class UdhaarAccountScreen extends StatelessWidget {
         if (store.udhaarStatus == UdhaarStatus.none) ...[
           const SizedBox(height: T.pad),
           const _RegisterForm(),
+        ],
+
+        if (store.udhaarApproved) ...[
+          const SizedBox(height: 22),
+          const SectionTitle('Your bills'),
+          if (store.bills.isEmpty)
+            const EmptyNote('No bill yet — the first one comes at month end.')
+          else
+            for (final b in store.bills) _BillRow(bill: b),
+
+          const SizedBox(height: 22),
+          const SectionTitle('Milk taken this month'),
+          if (store.deliveries.isEmpty)
+            const EmptyNote('Nothing delivered yet this month.')
+          else
+            for (final d in store.deliveries) _DeliveryRow(delivery: d),
         ],
       ],
     );
@@ -152,7 +174,7 @@ class _RegisterFormState extends State<_RegisterForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Kicker('Register for udhaar'),
+          const Kicker('Open a khaata'),
           const SizedBox(height: 10),
           Field(label: 'Full name', controller: _name),
           const SizedBox(height: T.gap),
@@ -200,7 +222,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           ),
           const SizedBox(height: 18),
           PrimaryButton(
-            label: 'Request udhaar account',
+            label: 'Request a khaata',
             busy: _busy,
             onPressed: _submit,
           ),
@@ -208,4 +230,79 @@ class _RegisterFormState extends State<_RegisterForm> {
       ),
     );
   }
+}
+
+/// One month's bill as the customer sees it.
+class _BillRow extends StatelessWidget {
+  const _BillRow({required this.bill});
+
+  final Bill bill;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 11),
+    decoration: const BoxDecoration(
+      border: Border(bottom: BorderSide(color: T.divider, width: 1)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(monthName(bill.monthId), style: T.bodyMid),
+              Text(
+                '${qty(bill.litres)} L'
+                '${bill.previousBalance > 0 ? ' · ${rs(bill.previousBalance)} carried over' : ''}'
+                '${bill.paid > 0 ? ' · ${rs(bill.paid)} paid' : ''}',
+                style: T.meta,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(rs(bill.total), style: T.bodyMid),
+            Tag(
+              bill.statusLabel,
+              tone: bill.isSettled
+                  ? TagTone.good
+                  : bill.isPartPaid
+                  ? TagTone.warn
+                  : TagTone.bad,
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+/// One day's milk on the customer's own record.
+class _DeliveryRow extends StatelessWidget {
+  const _DeliveryRow({required this.delivery});
+
+  final Delivery delivery;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 9),
+    decoration: const BoxDecoration(
+      border: Border(bottom: BorderSide(color: T.divider, width: 1)),
+    ),
+    child: Row(
+      children: [
+        SizedBox(width: 64, child: Text(fmtDate(delivery.date), style: T.meta)),
+        Expanded(
+          child: Text(
+            '${qty(delivery.litres)} L × ${rs(delivery.rate)}',
+            style: T.body,
+          ),
+        ),
+        Text(rs(delivery.amount), style: T.bodyMid),
+      ],
+    ),
+  );
 }

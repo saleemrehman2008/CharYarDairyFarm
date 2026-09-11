@@ -80,7 +80,7 @@ class ShopScreen extends StatelessWidget {
   }
 }
 
-/// Udhaar state banner at the top of the shop.
+/// Khaata state banner at the top of the shop.
 class _UdhaarBanner extends StatelessWidget {
   const _UdhaarBanner({required this.store});
 
@@ -108,7 +108,7 @@ class _UdhaarBanner extends StatelessWidget {
       UdhaarStatus.none => (
         TagTone.neutral,
         'Buy through the month and settle one bill at month end. Open the '
-            'Udhaar tab to register.',
+            'Khaata tab to register.',
       ),
     };
 
@@ -118,7 +118,7 @@ class _UdhaarBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(child: Kicker('Monthly udhaar')),
+              const Expanded(child: Kicker('Monthly khaata')),
               Tag(store.udhaarStatus.label, tone: tone),
             ],
           ),
