@@ -285,6 +285,44 @@ void main() {
     });
   });
 
+  group('the money breakdown adds up', () {
+    // Saleem's real first month: 42 lakh in from four co-founders, 25 lakh of
+    // buffalo, 4 lakh of feed, two days of milk — one paid, one on udhaar.
+    const money = MoneySummary(
+      capital: 4200000,
+      assets: 2500000,
+      runningCosts: 400000,
+      sales: 14400,
+      cash: 1307200,
+      receivable: 7200,
+      payable: 0,
+    );
+
+    test('reading down the card lands on what the farm actually holds', () {
+      expect(money.expected, 1314400);
+      expect(money.farmMoney, 1314400);
+      expect(money.reconciles, isTrue);
+    });
+
+    test('cash and the unpaid sale together are the farm money', () {
+      expect(money.cash + money.receivable, money.farmMoney);
+    });
+
+    test('a missing entry shows up as a mismatch', () {
+      const wrong = MoneySummary(
+        capital: 4200000,
+        assets: 2500000,
+        runningCosts: 400000,
+        sales: 14400,
+        // Someone spent 4 lakh without booking it.
+        cash: 907200,
+        receivable: 7200,
+        payable: 0,
+      );
+      expect(wrong.reconciles, isFalse);
+    });
+  });
+
   group('share ratios', () {
     test('follow capital including reinvested profit', () {
       final partners = [

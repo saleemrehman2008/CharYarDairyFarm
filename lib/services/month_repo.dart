@@ -72,6 +72,9 @@ class MonthRepo {
       'purchases': books.purchases,
       'expenses': books.expenses,
       'receivables': books.receivable,
+      // Kept so the all-time running-cost figure can leave cattle out without
+      // re-reading the whole ledger.
+      'assets': books.assetsBought,
       'profit': books.profit,
       'profitShared': profitToShare,
       'shares': shares.map((e) => e.toMap()).toList(),

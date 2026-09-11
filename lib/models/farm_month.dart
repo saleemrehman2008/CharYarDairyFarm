@@ -49,6 +49,7 @@ class FarmMonth {
     this.purchases,
     this.expenses,
     this.receivables,
+    this.assets,
     this.shares = const [],
   });
 
@@ -62,6 +63,11 @@ class FarmMonth {
   final num? purchases;
   final num? expenses;
   final num? receivables;
+
+  /// Cattle and equipment bought that month — held out of the running costs
+  /// when the all-time figures are added up.
+  final num? assets;
+
   final List<MonthShare> shares;
 
   bool get isClosed => status == 'closed';
@@ -82,6 +88,7 @@ class FarmMonth {
       purchases: m['purchases'] == null ? null : n(m['purchases']),
       expenses: m['expenses'] == null ? null : n(m['expenses']),
       receivables: m['receivables'] == null ? null : n(m['receivables']),
+      assets: m['assets'] == null ? null : n(m['assets']),
       shares: ((m['shares'] as List?) ?? const [])
           .whereType<Map>()
           .map((e) => MonthShare.fromMap(e.cast<String, dynamic>()))

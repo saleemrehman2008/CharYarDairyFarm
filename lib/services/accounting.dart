@@ -118,6 +118,52 @@ class Books {
   );
 }
 
+/// Where every rupee the farm has ever handled currently sits.
+///
+/// The dashboard used to show only the closing figure, which left the farm
+/// staring at a number with no way to check it. This lays out the whole route:
+/// what the partners put in, what turned into cattle, what was spent running
+/// the place, what came back from sales — and where that leaves the cash.
+class MoneySummary {
+  const MoneySummary({
+    required this.capital,
+    required this.assets,
+    required this.runningCosts,
+    required this.sales,
+    required this.cash,
+    required this.receivable,
+    required this.payable,
+  });
+
+  /// Put in by the co-founders, all time.
+  final num capital;
+
+  /// Cattle and equipment the farm owns, all time.
+  final num assets;
+
+  /// Feed, salaries, rent and the rest, all time.
+  final num runningCosts;
+
+  /// Everything sold, all time, collected or not.
+  final num sales;
+
+  /// Cash actually in hand right now.
+  final num cash;
+
+  /// Owed to the farm, and owed by it.
+  final num receivable;
+  final num payable;
+
+  /// Cash plus what is still to come in — the money the farm can count on.
+  num get farmMoney => cash + receivable;
+
+  /// The same figure read down the waterfall. It should equal [farmMoney];
+  /// when it does not, an entry is missing or double counted.
+  num get expected => capital - assets - runningCosts + sales;
+
+  bool get reconciles => (expected - farmMoney).abs() < 1;
+}
+
 /// Whole-rupee shares for a month close, one per partner.
 ///
 /// Rounding each share on its own would leave a rupee or two unaccounted for —

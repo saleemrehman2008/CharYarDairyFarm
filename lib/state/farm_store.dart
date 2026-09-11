@@ -30,6 +30,10 @@ class FarmStore extends ChangeNotifier {
         _assetTxns = v;
         notifyListeners();
       }),
+      Db.watchClosedMonths().listen((v) {
+        _closedMonths = v;
+        notifyListeners();
+      }),
       Db.watchPartners().listen((v) {
         _partners = v;
         notifyListeners();
@@ -66,6 +70,7 @@ class FarmStore extends ChangeNotifier {
   List<Txn> _monthTxns = const [];
   List<Txn> _unpaidTxns = const [];
   List<Txn> _assetTxns = const [];
+  List<FarmMonth> _closedMonths = const [];
   List<Partner> _partners = const [];
   List<Product> _products = const [];
   List<FarmOrder> _orders = const [];
@@ -109,6 +114,30 @@ class FarmStore extends ChangeNotifier {
 
   /// Everything the farm owns — cattle and equipment, across every month.
   num get assetsOwned => _assetTxns.fold<num>(0, (a, t) => a + t.amount);
+
+  /// All-time figures, read from the closed months plus the open one. Closed
+  /// months keep their own totals, so this costs a dozen documents a year
+  /// rather than re-reading the whole ledger every time the app opens.
+  num get lifetimeSales =>
+      _closedMonths.fold<num>(0, (a, m) => a + (m.sales ?? 0)) + books.sales;
+
+  num get lifetimeRunningCosts =>
+      _closedMonths.fold<num>(
+        0,
+        (a, m) => a + (m.purchases ?? 0) + (m.expenses ?? 0) - (m.assets ?? 0),
+      ) +
+      books.costs;
+
+  /// The whole route the farm's money has taken, for the Home breakdown.
+  MoneySummary get money => MoneySummary(
+    capital: capitalIn,
+    assets: assetsOwned,
+    runningCosts: lifetimeRunningCosts,
+    sales: lifetimeSales,
+    cash: books.cash,
+    receivable: books.receivable,
+    payable: books.payable,
+  );
 
   Partner? partnerFor(String uid) {
     for (final p in _partners) {

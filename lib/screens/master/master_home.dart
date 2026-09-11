@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/accounting.dart';
 import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
@@ -42,24 +43,18 @@ class MasterHome extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(rs(books.cash), style: T.num36),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _Mini(label: 'Partner capital', value: rs(books.capital)),
-                  _Mini(label: 'Farm assets', value: rs(store.assetsOwned)),
-                  _Mini(label: 'Paid out', value: rs(books.paidOut)),
-                ],
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Text(
-                'Cash in hand: what the co-founders put in, less what the farm '
-                'has actually paid out. Cattle and equipment are paid for but '
-                'still owned — they count under farm assets, not as a cost.',
+                'Cash the farm has in hand right now. The breakdown is below.',
                 style: T.meta,
               ),
             ],
           ),
         ),
+        const SizedBox(height: T.gap),
+
+        // ---- Where the money is ----
+        _MoneyCard(money: store.money),
         const SizedBox(height: T.gap),
 
         // ---- KPI grid ----
@@ -114,7 +109,7 @@ class MasterHome extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Kicker('Month to date'),
+              Kicker('${monthShort(store.month.id)} — earned, not held'),
               const SizedBox(height: 8),
               Text(rs(books.profit), style: T.num28),
               const SizedBox(height: 4),
@@ -128,6 +123,16 @@ class MasterHome extends StatelessWidget {
                   '${rs(books.assetsBought)} of cattle & equipment bought this '
                   'month is not counted here — the farm still owns it.',
                   style: T.meta,
+                ),
+              ],
+              if (books.profit < 0) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'This month has spent more than it has sold. That is not '
+                  'money lost — the farm still holds ${rs(books.cash)} in cash. '
+                  'It is normal while stocking up: feed is bought in one go and '
+                  'eaten over months, while milk sells a little each day.',
+                  style: T.meta.copyWith(color: T.accent700),
                 ),
               ],
               const SizedBox(height: 10),
@@ -262,24 +267,84 @@ class _Kpi extends StatelessWidget {
   );
 }
 
-/// Small figure sitting under the balance, two to a row.
-class _Mini extends StatelessWidget {
-  const _Mini({required this.label, required this.value});
+/// The whole route the farm's money has taken, laid out so the closing figure
+/// can be checked line by line instead of taken on trust.
+class _MoneyCard extends StatelessWidget {
+  const _MoneyCard({required this.money});
 
-  final String label;
-  final String value;
+  final MoneySummary money;
 
   @override
-  Widget build(BuildContext context) => Expanded(
+  Widget build(BuildContext context) => RegCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Kicker(label),
-        const SizedBox(height: 3),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(value, style: T.bodyMid),
+        const Kicker('Where the money is'),
+        const SizedBox(height: 12),
+        _MoneyLine(label: 'Co-founders put in', value: money.capital),
+        _MoneyLine(
+          label: 'Cattle & equipment bought',
+          value: -money.assets,
+          note: 'the farm still owns these',
+        ),
+        _MoneyLine(
+          label: 'Running costs so far',
+          value: -money.runningCosts,
+          note: 'feed, salaries, bills',
+        ),
+        _MoneyLine(label: 'Sales so far', value: money.sales),
+        const Divider(height: 20),
+        _MoneyLine(label: 'Cash in hand', value: money.cash, strong: true),
+        if (money.receivable > 0)
+          _MoneyLine(
+            label: 'Still to collect',
+            value: money.receivable,
+            note: 'udhaar not received yet',
+          ),
+        if (money.payable > 0)
+          _MoneyLine(
+            label: 'Still to pay',
+            value: -money.payable,
+            note: 'bills not paid yet',
+          ),
+      ],
+    ),
+  );
+}
+
+class _MoneyLine extends StatelessWidget {
+  const _MoneyLine({
+    required this.label,
+    required this.value,
+    this.note,
+    this.strong = false,
+  });
+
+  final String label;
+  final num value;
+  final String? note;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: strong ? T.cardTitle : T.body),
+              if (note != null)
+                Text(note!, style: T.meta.copyWith(fontSize: 11)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          value < 0 ? '− ${rs(value.abs())}' : rs(value),
+          style: strong ? T.num22 : T.bodyMid,
         ),
       ],
     ),
