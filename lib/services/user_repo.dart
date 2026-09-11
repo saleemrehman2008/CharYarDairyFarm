@@ -9,49 +9,123 @@ import 'log_service.dart';
 class UserRepo {
   UserRepo._();
 
-  /// Called right after a Google sign-in. A brand new account lands as a
-  /// pending customer; an existing one only refreshes its profile fields so a
-  /// role the master set by hand is never overwritten.
+  /// Called right after a Google sign-in.
+  ///
+  /// A brand new account lands as a pending customer, unless its email is on
+  /// the master's co-founder list in `settings/farm.autoCofounderEmails` — then
+  /// it comes straight in as an active co-founder with its own partner record.
+  /// An existing account otherwise only refreshes its profile fields, so a role
+  /// the master set by hand is never overwritten.
   static Future<void> ensureDoc(fb.User user) async {
     final ref = Db.users.doc(user.uid);
     final snap = await ref.get();
     final name = (user.displayName ?? '').trim().isEmpty
         ? (user.email ?? 'New user').split('@').first
         : user.displayName!.trim();
+    final actor = Actor(uid: user.uid, name: name);
+    final listed = await _isListedCofounder(user.email);
 
     if (!snap.exists) {
       await ref.set({
         'name': name,
         'email': user.email ?? '',
         'photoUrl': user.photoURL ?? '',
-        'role': 'customer',
-        'status': 'pending',
+        'role': listed ? 'investor' : 'customer',
+        'status': listed ? 'active' : 'pending',
         'fcmTokens': <String>[],
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      if (listed) await _ensurePartner(actor);
       await Log.write(
-        Actor(uid: user.uid, name: name),
+        actor,
         LogKind.user,
-        'signed up and is waiting for approval',
+        listed
+            ? 'joined as a co-founder'
+            : 'signed up and is waiting for approval',
         refType: 'user',
         refId: user.uid,
       );
       return;
     }
 
+    // Someone on the list who already signed in as a customer is upgraded on
+    // their next sign-in. A blocked account stays blocked.
+    final data = snap.data() ?? const {};
+    final role = s(data['role']);
+    final status = s(data['status']);
+    final upgrade =
+        listed &&
+        role != 'master' &&
+        status != 'blocked' &&
+        !(role == 'investor' && status == 'active');
+
     await ref.set({
       'name': name,
       'email': user.email ?? '',
       'photoUrl': user.photoURL ?? '',
+      if (upgrade) 'role': 'investor',
+      if (upgrade) 'status': 'active',
     }, SetOptions(merge: true));
 
+    if (upgrade) {
+      await _ensurePartner(actor);
+      await Log.write(
+        actor,
+        LogKind.user,
+        'joined as a co-founder',
+        refType: 'user',
+        refId: user.uid,
+      );
+    }
+
     await Log.write(
-      Actor(uid: user.uid, name: name),
+      actor,
       LogKind.login,
       'signed in',
       refType: 'user',
       refId: user.uid,
     );
+  }
+
+  /// The master's list of emails that skip the approval queue.
+  static Future<bool> _isListedCofounder(String? email) async {
+    final address = (email ?? '').trim().toLowerCase();
+    if (address.isEmpty) return false;
+    try {
+      final snap = await Db.farmSettings.get();
+      final listed = (snap.data()?['autoCofounderEmails'] as List?) ?? const [];
+      return listed.map((e) => s(e).trim().toLowerCase()).contains(address);
+    } catch (_) {
+      // No settings document yet, or offline — treat as not listed.
+      return false;
+    }
+  }
+
+  /// Gives a co-founder an empty capital record to hold their investment, and
+  /// links it from their user document.
+  static Future<void> _ensurePartner(Actor actor) async {
+    try {
+      final existing = await Db.partners
+          .where('userId', isEqualTo: actor.uid)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) return;
+
+      final partner = await Db.partners.add({
+        'userId': actor.uid,
+        'name': actor.name,
+        'invested': 0,
+        'reinvested': 0,
+        'withdrawn': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await Db.users.doc(actor.uid).set({
+        'partnerId': partner.id,
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // The master can still add the partner by hand from Co-founders.
+    }
   }
 
   static Future<void> saveFcmToken(String uid, String token) async {
@@ -76,16 +150,8 @@ class UserRepo {
     );
 
     // A new co-founder needs a partner record to hold their capital.
-    if (role == Role.investor && user.partnerId == null) {
-      final partner = await Db.partners.add({
-        'userId': user.uid,
-        'name': user.name,
-        'invested': 0,
-        'reinvested': 0,
-        'withdrawn': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      await Db.users.doc(user.uid).update({'partnerId': partner.id});
+    if (role == Role.investor) {
+      await _ensurePartner(Actor(uid: user.uid, name: user.name));
     }
   }
 

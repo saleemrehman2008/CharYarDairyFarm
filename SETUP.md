@@ -317,14 +317,29 @@ firebase deploy --only functions
    | `jazzcashNumber` | string | `0300 1234567` |
    | `whatsappNumbers` | array of string | co-founders ke number, `03001234567` |
    | `milkPriceCache` | number | `200` |
+   | `autoCofounderEmails` | array of string | co-founders ki Gmail, **chhote letters mein** |
 
-6. **Co-founders add karein:**
-   - Teeno co-founders ko app install kara kar Google se sign in karwayein.
-   - Aap: **More → Users & roles** → har ek ka role **Co-founder** kar dein aur
-     **Approve** dabayein. Role badalne par unka partner record khud ban jata
-     hai.
-   - Phir **Co-founders** tab → har ek ke card par "Add investment" mein unki
-     raqam daal kar **Add** dabayein. Share ratio khud calculate ho jata hai.
+6. **Co-founders add karein — do tareeqe:**
+
+   **Aasan tareeqa (khud-ba-khud):** upar wali `autoCofounderEmails` list mein
+   un ki email daal dein. Jab wo app mein Google se sign in karenge, seedha
+   **Co-founder + Active** ban jayenge — na aapko approve karna padega, na role
+   set karna. Unka partner record bhi khud ban jata hai.
+
+   - Email **chhote letters** mein likhein (`Mr.Ali@gmail.com` nahi,
+     `mr.ali@gmail.com`).
+   - Yeh list sirf aap (master) badal sakte hain, is liye koi apne aap ko
+     co-founder nahi bana sakta.
+   - Koi pehle se pending customer ban chuka hai? Email list mein daal dein —
+     agli dafa sign in karte hi upgrade ho jayega.
+   - Kisi ko hatana ho to list se email nikaal dein, phir **Users & roles** se
+     usay Customer kar dein ya Block kar dein.
+
+   **Haath se:** **More → Users & roles** → role **Co-founder** → **Approve**.
+
+   Dono soorton mein aakhri qadam ek hi hai: **Co-founders** tab → har ek ke
+   card par "Add investment" mein unki raqam daal kar **Add**. Share ratio khud
+   calculate ho jata hai.
 
 ---
 

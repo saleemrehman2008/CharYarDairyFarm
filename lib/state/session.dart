@@ -14,23 +14,44 @@ import '../services/user_repo.dart';
 ///
 /// Listens to Firebase Auth and then to that user's own document, so a role or
 /// status the master changes in Firestore lands on the phone without a restart.
+///
+/// Every wait here is bounded. On a farm with patchy mobile data a stream that
+/// never arrives would otherwise leave the app spinning on its splash screen
+/// with nothing to tell the user, so a watchdog always ends the wait and says
+/// what went wrong.
 class Session extends ChangeNotifier {
   Session() {
-    _authSub = AuthService.authState().listen(_onAuth);
+    _startWatchdog();
+    _authSub = AuthService.authState().listen(
+      _onAuth,
+      onError: (Object e) => _giveUp('Sign-in service did not respond. $e'),
+    );
   }
+
+  /// How long to wait before showing something instead of a spinner.
+  static const _patience = Duration(seconds: 12);
 
   StreamSubscription<fb.User?>? _authSub;
   StreamSubscription<AppUser?>? _userSub;
+  Timer? _watchdog;
 
   fb.User? _fbUser;
   AppUser? _user;
   bool _loading = true;
   bool _docMissing = false;
+  String? _error;
 
   fb.User? get fbUser => _fbUser;
   AppUser? get user => _user;
   bool get loading => _loading;
   bool get signedIn => _fbUser != null;
+
+  /// Set when a wait timed out or a stream failed; shown to the user.
+  String? get error => _error;
+
+  /// Signed in, but the profile document never arrived — usually Firestore
+  /// rules not deployed yet, or no connection on first run.
+  bool get profileUnavailable => signedIn && _user == null && !_loading;
 
   /// True while the user document has not been created yet — the first moment
   /// after a brand new sign-in.
@@ -42,6 +63,31 @@ class Session extends ChangeNotifier {
     name: _user?.name ?? _fbUser?.displayName ?? 'Someone',
   );
 
+  void _startWatchdog() {
+    _watchdog?.cancel();
+    _watchdog = Timer(_patience, () {
+      if (!_loading) return;
+      _giveUp(
+        signedIn
+            ? 'Could not load your profile. Check the connection, or ask the '
+                  'master whether the database rules have been published.'
+            : 'Could not reach Firebase. Check the connection and try again.',
+      );
+    });
+  }
+
+  void _settle() {
+    _watchdog?.cancel();
+    _watchdog = null;
+    _loading = false;
+  }
+
+  void _giveUp(String message) {
+    _settle();
+    _error = message;
+    notifyListeners();
+  }
+
   Future<void> _onAuth(fb.User? u) async {
     _fbUser = u;
     await _userSub?.cancel();
@@ -49,13 +95,16 @@ class Session extends ChangeNotifier {
 
     if (u == null) {
       _user = null;
-      _loading = false;
       _docMissing = false;
+      _error = null;
+      _settle();
       notifyListeners();
       return;
     }
 
     _loading = true;
+    _error = null;
+    _startWatchdog();
     notifyListeners();
 
     try {
@@ -64,20 +113,34 @@ class Session extends ChangeNotifier {
       // Offline first run: the document stream below will pick it up later.
     }
 
-    _userSub = Db.watchUser(u.uid).listen((appUser) {
-      _user = appUser;
-      _docMissing = appUser == null;
-      _loading = false;
-      notifyListeners();
+    _userSub = Db.watchUser(u.uid).listen(
+      (appUser) {
+        _user = appUser;
+        _docMissing = appUser == null;
+        _error = null;
+        _settle();
+        notifyListeners();
 
-      if (appUser == null) return;
-      // A blocked account is shown the door at the next refresh.
-      if (appUser.isBlocked) {
-        signOut();
-      } else {
-        Notifs.register(appUser);
-      }
-    });
+        if (appUser == null) return;
+        // A blocked account is shown the door at the next refresh.
+        if (appUser.isBlocked) {
+          signOut();
+        } else {
+          Notifs.register(appUser);
+        }
+      },
+      onError: (Object e) =>
+          _giveUp('Could not read your profile from the database. $e'),
+    );
+  }
+
+  /// Backs all the way out to the login screen after a failure.
+  Future<void> retry() async {
+    _error = null;
+    _loading = true;
+    _startWatchdog();
+    notifyListeners();
+    await _onAuth(AuthService.currentUser);
   }
 
   Future<void> signOut() async {
@@ -87,6 +150,7 @@ class Session extends ChangeNotifier {
 
   @override
   void dispose() {
+    _watchdog?.cancel();
     _authSub?.cancel();
     _userSub?.cancel();
     super.dispose();

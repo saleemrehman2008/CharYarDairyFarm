@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../state/session.dart';
 import '../theme/tokens.dart';
 import '../widgets/ui.dart';
 
@@ -31,55 +33,60 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: T.bg,
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset('assets/logo.png', width: 180),
-              const SizedBox(height: 22),
-              const Kicker('Fresh & natural · Quality milk'),
-              const SizedBox(height: 10),
-              const Text(
-                'Char Yar Dairy Farm',
-                textAlign: TextAlign.center,
-                style: T.title,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Order fresh milk and dairy, or sign in as a partner to run '
-                'the farm books.',
-                textAlign: TextAlign.center,
-                style: T.body.copyWith(color: T.n700),
-              ),
-              const SizedBox(height: 26),
-              PrimaryButton(
-                label: 'Continue with Google',
-                busy: _busy,
-                onPressed: _signIn,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'New accounts wait for approval by the master account.',
-                textAlign: TextAlign.center,
-                style: T.meta,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
+  Widget build(BuildContext context) {
+    // A startup failure Session gave up on also belongs on this screen.
+    final message = _error ?? context.watch<Session>().error;
+
+    return Scaffold(
+      backgroundColor: T.bg,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/logo.png', width: 180),
+                const SizedBox(height: 22),
+                const Kicker('Fresh & natural · Quality milk'),
+                const SizedBox(height: 10),
+                const Text(
+                  'Char Yar Dairy Farm',
                   textAlign: TextAlign.center,
-                  style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+                  style: T.title,
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  'Order fresh milk and dairy, or sign in as a partner to run '
+                  'the farm books.',
+                  textAlign: TextAlign.center,
+                  style: T.body.copyWith(color: T.n700),
+                ),
+                const SizedBox(height: 26),
+                PrimaryButton(
+                  label: 'Continue with Google',
+                  busy: _busy,
+                  onPressed: _signIn,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'New accounts wait for approval by the master account.',
+                  textAlign: TextAlign.center,
+                  style: T.meta,
+                ),
+                if (message != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

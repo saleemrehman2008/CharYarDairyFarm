@@ -40,6 +40,25 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    // Emails the master listed on settings/farm take the co-founder role on
+    // their own first sign-in, instead of waiting to be approved by hand.
+    //
+    // Only staff can write that list, and Google vouches for the address, so
+    // this cannot be used to grant yourself anything the master did not
+    // already intend.
+    function autoCofounder() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in
+           get(/databases/$(database)/documents/settings/farm).data
+             .get('autoCofounderEmails', []);
+    }
+
+    function becomesCofounder() {
+      return request.resource.data.role == 'investor'
+        && request.resource.data.status == 'active';
+    }
+
     // ---- Users ----
     // Own document is readable and created on first sign-in as a pending
     // customer; only the master may change a role or status.
@@ -48,13 +67,23 @@ service cloud.firestore {
 
       allow create: if signedIn()
         && request.auth.uid == uid
-        && request.resource.data.role == 'customer'
-        && request.resource.data.status == 'pending';
+        && ((request.resource.data.role == 'customer'
+             && request.resource.data.status == 'pending')
+            || (autoCofounder() && becomesCofounder()));
 
       allow update: if isMaster()
         || (signedIn() && request.auth.uid == uid
             && changedKeys().hasOnly(['name', 'email', 'photoUrl',
-                                      'fcmTokens']));
+                                      'fcmTokens']))
+        // A listed co-founder who first signed in as a pending customer is
+        // upgraded on their next sign-in. Blocked accounts stay blocked.
+        || (signedIn() && request.auth.uid == uid
+            && autoCofounder()
+            && becomesCofounder()
+            && resource.data.status != 'blocked'
+            && resource.data.role != 'master'
+            && changedKeys().hasOnly(['name', 'email', 'photoUrl', 'fcmTokens',
+                                      'role', 'status', 'partnerId']));
 
       allow delete: if false;
     }
@@ -62,7 +91,17 @@ service cloud.firestore {
     // ---- Partners (capital and share ratios) ----
     match /partners/{id} {
       allow read: if isStaff();
-      allow write: if isMaster();
+
+      // A co-founder may open their own record, but only an empty one — every
+      // rupee of capital is still the master's to enter.
+      allow create: if isMaster()
+        || (isStaff()
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.invested == 0
+            && request.resource.data.reinvested == 0
+            && request.resource.data.withdrawn == 0);
+
+      allow update, delete: if isMaster();
     }
 
     // ---- Products (the shop catalogue) ----
