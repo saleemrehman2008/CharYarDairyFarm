@@ -24,6 +24,7 @@ class TxnRepo {
     String note = '',
     String? customerId,
     String? orderId,
+    String? settlesTxnId,
     DateTime? date,
   }) async {
     final now = date ?? DateTime.now();
@@ -43,6 +44,11 @@ class TxnRepo {
       if (settled) 'paidAt': Timestamp.fromDate(now),
       'note': note,
       'orderId': ?orderId,
+      'settlesTxnId': ?settlesTxnId,
+      // Whether the money moved as this row was written. Cash reads this
+      // rather than the paid flag, so an entry settled months later is
+      // counted on the day it was actually settled.
+      'paidOnCreate': settled,
       'createdBy': actor.uid,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -80,6 +86,10 @@ class TxnRepo {
       paid: true,
       note: 'Settles ${txn.type.label.toLowerCase()} of ${fmtDate(txn.date)}',
       customerId: txn.customerId,
+      // The entry above flipping to paid is what moved the cash. Tagging this
+      // row keeps it in the ledger and the Sheet without the balance counting
+      // the same rupees twice.
+      settlesTxnId: txn.id,
       date: now,
     );
 
@@ -105,10 +115,25 @@ class TxnRepo {
   }
 
   /// Master only. Soft delete keeps the row in the Sheet marked `deleted`.
+  ///
+  /// Any receipt or payment that "Mark paid" posted against this entry goes
+  /// with it — leaving that behind would keep taking the money out of the
+  /// balance for an entry that no longer exists.
   static Future<void> softDelete(Actor actor, Txn txn) async {
     await Db.transactions.doc(txn.id).update({
       'deletedAt': FieldValue.serverTimestamp(),
     });
+
+    try {
+      final settlements = await Db.transactions
+          .where('settlesTxnId', isEqualTo: txn.id)
+          .get();
+      for (final doc in settlements.docs) {
+        await doc.reference.update({'deletedAt': FieldValue.serverTimestamp()});
+      }
+    } catch (_) {
+      // Worst case the settlement row stays; the master can delete it too.
+    }
     await Log.write(
       actor,
       LogKind.transaction,

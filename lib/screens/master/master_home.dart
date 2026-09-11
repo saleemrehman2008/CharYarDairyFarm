@@ -42,9 +42,17 @@ class MasterHome extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(rs(books.cash), style: T.num36),
-              const SizedBox(height: 6),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _Mini(label: 'Partner capital', value: rs(books.capital)),
+                  _Mini(label: 'Paid out this month', value: rs(books.paidOut)),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
-                'Cash in hand after everything paid so far this month.',
+                'Everything the co-founders put in, less everything the farm '
+                'has actually paid out. Unpaid bills are not taken off yet.',
                 style: T.meta,
               ),
             ],
@@ -236,6 +244,30 @@ class _Kpi extends StatelessWidget {
           const SizedBox(height: 4),
           Text(note!, style: T.meta.copyWith(fontSize: 11)),
         ],
+      ],
+    ),
+  );
+}
+
+/// Small figure sitting under the balance, two to a row.
+class _Mini extends StatelessWidget {
+  const _Mini({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Kicker(label),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(value, style: T.bodyMid),
+        ),
       ],
     ),
   );

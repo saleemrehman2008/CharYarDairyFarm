@@ -6,6 +6,7 @@ class Books {
   Books({
     required this.monthId,
     required this.openingCash,
+    required this.capital,
     required List<Txn> monthTxns,
     required List<Txn> unpaidTxns,
   }) : sales = _sum(monthTxns, TxnType.sale),
@@ -13,9 +14,9 @@ class Books {
        expenses = _sum(monthTxns, TxnType.expense),
        receipts = _sum(monthTxns, TxnType.receipt),
        payments = _sum(monthTxns, TxnType.payment),
-       paidSales = _sum(monthTxns, TxnType.sale, paidOnly: true),
-       paidPurchases = _sum(monthTxns, TxnType.purchase, paidOnly: true),
-       paidExpenses = _sum(monthTxns, TxnType.expense, paidOnly: true),
+       paidSales = _sum(monthTxns, TxnType.sale, cashAtEntryOnly: true),
+       paidPurchases = _sum(monthTxns, TxnType.purchase, cashAtEntryOnly: true),
+       paidExpenses = _sum(monthTxns, TxnType.expense, cashAtEntryOnly: true),
        receivable = unpaidTxns
            .where((t) => t.isReceivable)
            .fold<num>(0, (a, t) => a + t.amount),
@@ -24,19 +25,40 @@ class Books {
            .fold<num>(0, (a, t) => a + t.amount);
 
   final String monthId;
+
+  /// Operating cash carried in from the months already closed. Partner capital
+  /// is deliberately not folded in here — it is added fresh from [capital], so
+  /// a new investment shows up the moment it is entered.
   final num openingCash;
+
+  /// Money the partners put into the farm from their own pockets. This is what
+  /// the first cattle and the first feed are bought with, so it is part of the
+  /// balance, not something separate from it.
+  ///
+  /// Only `invested` counts. Reinvested profit was earned by the farm and is
+  /// already sitting in the cash it came from; counting it again would inflate
+  /// the balance.
+  final num capital;
 
   /// Booked this month, paid or not.
   final num sales;
   final num purchases;
   final num expenses;
+
+  /// Every receipt and payment this month, settlements included — these rows
+  /// *are* the moment the money moved, which is exactly what cash wants.
   final num receipts;
   final num payments;
 
-  /// Settled this month, for the cash line.
+  /// Only the entries whose money moved as they were written. An entry booked
+  /// on credit is left out here even once it is settled, because its cash is
+  /// counted on the settlement row instead — possibly in a later month.
   final num paidSales;
   final num paidPurchases;
   final num paidExpenses;
+
+  /// Cash actually paid out this month, for the balance card.
+  num get paidOut => paidPurchases + paidExpenses + payments;
 
   /// Outstanding across every month, not just this one.
   final num receivable;
@@ -44,10 +66,16 @@ class Books {
 
   num get costs => purchases + expenses;
 
-  /// Profit for the open month, on an accrual basis.
+  /// Profit for the open month, on an accrual basis. Capital is not income, so
+  /// it never touches this.
   num get profit => sales - costs;
 
-  num get cash =>
+  /// Everything the farm has trading with, including what the partners put in.
+  num get cash => capital + operatingCash;
+
+  /// The same figure with partner capital taken back out — what the farm has
+  /// made or lost in cash terms, which is what carries into the next month.
+  num get operatingCash =>
       openingCash +
       paidSales +
       receipts -
@@ -63,33 +91,63 @@ class Books {
   num profitToShare({required bool arIncluded}) =>
       arIncluded ? profit : profit - receivable;
 
-  static num _sum(List<Txn> txns, TxnType type, {bool paidOnly = false}) => txns
-      .where((t) => t.type == type && (!paidOnly || t.paid))
+  static num _sum(
+    List<Txn> txns,
+    TxnType type, {
+    bool cashAtEntryOnly = false,
+  }) => txns
+      .where((t) => t.type == type && (!cashAtEntryOnly || t.paidOnCreate))
       .fold<num>(0, (a, t) => a + t.amount);
 
   static Books empty(String monthId) => Books(
     monthId: monthId,
     openingCash: 0,
+    capital: 0,
     monthTxns: const [],
     unpaidTxns: const [],
   );
 }
 
-/// Rounded shares for a month close, one per partner.
+/// Whole-rupee shares for a month close, one per partner.
+///
+/// Rounding each share on its own would leave a rupee or two unaccounted for —
+/// three partners on a profit of 100 would take 33 each. The leftover goes to
+/// the largest share, so the shares always add up to exactly what was shared.
 List<MonthShare> shareOut({
   required List<Partner> partners,
   required num profitToShare,
   required Map<String, String> choices,
 }) {
   final ratios = ratiosOf(partners);
-  return partners.map((p) {
-    final ratio = ratios[p.id] ?? 0;
-    return MonthShare(
-      partnerId: p.id,
-      name: p.name,
-      ratio: ratio,
-      share: (profitToShare * ratio).round(),
-      choice: choices[p.id] ?? 'withdraw',
-    );
-  }).toList();
+  final shares = partners
+      .map(
+        (p) => MonthShare(
+          partnerId: p.id,
+          name: p.name,
+          ratio: ratios[p.id] ?? 0,
+          share: (profitToShare * (ratios[p.id] ?? 0)).round(),
+          choice: choices[p.id] ?? 'withdraw',
+        ),
+      )
+      .toList();
+
+  if (shares.isEmpty) return shares;
+
+  final remainder =
+      profitToShare.round() -
+      shares.fold<int>(0, (a, s) => a + s.share.round());
+  if (remainder == 0) return shares;
+
+  var biggest = 0;
+  for (var i = 1; i < shares.length; i++) {
+    if (shares[i].share > shares[biggest].share) biggest = i;
+  }
+  shares[biggest] = MonthShare(
+    partnerId: shares[biggest].partnerId,
+    name: shares[biggest].name,
+    ratio: shares[biggest].ratio,
+    share: shares[biggest].share + remainder,
+    choice: shares[biggest].choice,
+  );
+  return shares;
 }

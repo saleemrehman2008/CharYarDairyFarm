@@ -98,8 +98,21 @@ class _CloseMonthScreenState extends State<CloseMonthScreen> {
           PrimaryButton(
             label: 'Close month & post shares',
             busy: _busy,
-            onPressed: partners.isEmpty ? null : _close,
+            onPressed: partners.isEmpty || profitToShare <= 0 ? null : _close,
           ),
+          if (profitToShare <= 0) ...[
+            const SizedBox(height: 10),
+            Text(
+              profitToShare == 0
+                  ? 'There is nothing to share this month, so there is nothing '
+                        'to post. Close it once the month has made a profit.'
+                  : 'This month is at a loss of ${rs(profitToShare.abs())}, so '
+                        'there is nothing to share out. Check that every sale '
+                        'is entered — a big one-off buy like cattle will show '
+                        'as a loss in the month you pay for it.',
+              style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             'Shares are posted to each co-founder, the month is written to the '

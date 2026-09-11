@@ -102,6 +102,8 @@ class Txn {
     this.paidAt,
     required this.note,
     this.orderId,
+    this.settlesTxnId,
+    this.paidOnCreate = false,
     required this.createdBy,
     required this.createdAt,
     this.deletedAt,
@@ -122,6 +124,27 @@ class Txn {
   final DateTime? paidAt;
   final String note;
   final String? orderId;
+
+  /// Set on the receipt or payment that "Mark paid" posts against an entry.
+  ///
+  /// The cash it moves is already captured by that entry flipping to paid, so
+  /// the balance must not count this row a second time. It exists so the ledger
+  /// and the Google Sheet still show when the money actually changed hands.
+  final String? settlesTxnId;
+
+  /// Named apart from `type.isSettlement`, which asks a different question:
+  /// whether this is a receipt or payment at all.
+  bool get settlesAnotherEntry => settlesTxnId != null;
+
+  /// True when the money changed hands as this entry was written — "Paid now"
+  /// on the form.
+  ///
+  /// An entry booked on credit is false forever, even after it is settled: the
+  /// cash for it moves on the receipt or payment row that "Mark paid" posts,
+  /// which may well be in a later month. Keeping the two apart is what lets a
+  /// balance stay right across a month close.
+  final bool paidOnCreate;
+
   final String createdBy;
   final DateTime createdAt;
   final DateTime? deletedAt;
@@ -141,9 +164,21 @@ class Txn {
     return '$qs ${unit ?? ''} × Rs ${r.round()}';
   }
 
+  /// Entries written before the app recorded [paidOnCreate] are read back from
+  /// their timestamps: money that moved as the row was created has a `paidAt`
+  /// alongside its `createdAt`, while "Mark paid" stamps one much later.
+  static bool _wasPaidOnCreate(bool paid, DateTime? paidAt, DateTime created) {
+    if (!paid) return false;
+    if (paidAt == null) return true;
+    return paidAt.difference(created).abs() < const Duration(minutes: 2);
+  }
+
   factory Txn.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final m = doc.data() ?? const {};
     final date = dtOr(m['date']);
+    final paid = b(m['paid']);
+    final paidAt = dt(m['paidAt']);
+    final createdAt = dtOr(m['createdAt'], date);
     return Txn(
       id: doc.id,
       date: date,
@@ -156,12 +191,16 @@ class Txn {
       unit: m['unit'] == null ? null : s(m['unit']),
       rate: m['rate'] == null ? null : n(m['rate']),
       amount: n(m['amount']),
-      paid: b(m['paid']),
-      paidAt: dt(m['paidAt']),
+      paid: paid,
+      paidAt: paidAt,
       note: s(m['note']),
       orderId: m['orderId'] == null ? null : s(m['orderId']),
+      settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
+      paidOnCreate: m['paidOnCreate'] == null
+          ? _wasPaidOnCreate(paid, paidAt, createdAt)
+          : b(m['paidOnCreate']),
       createdBy: s(m['createdBy']),
-      createdAt: dtOr(m['createdAt'], date),
+      createdAt: createdAt,
       deletedAt: dt(m['deletedAt']),
     );
   }

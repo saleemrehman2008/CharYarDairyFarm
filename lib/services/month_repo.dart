@@ -102,10 +102,13 @@ class MonthRepo {
       }
     }
 
-    // Next month opens with the cash actually in hand.
+    // The next month opens with what trading left behind, minus what the
+    // partners took out. Their capital is not carried here — the balance adds
+    // it fresh from the partner records every time, so folding it in would
+    // count it again next month.
     batch.set(Db.months.doc(nextId), {
       'status': 'open',
-      'openingCash': books.cash - withdrawnTotal,
+      'openingCash': books.operatingCash - withdrawnTotal,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 

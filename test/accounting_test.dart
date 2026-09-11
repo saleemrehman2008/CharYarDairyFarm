@@ -5,14 +5,18 @@ import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 
 /// Helper so each case reads as the entry a farmer would type.
+var _seq = 0;
+
+/// An entry paid as it was written — "Paid now" on the form.
 Txn entry({
   required TxnType type,
   required num amount,
   bool paid = true,
   String? customerId,
+  String? settlesTxnId,
   String monthId = '2026-09',
 }) => Txn(
-  id: 'x${amount}_${type.name}_$paid',
+  id: 'txn${_seq++}',
   date: DateTime(2026, 9, 10),
   monthId: monthId,
   type: type,
@@ -21,9 +25,60 @@ Txn entry({
   category: type.categories.first,
   amount: amount,
   paid: paid,
+  paidAt: paid ? DateTime(2026, 9, 10) : null,
   note: '',
+  settlesTxnId: settlesTxnId,
+  paidOnCreate: paid,
   createdBy: 'uid',
   createdAt: DateTime(2026, 9, 10),
+);
+
+/// An entry booked on credit and settled later, which is how udhaar and
+/// supplier bills behave. The cash moves on the settlement row, not here.
+Txn creditEntry({
+  required TxnType type,
+  required num amount,
+  required bool settled,
+  String? customerId,
+  String monthId = '2026-09',
+}) => Txn(
+  id: 'txn${_seq++}',
+  date: DateTime(2026, 9, 10),
+  monthId: monthId,
+  type: type,
+  party: 'Someone',
+  customerId: customerId,
+  category: type.categories.first,
+  amount: amount,
+  paid: settled,
+  paidAt: settled ? DateTime(2026, 10, 5) : null,
+  note: '',
+  paidOnCreate: false,
+  createdBy: 'uid',
+  createdAt: DateTime(2026, 9, 10),
+);
+
+/// The receipt or payment "Mark paid" posts against [settles].
+Txn settlement({
+  required TxnType type,
+  required num amount,
+  required String settles,
+  String monthId = '2026-09',
+}) => Txn(
+  id: 'txn${_seq++}',
+  date: DateTime(2026, 10, 5),
+  monthId: monthId,
+  type: type,
+  party: 'Someone',
+  category: type.categories.first,
+  amount: amount,
+  paid: true,
+  paidAt: DateTime(2026, 10, 5),
+  note: 'Settles something',
+  settlesTxnId: settles,
+  paidOnCreate: true,
+  createdBy: 'uid',
+  createdAt: DateTime(2026, 10, 5),
 );
 
 Partner partner(String id, {num invested = 0, num reinvested = 0}) => Partner(
@@ -63,9 +118,14 @@ void main() {
   group('Books', () {
     final monthTxns = [
       entry(type: TxnType.sale, amount: 50000),
-      entry(type: TxnType.sale, amount: 20000, paid: false, customerId: 'c1'),
+      creditEntry(
+        type: TxnType.sale,
+        amount: 20000,
+        settled: false,
+        customerId: 'c1',
+      ),
       entry(type: TxnType.purchase, amount: 12000),
-      entry(type: TxnType.purchase, amount: 3000, paid: false),
+      creditEntry(type: TxnType.purchase, amount: 3000, settled: false),
       entry(type: TxnType.expense, amount: 5000),
       entry(type: TxnType.receipt, amount: 1000),
       entry(type: TxnType.payment, amount: 500),
@@ -75,6 +135,7 @@ void main() {
     final books = Books(
       monthId: '2026-09',
       openingCash: 10000,
+      capital: 400000,
       monthTxns: monthTxns,
       unpaidTxns: unpaid,
     );
@@ -85,10 +146,16 @@ void main() {
       expect(books.profit, 50000);
     });
 
-    test('cash counts only what actually settled', () {
-      // 10000 opening + 50000 paid sale + 1000 receipt
+    test('capital the partners put in is money the farm can spend', () {
+      // 400000 capital + 10000 opening + 50000 paid sale + 1000 receipt
       //        − 12000 paid purchase − 5000 paid expense − 500 payment
-      expect(books.cash, 43500);
+      expect(books.cash, 443500);
+      // The same figure without the partners' capital is what carries forward.
+      expect(books.operatingCash, 43500);
+    });
+
+    test('profit is not touched by capital', () {
+      expect(books.profit, 50000);
     });
 
     test('receivables and payables split by entry type', () {
@@ -106,6 +173,63 @@ void main() {
       expect(empty.profit, 0);
       expect(empty.cash, 0);
       expect(empty.profitBar, 0);
+    });
+  });
+
+  group('credit does not move the balance until it is settled', () {
+    Books booksOf(List<Txn> txns, {num opening = 0, num capital = 0}) => Books(
+      monthId: '2026-09',
+      openingCash: opening,
+      capital: capital,
+      monthTxns: txns,
+      unpaidTxns: txns.where((t) => !t.paid).toList(),
+    );
+
+    test('an unpaid bill sits in payables and leaves cash alone', () {
+      final books = booksOf([
+        creditEntry(type: TxnType.expense, amount: 15000, settled: false),
+      ], capital: 100000);
+      expect(books.payable, 15000);
+      expect(books.cash, 100000);
+      // It still counts against profit — the farm owes it either way.
+      expect(books.profit, -15000);
+    });
+
+    test('an unpaid sale sits in receivables and leaves cash alone', () {
+      final books = booksOf([
+        creditEntry(type: TxnType.sale, amount: 7200, settled: false),
+      ], capital: 100000);
+      expect(books.receivable, 7200);
+      expect(books.cash, 100000);
+    });
+
+    test('marking it paid moves the cash exactly once', () {
+      final bill = creditEntry(
+        type: TxnType.purchase,
+        amount: 400000,
+        settled: true,
+      );
+      final books = booksOf([
+        bill,
+        settlement(type: TxnType.payment, amount: 400000, settles: bill.id),
+      ], capital: 2200000);
+      // Not 1,400,000, which is what counting both rows would give.
+      expect(books.cash, 1800000);
+      expect(books.payable, 0);
+    });
+
+    test('settling last month carries the cash into this month', () {
+      // The sale was booked and closed in September; the money arrives in
+      // October, so only the settlement row is in this month's ledger.
+      final books = booksOf([
+        settlement(
+          type: TxnType.receipt,
+          amount: 10000,
+          settles: 'septemberSale',
+          monthId: '2026-10',
+        ),
+      ], opening: 5000);
+      expect(books.cash, 15000);
     });
   });
 
@@ -139,6 +263,30 @@ void main() {
       expect(shares.first.isReinvested, isTrue);
       // Anyone not given a choice defaults to taking the cash.
       expect(shares.last.choice, 'withdraw');
+    });
+
+    test('every rupee is handed out, even when it will not divide', () {
+      final partners = [partner('a', invested: 1), partner('b', invested: 1)];
+      final shares = shareOut(
+        partners: partners,
+        profitToShare: 101,
+        choices: const {},
+      );
+      expect(shares.fold<num>(0, (a, s) => a + s.share), 101);
+    });
+
+    test('three equal partners still add up', () {
+      final partners = [
+        partner('a', invested: 1),
+        partner('b', invested: 1),
+        partner('c', invested: 1),
+      ];
+      final shares = shareOut(
+        partners: partners,
+        profitToShare: 100,
+        choices: const {},
+      );
+      expect(shares.fold<num>(0, (a, s) => a + s.share), 100);
     });
   });
 

@@ -89,6 +89,7 @@ class FarmStore extends ChangeNotifier {
   Books get books => Books(
     monthId: month.id,
     openingCash: month.openingCash,
+    capital: capitalIn,
     monthTxns: _monthTxns,
     unpaidTxns: _unpaidTxns,
   );
@@ -96,6 +97,10 @@ class FarmStore extends ChangeNotifier {
   Map<String, double> get ratios => ratiosOf(_partners);
 
   num get totalCapital => _partners.fold<num>(0, (a, p) => a + p.capital);
+
+  /// Money the partners actually put in, which is cash the farm can spend.
+  /// Reinvested profit is left out: it never left the farm in the first place.
+  num get capitalIn => _partners.fold<num>(0, (a, p) => a + p.invested);
 
   Partner? partnerFor(String uid) {
     for (final p in _partners) {
