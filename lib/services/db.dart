@@ -50,11 +50,14 @@ class Db {
       .snapshots()
       .map((q) => q.docs.map(Partner.fromDoc).toList());
 
-  static Stream<List<Product>> watchProducts({bool onlyActive = false}) {
-    Query<Map<String, dynamic>> q = products.orderBy('sortOrder');
-    if (onlyActive) q = q.where('active', isEqualTo: true);
-    return q.snapshots().map((s) => s.docs.map(Product.fromDoc).toList());
-  }
+  /// Active-only filtering happens in Dart rather than in the query: a farm
+  /// has a handful of products, and this way the app needs no composite index,
+  /// which is one less thing to get wrong when setting the project up.
+  static Stream<List<Product>> watchProducts({bool onlyActive = false}) =>
+      products.orderBy('sortOrder').snapshots().map((s) {
+        final all = s.docs.map(Product.fromDoc);
+        return (onlyActive ? all.where((p) => p.active) : all).toList();
+      });
 
   /// Transactions for one farm month, newest first. Soft-deleted rows are
   /// filtered in Dart so a missing composite index can never hide the ledger.
