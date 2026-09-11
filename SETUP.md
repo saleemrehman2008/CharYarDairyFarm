@@ -83,6 +83,23 @@ winget install --id EclipseAdoptium.Temurin.17.JDK --accept-package-agreements -
 Install ke baad **naya terminal tab kholein**, warna `keytool` phir bhi nahi
 milegi (purane tab ko naye PATH ka pata nahi chalta).
 
+Naye tab mein bhi `keytool ... is not recognized` aaye to poora path de dein —
+PATH ki zarurat hi nahi rehti. Pehle path dhoondein:
+
+```bash
+Get-ChildItem "$env:ProgramFiles\Eclipse Adoptium" -Directory
+```
+
+Phir har `keytool` wali command mein `keytool` ki jagah yeh likhein (apne
+version ke mutabiq folder ka naam badal lein):
+
+```bash
+& "C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot\bin\keytool.exe"
+```
+
+`&` zaroori hai — path mein spaces hain, PowerShell ko batana padta hai ke yeh
+command hai.
+
 > Android Studio ya Android SDK install karne ki **zarurat nahi** — APK GitHub
 > Actions banata hai. Java sirf is ek keystore ke liye chahiye.
 
@@ -361,7 +378,7 @@ karein.
 
 | Masla | Wajah / Hal |
 |---|---|
-| `keytool ... is not recognized` | Java install nahi hai, ya install ke baad naya terminal tab nahi khola. Step 2 dekhein. |
+| `keytool ... is not recognized` | Java install nahi hai, ya install ke baad naya terminal tab nahi khola. Naye tab mein bhi na chale to poora path use karein — Step 2 dekhein. |
 | Firebase wizard `build.gradle.kts` badalne ko keh raha hai | Kuch na karein, repo mein pehle se hai. Next → Continue to console. |
 | Sign-in par "Could not sign in" | SHA-1 Firebase mein add nahi hua, ya `google-services.json` purana hai. Step 2 dohrayein, naya file lein, phir `GOOGLE_SERVICES_JSON` secret update karein. |
 | App khulte hi crash | `android/app/google-services.json` maujood nahi. |
