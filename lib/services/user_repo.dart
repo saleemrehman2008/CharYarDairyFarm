@@ -69,7 +69,6 @@ class UserRepo {
     }, SetOptions(merge: true));
 
     if (upgrade) {
-      await _ensurePartner(actor);
       await Log.write(
         actor,
         LogKind.user,
@@ -77,6 +76,13 @@ class UserRepo {
         refType: 'user',
         refId: user.uid,
       );
+    }
+
+    // Anyone on the farm side holds capital — the master is a co-founder too,
+    // so they need a partner record or they would be left out of the ratios.
+    final finalRole = upgrade ? 'investor' : role;
+    if (finalRole == 'master' || finalRole == 'investor') {
+      await _ensurePartner(actor);
     }
 
     await Log.write(
