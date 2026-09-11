@@ -32,7 +32,23 @@ Code pehle se repo mein mojood hai.
    - App nickname: `Char Yar Dairy Farm`
    - **Register app** → **google-services.json** download karein.
 
-**Banta hai:** `google-services.json` file.
+6. Iske baad wizard "Add Firebase SDK" dikhayega — `build.gradle.kts` mein
+   plugin daalne wale steps. **Yeh sab pehle se repo mein ho chuka hai**, aap
+   seedha **Next → Next → Continue to console** daba dein.
+
+   | Wizard jo kehta hai | Repo mein kahan hai |
+   |---|---|
+   | project-level plugin `com.google.gms.google-services` | `android/settings.gradle.kts` |
+   | app-level plugin `com.google.gms.google-services` | `android/app/build.gradle.kts` |
+   | `dependencies { Firebase BoM ... }` | zarurat nahi — FlutterFire packages apni dependencies khud laate hain |
+
+   > Firebase ke docs **plain Android** projects ke liye hain, jahan plugin root
+   > `build.gradle.kts` mein jata hai. **Flutter** mein wohi declaration
+   > `settings.gradle.kts` ke `plugins { }` block mein jati hai — kaam same.
+   > Is liye wo file waisi nahi milegi jaisi screenshot mein dikhti hai.
+
+**Banta hai:** `google-services.json` file. Pooray wizard se bas yehi ek cheez
+chahiye.
 
 ### google-services.json kahan rakhein
 
@@ -50,17 +66,42 @@ Do jagah:
 
 Google sign-in ke liye Firebase ko aapki app ki signing fingerprint chahiye.
 
-### Pehle keystore banayein (ek hi dafa)
+### Pehle Java chahiye
 
-Apne terminal mein:
+`keytool` Java ke saath aati hai. Check karein (PowerShell mein):
 
 ```bash
-keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+keytool -help
 ```
 
-- Password pooche to ek mazboot password dein aur **likh kar rakh lein** —
-  yeh kho gaya to aap kabhi is app ko update nahi kar sakenge.
-- Naam, sheher waghera kuch bhi chalega.
+"not recognized" aaye to Java install karein:
+
+```bash
+winget install --id EclipseAdoptium.Temurin.17.JDK --accept-package-agreements --accept-source-agreements
+```
+
+Install ke baad **naya terminal tab kholein**, warna `keytool` phir bhi nahi
+milegi (purane tab ko naye PATH ka pata nahi chalta).
+
+> Android Studio ya Android SDK install karne ki **zarurat nahi** — APK GitHub
+> Actions banata hai. Java sirf is ek keystore ke liye chahiye.
+
+### Phir keystore banayein (ek hi dafa)
+
+Repo se bahar ek folder mein, PowerShell mein:
+
+```bash
+mkdir D:\APK\keys; cd D:\APK\keys; keytool -genkeypair -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Yeh poochega:
+
+- **Keystore password** — apna password type karein. **Screen par kuch nahi
+  dikhega, yeh normal hai.** Phir dobara confirm karein.
+- Naam, organization, sheher, country — kuch bhi chalega, ya Enter daba kar
+  `Unknown` chhor dein. Aakhir mein `yes` likh kar confirm karein.
+- "key password for &lt;upload&gt;" — seedha **Enter** daba dein, taake wohi
+  keystore wala password use ho. Aasan rehta hai.
 
 **Banta hai:** `upload-keystore.jks` + store password + key password + alias
 (`upload`).
@@ -74,20 +115,22 @@ keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -vali
 keytool -list -v -keystore upload-keystore.jks -alias upload
 ```
 
-Output mein `SHA1:` aur `SHA256:` dikhenge. Dono copy karein.
+Password maangega. Output mein `SHA1:` aur `SHA256:` wali lines dikhengi. Yeh
+fingerprints **secret nahi** hain — inhein copy kar lein.
 
-Debug (apni machine par test karne wali) fingerprint ke liye:
+Debug fingerprint **sirf tab** chahiye jab aap apni machine par
+`flutter run` chalayein (uske liye Android Studio / Android SDK chahiye).
+GitHub Actions se APK banwa rahe hain to yeh step chhorh dein:
 
 ```bash
-keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
 ```
-
-Windows par path `%USERPROFILE%\.android\debug.keystore` hota hai.
 
 ### Firebase mein daalein
 
 **Project settings → General → Your apps → Android app → Add fingerprint** —
-release SHA-1, release SHA-256, aur debug SHA-1, teeno add karein.
+release SHA-1 aur release SHA-256 daalein (aur debug SHA-1 bhi, agar aapne
+upar wala step kiya ho).
 
 Uske baad **google-services.json dobara download karein** (ab us mein OAuth
 client shamil hoga). Purani file replace kar dein.
@@ -318,6 +361,8 @@ karein.
 
 | Masla | Wajah / Hal |
 |---|---|
+| `keytool ... is not recognized` | Java install nahi hai, ya install ke baad naya terminal tab nahi khola. Step 2 dekhein. |
+| Firebase wizard `build.gradle.kts` badalne ko keh raha hai | Kuch na karein, repo mein pehle se hai. Next → Continue to console. |
 | Sign-in par "Could not sign in" | SHA-1 Firebase mein add nahi hua, ya `google-services.json` purana hai. Step 2 dohrayein, naya file lein, phir `GOOGLE_SERVICES_JSON` secret update karein. |
 | App khulte hi crash | `android/app/google-services.json` maujood nahi. |
 | "Missing or insufficient permissions" | Rules deploy nahi hue (Step 5), ya aapka `users` document mein `status` `active` nahi hai. |
