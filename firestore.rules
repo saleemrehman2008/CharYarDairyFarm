@@ -68,10 +68,12 @@ service cloud.firestore {
       // A customer needs no approval to browse, order or ask for udhaar — the
       // order and the udhaar account are each approved on their own. Anything
       // above customer still has to be granted.
+      // `pending` is still accepted so a phone on an older build can sign up;
+      // it is activated on the next sign-in by the rule below.
       allow create: if signedIn()
         && request.auth.uid == uid
         && ((request.resource.data.role == 'customer'
-             && request.resource.data.status == 'active')
+             && request.resource.data.status in ['active', 'pending'])
             || (autoCofounder() && becomesCofounder()));
 
       allow update: if isMaster()
