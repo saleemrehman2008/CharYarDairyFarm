@@ -155,6 +155,12 @@ class Db {
               ..sort((a, b) => b.date.compareTo(a.date)),
       );
 
+  /// Days of milk not yet on a bill — what the month-end run works from.
+  static Stream<List<Delivery>> watchUnbilledDeliveries() => deliveries
+      .where('billed', isEqualTo: false)
+      .snapshots()
+      .map((q) => q.docs.map(Delivery.fromDoc).toList());
+
   /// Bills that still have something owing, newest first.
   static Stream<List<Bill>> watchBills() => bills
       .orderBy('createdAt', descending: true)

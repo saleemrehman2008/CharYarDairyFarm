@@ -82,6 +82,36 @@ class UdhaarRepo {
     );
   }
 
+  /// Takes someone off the round mid-month, after billing them for what they
+  /// have already had.
+  ///
+  /// The account is closed rather than deleted: whatever is still owing stays
+  /// on it, and their bills and days remain readable. Reopening is just an
+  /// approval away.
+  static Future<void> close(Actor actor, UdhaarAccount account) async {
+    await Db.udhaarAccounts.doc(account.uid).update({'status': 'closed'});
+    await Log.write(
+      actor,
+      LogKind.udhaar,
+      'closed ${account.name}\'s khaata'
+      '${account.balance > 0 ? ' with ${rs(account.balance)} still owing' : ''}',
+      refType: 'udhaar',
+      refId: account.uid,
+    );
+  }
+
+  /// Puts a closed khaata back on the round.
+  static Future<void> reopen(Actor actor, UdhaarAccount account) async {
+    await Db.udhaarAccounts.doc(account.uid).update({'status': 'approved'});
+    await Log.write(
+      actor,
+      LogKind.udhaar,
+      'reopened ${account.name}\'s khaata',
+      refType: 'udhaar',
+      refId: account.uid,
+    );
+  }
+
   /// Master only. The rate and the limit are the two terms of a khaata, so
   /// they are changed together.
   static Future<void> setTerms(

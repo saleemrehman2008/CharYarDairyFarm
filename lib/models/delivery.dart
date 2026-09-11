@@ -18,6 +18,7 @@ class Delivery {
     required this.slot,
     required this.deliveredByName,
     this.billId,
+    this.billed = false,
     required this.createdAt,
   });
 
@@ -35,10 +36,15 @@ class Delivery {
   /// twice.
   final String? billId;
 
+  /// The same fact as [billId], as a flag Firestore can be asked about — a
+  /// missing field cannot be queried for, and the app needs to find days that
+  /// have not been billed yet.
+  final bool billed;
+
   final DateTime createdAt;
 
   num get amount => litres * rate;
-  bool get isBilled => billId != null;
+  bool get isBilled => billed || billId != null;
 
   /// `customerId_YYYY-MM-DD`
   static String idFor(String customerId, DateTime date) =>
@@ -63,6 +69,7 @@ class Delivery {
       slot: s(m['slot']).isEmpty ? 'morning' : s(m['slot']),
       deliveredByName: s(m['deliveredByName']),
       billId: m['billId'] == null ? null : s(m['billId']),
+      billed: b(m['billed']),
       createdAt: dtOr(m['createdAt'], date),
     );
   }

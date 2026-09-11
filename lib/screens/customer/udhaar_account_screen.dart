@@ -104,6 +104,7 @@ class UdhaarAccountScreen extends StatelessWidget {
     UdhaarStatus.pending => TagTone.warn,
     UdhaarStatus.rejected => TagTone.bad,
     UdhaarStatus.none => TagTone.neutral,
+    UdhaarStatus.closed => TagTone.neutral,
   };
 }
 

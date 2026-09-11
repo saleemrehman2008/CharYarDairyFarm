@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
+import '../../services/bill_repo.dart';
 import '../../services/udhaar_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -68,6 +69,49 @@ class _UdhaarCardState extends State<_UdhaarCard> {
 
   num? get _typedLimit => num.tryParse(_limit.text.trim());
   num? get _typedRate => num.tryParse(_rate.text.trim());
+
+  /// Bills one customer for the milk they have taken this month, without
+  /// waiting for the month to end.
+  Future<void> _billNow(UdhaarAccount account) async {
+    final store = context.read<FarmStore>();
+    final ok = await confirm(
+      context,
+      title: 'Bill ${account.name} now?',
+      body:
+          'They get a bill for this month\'s milk so far, plus anything still '
+          'owing. The rest of the month is billed as usual.',
+      confirmLabel: 'Bill now',
+    );
+    if (!ok || !mounted) return;
+
+    await _run(() async {
+      final bill = await BillRepo.raise(
+        context.read<Session>().actor,
+        account: account,
+        monthId: store.monthId,
+        monthDeliveries: store.monthDeliveries,
+      );
+      if (bill == null) throw Exception('nothing to bill yet');
+    }, '${account.name} billed');
+  }
+
+  Future<void> _closeKhaata(UdhaarAccount account) async {
+    final ok = await confirm(
+      context,
+      title: 'Close ${account.name}\'s khaata?',
+      body: account.balance > 0
+          ? 'They come off the daily round. ${rs(account.balance)} stays owing '
+                'and can still be collected.'
+          : 'They come off the daily round. Their bills and history stay.',
+      confirmLabel: 'Close it',
+    );
+    if (!ok || !mounted) return;
+
+    await _run(
+      () => UdhaarRepo.close(context.read<Session>().actor, account),
+      '${account.name} is off the round',
+    );
+  }
 
   Future<void> _run(Future<void> Function() action, String done) async {
     setState(() => _busy = true);
@@ -204,6 +248,60 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                       ),
               ),
             ],
+
+            // Someone leaving part-way through the month: bill them for what
+            // they have taken, then take them off the round.
+            if (a.isApproved) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Text(
+                'Leaving mid-month? Bill them for the milk so far, then close '
+                'the khaata so they drop off the daily round.',
+                style: T.meta,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  GhostButton(
+                    label: 'Bill now',
+                    icon: Icons.receipt_outlined,
+                    compact: true,
+                    onPressed: _busy ? null : () => _billNow(a),
+                  ),
+                  GhostButton(
+                    label: 'Close khaata',
+                    compact: true,
+                    danger: true,
+                    onPressed: _busy ? null : () => _closeKhaata(a),
+                  ),
+                ],
+              ),
+            ],
+
+            if (a.status == UdhaarStatus.closed) ...[
+              const SizedBox(height: 10),
+              Text(
+                a.balance > 0
+                    ? 'Closed with ${rs(a.balance)} still owing. Take the '
+                          'payment from Khaata bills.'
+                    : 'Closed and settled.',
+                style: T.meta,
+              ),
+              const SizedBox(height: 8),
+              GhostButton(
+                label: 'Reopen khaata',
+                compact: true,
+                onPressed: _busy
+                    ? null
+                    : () => _run(
+                        () => UdhaarRepo.reopen(actor, a),
+                        '${a.name} is back on the round',
+                      ),
+              ),
+            ],
           ],
         ),
       ),
@@ -215,5 +313,6 @@ class _UdhaarCardState extends State<_UdhaarCard> {
     UdhaarStatus.pending => TagTone.warn,
     UdhaarStatus.rejected => TagTone.bad,
     UdhaarStatus.none => TagTone.neutral,
+    UdhaarStatus.closed => TagTone.neutral,
   };
 }

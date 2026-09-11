@@ -57,6 +57,7 @@ class BillRepo {
     for (final d in mine) {
       batch.set(Db.deliveries.doc(d.id), {
         'billId': billId,
+        'billed': true,
       }, SetOptions(merge: true));
     }
     await batch.commit();
@@ -75,7 +76,8 @@ class BillRepo {
     return Bill.fromDoc(snap);
   }
 
-  /// Raises bills for every approved khaata customer. Returns how many.
+  /// Raises bills for every khaata customer who can be billed, closed ones
+  /// included. Returns how many bills were raised.
   static Future<int> raiseAll(
     Actor actor, {
     required String monthId,
@@ -83,7 +85,7 @@ class BillRepo {
     required List<Delivery> monthDeliveries,
   }) async {
     var raised = 0;
-    for (final account in accounts.where((a) => a.isApproved)) {
+    for (final account in accounts.where((a) => a.isBillable)) {
       final bill = await raise(
         actor,
         account: account,
@@ -93,6 +95,65 @@ class BillRepo {
       if (bill != null) raised++;
     }
     return raised;
+  }
+
+  /// Raises whatever is due, without anyone asking.
+  ///
+  /// Cloud Functions would do this on a schedule, but they need a billing
+  /// account the farm does not have yet — so the app does it instead, whenever
+  /// a partner opens it. Two conditions, both deliberately conservative:
+  ///
+  /// * a month that has finished and still has unbilled milk in it, which is
+  ///   the catch-up for nobody opening the app on the 30th; and
+  /// * the current month, but only on its last day.
+  ///
+  /// Everything here is safe to run twice — the bill id is the customer and the
+  /// month, and a billed day is stamped — so several phones doing this at once
+  /// settle on one answer.
+  static Future<int> raiseDue(
+    Actor actor, {
+    required List<UdhaarAccount> accounts,
+    required List<Delivery> unbilled,
+    DateTime? now,
+  }) async {
+    if (accounts.isEmpty) return 0;
+    final due = dueNow(unbilled, now: now);
+    if (due.isEmpty) return 0;
+
+    var raised = 0;
+    for (final entry in due.entries) {
+      raised += await raiseAll(
+        actor,
+        monthId: entry.key,
+        accounts: accounts,
+        monthDeliveries: entry.value,
+      );
+    }
+    return raised;
+  }
+
+  /// The unbilled milk that has fallen due, grouped by the month it belongs to.
+  ///
+  /// Kept apart from the writing so the rule — finished months always, the
+  /// current month only on its last day — can be read and tested on its own.
+  static Map<String, List<Delivery>> dueNow(
+    List<Delivery> unbilled, {
+    DateTime? now,
+  }) {
+    if (unbilled.isEmpty) return const {};
+
+    final today = now ?? DateTime.now();
+    final thisMonth = monthIdOf(today);
+    final lastDay = DateTime(today.year, today.month + 1, 0).day == today.day;
+
+    final due = <String, List<Delivery>>{};
+    for (final d in unbilled) {
+      final finished = d.monthId.compareTo(thisMonth) < 0;
+      if (finished || (d.monthId == thisMonth && lastDay)) {
+        due.putIfAbsent(d.monthId, () => []).add(d);
+      }
+    }
+    return due;
   }
 
   /// Takes money against a bill — in full or in part.

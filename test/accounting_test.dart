@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 import 'package:char_yar_dairy_farm/util/phone.dart';
@@ -420,6 +421,70 @@ void main() {
         Delivery.idFor('ahmed', DateTime(2026, 9, 4)),
         Delivery.idFor('ahmed', DateTime(2026, 9, 4, 18, 30)),
       );
+    });
+  });
+
+  group('bills raise themselves at month end', () {
+    Delivery day(String monthId, int d) => Delivery(
+      id: 'ahmed_$monthId-$d',
+      customerId: 'ahmed',
+      customerName: 'Ahmed',
+      date: DateTime.parse('$monthId-${d.toString().padLeft(2, '0')}'),
+      monthId: monthId,
+      litres: 4,
+      rate: 180,
+      slot: 'morning',
+      deliveredByName: 'Rafique',
+      createdAt: DateTime.parse('$monthId-${d.toString().padLeft(2, '0')}'),
+    );
+
+    test('nothing is due in the middle of the month', () {
+      final due = BillRepo.dueNow([
+        day('2026-09', 1),
+        day('2026-09', 15),
+      ], now: DateTime(2026, 9, 15, 20));
+      expect(due, isEmpty);
+    });
+
+    test('the last day of the month raises it', () {
+      final due = BillRepo.dueNow([
+        day('2026-09', 1),
+        day('2026-09', 30),
+      ], now: DateTime(2026, 9, 30, 21));
+      expect(due.keys, ['2026-09']);
+      expect(due['2026-09']!.length, 2);
+    });
+
+    test('a short month knows its own last day', () {
+      final feb = [day('2027-02', 28)];
+      expect(BillRepo.dueNow(feb, now: DateTime(2027, 2, 27)), isEmpty);
+      expect(BillRepo.dueNow(feb, now: DateTime(2027, 2, 28)), isNotEmpty);
+      // 2028 is a leap year, so the 28th is no longer the end.
+      final leap = [day('2028-02', 28)];
+      expect(BillRepo.dueNow(leap, now: DateTime(2028, 2, 28)), isEmpty);
+      expect(BillRepo.dueNow(leap, now: DateTime(2028, 2, 29)), isNotEmpty);
+    });
+
+    test('milk left over from a finished month is billed on sight', () {
+      // Nobody opened the app on the 31st of August — it still gets billed.
+      final due = BillRepo.dueNow([
+        day('2026-08', 20),
+        day('2026-09', 2),
+      ], now: DateTime(2026, 9, 3));
+      expect(due.keys, ['2026-08']);
+      expect(due['2026-08']!.length, 1);
+    });
+
+    test('each month is billed on its own statement', () {
+      final due = BillRepo.dueNow([
+        day('2026-07', 4),
+        day('2026-08', 20),
+      ], now: DateTime(2026, 9, 3));
+      expect(due.keys.toSet(), {'2026-07', '2026-08'});
+    });
+
+    test('no milk, no bill', () {
+      expect(BillRepo.dueNow(const [], now: DateTime(2026, 9, 30)), isEmpty);
     });
   });
 

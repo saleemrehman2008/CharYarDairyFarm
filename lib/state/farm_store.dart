@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
 import '../services/accounting.dart';
+import '../services/bill_repo.dart';
 import '../services/db.dart';
+import '../services/log_service.dart';
 import '../services/month_repo.dart';
 import 'round_data.dart';
 
@@ -59,6 +61,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _bills = v;
         notifyListeners();
       }),
+      Db.watchUnbilledDeliveries().listen((v) {
+        _unbilled = v;
+        _raiseDueBills();
+        notifyListeners();
+      }),
       if (isMaster)
         Db.watchUsers().listen((v) {
           _users = v;
@@ -83,6 +90,8 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<UdhaarAccount> _udhaar = const [];
   List<Bill> _bills = const [];
   List<Delivery> _deliveries = const [];
+  List<Delivery> _unbilled = const [];
+  bool _billRunDone = false;
   List<AppUser> _users = const [];
   FarmSettings _settings = FarmSettings.fallback;
 
@@ -108,6 +117,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
       _udhaar.where((u) => u.isApproved).toList()
         ..sort((a, b) => a.name.compareTo(b.name));
 
+  /// Everyone who can still be billed, closed khaatas included.
+  List<UdhaarAccount> get billableKhaata =>
+      _udhaar.where((u) => u.isBillable).toList();
+
   @override
   List<Bill> get bills => _bills;
   @override
@@ -115,12 +128,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
   @override
   List<Delivery> get monthDeliveries => _deliveries;
 
+  @override
+  String get monthId => month.id;
+
   /// Months already closed, newest first — the ledger can be looked back at.
   List<FarmMonth> get closedMonths => _closedMonths;
 
-  @override
-  @override
-  String get monthId => month.id;
   List<AppUser> get users => _users;
   FarmSettings get settings => _settings;
 
@@ -203,6 +216,32 @@ class FarmStore extends ChangeNotifier implements RoundData {
       _unpaidTxns.where((t) => t.isReceivable).toList();
 
   int get approvalCount => pendingOrders.length + pendingUdhaar.length;
+
+  /// Raises any bill that has fallen due, once per run of the app.
+  ///
+  /// This is the month-end job a scheduled Cloud Function would normally do.
+  /// It only ever raises what is genuinely due, and is safe to repeat, so the
+  /// worst a second phone can do is find there was nothing left to raise.
+  Future<void> _raiseDueBills() async {
+    if (_billRunDone || !isMaster) return;
+    // Closed khaatas are included: someone taken off the round mid-month is
+    // still owed for the milk they had.
+    final billable = billableKhaata;
+    if (_unbilled.isEmpty || billable.isEmpty) return;
+    _billRunDone = true;
+
+    try {
+      await BillRepo.raiseDue(
+        Actor(uid: 'auto', name: 'The app'),
+        accounts: billable,
+        unbilled: _unbilled,
+      );
+    } catch (_) {
+      // Nothing is lost: whoever opens the app next tries again, and the
+      // bills screen can always raise them by hand.
+      _billRunDone = false;
+    }
+  }
 
   void _resubscribeMonthTxns(String monthId) {
     _monthTxnSub?.cancel();

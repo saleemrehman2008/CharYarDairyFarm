@@ -91,8 +91,9 @@ class _BillsScreenState extends State<BillsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Bills are raised automatically when the month is closed. '
-                  'Use this to send them out early.',
+                  'Bills raise themselves on the last day of the month, and '
+                  'again when the month is closed. Nobody has to remember — '
+                  'this is only for sending them out early.',
                   style: T.meta,
                 ),
               ],

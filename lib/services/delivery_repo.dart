@@ -44,6 +44,7 @@ class DeliveryRepo {
       'slot': account.slot,
       'deliveredBy': actor.uid,
       'deliveredByName': actor.name,
+      'billed': false,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 

@@ -93,7 +93,7 @@ class _UdhaarBanner extends StatelessWidget {
       UdhaarStatus.approved => (
         TagTone.good,
         'You owe ${rs(u?.balance ?? 0)} of your ${rs(u?.limit ?? 0)} limit. '
-            'Billed when the farm closes the month.',
+            'Your bill comes at the end of every month.',
       ),
       UdhaarStatus.pending => (
         TagTone.warn,
@@ -104,6 +104,14 @@ class _UdhaarBanner extends StatelessWidget {
         TagTone.bad,
         'Monthly credit was not approved. You can still order and pay on '
             'delivery.',
+      ),
+      UdhaarStatus.closed => (
+        TagTone.neutral,
+        (u?.balance ?? 0) > 0
+            ? 'Your khaata is closed. ${rs(u!.balance)} is still owing — the '
+                  'farm will collect it.'
+            : 'Your khaata is closed and settled. You can still order and pay '
+                  'on delivery.',
       ),
       UdhaarStatus.none => (
         TagTone.neutral,

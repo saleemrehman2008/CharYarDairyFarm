@@ -5,12 +5,17 @@ enum UdhaarStatus {
   none,
   pending,
   approved,
-  rejected;
+  rejected,
+
+  /// Settled up and off the round — someone who stopped taking milk. Their
+  /// bills and history stay, so an old balance is never lost.
+  closed;
 
   static UdhaarStatus parse(Object? v) => switch (s(v)) {
     'approved' => UdhaarStatus.approved,
     'rejected' => UdhaarStatus.rejected,
     'pending' => UdhaarStatus.pending,
+    'closed' => UdhaarStatus.closed,
     _ => UdhaarStatus.none,
   };
 
@@ -19,6 +24,7 @@ enum UdhaarStatus {
     UdhaarStatus.pending => 'Pending approval',
     UdhaarStatus.approved => 'Approved',
     UdhaarStatus.rejected => 'Not approved',
+    UdhaarStatus.closed => 'Closed',
   };
 }
 
@@ -61,6 +67,12 @@ class UdhaarAccount {
   final DateTime createdAt;
 
   bool get isApproved => status == UdhaarStatus.approved;
+
+  /// A closed khaata comes off the daily round but is still billed and
+  /// collected: the milk it took, and whatever it still owes, belong to the
+  /// farm either way.
+  bool get isBillable =>
+      status == UdhaarStatus.approved || status == UdhaarStatus.closed;
   num get headroom => limit - balance;
 
   String get slotLabel => slot == 'evening' ? 'Evening 5–8' : 'Morning 6–9';
