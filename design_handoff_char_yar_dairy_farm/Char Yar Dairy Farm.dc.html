@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/industry-b4b72632-b93e-4484-87a6-2a9b7649322a/styles.css">
+  <script src="_ds/industry-b4b72632-b93e-4484-87a6-2a9b7649322a/_ds_bundle.js"></script>
+  <script src="./image-slot.js"></script>
+  <style>
+  :root{--color-bg:#f6f2ec;--color-surface:#ece5db;--color-text:#221b15;--color-accent:#9a6a3f;--color-accent-2:#b98a4d;--color-divider:color-mix(in srgb,#221b15 16%,transparent);
+    --color-neutral-100:#f8f5f1;--color-neutral-200:#ebe6df;--color-neutral-300:#d8d1c8;--color-neutral-400:#bab2a8;--color-neutral-500:#9a9187;--color-neutral-600:#7a7168;--color-neutral-700:#5c554d;--color-neutral-800:#413b35;--color-neutral-900:#2a2521;
+    --color-accent-100:#f9f1e6;--color-accent-200:#f0dfc8;--color-accent-300:#e2c5a0;--color-accent-400:#cba475;--color-accent-500:#ad8351;--color-accent-600:#8f683c;--color-accent-700:#6e4f2c;--color-accent-800:#4d371e;--color-accent-900:#2f2214;
+    --color-accent-2-100:#fbf3e2;--color-accent-2-200:#f4e3bf;--color-accent-2-300:#e9cd93;--color-accent-2-400:#d5b06a;--color-accent-2-500:#b98f4a;--color-accent-2-600:#977236;--color-accent-2-700:#735627;--color-accent-2-800:#503c1b;--color-accent-2-900:#312511}
+  body{margin:0;background:var(--color-bg)} a{color:var(--color-accent)} a:hover{color:var(--color-accent-700)} select.input{appearance:none}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 16px 40px;font-family:var(--font-body);color:var(--color-text)">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;color:var(--color-neutral-600)">
+    <span style="font-family:var(--font-heading);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text)">Char Yar Dairy Farm · prototype</span>
+    <span>Sign in as:</span>
+    <sc-for list="{{ quickRoles }}" as="r" hint-placeholder-count="4"><button class="btn {{ r.cls }}" style="padding:4px 10px;font-size:12px" onClick="{{ r.go }}">{{ r.label }}</button></sc-for>
+  </div>
+  <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" hint-size="412px,892px">
+    <div style="height:100%;display:flex;flex-direction:column;background:var(--color-bg);font-family:var(--font-body);color:var(--color-text);font-size:14px">
+
+      <!-- LOGIN -->
+      <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:40px 28px 40px">
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <img src="uploads/Firefly.png" alt="Char Yar Dairy Farm" style="width:180px;height:auto;align-self:center">
+            <div style="text-align:center">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-accent-700)">Fresh &amp; natural · quality milk</div>
+              <h1 style="font-size:44px;margin:4px 0 0;line-height:1">Char Yar Dairy Farm</h1>
+            </div>
+            <p style="font-size:14px;color:var(--color-neutral-700);max-width:280px;margin:0 auto;text-align:center">Fresh milk, dahi, ghee and more, delivered daily. Co-founders manage sales, accounts and profit share here.</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <button class="btn btn-primary blueprint" style="height:48px;font-size:15px;gap:10px" onClick="{{ googleSignIn }}">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8h6"></path><path d="M12 8v8"></path><path d="M12 12h6"></path></svg>
+              Continue with Google
+            </button>
+            <div style="font-size:11px;color:var(--color-neutral-600);text-align:center">New accounts wait for approval by the master account.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ACCOUNT PICKER (Google sheet) -->
+      <sc-if value="{{ isPicker }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;padding:24px 20px;gap:14px">
+          <img src="uploads/Firefly.png" alt="" style="width:64px;height:64px;object-fit:contain;align-self:center">
+          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Choose an account</div>
+          <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="4">
+            <button class="card blueprint" style="text-align:left;cursor:pointer;flex-direction:row;align-items:center;gap:12px;padding:12px;font:inherit;color:inherit" onClick="{{ a.pick }}">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="width:36px;height:36px;display:grid;place-items:center;background:var(--color-accent-100);color:var(--color-accent-800);font-family:var(--font-heading);font-weight:600;font-size:16px">{{ a.initial }}</div>
+              <div style="flex:1;min-width:0"><div style="font-weight:500">{{ a.name }}</div><div style="font-size:12px;color:var(--color-neutral-600)">{{ a.email }}</div></div>
+              <span class="tag tag-accent">{{ a.roleLabel }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- APP SHELL -->
+      <sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px 8px;border-bottom:1px solid var(--color-divider)">
+          <sc-if value="{{ noBack }}" hint-placeholder-val="{{ true }}"><img src="uploads/Firefly.png" alt="" style="width:36px;height:36px;object-fit:contain"></sc-if>
+          <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ false }}"><button class="btn btn-ghost" style="padding:4px;min-width:32px" onClick="{{ back }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg></button></sc-if>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-heading);font-weight:600;font-size:22px;line-height:1.1">{{ title }}</div>
+            <div style="font-size:11px;color:var(--color-neutral-600)">{{ subtitle }}</div>
+          </div>
+          <sc-if value="{{ showSync }}" hint-placeholder-val="{{ false }}"><span class="tag tag-accent" style="gap:5px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Sheets synced</span></sc-if>
+          <button class="btn btn-ghost" style="padding:4px 6px;font-size:12px" onClick="{{ signOut }}">Sign out</button>
+        </div>
+
+        <div style="flex:1;overflow:auto;padding:14px 16px 20px;display:flex;flex-direction:column;gap:14px">
+
+          <!-- ═══ ADMIN HOME ═══ -->
+          <sc-if value="{{ v.adminHome }}" hint-placeholder-val="{{ false }}">
+            <div class="card blueprint" style="padding:14px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="card-kicker">Current balance · {{ monthName }}</span><span class="tag {{ monthTagCls }}">{{ monthStatus }}</span></div>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:36px;line-height:1">{{ cashFmt }}</div>
+              <div style="font-size:12px;color:var(--color-neutral-600)">Cash + bank after receipts and payments this month</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                <button class="card blueprint" style="cursor:pointer;text-align:left;font:inherit;color:inherit;padding:12px;gap:2px" onClick="{{ k.go }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                  <span class="card-kicker">{{ k.label }}</span>
+                  <span style="font-family:var(--font-heading);font-weight:600;font-size:22px;line-height:1.1">{{ k.value }}</span>
+                  <span style="font-size:11px;color:var(--color-neutral-600)">{{ k.note }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div class="card blueprint" style="padding:12px;gap:8px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between"><span class="card-kicker">Month to date</span><span style="font-size:12px;color:var(--color-neutral-600)">Profit before share</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:var(--font-heading);font-weight:600;font-size:28px">{{ profitFmt }}</span><span style="font-size:12px;color:var(--color-neutral-700)">Sales {{ salesFmt }} − Costs {{ costsFmt }}</span></div>
+              <div style="display:flex;height:6px;background:var(--color-neutral-200)"><div style="background:var(--color-accent);width:{{ profitPct }}"></div></div>
+              <sc-if value="{{ isMaster }}" hint-placeholder-val="{{ true }}">
+                <button class="btn btn-primary btn-block blueprint" style="height:42px;margin-top:6px" onClick="{{ openCloseMonth }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Close month &amp; share profit</button>
+              </sc-if>
+              
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><h6 style="margin:0;color:var(--color-neutral-600)">Needs attention</h6><span style="font-size:12px;color:var(--color-neutral-600)">{{ pendingCount }} items</span></div>
+              <sc-for list="{{ attention }}" as="a" hint-placeholder-count="2">
+                <button style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 0;border:0;border-bottom:1px solid var(--color-divider);background:none;font:inherit;color:inherit;text-align:left;cursor:pointer" onClick="{{ a.go }}">
+                  <span class="tag {{ a.cls }}">{{ a.tag }}</span><span style="flex:1;font-size:13px">{{ a.text }}</span><span style="font-size:12px;color:var(--color-neutral-600)">{{ a.meta }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ═══ CLOSE MONTH ═══ -->
+          <sc-if value="{{ v.closeMonth }}" hint-placeholder-val="{{ false }}">
+            <div class="card blueprint" style="padding:12px;gap:6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker">{{ monthName }} summary</span>
+              <sc-for list="{{ closeLines }}" as="l" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px solid var(--color-divider)"><span style="color:var(--color-neutral-700)">{{ l.label }}</span><span style="font-weight:500">{{ l.value }}</span></div></sc-for>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:6px"><span style="font-weight:500">Profit to share</span><span style="font-family:var(--font-heading);font-weight:600;font-size:26px">{{ closeProfitFmt }}</span></div>
+            </div>
+            <div class="card blueprint" style="padding:12px;gap:8px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker">Uncollected receivables · {{ arFmt }}</span>
+              <div style="font-size:13px;color:var(--color-neutral-700)">Udhaar bills not yet paid. Decide how this month treats them.</div>
+              <label class="radio"><input type="radio" name="ar" checked="{{ arInclude }}" onChange="{{ setArInclude }}"><span class="dot"></span>Count as this month's income (share on paper)</label>
+              <label class="radio"><input type="radio" name="ar" checked="{{ arRoll }}" onChange="{{ setArRoll }}"><span class="dot"></span>Roll into next month (share cash only)</label>
+            </div>
+            <div>
+              <h6 style="margin:0 0 6px;color:var(--color-neutral-600)">Co-founder shares · by investment ratio</h6>
+              <sc-for list="{{ closeShares }}" as="p" hint-placeholder-count="4">
+                <div style="display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--color-divider)">
+                  <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;font-weight:500">{{ p.name }}</span><span class="tag tag-neutral">{{ p.pct }}</span><span style="font-family:var(--font-heading);font-weight:600;font-size:18px">{{ p.share }}</span></div>
+                  <div class="seg" style="align-self:flex-start">
+                    <label class="seg-opt"><input type="radio" name="{{ p.segName }}" checked="{{ p.isWithdraw }}" onChange="{{ p.setWithdraw }}">Withdraw</label>
+                    <label class="seg-opt"><input type="radio" name="{{ p.segName }}" checked="{{ p.isReinvest }}" onChange="{{ p.setReinvest }}">Add to investment</label>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <button class="btn btn-primary btn-block blueprint" style="height:46px" onClick="{{ confirmClose }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Close month &amp; post shares</button>
+            <div style="font-size:11px;color:var(--color-neutral-600);text-align:center">Writes to Google Sheets and the activity log. Co-founders are notified in-app and on WhatsApp.</div>
+          </sc-if>
+
+          <!-- ═══ ORDERS (admin + investor approvals) ═══ -->
+          <sc-if value="{{ v.orders }}" hint-placeholder-val="{{ false }}">
+            <div class="seg" style="align-self:flex-start">
+              <sc-for list="{{ orderFilters }}" as="f" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" name="of" checked="{{ f.on }}" onChange="{{ f.set }}">{{ f.label }}</label></sc-for>
+            </div>
+            <sc-for list="{{ orderList }}" as="o" hint-placeholder-count="3">
+              <div class="card blueprint" style="padding:12px;gap:8px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="display:flex;align-items:center;gap:8px"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px;flex:1">{{ o.id }} · {{ o.customer }}</span><span class="tag {{ o.cls }}">{{ o.status }}</span></div>
+                <div style="font-size:13px;color:var(--color-neutral-700)">{{ o.itemsText }}</div>
+                <div style="display:flex;gap:12px;font-size:12px;color:var(--color-neutral-600)"><span>{{ o.mode }}</span><span>{{ o.slot }}</span><span>{{ o.pay }}</span><span style="margin-left:auto;font-weight:500;color:var(--color-text)">{{ o.totalFmt }}</span></div>
+                <div style="display:flex;gap:3px">
+                  <sc-for list="{{ o.steps }}" as="s" hint-placeholder-count="4"><div style="flex:1;height:4px;background:{{ s.color }}"></div></sc-for>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                  <span style="font-size:11px;color:var(--color-neutral-600)">{{ o.approvalText }}</span>
+                  <sc-if value="{{ o.canApprove }}" hint-placeholder-val="{{ false }}"><button class="btn btn-primary" style="padding:6px 14px" onClick="{{ o.approve }}">Approve</button></sc-if>
+                  <sc-if value="{{ o.canAdvance }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" style="padding:6px 14px" onClick="{{ o.advance }}">{{ o.nextLabel }}</button></sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noOrders }}" hint-placeholder-val="{{ false }}"><div style="text-align:center;color:var(--color-neutral-600);padding:30px 0;font-size:13px">Nothing here.</div></sc-if>
+          </sc-if>
+
+          <!-- ═══ ACCOUNTS ═══ -->
+          <sc-if value="{{ v.accounts }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <div class="card blueprint" style="padding:10px;gap:0"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span class="card-kicker">Receivable</span><span style="font-family:var(--font-heading);font-weight:600;font-size:18px">{{ arFmt }}</span></div>
+              <div class="card blueprint" style="padding:10px;gap:0"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span class="card-kicker">Payable</span><span style="font-family:var(--font-heading);font-weight:600;font-size:18px">{{ apFmt }}</span></div>
+              <div class="card blueprint" style="padding:10px;gap:0"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span class="card-kicker">Cash</span><span style="font-family:var(--font-heading);font-weight:600;font-size:18px">{{ cashFmt }}</span></div>
+            </div>
+            <div style="font-size:12px;color:var(--color-neutral-600)">All farm money in one place: milk &amp; product sales, cattle, feed, bills, rent, food, salaries. Anything sold or bought on credit stays "unpaid" until you mark it paid.</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="seg" style="flex:1;overflow:auto">
+                <sc-for list="{{ txnFilters }}" as="f" hint-placeholder-count="4"><label class="seg-opt" style="white-space:nowrap"><input type="radio" name="tf" checked="{{ f.on }}" onChange="{{ f.set }}">{{ f.label }}</label></sc-for>
+              </div>
+              <button class="btn btn-primary" style="padding:7px 12px" onClick="{{ openAddTxn }}">+ Add</button>
+            </div>
+            <table class="table" style="font-size:13px">
+              <thead><tr><th>Date</th><th>Entry</th><th style="text-align:right">Amount</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ txnList }}" as="t" hint-placeholder-count="6">
+                  <tr>
+                    <td style="white-space:nowrap;color:var(--color-neutral-600)">{{ t.date }}</td>
+                    <td><div>{{ t.party }}</div><div style="font-size:11px;color:var(--color-neutral-600)">{{ t.typeLabel }} · {{ t.category }}{{ t.qtyText }}<sc-if value="{{ t.unpaid }}" hint-placeholder-val="{{ false }}"> · <span style="color:var(--color-accent-700)">unpaid</span> <button class="btn btn-secondary" style="padding:1px 6px;font-size:11px;margin-left:4px" onClick="{{ t.markPaid }}">Mark paid</button></sc-if></div></td>
+                    <td style="text-align:right;white-space:nowrap;font-weight:500;color:{{ t.color }}">{{ t.amountFmt }}<sc-if value="{{ canDelete }}" hint-placeholder-val="{{ false }}"><button class="btn btn-ghost" style="padding:2px 4px;margin-left:4px;font-size:11px" onClick="{{ t.del }}">✕</button></sc-if></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </sc-if>
+
+          <!-- ═══ ADD TRANSACTION ═══ -->
+          <sc-if value="{{ v.addTxn }}" hint-placeholder-val="{{ false }}">
+            <div class="seg" style="align-self:flex-start;flex-wrap:wrap">
+              <sc-for list="{{ txnTypes }}" as="tt" hint-placeholder-count="5"><label class="seg-opt"><input type="radio" name="tt" checked="{{ tt.on }}" onChange="{{ tt.set }}">{{ tt.label }}</label></sc-for>
+            </div>
+            <div class="field"><label>Party</label><input class="input" placeholder="{{ partyPlaceholder }}" value="{{ form.party }}" onChange="{{ setFormParty }}"></div>
+            <div class="field"><label>Category</label><select class="input" value="{{ form.category }}" onChange="{{ setFormCategory }}"><sc-for list="{{ categories }}" as="c" hint-placeholder-count="5"><option value="{{ c }}">{{ c }}</option></sc-for></select></div>
+            <sc-if value="{{ formShowsQty }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                <div class="field"><label>Qty</label><input class="input" type="number" placeholder="0" value="{{ form.qty }}" onChange="{{ setFormQty }}"></div>
+                <div class="field"><label>Unit</label><select class="input" value="{{ form.unit }}" onChange="{{ setFormUnit }}"><option value="L">L</option><option value="kg">kg</option><option value="maund">maund</option><option value="bag">bag</option><option value="pc">pc</option><option value="head">head</option><option value="month">month</option></select></div>
+                <div class="field"><label>Rate / {{ form.unit }}</label><input class="input" type="number" placeholder="0" value="{{ form.rate }}" onChange="{{ setFormRate }}"></div>
+              </div>
+            </sc-if>
+            <div class="field"><label>Total amount (Rs)</label><input class="input" type="number" placeholder="0" value="{{ form.amount }}" onChange="{{ setFormAmount }}"><span style="font-size:11px;color:var(--color-neutral-600)">Qty × rate fills this; editing the total re-calculates the rate.</span></div>
+            <sc-if value="{{ formShowsPaid }}" hint-placeholder-val="{{ true }}">
+              <div class="seg" style="align-self:flex-start"><label class="seg-opt"><input type="radio" name="paid" checked="{{ form.paid }}" onChange="{{ setFormPaid }}">Paid now</label><label class="seg-opt"><input type="radio" name="paid" checked="{{ formUnpaid }}" onChange="{{ setFormUnpaid }}">{{ unpaidLabel }}</label></div>
+            </sc-if>
+            <div class="field"><label>Note</label><input class="input" placeholder="Optional" value="{{ form.note }}" onChange="{{ setFormNote }}"></div>
+            <button class="btn btn-primary btn-block blueprint" style="height:44px" onClick="{{ saveTxn }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Save &amp; sync to Sheets</button>
+          </sc-if>
+
+          <!-- ═══ PARTNERS ═══ -->
+          <sc-if value="{{ v.partners }}" hint-placeholder-val="{{ false }}">
+            <div class="card blueprint" style="padding:12px;gap:6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker">Total capital · {{ partnerCount }} co-founders</span>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:30px;line-height:1">{{ capitalFmt }}</div>
+              <div style="display:flex;height:8px;gap:2px"><sc-for list="{{ partnerRows }}" as="p" hint-placeholder-count="4"><div style="width:{{ p.pct }};background:{{ p.bar }}"></div></sc-for></div>
+              <div style="font-size:12px;color:var(--color-neutral-600)">Share ratio follows investment. Reinvested profit raises a partner's ratio automatically.</div>
+            </div>
+            <sc-for list="{{ partnerRows }}" as="p" hint-placeholder-count="4">
+              <div class="card blueprint" style="padding:12px;gap:6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;background:{{ p.bar }}"></span><span style="font-family:var(--font-heading);font-weight:600;font-size:17px;flex:1">{{ p.name }}</span><span class="tag tag-accent">{{ p.pct }}</span><sc-if value="{{ p.isMe }}" hint-placeholder-val="{{ false }}"><span class="tag tag-outline">You</span></sc-if></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px">
+                  <div><div style="color:var(--color-neutral-600)">Invested</div><div style="font-weight:500">{{ p.investedFmt }}</div></div>
+                  <div><div style="color:var(--color-neutral-600)">Reinvested</div><div style="font-weight:500">{{ p.reinvestedFmt }}</div></div>
+                  <div><div style="color:var(--color-neutral-600)">Withdrawn</div><div style="font-weight:500">{{ p.withdrawnFmt }}</div></div>
+                </div>
+                <sc-if value="{{ isMaster }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:8px;align-items:center;margin-top:4px"><input class="input" type="number" placeholder="Add investment (Rs)" value="{{ p.addVal }}" onChange="{{ p.setAdd }}" style="min-height:32px;font-size:13px"><button class="btn btn-secondary" style="padding:6px 12px;white-space:nowrap" onClick="{{ p.addInvest }}">Add</button></div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div>
+              <h6 style="margin:0 0 6px;color:var(--color-neutral-600)">Closed months</h6>
+              <sc-for list="{{ history }}" as="h" hint-placeholder-count="2">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>{{ h.name }}</span><span style="color:var(--color-neutral-600)">{{ h.note }}</span><span style="font-weight:500">{{ h.profitFmt }}</span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ═══ PRODUCTS (master + co-founders) ═══ -->
+          <sc-if value="{{ v.products }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:var(--color-neutral-600)">Rates and items are shared by all co-founders. Changes go live in the shop and sync to Sheets.</div>
+            <sc-for list="{{ productRows }}" as="p" hint-placeholder-count="8">
+              <div class="card blueprint" style="padding:10px;flex-direction:row;gap:10px;align-items:center"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div class="duotone" style="width:88px;height:88px;flex:none;background:var(--color-neutral-200)"><image-slot id="{{ p.slotId }}" shape="rect" placeholder="Photo" style="width:100%;height:100%"></image-slot></div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+                  <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;line-height:1.1">{{ p.name }}</div>
+                  <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--color-neutral-600)">Rs</span><input class="input" type="number" value="{{ p.price }}" onChange="{{ p.setPrice }}" style="min-height:30px;font-size:13px;width:90px"><span style="font-size:12px;color:var(--color-neutral-600)">/ {{ p.unit }}</span></div>
+                </div>
+                <button class="btn btn-ghost" style="padding:6px 8px;font-size:12px" onClick="{{ p.remove }}">Remove</button>
+              </div>
+            </sc-for>
+            <div class="card blueprint" style="padding:12px;gap:8px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker">Add item</span>
+              <div class="field"><label>Name</label><input class="input" placeholder="e.g. Desi ghee 1 kg" value="{{ newProd.name }}" onChange="{{ setNewName }}"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="field"><label>Rate (Rs)</label><input class="input" type="number" placeholder="0" value="{{ newProd.price }}" onChange="{{ setNewPrice }}"></div>
+                <div class="field"><label>Unit</label><select class="input" value="{{ newProd.unit }}" onChange="{{ setNewUnit }}"><option value="L">L</option><option value="kg">kg</option><option value="pc">pc</option><option value="dozen">dozen</option></select></div>
+              </div>
+              <button class="btn btn-primary btn-block blueprint" style="height:42px" onClick="{{ addProduct }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Add to shop</button>
+            </div>
+          </sc-if>
+
+          <!-- ═══ MORE (admin) ═══ -->
+          <sc-if value="{{ v.more }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ moreItems }}" as="m" hint-placeholder-count="3">
+              <button class="card blueprint" style="cursor:pointer;text-align:left;font:inherit;color:inherit;padding:12px;flex-direction:row;align-items:center;gap:10px" onClick="{{ m.go }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px">{{ m.label }}</div><div style="font-size:12px;color:var(--color-neutral-600)">{{ m.note }}</div></div>
+                <sc-if value="{{ m.locked }}" hint-placeholder-val="{{ false }}"><span class="tag tag-neutral">Master only</span></sc-if>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </sc-for>
+            <div style="font-size:12px;color:var(--color-neutral-600);padding:4px 2px">Signed in as {{ meName }} · {{ meEmail }} · {{ meRole }}</div>
+          </sc-if>
+
+          <!-- ═══ USERS (master) ═══ -->
+          <sc-if value="{{ v.users }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ userRows }}" as="u" hint-placeholder-count="5">
+              <div class="card blueprint" style="padding:12px;gap:8px;opacity:{{ u.opacity }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-weight:500">{{ u.name }}</div><div style="font-size:12px;color:var(--color-neutral-600)">{{ u.email }}</div></div><span class="tag {{ u.cls }}">{{ u.statusLabel }}</span></div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select class="input" style="min-height:32px;font-size:13px;flex:1" value="{{ u.role }}" onChange="{{ u.setRole }}"><option value="investor">Co-founder</option><option value="customer">Customer</option></select>
+                  <sc-if value="{{ u.pending }}" hint-placeholder-val="{{ false }}"><button class="btn btn-primary" style="padding:6px 12px" onClick="{{ u.approve }}">Approve</button></sc-if>
+                  <sc-if value="{{ u.notPending }}" hint-placeholder-val="{{ true }}"><button class="btn btn-secondary" style="padding:6px 12px" onClick="{{ u.toggleBlock }}">{{ u.blockLabel }}</button></sc-if>
+                  <button class="btn btn-ghost" style="padding:6px 8px;font-size:12px" onClick="{{ u.reset }}">Reset</button>
+                </div>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <!-- ═══ LOG (master) ═══ -->
+          <sc-if value="{{ v.log }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ logRows }}" as="l" hint-placeholder-count="8">
+              <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px">
+                <span style="width:52px;flex:none;font-size:11px;color:var(--color-neutral-600);font-variant-numeric:tabular-nums">{{ l.time }}</span>
+                <div style="flex:1"><span style="font-weight:500">{{ l.who }}</span> <span style="color:var(--color-neutral-700)">{{ l.what }}</span></div>
+                <span class="tag tag-neutral" style="align-self:flex-start">{{ l.kind }}</span>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <!-- ═══ REGISTRATIONS (udhaar approvals) ═══ -->
+          <sc-if value="{{ v.regs }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ regRows }}" as="r" hint-placeholder-count="2">
+              <div class="card blueprint" style="padding:12px;gap:8px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="display:flex;align-items:center;gap:8px"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px;flex:1">{{ r.name }}</span><span class="tag {{ r.cls }}">{{ r.status }}</span></div>
+                <div style="font-size:13px;color:var(--color-neutral-700)">{{ r.address }}</div>
+                <div style="display:flex;gap:12px;font-size:12px;color:var(--color-neutral-600);flex-wrap:wrap"><span>{{ r.mobile }}</span><span>{{ r.slot }}</span><span>{{ r.litres }} L / day</span><span>Limit {{ r.limitFmt }}</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--color-neutral-600)">{{ r.approvalText }}</span><sc-if value="{{ r.canApprove }}" hint-placeholder-val="{{ false }}"><button class="btn btn-primary" style="padding:6px 14px" onClick="{{ r.approve }}">Approve udhaar</button></sc-if></div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noRegs }}" hint-placeholder-val="{{ false }}"><div style="text-align:center;color:var(--color-neutral-600);padding:30px 0;font-size:13px">No pending registrations.</div></sc-if>
+          </sc-if>
+
+          <!-- ═══ INVESTOR HOME ═══ -->
+          <sc-if value="{{ v.invHome }}" hint-placeholder-val="{{ false }}">
+            <div class="card blueprint" style="padding:14px;gap:4px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <span class="card-kicker">Your share · {{ me.pct }}</span>
+              <div style="font-family:var(--font-heading);font-weight:600;font-size:36px;line-height:1">{{ me.projectedFmt }}</div>
+              <div style="font-size:12px;color:var(--color-neutral-600)">Projected for {{ monthName }} from {{ profitFmt }} profit to date</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="card blueprint" style="padding:12px;gap:2px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span class="card-kicker">Your capital</span><span style="font-family:var(--font-heading);font-weight:600;font-size:22px">{{ me.capitalFmt }}</span><span style="font-size:11px;color:var(--color-neutral-600)">incl. {{ me.reinvestedFmt }} reinvested</span></div>
+              <div class="card blueprint" style="padding:12px;gap:2px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span class="card-kicker">Farm balance</span><span style="font-family:var(--font-heading);font-weight:600;font-size:22px">{{ cashFmt }}</span><span style="font-size:11px;color:var(--color-neutral-600)">AR {{ arFmt }} · AP {{ apFmt }}</span></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><h6 style="margin:0;color:var(--color-neutral-600)">Awaiting approval</h6><span style="font-size:12px;color:var(--color-neutral-600)">any one co-founder may approve</span></div>
+              <sc-for list="{{ attention }}" as="a" hint-placeholder-count="2">
+                <button style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 0;border:0;border-bottom:1px solid var(--color-divider);background:none;font:inherit;color:inherit;text-align:left;cursor:pointer" onClick="{{ a.go }}">
+                  <span class="tag {{ a.cls }}">{{ a.tag }}</span><span style="flex:1;font-size:13px">{{ a.text }}</span><span style="font-size:12px;color:var(--color-neutral-600)">{{ a.meta }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div>
+              <h6 style="margin:0 0 6px;color:var(--color-neutral-600)">Your profit history</h6>
+              <sc-for list="{{ me.history }}" as="h" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px"><span>{{ h.name }}</span><span class="tag tag-neutral">{{ h.choice }}</span><span style="font-weight:500">{{ h.shareFmt }}</span></div></sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ═══ SHOP ═══ -->
+          <sc-if value="{{ v.shop }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ custBanner }}" hint-placeholder-val="{{ false }}">
+              <div class="card blueprint" style="padding:10px 12px;flex-direction:row;align-items:center;gap:10px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="flex:1;font-size:13px"><span style="font-weight:500">{{ custBannerTitle }}</span><div style="color:var(--color-neutral-600);font-size:12px">{{ custBannerNote }}</div></div><span class="tag {{ custBannerCls }}">{{ custBannerTag }}</span>
+              </div>
+            </sc-if>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <sc-for list="{{ products }}" as="p" hint-placeholder-count="8">
+                <div class="card blueprint" style="padding:10px;gap:6px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                  <div class="duotone" style="aspect-ratio:4/3;background:var(--color-neutral-200)"><image-slot id="{{ p.slotId }}" shape="rect" placeholder="Drop {{ p.name }} photo" style="width:100%;height:100%"></image-slot></div>
+                  <div style="font-family:var(--font-heading);font-weight:600;font-size:17px;line-height:1.1">{{ p.name }}</div>
+                  <div style="font-size:12px;color:var(--color-neutral-600)">{{ p.priceFmt }} / {{ p.unit }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+                    <button class="btn btn-secondary" style="width:32px;height:32px;padding:0" onClick="{{ p.dec }}">−</button>
+                    <span style="flex:1;text-align:center;font-weight:500">{{ p.qty }}</span>
+                    <button class="btn btn-primary" style="width:32px;height:32px;padding:0" onClick="{{ p.inc }}">+</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ═══ CART / CHECKOUT ═══ -->
+          <sc-if value="{{ v.cart }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}"><div style="text-align:center;color:var(--color-neutral-600);padding:40px 0;font-size:13px">Your cart is empty. Add milk or dairy from the shop.</div></sc-if>
+            <sc-if value="{{ cartHas }}" hint-placeholder-val="{{ true }}">
+              <div class="card blueprint" style="padding:12px;gap:4px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <sc-for list="{{ cartLines }}" as="c" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px solid var(--color-divider)"><span>{{ c.name }}</span><span style="font-weight:500">{{ c.lineFmt }}</span></div></sc-for>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:6px"><span style="font-weight:500">Total</span><span style="font-family:var(--font-heading);font-weight:600;font-size:24px">{{ cartTotalFmt }}</span></div>
+              </div>
+              <div class="field"><label>Fulfilment</label><div class="seg"><label class="seg-opt"><input type="radio" name="mode" checked="{{ co.isDelivery }}" onChange="{{ co.setDelivery }}">Home delivery</label><label class="seg-opt"><input type="radio" name="mode" checked="{{ co.isPickup }}" onChange="{{ co.setPickup }}">Farm pickup</label></div></div>
+              <div class="field"><label>Time slot</label><div class="seg"><label class="seg-opt"><input type="radio" name="slot" checked="{{ co.isMorning }}" onChange="{{ co.setMorning }}">Morning 6–9</label><label class="seg-opt"><input type="radio" name="slot" checked="{{ co.isEvening }}" onChange="{{ co.setEvening }}">Evening 5–8</label></div></div>
+              <div class="field"><label>Repeat</label><div class="seg"><label class="seg-opt"><input type="radio" name="rep" checked="{{ co.isOnce }}" onChange="{{ co.setOnce }}">One-off</label><label class="seg-opt"><input type="radio" name="rep" checked="{{ co.isDaily }}" onChange="{{ co.setDaily }}">Daily</label></div></div>
+              <div class="field"><label>Payment</label>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ payOptions }}" as="po" hint-placeholder-count="4"><label class="radio" style="opacity:{{ po.opacity }}"><input type="radio" name="pay" checked="{{ po.on }}" onChange="{{ po.set }}" disabled="{{ po.disabled }}"><span class="dot"></span><span style="flex:1">{{ po.label }}</span><span style="font-size:11px;color:var(--color-neutral-600)">{{ po.note }}</span></label></sc-for>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-block blueprint" style="height:46px" onClick="{{ placeOrder }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Place order · {{ cartTotalFmt }}</button>
+              <div style="font-size:11px;color:var(--color-neutral-600);text-align:center">Your order goes to all co-founders for approval.</div>
+            </sc-if>
+          </sc-if>
+
+          <!-- ═══ CUSTOMER ORDERS ═══ -->
+          <sc-if value="{{ v.myOrders }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ myOrderList }}" as="o" hint-placeholder-count="2">
+              <div class="card blueprint" style="padding:12px;gap:8px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div style="display:flex;align-items:center;gap:8px"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px;flex:1">{{ o.id }}</span><span class="tag {{ o.cls }}">{{ o.status }}</span></div>
+                <div style="font-size:13px;color:var(--color-neutral-700)">{{ o.itemsText }}</div>
+                <div style="display:flex;gap:3px"><sc-for list="{{ o.steps }}" as="s" hint-placeholder-count="4"><div style="flex:1;height:4px;background:{{ s.color }}"></div></sc-for></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--color-neutral-600)"><span>{{ o.mode }} · {{ o.slot }} · {{ o.pay }}</span><span style="font-weight:500;color:var(--color-text)">{{ o.totalFmt }}</span></div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noMyOrders }}" hint-placeholder-val="{{ false }}"><div style="text-align:center;color:var(--color-neutral-600);padding:40px 0;font-size:13px">No orders yet.</div></sc-if>
+          </sc-if>
+
+          <!-- ═══ CUSTOMER ACCOUNT / UDHAAR ═══ -->
+          <sc-if value="{{ v.account }}" hint-placeholder-val="{{ false }}">
+            <div class="card blueprint" style="padding:12px;gap:4px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div style="display:flex;justify-content:space-between"><span class="card-kicker">Monthly udhaar account</span><span class="tag {{ custBannerCls }}">{{ custBannerTag }}</span></div>
+              <sc-if value="{{ udhaarApproved }}" hint-placeholder-val="{{ false }}">
+                <div style="font-family:var(--font-heading);font-weight:600;font-size:30px;line-height:1">{{ udhaarBalanceFmt }}</div>
+                <div style="font-size:12px;color:var(--color-neutral-600)">Due this month · limit {{ udhaarLimitFmt }} · billed when the farm closes the month</div>
+              </sc-if>
+              <sc-if value="{{ udhaarNotApproved }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;color:var(--color-neutral-700)">Register for daily milk on monthly credit. Any co-founder approves your request.</div></sc-if>
+            </div>
+            <sc-if value="{{ udhaarNone }}" hint-placeholder-val="{{ true }}">
+              <div class="field"><label>Full name</label><input class="input" value="{{ reg.name }}" onChange="{{ setRegName }}"></div>
+              <div class="field"><label>Complete address</label><textarea class="input" style="min-height:64px" placeholder="House, street, area, city" value="{{ reg.address }}" onChange="{{ setRegAddress }}"></textarea></div>
+              <div class="field"><label>Mobile number</label><input class="input" placeholder="03xx xxxxxxx" value="{{ reg.mobile }}" onChange="{{ setRegMobile }}"></div>
+              <div class="field"><label>Delivery timing</label><div class="seg"><label class="seg-opt"><input type="radio" name="rslot" checked="{{ reg.isMorning }}" onChange="{{ setRegMorning }}">Morning 6–9</label><label class="seg-opt"><input type="radio" name="rslot" checked="{{ reg.isEvening }}" onChange="{{ setRegEvening }}">Evening 5–8</label></div></div>
+              <div class="field"><label>Milk per day (litres)</label><input class="input" type="number" value="{{ reg.litres }}" onChange="{{ setRegLitres }}"></div>
+              <div style="font-size:12px;color:var(--color-neutral-600)">Estimated monthly bill: <b>{{ regEstimateFmt }}</b> at {{ milkPriceFmt }}/L</div>
+              <button class="btn btn-primary btn-block blueprint" style="height:44px" onClick="{{ submitReg }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Request udhaar account</button>
+            </sc-if>
+            <sc-if value="{{ udhaarPending }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--color-neutral-700)">Request sent. All co-founders have been notified. You'll get a WhatsApp message once approved.</div></sc-if>
+            <div style="font-size:12px;color:var(--color-neutral-600);padding:4px 2px">Signed in as {{ meName }} · {{ meEmail }}</div>
+          </sc-if>
+
+        </div>
+
+        <!-- TOAST -->
+        <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:16px;right:16px;bottom:80px;background:var(--color-neutral-900);color:var(--color-bg);padding:10px 14px;font-size:13px;box-shadow:var(--shadow-md)">{{ toast }}</div>
+        </sc-if>
+
+        <!-- TAB BAR -->
+        <div style="display:flex;border-top:1px solid var(--color-divider);background:var(--color-bg);padding:6px 4px 4px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border:0;background:none;cursor:pointer;color:{{ t.color }};font:inherit;position:relative" onClick="{{ t.go }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.d }}"></path></svg>
+              <span style="font-size:11px;letter-spacing:.02em">{{ t.label }}</span>
+              <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:2px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;background:var(--color-accent);color:var(--color-bg);font-size:10px;font-weight:700;display:grid;place-items:center">{{ t.badge }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </x-import>
+  <div style="max-width:412px;font-size:12px;color:var(--color-neutral-600);line-height:1.5">Roles: <b>Master</b> (a co-founder with admin rights: close month, investments, users, log) · <b>Co-founder</b> (dashboard, approvals, all sale/purchase/expense entries, products, own share) · <b>Customer</b> (shop, udhaar). Currency PKR. Every entry live-syncs to Google Sheets.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startRole&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;login&quot;,&quot;options&quot;:[&quot;login&quot;,&quot;master&quot;,&quot;investor&quot;,&quot;customer&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;showSheetsBadge&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  constructor(p){ super(p);
+    const price = {milk:220,dahi:260,butter:1400,ghee:2800,lassi:120,paneer:1200,cream:900,khoya:1600};
+    const catalog=[
+      {id:'milk',name:'Fresh milk',unit:'L'},{id:'dahi',name:'Yogurt (dahi)',unit:'kg'},{id:'butter',name:'Butter',unit:'kg'},{id:'ghee',name:'Ghee',unit:'kg'},
+      {id:'lassi',name:'Lassi',unit:'L'},{id:'paneer',name:'Paneer',unit:'kg'},{id:'cream',name:'Cream',unit:'kg'},{id:'khoya',name:'Khoya',unit:'kg'}].map(c=>({...c,price:price[c.id]}));
+    this.accounts=[
+      {id:'u1',name:'Saleem Rehman',email:'saleem.rehman@gmail.com',role:'master',status:'active'},
+      {id:'u3',name:'Ahmad Khan',email:'ahmad.khan@gmail.com',role:'investor',status:'active'},
+      {id:'u4',name:'Fatima Noor',email:'fatima.noor@gmail.com',role:'customer',status:'active'}];
+    this.state={
+      screen: (p.startRole && p.startRole!=='login') ? 'app' : 'login',
+      user: this.accounts.find(a=>a.role===p.startRole)||null,
+      tab:p.startRole==='customer'?'shop':'home', sub:null, orderFilter:'all', txnFilter:'all', toast:null,
+      catalog, newProd:{name:'',price:'',unit:'kg'},
+      cart:{}, co:{mode:'delivery',slot:'morning',repeat:'once',pay:'cod'},
+      reg:{name:'Fatima Noor',address:'',mobile:'',slot:'morning',litres:2},
+      form:{type:'sale',party:'',category:'Milk',qty:'',unit:'L',rate:'',amount:'',paid:true,note:''},
+      arInclude:true, choice:{},
+      addInvest:{},
+      month:{name:'Sep 2026'},
+      partners:[
+        {id:'p1',userId:'u1',name:'Saleem Rehman',invested:1200000,reinvested:0,withdrawn:0},
+        {id:'p2',userId:'u3',name:'Ahmad Khan',invested:750000,reinvested:0,withdrawn:0},
+        {id:'p3',userId:'u5',name:'Bilal Hussain',invested:600000,reinvested:0,withdrawn:0},
+        {id:'p4',userId:'u6',name:'Tariq Mehmood',invested:450000,reinvested:0,withdrawn:0}],
+      history:[
+        {name:'Aug 2026',profit:186400,arIncluded:true,shares:[{pid:'p1',share:74560,choice:'reinvest'},{pid:'p2',share:46600,choice:'withdraw'},{pid:'p3',share:37280,choice:'reinvest'},{pid:'p4',share:27960,choice:'withdraw'}]},
+        {name:'Jul 2026',profit:152900,arIncluded:false,shares:[{pid:'p1',share:61160,choice:'withdraw'},{pid:'p2',share:38225,choice:'withdraw'},{pid:'p3',share:30580,choice:'withdraw'},{pid:'p4',share:22935,choice:'withdraw'}]}],
+      users:[...this.accounts,
+        {id:'u5',name:'Bilal Hussain',email:'bilal.h@gmail.com',role:'investor',status:'active'},
+        {id:'u6',name:'Tariq Mehmood',email:'tariq.m@gmail.com',role:'investor',status:'active'},
+        {id:'u7',name:'Imran Shah',email:'imran.shah@gmail.com',role:'customer',status:'active'},
+        {id:'u8',name:'Zara Malik',email:'zara.malik@gmail.com',role:'customer',status:'pending'},
+        {id:'u9',name:'Usman Butt',email:'usman.b@gmail.com',role:'customer',status:'blocked'}],
+      txns:[
+        {id:1,date:'01 Sep',type:'sale',party:'Karachi Sweets (bulk milk)',category:'Milk',qty:240,unit:'L',rate:200,amount:48000,paid:true},
+        {id:2,date:'02 Sep',type:'purchase',party:'Chaudhry Feed Store',category:'Fodder / feed',qty:40,unit:'bag',rate:1550,amount:62000,paid:false},
+        {id:3,date:'03 Sep',type:'expense',party:'Dr. Naveed (vet visit)',category:'Vet & medicine',amount:8500,paid:true},
+        {id:4,date:'04 Sep',type:'sale',party:'Imran Shah (udhaar)',category:'Milk',qty:60,unit:'L',rate:220,amount:13200,paid:false},
+        {id:5,date:'05 Sep',type:'sale',party:'Walk-in ghee & butter',category:'Ghee',amount:21400,paid:true},
+        {id:6,date:'06 Sep',type:'expense',party:'Farm hands salaries',category:'Salaries',amount:45000,paid:true},
+        {id:7,date:'07 Sep',type:'sale',party:'Fatima Noor (udhaar)',category:'Milk',amount:9900,paid:false},
+        {id:8,date:'08 Sep',type:'expense',party:'WAPDA electricity',category:'Utilities',amount:11800,paid:false},
+        {id:9,date:'09 Sep',type:'receipt',party:'Al-Madina Hotel (Aug bill)',category:'Udhaar receipt',amount:27500,paid:true},
+        {id:10,date:'10 Sep',type:'sale',party:'Daily milk round',category:'Milk',qty:180,unit:'L',rate:203.33,amount:36600,paid:true},
+        {id:11,date:'10 Sep',type:'payment',party:'Chaudhry Feed Store (part)',category:'Fodder / feed',amount:30000,paid:true},
+        {id:12,date:'10 Sep',type:'expense',party:'Farm land rent · Malik sahib',category:'Rent',amount:40000,paid:false},
+        {id:13,date:'11 Sep',type:'expense',party:'Farm kitchen groceries',category:'Food & kitchen',amount:6400,paid:true},
+        {id:14,date:'11 Sep',type:'sale',party:'Butcher · 1 bull calf',category:'Cattle sale',qty:1,unit:'head',rate:85000,amount:85000,paid:false}],
+      orders:[
+        {id:'#1041',userId:'u7',customer:'Imran Shah',items:{milk:4,dahi:1},mode:'Home delivery',slot:'Morning 6–9',pay:'Udhaar',status:'New',approvedBy:null,repeat:'Daily'},
+        {id:'#1040',userId:'u4',customer:'Fatima Noor',items:{ghee:1,butter:1},mode:'Farm pickup',slot:'Evening 5–8',pay:'JazzCash',status:'Preparing',approvedBy:'Ahmad Khan',repeat:'One-off'},
+        {id:'#1039',userId:'u7',customer:'Imran Shah',items:{milk:4},mode:'Home delivery',slot:'Morning 6–9',pay:'Udhaar',status:'Delivered',approvedBy:'Saleem Rehman',repeat:'Daily'}],
+      regs:[
+        {id:'r1',userId:'u8',name:'Zara Malik',address:'House 14, St 3, Model Town, Lahore',mobile:'0301 2345678',slot:'Morning 6–9',litres:3,limit:25000,status:'Pending',approvedBy:null},
+        {id:'r2',userId:'u7',name:'Imran Shah',address:'Flat 2B, Gulberg III, Lahore',mobile:'0333 9876543',slot:'Morning 6–9',litres:4,limit:30000,status:'Approved',approvedBy:'Saleem Rehman'}],
+      custUdhaar:{status:'none',balance:0,limit:0},
+      log:[
+        {time:'10:42',who:'Saleem Rehman',what:'added sale Rs 36,600 · Daily milk round',kind:'Transaction'},
+        {time:'10:40',who:'Saleem Rehman',what:'moved #1040 to Preparing',kind:'Order'},
+        {time:'09:15',who:'Ahmad Khan',what:'approved order #1040',kind:'Order'},
+        {time:'08:02',who:'Ahmad Khan',what:'signed in (Google)',kind:'Login'},
+        {time:'07:30',who:'Saleem Rehman',what:'signed in (Google)',kind:'Login'},
+        {time:'Aug 31',who:'Saleem Rehman',what:'closed Aug 2026 · profit Rs 1,86,400 shared',kind:'Month close'},
+        {time:'Aug 28',who:'Saleem Rehman',what:'added Rs 50,000 investment for Bilal Hussain',kind:'Investment'}]
+    };
+  }
+  fmt(n){ return 'Rs '+Math.round(n).toLocaleString('en-PK'); }
+  toast(msg){ this.setState({toast:msg}); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2400); }
+  logIt(what,kind){ const u=this.state.user; this.setState(s=>({log:[{time:'now',who:u?u.name:'System',what,kind},...s.log]})); }
+  go(tab,sub){ this.setState({tab,sub:sub||null}); }
+  signInAs(acc){ this.setState({screen:'app',user:acc,tab:acc.role==='customer'?'shop':'home',sub:null}); this.logIt('signed in (Google)','Login'); }
+  statusColor(st){ return {New:'tag-outline',Preparing:'tag-accent',"Out for delivery":'tag-accent',Delivered:'tag-neutral',Pending:'tag-outline',Approved:'tag-accent'}[st]||'tag-neutral'; }
+  orderView(o,canAct){
+    const steps=['New','Preparing','Out for delivery','Delivered']; const idx=steps.indexOf(o.status);
+    const next=steps[idx+1];
+    return {...o,
+      itemsText:Object.entries(o.items).map(([k,q])=>{const c=this.state.catalog.find(x=>x.id===k)||{unit:'',name:k,price:0};return `${q} ${c.unit} ${c.name} @ Rs ${c.price}`;}).join(', ')+(o.repeat==='Daily'?' · daily':''),
+      totalFmt:this.fmt(o.total??Object.entries(o.items).reduce((a,[k,q])=>{const c=this.state.catalog.find(x=>x.id===k);return a+q*(c?c.price:0);},0)),
+      cls:this.statusColor(o.status),
+      steps:steps.map((s,i)=>({color:i<=idx?'var(--color-accent)':'var(--color-neutral-300)'})),
+      approvalText:o.approvedBy?`Approved by ${o.approvedBy}`:'Awaiting approval · all co-founders notified',
+      canApprove:canAct&&o.status==='New', canAdvance:canAct&&idx>0&&idx<3, nextLabel:next?`Mark ${next.toLowerCase()}`:'',
+      approve:()=>{this.setState(s=>({orders:s.orders.map(x=>x.id===o.id?{...x,status:'Preparing',approvedBy:s.user.name}:x)}));this.logIt(`approved order ${o.id}`,'Order');this.toast(`${o.id} approved · co-founders notified`);},
+      advance:()=>{this.setState(s=>({orders:s.orders.map(x=>x.id===o.id?{...x,status:next}:x)}));this.logIt(`moved ${o.id} to ${next}`,'Order');if(next==='Delivered'&&o.pay==='Udhaar')this.toast('Delivered · added to customer udhaar');}
+    };
+  }
+  isAdmin(){ return !!this.state.user&&this.state.user.role==='master'; }
+  renderVals(){
+    const s=this.state, u=s.user, role=u?u.role:null;
+    const isMaster=role==='master', isAdmin=isMaster, isInv=role==='investor', isCust=role==='customer';
+    const sum=(f)=>s.txns.filter(f).reduce((a,t)=>a+t.amount,0);
+    const sales=sum(t=>t.type==='sale'), purchases=sum(t=>t.type==='purchase'), expenses=sum(t=>t.type==='expense');
+    const ar=sum(t=>t.type==='sale'&&!t.paid), ap=sum(t=>(t.type==='purchase'||t.type==='expense')&&!t.paid);
+    const cash=384500+sum(t=>t.type==='sale'&&t.paid)+sum(t=>t.type==='receipt')-sum(t=>(t.type==='purchase'||t.type==='expense')&&t.paid)-sum(t=>t.type==='payment');
+    const profit=sales-purchases-expenses, closeProfit=s.arInclude?profit:profit-ar;
+    const capital=s.partners.reduce((a,p)=>a+p.invested+p.reinvested,0);
+    const bars=['var(--color-accent-700)','var(--color-accent-500)','var(--color-accent-400)','var(--color-accent-300)'];
+    const pct=p=>((p.invested+p.reinvested)/capital*100);
+    const pendingOrders=s.orders.filter(o=>o.status==='New'), pendingRegs=s.regs.filter(r=>r.status==='Pending'), pendingUsers=s.users.filter(x=>x.status==='pending');
+    const approvals=pendingOrders.length+pendingRegs.length;
+    const tabDefs = isAdmin ? [
+      {id:'home',label:'Home',d:'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'},
+      {id:'orders',label:'Orders',d:'M6 2h12l1 5H5zM5 7v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7M9 11h6',badge:pendingOrders.length},
+      {id:'accounts',label:'Accounts',d:'M3 5h18v14H3zM3 10h18M7 15h4'},
+      {id:'partners',label:'Co-founders',d:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'},
+      {id:'more',label:'More',d:'M4 12h.01M12 12h.01M20 12h.01',badge:isMaster?pendingUsers.length:0}
+    ] : isInv ? [
+      {id:'home',label:'Home',d:'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'},
+      {id:'orders',label:'Approvals',d:'M9 12l2 2 4-4M12 22c5-2 8-6 8-12V5l-8-3-8 3v5c0 6 3 10 8 12z',badge:approvals},
+      {id:'accounts',label:'Accounts',d:'M3 5h18v14H3zM3 10h18M7 15h4'},
+      {id:'partners',label:'Co-founders',d:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'},
+      {id:'products',label:'Products',d:'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7 12 12l8.7-5M12 22V12'}
+    ] : [
+      {id:'shop',label:'Shop',d:'M3 9l1-5h16l1 5M3 9h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM9 13a3 3 0 0 0 6 0'},
+      {id:'cart',label:'Cart',d:'M2 3h3l2.5 12h11L21 7H6M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2M18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2',badge:Object.values(s.cart).reduce((a,b)=>a+b,0)},
+      {id:'myorders',label:'Orders',d:'M6 2h12l1 5H5zM5 7v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7M9 11h6'},
+      {id:'account',label:'Udhaar',d:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'}
+    ];
+    const tabs=tabDefs.map(t=>({...t,color:s.tab===t.id?'var(--color-accent)':'var(--color-neutral-600)',badge:t.badge||false,go:()=>this.go(t.id)}));
+    const sub=s.sub;
+    const v={
+      adminHome:isAdmin&&s.tab==='home'&&!sub, closeMonth:isMaster&&sub==='close',
+      orders:(isAdmin||isInv)&&s.tab==='orders'&&!sub, regs:sub==='regs',
+      accounts:(isAdmin||isInv)&&s.tab==='accounts'&&!sub, addTxn:(isAdmin||isInv)&&sub==='addTxn',
+      partners:(isAdmin||isInv)&&s.tab==='partners', more:isAdmin&&s.tab==='more'&&!sub, products:(isInv&&s.tab==='products')||(isAdmin&&sub==='products'),
+      users:isMaster&&sub==='users', log:isMaster&&sub==='log',
+      invHome:isInv&&s.tab==='home'&&!sub,
+      shop:isCust&&s.tab==='shop', cart:isCust&&s.tab==='cart', myOrders:isCust&&s.tab==='myorders', account:isCust&&s.tab==='account'
+    };
+    const titles={close:'Close '+s.month.name,regs:'Udhaar registrations',addTxn:'New entry',users:'Users',log:'Activity log',products:'Products & rates'};
+    const tabTitles={home:isInv?'Co-founder view':'Char Yar Dairy Farm',orders:isInv?'Approvals':'Orders',accounts:'Accounts',partners:'Co-founders',products:'Products & rates',more:'More',shop:'Char Yar Dairy Farm',cart:'Checkout',myorders:'My orders',account:'My account'};
+    const title=sub?titles[sub]:tabTitles[s.tab];
+    const subtitle=u?(sub?'':((()=>{const p=s.partners.find(p=>p.userId===u.id);const sh=p?pct(p).toFixed(1)+'% share':'';return {master:'Master · co-founder · '+sh,investor:'Co-founder · '+sh,customer:'Customer'}[role];})())):'';
+    const canAct=isAdmin||isInv;
+    const attention=[
+      ...pendingOrders.map(o=>({tag:'Order',cls:'tag-outline',text:`${o.customer} · ${this.orderView(o).itemsText}`,meta:'approve',go:()=>this.go('orders')})),
+      ...pendingRegs.map(r=>({tag:'Udhaar',cls:'tag-outline',text:`${r.name} · ${r.litres} L/day, ${r.slot}`,meta:'approve',go:()=>this.go(isInv?'orders':'home','regs')})),
+      ...(isMaster?pendingUsers.map(x=>({tag:'User',cls:'tag-neutral',text:`${x.name} signed up`,meta:'review',go:()=>this.go('more','users')})):[]),
+      ...(isAdmin&&ap>0?[{tag:'Payable',cls:'tag-neutral',text:`${this.fmt(ap)} due to suppliers`,meta:'view',go:()=>this.go('accounts')}]:[])
+    ];
+    const me=s.partners.find(p=>p.userId===(u&&u.id))||s.partners[1];
+    const meShare=pct(me)/100;
+    const orderList=(s.orders.filter(o=>s.orderFilter==='all'||(s.orderFilter==='open'?o.status!=='Delivered':o.status==='New'))).map(o=>this.orderView(o,canAct));
+    const txnList=s.txns.filter(t=>s.txnFilter==='all'||(s.txnFilter==='ar'?t.type==='sale'&&!t.paid:s.txnFilter==='ap'?(t.type==='purchase'||t.type==='expense')&&!t.paid:t.type===s.txnFilter)).slice().reverse().map(t=>({...t,
+      typeLabel:{sale:'Sale',purchase:'Purchase',expense:'Expense',receipt:'Receipt',payment:'Payment'}[t.type],unpaid:!t.paid,qtyText:t.qty?` · ${t.qty} ${t.unit} × Rs ${Number(t.rate).toLocaleString('en-PK')}`:'',
+      color:(t.type==='sale'||t.type==='receipt')?'var(--color-accent-700)':'var(--color-text)',
+      amountFmt:((t.type==='sale'||t.type==='receipt')?'+':'−')+this.fmt(t.amount).slice(3),
+      markPaid:()=>{this.setState(st=>({txns:st.txns.map(x=>x.id===t.id?{...x,paid:true}:x)}));this.logIt(`marked ${t.type==='sale'?'receivable':'payable'} paid · ${t.party} Rs ${t.amount.toLocaleString('en-PK')}`,'Transaction');this.toast(t.type==='sale'?'Payment received · AR updated':'Bill paid · AP updated');},
+      del:()=>{this.setState(st=>({txns:st.txns.filter(x=>x.id!==t.id)}));this.logIt(`deleted ${t.type} Rs ${t.amount.toLocaleString('en-PK')} · ${t.party}`,'Transaction');this.toast('Entry deleted · Sheets updated');}}));
+    const f=s.form; const catsByType={sale:['Milk','Dahi','Butter','Ghee','Lassi','Paneer','Cream','Khoya','Cattle sale','Dung / manure','Other sale'],purchase:['Fodder / feed','Cattle purchase','Equipment','Vet & medicine','Food & kitchen','Other purchase'],expense:['Salaries','Rent','Utilities (bijli, gas, pani)','Food & kitchen','Transport','Vet & medicine','Repairs','Equipment','Fodder / feed','Other expense'],receipt:['Udhaar receipt','Advance','Other receipt'],payment:['Fodder / feed','Rent','Utilities (bijli, gas, pani)','Vet & medicine','Equipment','Cattle purchase','Salaries','Other payment']};
+    const setF=(k)=>(e)=>this.setState(st=>({form:{...st.form,[k]:e.target.value}}));
+    const products=s.catalog.map(p=>({...p,slotId:'prod-'+p.id,priceFmt:this.fmt(p.price),qty:s.cart[p.id]||0,
+      inc:()=>this.setState(st=>({cart:{...st.cart,[p.id]:(st.cart[p.id]||0)+1}})),
+      dec:()=>this.setState(st=>{const c={...st.cart};if(c[p.id]>1)c[p.id]--;else delete c[p.id];return{cart:c};})}));
+    const cartLines=Object.entries(s.cart).map(([k,q])=>{const c=this.state.catalog.find(x=>x.id===k);return{name:`${c.name} · ${q} ${c.unit} × Rs ${c.price}`,qty:q,lineFmt:this.fmt(c.price*q)};});
+    const cartTotal=Object.entries(s.cart).reduce((a,[k,q])=>a+q*this.state.catalog.find(x=>x.id===k).price,0);
+    const cu=s.custUdhaar; const milkRate=(s.catalog.find(x=>x.id==='milk')||{price:220}).price; const setCo=(k,val)=>()=>this.setState(st=>({co:{...st.co,[k]:val}}));
+    const payDefs=[{id:'cod',label:'Cash on delivery',note:''},{id:'bank',label:'Bank transfer',note:'Meezan · 0123 4567'},{id:'jazz',label:'JazzCash / EasyPaisa',note:'0300 1234567'},{id:'udhaar',label:'Monthly udhaar',note:cu.status==='approved'?`limit ${this.fmt(cu.limit)}`:'needs approved account'}];
+    const setReg=(k)=>(e)=>this.setState(st=>({reg:{...st.reg,[k]:e.target.value}}));
+    const custBannerTag={none:'Not registered',pending:'Pending approval',approved:'Approved'}[cu.status];
+    return {
+      quickRoles:this.accounts.map(a=>({label:{master:'Master',investor:'Co-founder',customer:'Customer'}[a.role],cls:(u&&u.id===a.id)?'btn-primary':'btn-secondary',go:()=>this.signInAs(a)})),
+      isLogin:s.screen==='login', isPicker:s.screen==='picker', isApp:s.screen==='app'&&!!u,
+      googleSignIn:()=>this.setState({screen:'picker'}),
+      accounts:this.accounts.map(a=>({...a,initial:a.name[0],roleLabel:{master:'Master',investor:'Co-founder',customer:'Customer'}[a.role],pick:()=>this.signInAs(a)})),
+      signOut:()=>this.setState({screen:'login',user:null,sub:null,tab:'home'}),
+      hasBack:!!sub, noBack:!sub, back:()=>this.setState({sub:null}), title, subtitle,
+      showSync:(this.props.showSheetsBadge??true)&&(isAdmin||isInv), isMaster, isInvestor:isInv, canDelete:isMaster,
+      meName:u?u.name:'', meEmail:u?u.email:'', meRole:u?{master:'Master · co-founder',investor:'Co-founder',customer:'Customer'}[role]:'',
+      tabs, v, hasToast:!!s.toast, toast:s.toast,
+      monthName:s.month.name, monthStatus:'Open', monthTagCls:'tag-accent',
+      cashFmt:this.fmt(cash), arFmt:this.fmt(ar), apFmt:this.fmt(ap), salesFmt:this.fmt(sales), costsFmt:this.fmt(purchases+expenses), profitFmt:this.fmt(profit),
+      profitPct:Math.max(0,Math.min(100,profit/sales*100)).toFixed(0)+'%',
+      kpis:[
+        {label:'Sales · MTD',value:this.fmt(sales),note:`${s.txns.filter(t=>t.type==='sale').length} entries`,go:()=>{this.setState({txnFilter:'sale'});this.go('accounts');}},
+        {label:'Purchases & expenses',value:this.fmt(purchases+expenses),note:'feed, rent, bills, food, salaries…',go:()=>{this.setState({txnFilter:'expense'});this.go('accounts');}},
+        {label:'Accounts receivable',value:this.fmt(ar),note:`${s.txns.filter(t=>t.type==='sale'&&!t.paid).length} sales not received`,go:()=>{this.setState({txnFilter:'ar'});this.go('accounts');}},
+        {label:'Accounts payable',value:this.fmt(ap),note:`${s.txns.filter(t=>(t.type==='purchase'||t.type==='expense')&&!t.paid).length} bills / purchases to pay`,go:()=>{this.setState({txnFilter:'ap'});this.go('accounts');}}],
+      pendingCount:attention.length, attention,
+      openCloseMonth:()=>this.setState({sub:'close',choice:{}}),
+      closeLines:[{label:'Sales',value:this.fmt(sales)},{label:'Purchases',value:'− '+this.fmt(purchases)},{label:'Expenses',value:'− '+this.fmt(expenses)},{label:s.arInclude?'Receivables counted':'Receivables rolled over',value:(s.arInclude?'+ ':'− ')+this.fmt(ar)}],
+      closeProfitFmt:this.fmt(closeProfit), arInclude:s.arInclude, arRoll:!s.arInclude,
+      setArInclude:()=>this.setState({arInclude:true}), setArRoll:()=>this.setState({arInclude:false}),
+      closeShares:s.partners.map(p=>{const ch=s.choice[p.id]||'withdraw';return{name:p.name,pct:pct(p).toFixed(1)+'%',share:this.fmt(closeProfit*pct(p)/100),segName:'seg'+p.id,isWithdraw:ch==='withdraw',isReinvest:ch==='reinvest',
+        setWithdraw:()=>this.setState(st=>({choice:{...st.choice,[p.id]:'withdraw'}})),setReinvest:()=>this.setState(st=>({choice:{...st.choice,[p.id]:'reinvest'}}))};}),
+      confirmClose:()=>{
+        const shares=s.partners.map(p=>({pid:p.id,share:Math.round(closeProfit*pct(p)/100),choice:s.choice[p.id]||'withdraw'}));
+        this.setState(st=>({
+          partners:st.partners.map(p=>{const sh=shares.find(x=>x.pid===p.id);return sh.choice==='reinvest'?{...p,reinvested:p.reinvested+sh.share}:{...p,withdrawn:p.withdrawn+sh.share};}),
+          history:[{name:st.month.name,profit:closeProfit,arIncluded:st.arInclude,shares},...st.history],
+          txns:st.arInclude?st.txns.filter(t=>t.paid||t.type!=='sale').map(t=>t):st.txns.filter(t=>!t.paid&&t.type==='sale'),
+          month:{name:'Oct 2026'}, sub:null, choice:{}
+        }));
+        this.logIt(`closed ${s.month.name} · profit ${this.fmt(closeProfit)} shared`,'Month close'); this.toast(`${s.month.name} closed · shares posted, co-founders notified`);
+      },
+      orderFilters:[['all','All'],['open','Open'],['new','New']].map(([id,label])=>({label,on:s.orderFilter===id,set:()=>this.setState({orderFilter:id})})),
+      orderList, noOrders:orderList.length===0,
+      txnFilters:[['all','All'],['sale','Sales'],['expense','Expenses'],['ar','Receivable'],['ap','Payable']].map(([id,label])=>({label,on:s.txnFilter===id,set:()=>this.setState({txnFilter:id})})),
+      txnList, openAddTxn:()=>this.setState({sub:'addTxn'}),
+      txnTypes:[['sale','Sale'],['purchase','Purchase'],['expense','Expense'],['receipt','Receipt'],['payment','Payment']].map(([id,label])=>({label,on:f.type===id,set:()=>this.setState(st=>({form:{...st.form,type:id,category:catsByType[id][0]}}))})),
+      form:f, categories:catsByType[f.type], partyPlaceholder:f.type==='sale'?'Customer or shop':f.type==='receipt'?'Customer paying':'Supplier or payee',
+      formShowsPaid:f.type==='sale'||f.type==='purchase'||f.type==='expense', formUnpaid:!f.paid, unpaidLabel:f.type==='sale'?'Not received yet (udhaar / AR)':'Not paid yet (AP)',
+      setFormParty:setF('party'), setFormCategory:setF('category'), setFormNote:setF('note'),
+      formShowsQty:f.type!=='receipt'&&f.type!=='payment',
+      setFormQty:(e)=>this.setState(st=>{const q=e.target.value,r=Number(st.form.rate);return{form:{...st.form,qty:q,amount:(Number(q)&&r)?String(Math.round(Number(q)*r)):st.form.amount}};}),
+      setFormRate:(e)=>this.setState(st=>{const r=e.target.value,q=Number(st.form.qty);return{form:{...st.form,rate:r,amount:(q&&Number(r))?String(Math.round(q*Number(r))):st.form.amount}};}),
+      setFormUnit:setF('unit'),
+      setFormAmount:(e)=>this.setState(st=>{const a=e.target.value,q=Number(st.form.qty);return{form:{...st.form,amount:a,rate:(q&&Number(a))?String(Math.round(Number(a)/q*100)/100):st.form.rate}};}),
+      setFormPaid:()=>this.setState(st=>({form:{...st.form,paid:true}})), setFormUnpaid:()=>this.setState(st=>({form:{...st.form,paid:false}})),
+      saveTxn:()=>{const amt=Number(f.amount);if(!amt||!f.party){this.toast('Enter party and amount');return;}
+        this.setState(st=>({txns:[...st.txns,{id:Date.now(),date:'11 Sep',type:f.type,party:f.party,category:f.category,qty:Number(f.qty)||null,unit:f.unit,rate:Number(f.rate)||null,amount:amt,paid:(f.type==='receipt'||f.type==='payment')?true:f.paid}],sub:null,form:{type:'sale',party:'',category:'Milk',qty:'',unit:'L',rate:'',amount:'',paid:true,note:''}}));
+        this.logIt(`added ${f.type} Rs ${amt.toLocaleString('en-PK')} · ${f.party}`,'Transaction'); this.toast('Saved · synced to Google Sheets');},
+      partnerCount:s.partners.length, capitalFmt:this.fmt(capital),
+      partnerRows:s.partners.map((p,i)=>({...p,pct:pct(p).toFixed(1)+'%',bar:bars[i%4],isMe:u&&p.userId===u.id,investedFmt:this.fmt(p.invested),reinvestedFmt:this.fmt(p.reinvested),withdrawnFmt:this.fmt(p.withdrawn),
+        addVal:s.addInvest[p.id]||'',setAdd:(e)=>this.setState(st=>({addInvest:{...st.addInvest,[p.id]:e.target.value}})),
+        addInvest:()=>{const a=Number(s.addInvest[p.id]);if(!a)return;this.setState(st=>({partners:st.partners.map(x=>x.id===p.id?{...x,invested:x.invested+a}:x),addInvest:{...st.addInvest,[p.id]:''}}));this.logIt(`added ${this.fmt(a)} investment for ${p.name}`,'Investment');this.toast(`Investment added · ratios updated`);}})),
+      history:s.history.map(h=>({name:h.name,profitFmt:this.fmt(h.profit),note:h.arIncluded?'AR counted':'AR rolled'})),
+      moreItems:[
+        {label:'Products & rates',note:`${s.catalog.length} items in the shop`,locked:false,go:()=>this.setState({sub:'products'})},
+        {label:'Users & roles',note:`${s.users.length} accounts · ${pendingUsers.length} pending`,locked:!isMaster,go:()=>isMaster?this.setState({sub:'users'}):this.toast('Master account only')},
+        {label:'Udhaar registrations',note:`${pendingRegs.length} awaiting approval`,locked:false,go:()=>this.setState({sub:'regs'})},
+        {label:'Activity log',note:'Logins, orders, entries, month close',locked:!isMaster,go:()=>isMaster?this.setState({sub:'log'}):this.toast('Master account only')},
+        {label:'Google Sheets',note:'Live sync on · last write just now',locked:false,go:()=>this.toast('Opens the linked Google Sheet')}],
+      productRows:s.catalog.map(p=>({...p,slotId:'prod-'+p.id,
+        setPrice:(e)=>{const v=Number(e.target.value)||0;this.setState(st=>({catalog:st.catalog.map(x=>x.id===p.id?{...x,price:v}:x)}));this.logIt(`set ${p.name} rate to Rs ${v.toLocaleString('en-PK')}/${p.unit}`,'Products');},
+        remove:()=>{this.setState(st=>{const c={...st.cart};delete c[p.id];return{catalog:st.catalog.filter(x=>x.id!==p.id),cart:c};});this.logIt(`removed ${p.name} from shop`,'Products');this.toast(`${p.name} removed`);}})),
+      newProd:s.newProd,
+      setNewName:(e)=>this.setState(st=>({newProd:{...st.newProd,name:e.target.value}})),
+      setNewPrice:(e)=>this.setState(st=>({newProd:{...st.newProd,price:e.target.value}})),
+      setNewUnit:(e)=>this.setState(st=>({newProd:{...st.newProd,unit:e.target.value}})),
+      addProduct:()=>{const n=s.newProd.name.trim(),pr=Number(s.newProd.price);if(!n||!pr){this.toast('Enter name and rate');return;}
+        const id=n.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+Date.now().toString(36);
+        this.setState(st=>({catalog:[...st.catalog,{id,name:n,unit:st.newProd.unit,price:pr}],newProd:{name:'',price:'',unit:'kg'}}));this.logIt(`added ${n} · Rs ${pr.toLocaleString('en-PK')}`,'Products');this.toast(`${n} added to shop`);},
+      userRows:s.users.filter(x=>x.role!=='master').map(x=>({...x,opacity:x.status==='blocked'?0.55:1,cls:x.status==='active'?'tag-accent':x.status==='pending'?'tag-outline':'tag-neutral',statusLabel:{active:'Active',pending:'Pending',blocked:'Blocked'}[x.status],pending:x.status==='pending',notPending:x.status!=='pending',blockLabel:x.status==='blocked'?'Unblock':'Block',
+        setRole:(e)=>{const r=e.target.value;this.setState(st=>({users:st.users.map(y=>y.id===x.id?{...y,role:r}:y)}));this.logIt(`set ${x.name} role to ${r}`,'User');},
+        approve:()=>{this.setState(st=>({users:st.users.map(y=>y.id===x.id?{...y,status:'active'}:y)}));this.logIt(`approved account ${x.name}`,'User');this.toast(`${x.name} approved`);},
+        toggleBlock:()=>{const ns=x.status==='blocked'?'active':'blocked';this.setState(st=>({users:st.users.map(y=>y.id===x.id?{...y,status:ns}:y)}));this.logIt(`${ns==='blocked'?'blocked':'unblocked'} ${x.name}`,'User');},
+        reset:()=>this.toast(`Password reset link sent to ${x.email}`)})),
+      logRows:s.log,
+      regRows:s.regs.map(r=>({...r,cls:this.statusColor(r.status),limitFmt:this.fmt(r.limit),approvalText:r.approvedBy?`Approved by ${r.approvedBy}`:'Awaiting approval · all co-founders notified',canApprove:canAct&&r.status==='Pending',
+        approve:()=>{this.setState(st=>({regs:st.regs.map(x=>x.id===r.id?{...x,status:'Approved',approvedBy:st.user.name}:x),users:st.users.map(y=>y.id===r.userId?{...y,status:'active'}:y),custUdhaar:r.userId==='u4'?{status:'approved',balance:0,limit:r.limit}:st.custUdhaar}));this.logIt(`approved udhaar for ${r.name}`,'Udhaar');this.toast(`${r.name} approved · WhatsApp sent`);}})),
+      noRegs:s.regs.length===0,
+      me:{pct:pct(me).toFixed(1)+'%',projectedFmt:this.fmt(profit*meShare),capitalFmt:this.fmt(me.invested+me.reinvested),reinvestedFmt:this.fmt(me.reinvested),
+        history:s.history.map(h=>{const sh=h.shares.find(x=>x.pid===me.id);return{name:h.name,shareFmt:this.fmt(sh.share),choice:sh.choice==='reinvest'?'Reinvested':'Withdrawn'};})},
+      products, custBanner:true, custBannerTitle:cu.status==='approved'?`Udhaar due ${this.fmt(cu.balance)}`:'Monthly udhaar account', custBannerNote:cu.status==='approved'?`limit ${this.fmt(cu.limit)} · daily milk on credit`:cu.status==='pending'?'Request sent, awaiting approval':'Register to buy daily milk on credit', custBannerCls:cu.status==='approved'?'tag-accent':'tag-outline', custBannerTag,
+      cartEmpty:cartTotal===0, cartHas:cartTotal>0, cartLines, cartTotalFmt:this.fmt(cartTotal),
+      co:{isDelivery:s.co.mode==='delivery',isPickup:s.co.mode==='pickup',isMorning:s.co.slot==='morning',isEvening:s.co.slot==='evening',isOnce:s.co.repeat==='once',isDaily:s.co.repeat==='daily',
+        setDelivery:setCo('mode','delivery'),setPickup:setCo('mode','pickup'),setMorning:setCo('slot','morning'),setEvening:setCo('slot','evening'),setOnce:setCo('repeat','once'),setDaily:setCo('repeat','daily')},
+      payOptions:payDefs.map(p=>{const dis=p.id==='udhaar'&&cu.status!=='approved';return{...p,on:s.co.pay===p.id,disabled:dis,opacity:dis?0.5:1,set:setCo('pay',p.id)};}),
+      placeOrder:()=>{const id='#'+(1042+s.orders.length-3);
+        const o={id,userId:u.id,customer:u.name,items:{...s.cart},total:cartTotal,mode:s.co.mode==='delivery'?'Home delivery':'Farm pickup',slot:s.co.slot==='morning'?'Morning 6–9':'Evening 5–8',pay:payDefs.find(p=>p.id===s.co.pay).label.replace('Monthly udhaar','Udhaar').replace('JazzCash / EasyPaisa','JazzCash').replace('Cash on delivery','COD'),status:'New',approvedBy:null,repeat:s.co.repeat==='daily'?'Daily':'One-off'};
+        this.setState(st=>({orders:[o,...st.orders],cart:{},tab:'myorders',custUdhaar:s.co.pay==='udhaar'?{...st.custUdhaar,balance:st.custUdhaar.balance+cartTotal}:st.custUdhaar}));
+        this.logIt(`placed order ${id} · ${this.fmt(cartTotal)}`,'Order'); this.toast('Order sent · co-founders notified');},
+      myOrderList:s.orders.filter(o=>u&&o.userId===u.id).map(o=>this.orderView(o,false)), noMyOrders:!s.orders.some(o=>u&&o.userId===u.id),
+      udhaarApproved:cu.status==='approved', udhaarNotApproved:cu.status!=='approved', udhaarNone:cu.status==='none', udhaarPending:cu.status==='pending',
+      udhaarBalanceFmt:this.fmt(cu.balance), udhaarLimitFmt:this.fmt(cu.limit),
+      reg:{...s.reg,isMorning:s.reg.slot==='morning',isEvening:s.reg.slot==='evening'},
+      setRegName:setReg('name'),setRegAddress:setReg('address'),setRegMobile:setReg('mobile'),setRegLitres:setReg('litres'),
+      setRegMorning:()=>this.setState(st=>({reg:{...st.reg,slot:'morning'}})),setRegEvening:()=>this.setState(st=>({reg:{...st.reg,slot:'evening'}})),
+      regEstimateFmt:this.fmt(Number(s.reg.litres||0)*milkRate*30), milkPriceFmt:this.fmt(milkRate),
+      submitReg:()=>{if(!s.reg.address||!s.reg.mobile){this.toast('Add address and mobile number');return;}
+        const lit=Number(s.reg.litres||0);
+        this.setState(st=>({custUdhaar:{status:'pending',balance:0,limit:0},regs:[{id:'r'+Date.now(),userId:u.id,name:st.reg.name,address:st.reg.address,mobile:st.reg.mobile,slot:st.reg.slot==='morning'?'Morning 6–9':'Evening 5–8',litres:lit,limit:Math.round(lit*milkRate*30*1.2/1000)*1000,status:'Pending',approvedBy:null},...st.regs]}));
+        this.logIt('requested udhaar account','Udhaar'); this.toast('Request sent · co-founders notified');}
+    };
+  }
+}
+</script>
+</body>
+</html>
