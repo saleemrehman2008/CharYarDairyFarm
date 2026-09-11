@@ -168,6 +168,15 @@ class _RoundRowState extends State<_RoundRow> {
       toast(context, 'How many litres?');
       return;
     }
+    // An account approved before rates existed has none, and the milk would be
+    // recorded at zero. Better to stop than to bill nothing.
+    if (!clear && widget.account.rate <= 0) {
+      toast(
+        context,
+        'Set ${widget.account.name}\'s rate first — Khaata registrations.',
+      );
+      return;
+    }
 
     setState(() => _busy = true);
     try {
@@ -220,10 +229,23 @@ class _RoundRowState extends State<_RoundRow> {
             ),
             const SizedBox(height: 2),
             Text(
-              '${rs(a.rate)} / L · usually ${qty(a.litresPerDay)} L · '
-              'owes ${rs(a.balance)}',
-              style: T.meta,
+              a.rate <= 0
+                  ? 'No rate set · usually ${qty(a.litresPerDay)} L · '
+                        'owes ${rs(a.balance)}'
+                  : '${rs(a.rate)} / L · usually ${qty(a.litresPerDay)} L · '
+                        'owes ${rs(a.balance)}',
+              style: T.meta.copyWith(
+                color: a.rate <= 0 ? const Color(0xFF8C2F20) : T.n700,
+              ),
             ),
+            if (a.rate <= 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Set a rate in Khaata registrations before delivering, or this '
+                'milk is billed at nothing.',
+                style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+              ),
+            ],
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
