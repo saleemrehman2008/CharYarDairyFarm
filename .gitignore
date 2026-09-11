@@ -32,3 +32,23 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+flutter_*.png
+**/doc/api/
+
+# Signing (never commit these)
+android/key.properties
+**/upload-keystore.jks
+
+# Cloud Functions
+functions/node_modules/
+functions/lib/
+functions/.env

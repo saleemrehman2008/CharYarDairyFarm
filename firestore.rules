@@ -1,0 +1,161 @@
+rules_version = '2';
+
+// Char Yar Dairy Farm.
+//
+// Roles live on users/{uid}.role: master | investor (co-founder) | customer.
+// The farm ledger is staff-only; customers can reach the shop, their own
+// orders and their own udhaar account and nothing else.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isMaster() {
+      return hasProfile() && me().role == 'master' && me().status != 'blocked';
+    }
+
+    // Master and co-founders run the farm side. A co-founder must be approved.
+    function isStaff() {
+      return isMaster() ||
+        (hasProfile() && me().role == 'investor' && me().status == 'active');
+    }
+
+    // Customers must be approved before they can order.
+    function isActiveCustomer() {
+      return hasProfile() && me().status == 'active';
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ---- Users ----
+    // Own document is readable and created on first sign-in as a pending
+    // customer; only the master may change a role or status.
+    match /users/{uid} {
+      allow read: if isMaster() || (signedIn() && request.auth.uid == uid);
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == 'customer'
+        && request.resource.data.status == 'pending';
+
+      allow update: if isMaster()
+        || (signedIn() && request.auth.uid == uid
+            && changedKeys().hasOnly(['name', 'email', 'photoUrl',
+                                      'fcmTokens']));
+
+      allow delete: if false;
+    }
+
+    // ---- Partners (capital and share ratios) ----
+    match /partners/{id} {
+      allow read: if isStaff();
+      allow write: if isMaster();
+    }
+
+    // ---- Products (the shop catalogue) ----
+    match /products/{id} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    // ---- The ledger ----
+    // Entries are never hard-deleted; the master sets deletedAt instead, so the
+    // row survives in the Google Sheet marked deleted.
+    match /transactions/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if false;
+    }
+
+    // ---- Orders ----
+    // A customer raises their own order and cannot touch it afterwards; only
+    // staff approve it and move it along.
+    match /orders/{id} {
+      allow read: if isStaff()
+        || (signedIn() && resource.data.customerId == request.auth.uid);
+
+      allow create: if isStaff()
+        || (isActiveCustomer()
+            && request.resource.data.customerId == request.auth.uid
+            && request.resource.data.status == 'new'
+            && !('approvedBy' in request.resource.data));
+
+      allow update: if isStaff();
+      allow delete: if false;
+    }
+
+    // ---- Standing daily orders ----
+    match /subscriptions/{id} {
+      allow read, update, delete: if isStaff()
+        || (signedIn() && resource.data.customerId == request.auth.uid);
+
+      allow create: if isStaff()
+        || (isActiveCustomer()
+            && request.resource.data.customerId == request.auth.uid);
+    }
+
+    // ---- Udhaar accounts ----
+    // The customer registers; staff set the limit, approve, and move the
+    // balance. A customer can never approve themselves.
+    match /udhaar_accounts/{uid} {
+      allow read: if isStaff() || (signedIn() && request.auth.uid == uid);
+
+      allow create: if isStaff()
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.balance == 0);
+
+      allow update: if isStaff()
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.status == 'pending'
+            && !changedKeys().hasAny(['limit', 'balance', 'approvedBy',
+                                      'approvedByName', 'approvedAt']));
+
+      allow delete: if false;
+    }
+
+    // ---- Farm months and closes ----
+    match /months/{id} {
+      allow read: if isStaff();
+      allow write: if isMaster();
+    }
+
+    // ---- Settings ----
+    // Everyone signed in reads the bank details and the milk rate. Placing an
+    // order bumps the order counter, which is the one field a customer writes.
+    match /settings/{doc} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+      allow update: if isActiveCustomer() && changedKeys().hasOnly(['orderSeq']);
+      allow create: if isActiveCustomer()
+        && request.resource.data.keys().hasOnly(['orderSeq']);
+    }
+
+    // ---- Activity log ----
+    // Anyone signed in appends (their own sign-in is the first line); only the
+    // master reads it, and nothing is ever edited.
+    match /logs/{id} {
+      allow read: if isMaster();
+      allow create: if signedIn();
+      allow update, delete: if false;
+    }
+
+    // Anything not named above is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

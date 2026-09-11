@@ -1,0 +1,7 @@
+# Keep LF in the repo; the CI builds on Linux and the workflow uses heredocs.
+* text=auto eol=lf
+
+*.png binary
+*.jks binary
+*.ttf binary
+*.keystore binary

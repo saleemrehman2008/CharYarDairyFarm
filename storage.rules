@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Product photos. Anyone signed in can see the shop; only farm staff upload.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function me() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isStaff() {
+      return request.auth != null
+        && me().role in ['master', 'investor']
+        && me().status != 'blocked';
+    }
+
+    match /products/{file} {
+      allow read: if request.auth != null;
+      // 8 MB ceiling, images only.
+      allow write: if isStaff()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
