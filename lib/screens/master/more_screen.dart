@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/export_service.dart';
 import '../../services/links.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -45,6 +46,7 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.history,
           onTap: () => _push(context, store, const ActivityLogScreen()),
         ),
+        const _ExportRow(),
         _Row(
           label: 'Google Sheets',
           icon: Icons.table_chart_outlined,
@@ -77,6 +79,47 @@ class MoreScreen extends StatelessWidget {
               ChangeNotifierProvider.value(value: store, child: screen),
         ),
       );
+}
+
+/// Writes the books out as CSV and opens the share sheet.
+///
+/// Until the Cloud Functions mirror is switched on, this is how the farm gets
+/// a copy of its books out of the phone and into Google Sheets.
+class _ExportRow extends StatefulWidget {
+  const _ExportRow();
+
+  @override
+  State<_ExportRow> createState() => _ExportRowState();
+}
+
+class _ExportRowState extends State<_ExportRow> {
+  bool _busy = false;
+
+  Future<void> _export() async {
+    final actor = context.read<Session>().actor;
+    setState(() => _busy = true);
+    try {
+      final count = await ExportService.share(actor);
+      if (!mounted) return;
+      toast(
+        context,
+        count == 0
+            ? 'Nothing to export yet.'
+            : '$count files ready — pick where to save them',
+      );
+    } catch (e) {
+      if (mounted) toast(context, 'Could not export. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _Row(
+    label: _busy ? 'Preparing files…' : 'Export books to Sheets',
+    icon: Icons.ios_share,
+    onTap: _busy ? () {} : _export,
+  );
 }
 
 class _Row extends StatelessWidget {
