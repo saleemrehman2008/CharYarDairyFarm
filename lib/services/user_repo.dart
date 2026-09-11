@@ -11,11 +11,16 @@ class UserRepo {
 
   /// Called right after a Google sign-in.
   ///
-  /// A brand new account lands as a pending customer, unless its email is on
-  /// the master's co-founder list in `settings/farm.autoCofounderEmails` — then
-  /// it comes straight in as an active co-founder with its own partner record.
-  /// An existing account otherwise only refreshes its profile fields, so a role
-  /// the master set by hand is never overwritten.
+  /// A brand new account comes in as an active customer: it can shop, order and
+  /// ask for udhaar straight away. Nothing is given away by that — an order
+  /// still waits for a co-founder to approve it, and so does an udhaar account
+  /// — and making people wait to see a price list only loses the farm sales.
+  /// The master can still block anyone.
+  ///
+  /// The exception is an email on the master's co-founder list in
+  /// `settings/farm.autoCofounderEmails`, which arrives as a co-founder with
+  /// its own partner record. An existing account otherwise only refreshes its
+  /// profile fields, so a role the master set by hand is never overwritten.
   static Future<void> ensureDoc(fb.User user) async {
     final ref = Db.users.doc(user.uid);
     final snap = await ref.get();
@@ -31,7 +36,7 @@ class UserRepo {
         'email': user.email ?? '',
         'photoUrl': user.photoURL ?? '',
         'role': listed ? 'investor' : 'customer',
-        'status': listed ? 'active' : 'pending',
+        'status': 'active',
         'fcmTokens': <String>[],
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -40,9 +45,7 @@ class UserRepo {
       await Log.write(
         actor,
         LogKind.user,
-        listed
-            ? 'joined as a co-founder'
-            : 'signed up and is waiting for approval',
+        listed ? 'joined as a co-founder' : 'signed up as a customer',
         refType: 'user',
         refId: user.uid,
       );
@@ -60,12 +63,16 @@ class UserRepo {
         status != 'blocked' &&
         !(role == 'investor' && status == 'active');
 
+    // Anyone left waiting from before customers were let straight in is
+    // activated on their next sign-in.
+    final activate = !upgrade && role == 'customer' && status == 'pending';
+
     await ref.set({
       'name': name,
       'email': user.email ?? '',
       'photoUrl': user.photoURL ?? '',
       if (upgrade) 'role': 'investor',
-      if (upgrade) 'status': 'active',
+      if (upgrade || activate) 'status': 'active',
     }, SetOptions(merge: true));
 
     if (upgrade) {

@@ -23,8 +23,9 @@ class UsersScreen extends StatelessWidget {
       body: PageBody(
         children: [
           Text(
-            'New Google sign-ins arrive as pending customers. Approve them to '
-            'let them order, or make them a co-founder.',
+            'New Google sign-ins come in as customers and can order right '
+            'away — every order still waits for a co-founder to approve it. '
+            'Block anyone who should not be here, or make them a co-founder.',
             style: T.meta,
           ),
           const SizedBox(height: 14),

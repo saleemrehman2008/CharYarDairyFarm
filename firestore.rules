@@ -65,18 +65,30 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isMaster() || (signedIn() && request.auth.uid == uid);
 
+      // A customer needs no approval to browse, order or ask for udhaar — the
+      // order and the udhaar account are each approved on their own. Anything
+      // above customer still has to be granted.
       allow create: if signedIn()
         && request.auth.uid == uid
         && ((request.resource.data.role == 'customer'
-             && request.resource.data.status == 'pending')
+             && request.resource.data.status == 'active')
             || (autoCofounder() && becomesCofounder()));
 
       allow update: if isMaster()
         || (signedIn() && request.auth.uid == uid
             && changedKeys().hasOnly(['name', 'email', 'photoUrl',
                                       'fcmTokens']))
-        // A listed co-founder who first signed in as a pending customer is
-        // upgraded on their next sign-in. Blocked accounts stay blocked.
+        // Customers left waiting from before are activated on next sign-in.
+        // A blocked account cannot let itself back in.
+        || (signedIn() && request.auth.uid == uid
+            && resource.data.role == 'customer'
+            && resource.data.status == 'pending'
+            && request.resource.data.role == 'customer'
+            && request.resource.data.status == 'active'
+            && changedKeys().hasOnly(['name', 'email', 'photoUrl', 'fcmTokens',
+                                      'status']))
+        // A listed co-founder who first signed in as a customer is upgraded on
+        // their next sign-in. Blocked accounts stay blocked.
         || (signedIn() && request.auth.uid == uid
             && autoCofounder()
             && becomesCofounder()

@@ -70,7 +70,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'New accounts wait for approval by the master account.',
+                  'Customers can order straight away. Each order is confirmed '
+                  'by the farm before it is prepared.',
                   textAlign: TextAlign.center,
                   style: T.meta,
                 ),
