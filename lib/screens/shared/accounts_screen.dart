@@ -152,9 +152,24 @@ class _AccountsScreenState extends State<AccountsScreen> {
   };
 
   Future<void> _markPaid(Txn txn) async {
+    // Ask how the money moved before booking it — a month later nobody will
+    // remember whether it was cash or a transfer.
+    final settled = await askSettlement(
+      context,
+      incoming: txn.type.isIncoming,
+      party: txn.party,
+      amount: txn.amount,
+    );
+    if (settled == null || !mounted) return;
+
     setState(() => _busyId = txn.id);
     try {
-      await TxnRepo.markPaid(context.read<Session>().actor, txn);
+      await TxnRepo.markPaid(
+        context.read<Session>().actor,
+        txn,
+        payVia: settled.$1,
+        handledBy: settled.$2,
+      );
       if (mounted) toast(context, '${txn.party} marked paid');
     } catch (e) {
       if (mounted) toast(context, 'Could not mark it paid. $e');
@@ -285,7 +300,12 @@ class _LedgerRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  [txn.type.label, txn.category, ?qtyLine].join(' · '),
+                  [
+                    txn.type.label,
+                    txn.category,
+                    ?qtyLine,
+                    if (txn.handOverLine.isNotEmpty) txn.handOverLine,
+                  ].join(' · '),
                   style: T.meta,
                   maxLines: 2,
                 ),

@@ -85,6 +85,33 @@ enum TxnType {
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
 
+/// How the money actually changed hands.
+///
+/// A farm's books are settled in person — someone hands over notes, someone
+/// else gets a JazzCash message — and a month later the only way to check a
+/// figure is to remember which. Recording it at the time is what makes that
+/// possible.
+enum PayVia {
+  cash,
+  bank,
+  jazzcash,
+  other;
+
+  static PayVia parse(Object? v) => switch (s(v)) {
+    'bank' => PayVia.bank,
+    'jazzcash' => PayVia.jazzcash,
+    'other' => PayVia.other,
+    _ => PayVia.cash,
+  };
+
+  String get label => switch (this) {
+    PayVia.cash => 'Cash',
+    PayVia.bank => 'Bank',
+    PayVia.jazzcash => 'JazzCash',
+    PayVia.other => 'Other',
+  };
+}
+
 /// Buying a buffalo is not a cost the way a bag of feed is. The cash leaves
 /// either way, but the farm still owns the animal — it changed shape, it was
 /// not spent. Counting it as a monthly cost would show a huge loss in the month
@@ -111,6 +138,8 @@ class Txn {
     this.orderId,
     this.settlesTxnId,
     this.paidOnCreate = false,
+    this.payVia = PayVia.cash,
+    this.handledBy = '',
     required this.createdBy,
     required this.createdAt,
     this.deletedAt,
@@ -151,6 +180,24 @@ class Txn {
   /// which may well be in a later month. Keeping the two apart is what lets a
   /// balance stay right across a month close.
   final bool paidOnCreate;
+
+  /// Cash, bank or JazzCash — only meaningful once the money has moved.
+  final PayVia payVia;
+
+  /// The person who handed the money over or took it in. Not the person who
+  /// typed the entry: the worker who went to the mandi may not be the
+  /// co-founder who recorded it that evening.
+  final String handledBy;
+
+  /// "Received by" for money coming in, "Paid by" for money going out.
+  String get handledLabel => type.isIncoming ? 'Received by' : 'Paid by';
+
+  /// "Cash · Riaz" for the ledger row, empty when nothing was recorded.
+  String get handOverLine {
+    if (!paid) return '';
+    final who = handledBy.trim();
+    return who.isEmpty ? payVia.label : '${payVia.label} · $who';
+  }
 
   final String createdBy;
   final DateTime createdAt;
@@ -215,6 +262,8 @@ class Txn {
       paidOnCreate: m['paidOnCreate'] == null
           ? _wasPaidOnCreate(paid, paidAt, createdAt)
           : b(m['paidOnCreate']),
+      payVia: PayVia.parse(m['payVia']),
+      handledBy: s(m['handledBy']),
       createdBy: s(m['createdBy']),
       createdAt: createdAt,
       deletedAt: dt(m['deletedAt']),

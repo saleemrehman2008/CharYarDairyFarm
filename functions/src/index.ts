@@ -48,6 +48,8 @@ export const syncTransaction = onDocumentWritten(
       stamp(t.paidAt),
       `${t.note ?? ''}`,
       `${t.orderId ?? ''}`,
+      `${t.payVia ?? ''}`,
+      `${t.handledBy ?? ''}`,
       `${t.createdBy ?? ''}`,
       stamp(t.createdAt),
       t.deletedAt ? 'deleted' : '',

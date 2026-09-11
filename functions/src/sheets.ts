@@ -26,8 +26,8 @@ export type Tab =
 export const HEADERS: Record<Tab, string[]> = {
   Transactions: [
     'id', 'date', 'month', 'type', 'party', 'category', 'qty', 'unit', 'rate',
-    'amount', 'paid', 'paidAt', 'note', 'orderId', 'createdBy', 'createdAt',
-    'deleted',
+    'amount', 'paid', 'paidAt', 'note', 'orderId', 'payVia', 'handledBy',
+    'createdBy', 'createdAt', 'deleted',
   ],
   Orders: [
     'id', 'number', 'date', 'customer', 'items', 'total', 'mode', 'slot',

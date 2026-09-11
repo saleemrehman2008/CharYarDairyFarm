@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/models.dart';
 import '../theme/tokens.dart';
+import '../util/money.dart';
 import 'reg_marks.dart';
 
 /// A transparent hairline-bordered card with registration marks — the single
@@ -462,6 +464,69 @@ void toast(BuildContext context, String message) {
         margin: const EdgeInsets.fromLTRB(T.pad, 0, T.pad, 8),
       ),
     );
+}
+
+/// Asks how the money moved and who handled it, before settling an entry.
+///
+/// Returns null if the sheet is dismissed, so the caller can leave the entry
+/// alone rather than settling it on a guess.
+Future<(PayVia, String)?> askSettlement(
+  BuildContext context, {
+  required bool incoming,
+  required String party,
+  required num amount,
+}) {
+  var via = PayVia.cash;
+  final who = TextEditingController();
+
+  return showModalBottomSheet<(PayVia, String)>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        left: T.pad,
+        right: T.pad,
+        top: T.pad,
+        bottom: MediaQuery.of(sheetContext).viewInsets.bottom + T.pad,
+      ),
+      child: StatefulBuilder(
+        builder: (context, setSheetState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              incoming ? 'Money received' : 'Money paid',
+              style: T.screenTitle,
+            ),
+            const SizedBox(height: 4),
+            Text('$party · ${rs(amount)}', style: T.meta),
+            const SizedBox(height: T.pad),
+            const Kicker('How'),
+            const SizedBox(height: 6),
+            Segmented<PayVia>(
+              value: via,
+              compact: true,
+              options: [for (final v in PayVia.values) (v, v.label)],
+              onChanged: (v) => setSheetState(() => via = v),
+            ),
+            const SizedBox(height: T.gap),
+            Field(
+              label: incoming ? 'Received by' : 'Paid by',
+              controller: who,
+              hint: incoming ? 'Who took the money' : 'Who handed it over',
+            ),
+            const SizedBox(height: 18),
+            PrimaryButton(
+              label: 'Save',
+              onPressed: () =>
+                  Navigator.pop(sheetContext, (via, who.text.trim())),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    ),
+  ).whenComplete(who.dispose);
 }
 
 /// Square-cornered confirm dialog; returns true only on the primary action.

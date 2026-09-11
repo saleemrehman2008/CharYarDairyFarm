@@ -25,6 +25,8 @@ class TxnRepo {
     String? customerId,
     String? orderId,
     String? settlesTxnId,
+    PayVia payVia = PayVia.cash,
+    String handledBy = '',
     DateTime? date,
   }) async {
     final now = date ?? DateTime.now();
@@ -49,6 +51,8 @@ class TxnRepo {
       // rather than the paid flag, so an entry settled months later is
       // counted on the day it was actually settled.
       'paidOnCreate': settled,
+      'payVia': payVia.name,
+      'handledBy': handledBy,
       'createdBy': actor.uid,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -66,13 +70,20 @@ class TxnRepo {
 
   /// Marking an entry paid settles it and posts the matching cash row: a
   /// receipt against a sale, a payment against a purchase or expense.
-  static Future<void> markPaid(Actor actor, Txn txn) async {
+  static Future<void> markPaid(
+    Actor actor,
+    Txn txn, {
+    PayVia payVia = PayVia.cash,
+    String handledBy = '',
+  }) async {
     if (txn.paid) return;
     final now = DateTime.now();
 
     await Db.transactions.doc(txn.id).update({
       'paid': true,
       'paidAt': Timestamp.fromDate(now),
+      'payVia': payVia.name,
+      'handledBy': handledBy,
     });
 
     final isSale = txn.type == TxnType.sale;
@@ -90,6 +101,8 @@ class TxnRepo {
       // row keeps it in the ledger and the Sheet without the balance counting
       // the same rupees twice.
       settlesTxnId: txn.id,
+      payVia: payVia,
+      handledBy: handledBy,
       date: now,
     );
 

@@ -26,6 +26,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   late String _category = _type.categories.first;
   String _unit = 'L';
   bool _paid = true;
+  PayVia _payVia = PayVia.cash;
   bool _busy = false;
 
   final _party = TextEditingController();
@@ -33,6 +34,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   final _rate = TextEditingController();
   final _total = TextEditingController();
   final _note = TextEditingController();
+  final _handledBy = TextEditingController();
 
   /// Guards the qty/rate/total loop so each edit only drives the others once.
   bool _syncing = false;
@@ -44,6 +46,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     _rate.dispose();
     _total.dispose();
     _note.dispose();
+    _handledBy.dispose();
     super.dispose();
   }
 
@@ -115,6 +118,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         unit: _unit,
         rate: num.tryParse(_rate.text.trim()),
         note: _note.text.trim(),
+        payVia: _payVia,
+        handledBy: _handledBy.text.trim(),
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -236,6 +241,33 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               compact: true,
               options: [(true, 'Paid now'), (false, _type.unpaidLabel)],
               onChanged: (v) => setState(() => _paid = v),
+            ),
+          ],
+
+          // Only worth asking once the money has actually moved.
+          if (_type.isSettlement || _paid) ...[
+            const SizedBox(height: T.pad),
+            const Kicker('How'),
+            const SizedBox(height: 6),
+            Segmented<PayVia>(
+              value: _payVia,
+              compact: true,
+              options: [for (final v in PayVia.values) (v, v.label)],
+              onChanged: (v) => setState(() => _payVia = v),
+            ),
+            const SizedBox(height: T.gap),
+            Field(
+              label: _type.isIncoming ? 'Received by' : 'Paid by',
+              controller: _handledBy,
+              hint: _type.isIncoming
+                  ? 'Who took the money'
+                  : 'Who handed it over',
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'The person who actually handled the cash — not whoever is '
+              'typing this in.',
+              style: T.meta,
             ),
           ],
 
