@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
 import '../services/accounting.dart';
+import '../services/bill_clock.dart';
 import '../services/bill_repo.dart';
 import '../services/db.dart';
 import '../services/log_service.dart';
@@ -72,12 +73,17 @@ class FarmStore extends ChangeNotifier implements RoundData {
           notifyListeners();
         }),
     ]);
+
+    _clock.start();
   }
 
   final bool isMaster;
   final List<StreamSubscription<dynamic>> _subs = [];
   StreamSubscription<List<Txn>>? _monthTxnSub;
   StreamSubscription<List<Delivery>>? _deliverySub;
+
+  /// The 11pm sweep, for anyone the round missed on the last day.
+  late final BillClock _clock = BillClock(_raiseDueBills);
 
   FarmMonth? _month;
   List<Txn> _monthTxns = const [];
@@ -91,7 +97,8 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Bill> _bills = const [];
   List<Delivery> _deliveries = const [];
   List<Delivery> _unbilled = const [];
-  bool _billRunDone = false;
+  bool _running = false;
+  bool _again = false;
   List<AppUser> _users = const [];
   FarmSettings _settings = FarmSettings.fallback;
 
@@ -217,19 +224,24 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   int get approvalCount => pendingOrders.length + pendingUdhaar.length;
 
-  /// Raises any bill that has fallen due, once per run of the app.
+  /// Raises any bill that has fallen due.
   ///
-  /// This is the month-end job a scheduled Cloud Function would normally do.
-  /// It only ever raises what is genuinely due, and is safe to repeat, so the
-  /// worst a second phone can do is find there was nothing left to raise.
+  /// This is the month-end job a scheduled Cloud Function would do. It runs
+  /// when the unbilled milk changes and again at 11 at night, only ever raises
+  /// what is genuinely due, and is safe to repeat — so the worst a second phone
+  /// can do is find there was nothing left to raise.
   Future<void> _raiseDueBills() async {
-    if (_billRunDone || !isMaster) return;
+    if (_running) {
+      // Something arrived mid-run; go round once more when this one is done.
+      _again = true;
+      return;
+    }
     // Closed khaatas are included: someone taken off the round mid-month is
     // still owed for the milk they had.
     final billable = billableKhaata;
     if (_unbilled.isEmpty || billable.isEmpty) return;
-    _billRunDone = true;
 
+    _running = true;
     try {
       await BillRepo.raiseDue(
         Actor(uid: 'auto', name: 'The app'),
@@ -237,9 +249,15 @@ class FarmStore extends ChangeNotifier implements RoundData {
         unbilled: _unbilled,
       );
     } catch (_) {
-      // Nothing is lost: whoever opens the app next tries again, and the
-      // bills screen can always raise them by hand.
-      _billRunDone = false;
+      // Nothing is lost: the 11 o'clock run tries again, so does whoever opens
+      // the app next, and the bills screen can always raise them by hand.
+    } finally {
+      _running = false;
+    }
+
+    if (_again) {
+      _again = false;
+      await _raiseDueBills();
     }
   }
 
@@ -263,6 +281,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     }
     _monthTxnSub?.cancel();
     _deliverySub?.cancel();
+    _clock.dispose();
     super.dispose();
   }
 }

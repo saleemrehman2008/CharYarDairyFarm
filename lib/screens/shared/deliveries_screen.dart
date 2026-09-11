@@ -187,10 +187,16 @@ class _RoundRowState extends State<_RoundRow> {
         date: widget.day,
       );
       if (!mounted) return;
+      // On the last day of the month marking a delivery also raises that
+      // customer's bill, so say so — the delivery man should know the customer
+      // has just been told what they owe.
+      final lastDay = !clear && isLastDayOfMonth(widget.day);
       toast(
         context,
         clear
             ? '${widget.account.name} cleared'
+            : lastDay
+            ? '${widget.account.name} · ${qty(litres)} L · bill raised'
             : '${widget.account.name} · ${qty(litres)} L',
       );
     } catch (e) {

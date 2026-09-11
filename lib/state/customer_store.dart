@@ -57,6 +57,14 @@ class CustomerStore extends ChangeNotifier {
   List<Bill> get bills => _bills;
   List<Bill> get unpaidBills => _bills.where((b) => !b.isSettled).toList();
 
+  /// The bill waiting to be paid, newest first. This is what the customer is
+  /// told about the moment the farm raises it — on their phone if push is on,
+  /// and in the app either way.
+  Bill? get billDue => unpaidBills.isEmpty ? null : unpaidBills.first;
+
+  num get owedOnBills =>
+      unpaidBills.fold<num>(0, (a, b) => a + (b.balance > 0 ? b.balance : 0));
+
   num get litresThisMonth => _deliveries.fold<num>(0, (a, d) => a + d.litres);
   num get amountThisMonth => _deliveries.fold<num>(0, (a, d) => a + d.amount);
   FarmSettings get settings => _settings;

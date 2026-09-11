@@ -18,6 +18,8 @@ export type Tab =
   | 'Partners'
   | 'MonthClose'
   | 'Udhaar'
+  | 'Bills'
+  | 'Deliveries'
   | 'Users'
   | 'Log';
 
@@ -44,6 +46,14 @@ export const HEADERS: Record<Tab, string[]> = {
   Udhaar: [
     'uid', 'name', 'mobile', 'address', 'slot', 'litres', 'limit', 'balance',
     'status', 'approvedBy',
+  ],
+  Bills: [
+    'id', 'customer', 'month', 'litres', 'thisMonth', 'previousBalance',
+    'total', 'paid', 'balance', 'status', 'billedAt',
+  ],
+  Deliveries: [
+    'id', 'date', 'month', 'customer', 'litres', 'rate', 'amount', 'slot',
+    'deliveredBy', 'billed', 'billId',
   ],
   Users: ['uid', 'name', 'email', 'role', 'status', 'createdAt'],
   Log: ['at', 'who', 'kind', 'what'],

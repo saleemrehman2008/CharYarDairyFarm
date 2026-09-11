@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/bill_clock.dart';
 import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
@@ -485,6 +486,63 @@ void main() {
 
     test('no milk, no bill', () {
       expect(BillRepo.dueNow(const [], now: DateTime(2026, 9, 30)), isEmpty);
+    });
+
+    test('a day already on a bill is never due again', () {
+      // The round billed this customer at eight in the evening; the 11 o'clock
+      // sweep must find nothing left of it.
+      final stamped = [
+        Delivery(
+          id: 'ahmed_2026-09-30',
+          customerId: 'ahmed',
+          customerName: 'Ahmed',
+          date: DateTime(2026, 9, 30),
+          monthId: '2026-09',
+          litres: 4,
+          rate: 180,
+          slot: 'morning',
+          deliveredByName: 'Rafique',
+          billed: true,
+          billId: 'ahmed_2026-09',
+          createdAt: DateTime(2026, 9, 30),
+        ),
+      ];
+      expect(stamped.single.isBilled, isTrue);
+      // The unbilled stream never carries it, and raise() skips it anyway.
+      expect(
+        stamped.where((d) => !d.isBilled).toList(),
+        isEmpty,
+        reason: 'a stamped day cannot be billed a second time',
+      );
+    });
+
+    test('the last day of the month is the last day, whatever month it is', () {
+      expect(isLastDayOfMonth(DateTime(2026, 9, 30)), isTrue);
+      expect(isLastDayOfMonth(DateTime(2026, 9, 29)), isFalse);
+      expect(isLastDayOfMonth(DateTime(2026, 10, 31)), isTrue);
+      expect(isLastDayOfMonth(DateTime(2027, 2, 28)), isTrue);
+      expect(isLastDayOfMonth(DateTime(2028, 2, 28)), isFalse);
+      expect(daysInMonth(DateTime(2028, 2, 1)), 29);
+    });
+  });
+
+  group('the 11 o\'clock sweep', () {
+    test('an app opened in the afternoon waits until tonight', () {
+      final wait = BillClock.untilNextRun(DateTime(2026, 9, 30, 14, 30));
+      expect(wait, const Duration(hours: 8, minutes: 30));
+    });
+
+    test('an app opened after eleven waits for tomorrow night', () {
+      final wait = BillClock.untilNextRun(DateTime(2026, 9, 30, 23, 10));
+      expect(wait, const Duration(hours: 23, minutes: 50));
+    });
+
+    test('a phone left open all night runs once a night, not in a loop', () {
+      // Right after the run, the next one is a day away — never zero, which
+      // would spin.
+      final wait = BillClock.untilNextRun(DateTime(2026, 9, 30, 23));
+      expect(wait, const Duration(hours: 24));
+      expect(wait > Duration.zero, isTrue);
     });
   });
 

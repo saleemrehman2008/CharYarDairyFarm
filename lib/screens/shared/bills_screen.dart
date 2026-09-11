@@ -91,9 +91,10 @@ class _BillsScreenState extends State<BillsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Bills raise themselves on the last day of the month, and '
-                  'again when the month is closed. Nobody has to remember — '
-                  'this is only for sending them out early.',
+                  'Bills raise themselves: each customer as their last '
+                  'delivery of the month is marked, anyone missed at 11 that '
+                  'night, and again when the month is closed. Nobody has to '
+                  'remember — this button is only for sending them early.',
                   style: T.meta,
                 ),
               ],

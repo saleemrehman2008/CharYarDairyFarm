@@ -22,6 +22,12 @@ class UdhaarAccountScreen extends StatelessWidget {
 
     return PageBody(
       children: [
+        // A raised bill is the one thing on this screen that needs an answer,
+        // so it sits above everything else until it is paid.
+        if (store.billDue != null) ...[
+          _BillDueCard(bill: store.billDue!),
+          const SizedBox(height: T.pad),
+        ],
         RegCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,6 +112,55 @@ class UdhaarAccountScreen extends StatelessWidget {
     UdhaarStatus.none => TagTone.neutral,
     UdhaarStatus.closed => TagTone.neutral,
   };
+}
+
+/// "Your bill is ready" — the month's statement, the moment it is raised.
+///
+/// The farm's app sends a notification as well, but a phone with
+/// notifications turned off must still find out, so the bill is put in front
+/// of the customer here until it is settled.
+class _BillDueCard extends StatelessWidget {
+  const _BillDueCard({required this.bill});
+
+  final Bill bill;
+
+  @override
+  Widget build(BuildContext context) => RegCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.receipt_long_outlined, size: 18, color: T.n700),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${monthName(bill.monthId)} bill is ready',
+                style: T.cardTitle,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(rs(bill.balance), style: T.num28),
+        const SizedBox(height: 4),
+        Text(
+          'To pay · ${qty(bill.litres)} L this month at '
+          '${rs(bill.thisMonth)}'
+          '${bill.previousBalance > 0 ? ' · ${rs(bill.previousBalance)} from before' : ''}'
+          '${bill.paid > 0 ? ' · ${rs(bill.paid)} already paid' : ''}',
+          style: T.meta,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Pay the farm in cash or by transfer and it is marked off here. '
+          'Pay part of it if that is easier — the rest carries on to next '
+          'month\'s bill.',
+          style: T.meta,
+        ),
+      ],
+    ),
+  );
 }
 
 class _RegisterForm extends StatefulWidget {

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/models.dart';
 import '../util/money.dart';
+import 'bill_repo.dart';
 import 'db.dart';
 import 'log_service.dart';
 
@@ -56,6 +57,22 @@ class DeliveryRepo {
       refType: 'delivery',
       refId: id,
     );
+
+    // The last can of the month. Bill this customer there and then, so they
+    // know what they owe the same evening instead of waiting on somebody to
+    // remember. Anyone missed tonight is picked up by the 11 o'clock run.
+    if (isLastDayOfMonth(date)) {
+      try {
+        await BillRepo.raiseForCustomer(
+          actor,
+          account: account,
+          monthId: monthIdOf(date),
+        );
+      } catch (_) {
+        // The milk is recorded, which is the part that matters. The bill is
+        // raised by the next run either way.
+      }
+    }
   }
 
   /// What a customer has taken so far in one month.

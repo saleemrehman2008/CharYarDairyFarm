@@ -20,3 +20,11 @@ bool b(Object? v) => v == true;
 /// `YYYY-MM` id for a date, in the farm's own calendar.
 String monthIdOf(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}';
+
+/// How many days this date's month has — 28, 29, 30 or 31. Day zero of next
+/// month is the last day of this one.
+int daysInMonth(DateTime date) => DateTime(date.year, date.month + 1, 0).day;
+
+/// True on the 30th of September, the 31st of October, the 28th of February —
+/// whichever day happens to end that month. Bills fall due on it.
+bool isLastDayOfMonth(DateTime date) => date.day == daysInMonth(date);

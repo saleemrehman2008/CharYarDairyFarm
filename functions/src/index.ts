@@ -398,3 +398,204 @@ export const raiseDailyOrders = onSchedule(
     logger.info(`Raised ${subs.size} daily orders`);
   },
 );
+
+// ---------------------------------------------------------------------------
+// Bills -> Bills tab, and the customer's phone
+// ---------------------------------------------------------------------------
+
+export const syncBill = onDocumentWritten(
+  {document: 'bills/{id}', ...sheetOpts},
+  async (event) => {
+    const before = event.data?.before;
+    const after = event.data?.after;
+    if (!after?.exists) return;
+
+    const b = after.data() ?? {};
+    const total = Number(b.thisMonth ?? 0) + Number(b.previousBalance ?? 0);
+    const paid = Number(b.paid ?? 0);
+    const balance = total - paid;
+
+    await upsertRow('Bills', after.id, [
+      after.id,
+      `${b.customerName ?? ''}`,
+      `${b.monthId ?? ''}`,
+      Number(b.litres ?? 0),
+      Number(b.thisMonth ?? 0),
+      Number(b.previousBalance ?? 0),
+      total,
+      paid,
+      balance,
+      balance <= 0 ? 'paid' : paid > 0 ? 'part paid' : 'unpaid',
+      stamp(b.billedAt ?? b.createdAt),
+    ]);
+
+    // The customer hears about their bill the moment it is raised — and again
+    // if more milk is added to it before the month is out.
+    const was = Number(before?.data()?.thisMonth ?? 0);
+    const now = Number(b.thisMonth ?? 0);
+    if (!before?.exists || now > was) {
+      const month = `${b.monthId ?? ''}`;
+      await notifyUser(
+        `${b.customerId ?? ''}`,
+        'Your milk bill is ready',
+        `${month}: ${rs(now)} for ${b.litres ?? 0} L` +
+          (Number(b.previousBalance ?? 0) > 0 ?
+            `, plus ${rs(b.previousBalance)} from before` :
+            '') +
+          `. Total ${rs(total)}.`,
+        {type: 'bill', billId: after.id},
+      );
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Deliveries -> Deliveries tab
+// ---------------------------------------------------------------------------
+
+export const syncDelivery = onDocumentWritten(
+  {document: 'deliveries/{id}', ...sheetOpts},
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+
+    const d = after.data() ?? {};
+    const litres = Number(d.litres ?? 0);
+    const rate = Number(d.rate ?? 0);
+
+    await upsertRow('Deliveries', after.id, [
+      after.id,
+      day(d.date),
+      `${d.monthId ?? ''}`,
+      `${d.customerName ?? ''}`,
+      litres,
+      rate,
+      litres * rate,
+      `${d.slot ?? ''}`,
+      `${d.deliveredByName ?? d.deliveredBy ?? ''}`,
+      d.billed === true,
+      `${d.billId ?? ''}`,
+    ]);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Month-end bills, 23:00 Asia/Karachi
+// ---------------------------------------------------------------------------
+
+/// Every khaata customer is billed the moment their last delivery of the month
+/// is marked, so by eleven at night this usually finds nothing. It is here for
+/// whoever the round missed: the month must not close with milk unbilled.
+///
+/// Idempotent on purpose. The bill id is the customer and the month, and each
+/// day is stamped once it is on a bill, so this and the app can both run
+/// without billing a litre twice.
+export const raiseMonthEndBills = onSchedule(
+  {schedule: '0 23 * * *', timeZone: 'Asia/Karachi'},
+  async () => {
+    const now = new Date();
+    // Karachi is UTC+5 and the schedule fires in Karachi time, but the Date is
+    // UTC — so shift before asking what day it is.
+    const here = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+    const year = here.getUTCFullYear();
+    const month = here.getUTCMonth() + 1;
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (here.getUTCDate() !== lastDay) return;
+
+    const monthId = `${year}-${`${month}`.padStart(2, '0')}`;
+    const accounts = await db()
+      .collection('udhaar_accounts')
+      .where('status', 'in', ['approved', 'closed'])
+      .get();
+
+    let raised = 0;
+    for (const account of accounts.docs) {
+      try {
+        if (await raiseOneBill(account.id, monthId)) raised++;
+      } catch (err) {
+        logger.error(`Could not bill ${account.id} for ${monthId}`, err);
+      }
+    }
+    logger.info(`Month-end run raised ${raised} bills for ${monthId}`);
+  },
+);
+
+/// One customer's bill for one month, in a transaction so the app and this job
+/// cannot bill the same milk between them. Returns whether anything was billed.
+async function raiseOneBill(uid: string, monthId: string): Promise<boolean> {
+  const unbilled = await db()
+    .collection('deliveries')
+    .where('customerId', '==', uid)
+    .where('monthId', '==', monthId)
+    .where('billed', '==', false)
+    .get();
+
+  const accountRef = db().doc(`udhaar_accounts/${uid}`);
+  const billRef = db().doc(`bills/${uid}_${monthId}`);
+
+  return db().runTransaction(async (tx) => {
+    const [accountSnap, billSnap] = await Promise.all([
+      tx.get(accountRef),
+      tx.get(billRef),
+    ]);
+    if (!accountSnap.exists) return false;
+
+    const account = accountSnap.data() ?? {};
+    const bill = billSnap.exists ? billSnap.data() ?? {} : null;
+
+    const fresh = [];
+    for (const doc of unbilled.docs) {
+      const snap = await tx.get(doc.ref);
+      const d = snap.data();
+      if (snap.exists && d && d.billed !== true && !d.billId) fresh.push(snap);
+    }
+
+    if (!fresh.length && (bill || Number(account.balance ?? 0) <= 0)) {
+      return false;
+    }
+
+    let litres = 0;
+    let thisMonth = 0;
+    for (const snap of fresh) {
+      const d = snap.data() ?? {};
+      litres += Number(d.litres ?? 0);
+      thisMonth += Number(d.litres ?? 0) * Number(d.rate ?? 0);
+    }
+
+    tx.set(billRef, {
+      customerId: uid,
+      customerName: `${account.name ?? ''}`,
+      monthId,
+      litres: Number(bill?.litres ?? 0) + litres,
+      thisMonth: Number(bill?.thisMonth ?? 0) + thisMonth,
+      previousBalance: bill ?
+        Number(bill.previousBalance ?? 0) :
+        Number(account.balance ?? 0),
+      ...(bill ? {} : {paid: 0, createdAt: FieldValue.serverTimestamp()}),
+      billedAt: FieldValue.serverTimestamp(),
+    }, {merge: true});
+
+    if (thisMonth > 0) {
+      tx.set(accountRef, {
+        balance: FieldValue.increment(thisMonth),
+      }, {merge: true});
+    }
+
+    for (const snap of fresh) {
+      tx.set(snap.ref, {billId: billRef.id, billed: true}, {merge: true});
+    }
+
+    tx.set(db().collection('logs').doc(), {
+      who: 'The app',
+      actorId: 'auto',
+      kind: 'udhaar',
+      what: `billed ${account.name ?? uid} ${rs(thisMonth)} for ` +
+        `${litres} L (${monthId}), month-end run`,
+      refType: 'bill',
+      refId: billRef.id,
+      at: FieldValue.serverTimestamp(),
+    });
+
+    return true;
+  });
+}

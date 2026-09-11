@@ -59,11 +59,14 @@ class _CustomerTabsState extends State<_CustomerTabs> {
         badge: store.openOrderCount,
         body: const MyOrdersScreen(),
       ),
-      const TabDef(
+      TabDef(
         label: 'Khaata',
         icon: Icons.handshake_outlined,
         title: 'Khaata',
-        body: UdhaarAccountScreen(),
+        // A bill waiting to be paid puts a mark on the tab, so it is noticed
+        // without having to go looking.
+        badge: store.unpaidBills.length,
+        body: const UdhaarAccountScreen(),
       ),
     ];
 

@@ -243,10 +243,14 @@ service cloud.firestore {
     match /bills/{id} {
       allow read: if onTheRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
-      // A partner raises a bill; staff record what they collect against it.
-      allow create: if isPartner();
+      // A partner raises a bill. The delivery man raises one too, but only the
+      // month-end bill his own last delivery of the month triggers — and never
+      // one with money already marked against it.
+      allow create: if isPartner()
+        || (isDelivery() && request.resource.data.paid == 0);
       allow update: if isPartner()
-        || (isDelivery() && changedKeys().hasOnly(['paid', 'settledAt']));
+        || (isDelivery() && changedKeys().hasOnly(
+              ['paid', 'settledAt', 'litres', 'thisMonth', 'billedAt']));
       allow delete: if isMaster();
     }
 
