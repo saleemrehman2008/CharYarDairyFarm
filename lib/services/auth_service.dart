@@ -37,15 +37,15 @@ class AuthService {
     try {
       await _ensureInit();
       final google = GoogleSignIn.instance;
-      if (!google.supportsAuthenticate()) return _browserFallback();
+      if (!google.supportsAuthenticate()) return await _browserFallback();
 
       final account = await google.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         // No id token means the web client id never reached the app.
-        return _browserFallback();
+        return await _browserFallback();
       }
-      return _auth.signInWithCredential(
+      return await _auth.signInWithCredential(
         GoogleAuthProvider.credential(idToken: idToken),
       );
     } on GoogleSignInException catch (e) {

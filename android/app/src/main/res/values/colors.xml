@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Farm bronze, matching T.accent in lib/theme/tokens.dart. -->
+    <color name="notification_accent">#9A6A3F</color>
+    <!-- Page background, so the launch window matches the first frame. -->
+    <color name="launch_background">#F6F2EC</color>
+</resources>

@@ -23,11 +23,7 @@ class ProductsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const body = _ProductsBody();
     if (!asSubScreen) return body;
-    return FarmScaffold(
-      title: 'Products & rates',
-      showBack: true,
-      body: body,
-    );
+    return FarmScaffold(title: 'Products & rates', showBack: true, body: body);
   }
 }
 

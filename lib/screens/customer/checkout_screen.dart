@@ -37,7 +37,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     if (lines.isEmpty) {
       return const PageBody(
-        children: [EmptyNote('Your cart is empty. Add something from the shop.')],
+        children: [
+          EmptyNote('Your cart is empty. Add something from the shop.'),
+        ],
       );
     }
 
@@ -148,17 +150,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String? _detail(PayMethod m, CustomerStore store, bool udhaarBlocked) =>
       switch (m) {
-        PayMethod.bank => store.settings.bankAccount.isEmpty
-            ? null
-            : store.settings.bankAccount,
-        PayMethod.jazzcash => store.settings.jazzcashNumber.isEmpty
-            ? null
-            : store.settings.jazzcashNumber,
+        PayMethod.bank =>
+          store.settings.bankAccount.isEmpty
+              ? null
+              : store.settings.bankAccount,
+        PayMethod.jazzcash =>
+          store.settings.jazzcashNumber.isEmpty
+              ? null
+              : store.settings.jazzcashNumber,
         PayMethod.udhaar => switch (store.udhaarStatus) {
-          UdhaarStatus.approved => udhaarBlocked
-              ? 'This order would pass your ${rs(store.udhaar?.limit ?? 0)} '
-                    'limit.'
-              : 'Added to your month-end bill.',
+          UdhaarStatus.approved =>
+            udhaarBlocked
+                ? 'This order would pass your ${rs(store.udhaar?.limit ?? 0)} '
+                      'limit.'
+                : 'Added to your month-end bill.',
           UdhaarStatus.pending => 'Your registration is still being approved.',
           _ => 'Register for udhaar first, in the Udhaar tab.',
         },
@@ -228,8 +233,7 @@ class _PayOption extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(method.label, style: T.body),
-                  if (detail != null)
-                    Text(detail!, style: T.meta),
+                  if (detail != null) Text(detail!, style: T.meta),
                 ],
               ),
             ),

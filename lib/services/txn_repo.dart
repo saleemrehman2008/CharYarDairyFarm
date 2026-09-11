@@ -33,7 +33,7 @@ class TxnRepo {
       'monthId': monthId,
       'type': type.name,
       'party': party,
-      if (customerId != null) 'customerId': customerId,
+      'customerId': ?customerId,
       'category': category,
       if (!type.isSettlement && qty != null) 'qty': qty,
       if (!type.isSettlement && unit != null) 'unit': unit,
@@ -42,7 +42,7 @@ class TxnRepo {
       'paid': settled,
       if (settled) 'paidAt': Timestamp.fromDate(now),
       'note': note,
-      if (orderId != null) 'orderId': orderId,
+      'orderId': ?orderId,
       'createdBy': actor.uid,
       'createdAt': FieldValue.serverTimestamp(),
     });

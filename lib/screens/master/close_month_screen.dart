@@ -238,10 +238,7 @@ class _ShareRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Tag(
-                '${(ratio * 100).toStringAsFixed(0)}%',
-                tone: TagTone.accent,
-              ),
+              Tag('${(ratio * 100).toStringAsFixed(0)}%', tone: TagTone.accent),
               const SizedBox(width: 8),
               Text(rs(share), style: T.num22),
             ],

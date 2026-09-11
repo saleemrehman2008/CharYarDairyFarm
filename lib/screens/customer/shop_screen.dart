@@ -173,9 +173,7 @@ class _ProductTile extends StatelessWidget {
                     : null,
               ),
               Expanded(
-                child: Center(
-                  child: Text(qty(qtyInCart), style: T.bodyMid),
-                ),
+                child: Center(child: Text(qty(qtyInCart), style: T.bodyMid)),
               ),
               _Step(
                 icon: Icons.add,

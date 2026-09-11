@@ -65,9 +65,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
               child: _Mini(label: 'Receivable', value: rs(books.receivable)),
             ),
             const SizedBox(width: 8),
-            Expanded(child: _Mini(label: 'Payable', value: rs(books.payable))),
+            Expanded(
+              child: _Mini(label: 'Payable', value: rs(books.payable)),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: _Mini(label: 'Cash', value: rs(books.cash))),
+            Expanded(
+              child: _Mini(label: 'Cash', value: rs(books.cash)),
+            ),
           ],
         ),
         const SizedBox(height: T.pad),
@@ -139,9 +143,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     AccountsFilter.all => store.monthTxns,
     AccountsFilter.sales =>
       store.monthTxns.where((t) => t.type == TxnType.sale).toList(),
-    AccountsFilter.expenses => store.monthTxns
-        .where((t) => t.type == TxnType.purchase || t.type == TxnType.expense)
-        .toList(),
+    AccountsFilter.expenses =>
+      store.monthTxns
+          .where((t) => t.type == TxnType.purchase || t.type == TxnType.expense)
+          .toList(),
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
   };
@@ -162,7 +167,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final ok = await confirm(
       context,
       title: 'Delete this entry?',
-      body: '${txn.type.label} · ${txn.party} · ${rs(txn.amount)}\n\n'
+      body:
+          '${txn.type.label} · ${txn.party} · ${rs(txn.amount)}\n\n'
           'It disappears from the app and is marked deleted in the Sheet.',
       confirmLabel: 'Delete',
     );
@@ -267,10 +273,7 @@ class _LedgerRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 46,
-            child: Text(fmtDate(txn.date), style: T.meta),
-          ),
+          SizedBox(width: 46, child: Text(fmtDate(txn.date), style: T.meta)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,11 +285,7 @@ class _LedgerRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  [
-                    txn.type.label,
-                    txn.category,
-                    if (qtyLine != null) qtyLine,
-                  ].join(' · '),
+                  [txn.type.label, txn.category, ?qtyLine].join(' · '),
                   style: T.meta,
                   maxLines: 2,
                 ),

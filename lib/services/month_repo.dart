@@ -11,10 +11,8 @@ class MonthRepo {
 
   /// The month the farm is currently booking into: the oldest month still
   /// marked open, or today's month if the farm has never closed one.
-  static Stream<FarmMonth> watchOpen() => Db.months
-      .where('status', isEqualTo: 'open')
-      .snapshots()
-      .map((q) {
+  static Stream<FarmMonth> watchOpen() =>
+      Db.months.where('status', isEqualTo: 'open').snapshots().map((q) {
         if (q.docs.isEmpty) {
           return FarmMonth(
             id: monthIdOf(DateTime.now()),

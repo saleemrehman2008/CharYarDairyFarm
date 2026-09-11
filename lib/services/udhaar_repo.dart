@@ -47,7 +47,7 @@ class UdhaarRepo {
   }) async {
     await Db.udhaarAccounts.doc(account.uid).update({
       'status': 'approved',
-      if (limit != null) 'limit': limit,
+      'limit': ?limit,
       'approvedBy': actor.uid,
       'approvedByName': actor.name,
       'approvedAt': FieldValue.serverTimestamp(),

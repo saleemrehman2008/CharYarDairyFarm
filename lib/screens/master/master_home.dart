@@ -211,12 +211,7 @@ class MasterHome extends StatelessWidget {
 }
 
 class _Kpi extends StatelessWidget {
-  const _Kpi({
-    required this.label,
-    required this.value,
-    this.note,
-    this.onTap,
-  });
+  const _Kpi({required this.label, required this.value, this.note, this.onTap});
 
   final String label;
   final String value;
@@ -277,10 +272,18 @@ class _AttentionRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(text, style: T.bodyMid, maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                Text(meta, style: T.meta, maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  text,
+                  style: T.bodyMid,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  meta,
+                  style: T.meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),

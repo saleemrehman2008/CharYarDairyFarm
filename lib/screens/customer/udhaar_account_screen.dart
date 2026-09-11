@@ -28,7 +28,10 @@ class UdhaarAccountScreen extends StatelessWidget {
               Row(
                 children: [
                   const Expanded(child: Kicker('Udhaar account')),
-                  Tag(store.udhaarStatus.label, tone: _tone(store.udhaarStatus)),
+                  Tag(
+                    store.udhaarStatus.label,
+                    tone: _tone(store.udhaarStatus),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -41,9 +44,7 @@ class UdhaarAccountScreen extends StatelessWidget {
                   style: T.meta,
                 ),
                 const SizedBox(height: 10),
-                RatioBar(
-                  fraction: u.limit <= 0 ? 0 : u.balance / u.limit,
-                ),
+                RatioBar(fraction: u.limit <= 0 ? 0 : u.balance / u.limit),
               ] else if (store.udhaarStatus == UdhaarStatus.pending) ...[
                 Text(
                   'Your request is with the co-founders. Any one of them can '

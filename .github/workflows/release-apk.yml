@@ -36,7 +36,7 @@ jobs:
         run: flutter analyze
 
       - name: Test
-        run: flutter test
+        run: flutter test --no-test-assets
 
   functions:
     name: Type-check Cloud Functions
@@ -83,9 +83,7 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "::error::Secret GOOGLE_SERVICES_JSON is not set. Add the"\
-                 "base64 of android/app/google-services.json to the repo"\
-                 "secrets (see SETUP.md)."
+            echo "::error::Secret GOOGLE_SERVICES_JSON is not set. Add the base64 of android/app/google-services.json to the repository secrets (see SETUP.md)."
             exit 1
           fi
           mkdir -p android/app

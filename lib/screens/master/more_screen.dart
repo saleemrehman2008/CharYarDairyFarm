@@ -25,9 +25,8 @@ class MoreScreen extends StatelessWidget {
         _Row(
           label: 'Products & rates',
           icon: Icons.sell_outlined,
-          onTap: () => _push(context, store, const ProductsScreen(
-            asSubScreen: true,
-          )),
+          onTap: () =>
+              _push(context, store, const ProductsScreen(asSubScreen: true)),
         ),
         _Row(
           label: 'Users & roles',
@@ -62,10 +61,7 @@ class MoreScreen extends StatelessWidget {
           },
         ),
         const SizedBox(height: 20),
-        Text(
-          'Signed in as ${session.user?.email ?? ''}',
-          style: T.meta,
-        ),
+        Text('Signed in as ${session.user?.email ?? ''}', style: T.meta),
       ],
     );
   }

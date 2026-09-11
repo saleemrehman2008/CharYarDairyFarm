@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import {initializeApp} from 'firebase-admin/app';
+import {FieldValue, getFirestore} from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import {setGlobalOptions} from 'firebase-functions/v2';
 import {
@@ -11,11 +12,11 @@ import {notifyCofounders, notifyMasters, notifyUser, rs} from './notify';
 import {appendRow, day, sheetsKey, stamp, upsertRow} from
   './sheets';
 
-admin.initializeApp();
+initializeApp();
 
 setGlobalOptions({region: 'asia-south1', maxInstances: 10});
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 
 /// Every Sheets-writing trigger needs the service-account key. The sheet id is
 /// a plain parameter, so it needs no declaration here.
@@ -385,7 +386,7 @@ export const raiseDailyOrders = onSchedule(
           pay: s.pay ?? 'cod',
           status: 'new',
           subscriptionId: sub.id,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (err) {
         logger.error(`Could not raise the daily order for ${sub.id}`, err);

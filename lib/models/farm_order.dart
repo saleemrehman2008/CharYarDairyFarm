@@ -171,18 +171,16 @@ class FarmOrder {
   factory FarmOrder.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final m = doc.data() ?? const {};
     final raw = (m['items'] as Map<String, dynamic>?) ?? const {};
-    final items =
-        raw.entries.map((e) {
-          final v = (e.value as Map?)?.cast<String, dynamic>() ?? const {};
-          return OrderItem(
-            productId: e.key,
-            name: s(v['name']),
-            qty: n(v['qty']),
-            price: n(v['price']),
-            unit: s(v['unit']),
-          );
-        }).toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
+    final items = raw.entries.map((e) {
+      final v = (e.value as Map?)?.cast<String, dynamic>() ?? const {};
+      return OrderItem(
+        productId: e.key,
+        name: s(v['name']),
+        qty: n(v['qty']),
+        price: n(v['price']),
+        unit: s(v['unit']),
+      );
+    }).toList()..sort((a, b) => a.name.compareTo(b.name));
 
     return FarmOrder(
       id: doc.id,

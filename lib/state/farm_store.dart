@@ -70,11 +70,7 @@ class FarmStore extends ChangeNotifier {
 
   FarmMonth get month =>
       _month ??
-      FarmMonth(
-        id: monthIdOf(DateTime.now()),
-        status: 'open',
-        openingCash: 0,
-      );
+      FarmMonth(id: monthIdOf(DateTime.now()), status: 'open', openingCash: 0);
 
   bool get ready => _month != null;
 
@@ -83,8 +79,7 @@ class FarmStore extends ChangeNotifier {
   List<Partner> get partners => _partners;
 
   /// Shop order, active items only.
-  List<Product> get shopProducts =>
-      _products.where((p) => p.active).toList();
+  List<Product> get shopProducts => _products.where((p) => p.active).toList();
   List<Product> get allProducts => _products;
   List<FarmOrder> get orders => _orders;
   List<UdhaarAccount> get udhaarAccounts => _udhaar;
@@ -132,8 +127,7 @@ class FarmStore extends ChangeNotifier {
   List<AppUser> get pendingUsers =>
       _users.where((u) => u.status == UserStatus.pending).toList();
 
-  List<Txn> get payablesDue =>
-      _unpaidTxns.where((t) => t.isPayable).toList();
+  List<Txn> get payablesDue => _unpaidTxns.where((t) => t.isPayable).toList();
 
   List<Txn> get receivablesDue =>
       _unpaidTxns.where((t) => t.isReceivable).toList();

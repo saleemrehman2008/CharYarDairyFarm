@@ -29,9 +29,7 @@ class CofounderHome extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Kicker(
-                'Your share · ${(ratio * 100).toStringAsFixed(0)}%',
-              ),
+              Kicker('Your share · ${(ratio * 100).toStringAsFixed(0)}%'),
               const SizedBox(height: 8),
               Text(rs(projected), style: T.num36),
               const SizedBox(height: 6),

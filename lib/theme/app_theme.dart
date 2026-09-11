@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'tokens.dart';
 
 ThemeData buildAppTheme() {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: T.accent,
-    brightness: Brightness.light,
-  ).copyWith(
-    surface: T.bg,
-    primary: T.accent,
-    onPrimary: T.accent100,
-    secondary: T.accent2,
-    onSurface: T.text,
-    outline: T.divider,
-  );
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: T.accent,
+        brightness: Brightness.light,
+      ).copyWith(
+        surface: T.bg,
+        primary: T.accent,
+        onPrimary: T.accent100,
+        secondary: T.accent2,
+        onSurface: T.text,
+        outline: T.divider,
+      );
 
   return ThemeData(
     useMaterial3: true,

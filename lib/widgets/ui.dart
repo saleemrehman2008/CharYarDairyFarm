@@ -430,7 +430,7 @@ class SectionTitle extends StatelessWidget {
     child: Row(
       children: [
         Expanded(child: Text(text, style: T.cardTitle)),
-        if (trailing != null) trailing!,
+        ?trailing,
       ],
     ),
   );

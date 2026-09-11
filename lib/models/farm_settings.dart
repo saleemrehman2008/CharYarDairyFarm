@@ -22,9 +22,8 @@ class FarmSettings {
   final DateTime? lastSyncAt;
   final bool syncOk;
 
-  String get sheetUrl => sheetId.isEmpty
-      ? ''
-      : 'https://docs.google.com/spreadsheets/d/$sheetId';
+  String get sheetUrl =>
+      sheetId.isEmpty ? '' : 'https://docs.google.com/spreadsheets/d/$sheetId';
 
   static const fallback = FarmSettings(
     name: 'Char Yar Dairy Farm',

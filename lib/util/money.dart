@@ -36,8 +36,9 @@ final _monthName = DateFormat('MMMM yyyy');
 final _monthShort = DateFormat('MMM yyyy');
 final _timeStamp = DateFormat('d MMM, h:mm a');
 
-String fmtDate(DateTime d) =>
-    d.year == DateTime.now().year ? _dayMonth.format(d) : _dayMonthYear.format(d);
+String fmtDate(DateTime d) => d.year == DateTime.now().year
+    ? _dayMonth.format(d)
+    : _dayMonthYear.format(d);
 
 String fmtDateFull(DateTime d) => _dayMonthYear.format(d);
 

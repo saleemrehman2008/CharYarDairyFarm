@@ -68,7 +68,9 @@ class AppUser {
     final m = doc.data() ?? const {};
     return AppUser(
       uid: doc.id,
-      name: s(m['name']).isEmpty ? s(m['email']).split('@').first : s(m['name']),
+      name: s(m['name']).isEmpty
+          ? s(m['email']).split('@').first
+          : s(m['name']),
       email: s(m['email']),
       photoUrl: s(m['photoUrl']),
       role: Role.parse(m['role']),

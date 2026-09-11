@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import {FieldValue, getFirestore} from 'firebase-admin/firestore';
+import {getMessaging} from 'firebase-admin/messaging';
 import * as logger from 'firebase-functions/logger';
 
 export const COFOUNDER_TOPIC = 'cofounders';
@@ -11,7 +12,7 @@ export async function notifyCofounders(
   data: Record<string, string> = {},
 ): Promise<void> {
   try {
-    await admin.messaging().send({
+    await getMessaging().send({
       topic: COFOUNDER_TOPIC,
       notification: {title, body},
       data,
@@ -31,11 +32,11 @@ export async function notifyUser(
 ): Promise<void> {
   if (!uid) return;
   try {
-    const snap = await admin.firestore().doc(`users/${uid}`).get();
+    const snap = await getFirestore().doc(`users/${uid}`).get();
     const tokens = (snap.data()?.fcmTokens as string[] | undefined) ?? [];
     if (!tokens.length) return;
 
-    const res = await admin.messaging().sendEachForMulticast({
+    const res = await getMessaging().sendEachForMulticast({
       tokens,
       notification: {title, body},
       data,
@@ -48,7 +49,7 @@ export async function notifyUser(
       .filter((t): t is string => t !== null);
     if (dead.length) {
       await snap.ref.update({
-        fcmTokens: admin.firestore.FieldValue.arrayRemove(...dead),
+        fcmTokens: FieldValue.arrayRemove(...dead),
       });
     }
   } catch (err) {
@@ -62,8 +63,7 @@ export async function notifyMasters(
   body: string,
 ): Promise<void> {
   try {
-    const masters = await admin
-      .firestore()
+    const masters = await getFirestore()
       .collection('users')
       .where('role', '==', 'master')
       .get();

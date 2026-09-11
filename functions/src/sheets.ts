@@ -1,5 +1,5 @@
 import {google, sheets_v4} from 'googleapis';
-import * as admin from 'firebase-admin';
+import {FieldValue, getFirestore, Timestamp} from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import {defineSecret, defineString} from 'firebase-functions/params';
 
@@ -75,7 +75,7 @@ function client(): sheets_v4.Sheets {
 
 /// The spreadsheet to write to: settings/farm.sheetId wins, then SHEET_ID.
 async function spreadsheetId(): Promise<string> {
-  const snap = await admin.firestore().doc('settings/farm').get();
+  const snap = await getFirestore().doc('settings/farm').get();
   const fromDb = (snap.data()?.sheetId as string | undefined) ?? '';
   const id = fromDb || sheetIdParam.value();
   if (!id) throw new Error('No sheetId in settings/farm and no SHEET_ID set');
@@ -191,10 +191,10 @@ export async function appendRow(
 /// Drives the "Sheets synced" / "Sync pending" tag in the app.
 async function markSync(ok: boolean): Promise<void> {
   try {
-    await admin.firestore().doc('settings/farm').set(
+    await getFirestore().doc('settings/farm').set(
       {
         syncOk: ok,
-        ...(ok ? {lastSyncAt: admin.firestore.FieldValue.serverTimestamp()} : {}),
+        ...(ok ? {lastSyncAt: FieldValue.serverTimestamp()} : {}),
       },
       {merge: true},
     );
@@ -207,7 +207,7 @@ async function markSync(ok: boolean): Promise<void> {
 export function stamp(value: unknown): string {
   if (!value) return '';
   const date =
-    value instanceof admin.firestore.Timestamp
+    value instanceof Timestamp
       ? value.toDate()
       : value instanceof Date
         ? value

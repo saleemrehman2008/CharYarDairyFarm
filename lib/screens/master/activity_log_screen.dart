@@ -85,13 +85,8 @@ class _LogRow extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 92,
-          child: Text(fmtStamp(entry.at), style: T.meta),
-        ),
-        Expanded(
-          child: Text('${entry.who} ${entry.what}', style: T.body),
-        ),
+        SizedBox(width: 92, child: Text(fmtStamp(entry.at), style: T.meta)),
+        Expanded(child: Text('${entry.who} ${entry.what}', style: T.body)),
         const SizedBox(width: 8),
         Tag(entry.kind.label),
       ],

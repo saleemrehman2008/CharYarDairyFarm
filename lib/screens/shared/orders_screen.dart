@@ -35,9 +35,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final orders = switch (_filter) {
       OrderFilter.all => store.orders,
       OrderFilter.open => store.openOrders,
-      OrderFilter.fresh => store.orders
-          .where((o) => o.status == OrderStatus.newOrder)
-          .toList(),
+      OrderFilter.fresh =>
+        store.orders.where((o) => o.status == OrderStatus.newOrder).toList(),
     };
 
     return PageBody(
@@ -106,7 +105,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final send = await confirm(
       context,
       title: 'Tell the others on WhatsApp?',
-      body: 'Opens WhatsApp with a ready message about order '
+      body:
+          'Opens WhatsApp with a ready message about order '
           '#${order.number}.',
       confirmLabel: 'Open WhatsApp',
     );

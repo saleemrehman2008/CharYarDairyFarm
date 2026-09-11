@@ -34,8 +34,8 @@ class Log {
         'who': actor.name,
         'kind': kind.name,
         'what': what,
-        if (refType != null) 'refType': refType,
-        if (refId != null) 'refId': refId,
+        'refType': ?refType,
+        'refId': ?refId,
       });
     } catch (_) {
       // Ignored on purpose.

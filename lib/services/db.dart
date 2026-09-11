@@ -98,9 +98,8 @@ class Db {
       .snapshots()
       .map((d) => d.exists ? UdhaarAccount.fromDoc(d) : null);
 
-  static Stream<List<UdhaarAccount>> watchUdhaarAccounts() => udhaarAccounts
-      .snapshots()
-      .map(
+  static Stream<List<UdhaarAccount>> watchUdhaarAccounts() =>
+      udhaarAccounts.snapshots().map(
         (q) =>
             q.docs.map(UdhaarAccount.fromDoc).toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
