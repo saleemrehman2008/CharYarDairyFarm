@@ -161,7 +161,12 @@ class _SubLine extends StatelessWidget {
   }
 }
 
-/// Green when the last Sheets sync succeeded, warning tone when it is retrying.
+/// The state of the Google Sheet mirror, told honestly.
+///
+/// This used to read "Sheets synced" whenever nothing had gone wrong, which
+/// included the case where the mirror had never run at all — so the farm was
+/// assured its books were backed up while the Sheet sat empty. Green now means
+/// a row actually reached the Sheet.
 class _SheetsTag extends StatelessWidget {
   const _SheetsTag();
 
@@ -169,10 +174,18 @@ class _SheetsTag extends StatelessWidget {
   Widget build(BuildContext context) => StreamBuilder<FarmSettings>(
     stream: Db.watchSettings(),
     builder: (context, snap) {
-      final ok = snap.data?.syncOk ?? true;
+      final settings = snap.data;
+      if (settings == null) return const SizedBox.shrink();
+
+      if (settings.sheetId.isEmpty) {
+        return const Tag('Sheets off', tone: TagTone.neutral);
+      }
+      if (settings.lastSyncAt == null) {
+        return const Tag('Sheets waiting', tone: TagTone.warn);
+      }
       return Tag(
-        ok ? 'Sheets synced' : 'Sync pending',
-        tone: ok ? TagTone.good : TagTone.warn,
+        settings.syncOk ? 'Sheets synced' : 'Sync pending',
+        tone: settings.syncOk ? TagTone.good : TagTone.warn,
       );
     },
   );

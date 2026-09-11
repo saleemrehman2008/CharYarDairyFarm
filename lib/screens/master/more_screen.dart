@@ -51,7 +51,10 @@ class MoreScreen extends StatelessWidget {
           onTap: () async {
             final url = store.settings.sheetUrl;
             if (url.isEmpty) {
-              toast(context, 'No sheet linked yet. Add sheetId to settings.');
+              toast(
+                context,
+                'No sheet linked yet — add sheetId to settings/farm.',
+              );
               return;
             }
             final opened = await Links.open(url);
