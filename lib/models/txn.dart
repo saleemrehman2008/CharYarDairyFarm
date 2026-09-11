@@ -85,6 +85,13 @@ enum TxnType {
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
 
+/// Buying a buffalo is not a cost the way a bag of feed is. The cash leaves
+/// either way, but the farm still owns the animal — it changed shape, it was
+/// not spent. Counting it as a monthly cost would show a huge loss in the month
+/// it was bought and flattering profits ever after, so these categories are
+/// held out of the profit and reported as what the farm owns.
+const assetCategories = {'Cattle purchase', 'Equipment'};
+
 class Txn {
   Txn({
     required this.id,
@@ -150,6 +157,15 @@ class Txn {
   final DateTime? deletedAt;
 
   bool get isDeleted => deletedAt != null;
+
+  /// Cattle and equipment the farm now owns, rather than money it spent.
+  bool get isCapitalAsset =>
+      (type == TxnType.purchase || type == TxnType.expense) &&
+      assetCategories.contains(category);
+
+  /// Feed, salaries, bills — the cost of running the farm this month.
+  bool get isRunningCost =>
+      (type == TxnType.purchase || type == TxnType.expense) && !isCapitalAsset;
 
   /// Unpaid sales are receivables; unpaid purchases and expenses are payables.
   bool get isReceivable => !paid && type == TxnType.sale;

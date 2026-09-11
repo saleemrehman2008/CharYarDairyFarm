@@ -81,6 +81,18 @@ class Db {
               ..sort((a, b) => b.date.compareTo(a.date)),
       );
 
+  /// Everything the farm owns, across every month — a handful of rows, since
+  /// cattle and equipment are bought rarely.
+  static Stream<List<Txn>> watchAssetTxns() => transactions
+      .where('category', whereIn: assetCategories.toList())
+      .snapshots()
+      .map(
+        (q) => q.docs
+            .map(Txn.fromDoc)
+            .where((t) => !t.isDeleted && t.isCapitalAsset)
+            .toList(),
+      );
+
   static Stream<List<FarmOrder>> watchOrders() => orders
       .orderBy('createdAt', descending: true)
       .limit(200)

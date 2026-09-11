@@ -160,6 +160,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             items: [for (final c in _type.categories) (c, c)],
             onChanged: (v) => setState(() => _category = v),
           ),
+          if (assetCategories.contains(_category) && !_type.isSettlement) ...[
+            const SizedBox(height: 6),
+            Text(
+              'This counts as a farm asset, not a monthly cost. The cash still '
+              'leaves the balance, but the profit is not reduced — the farm '
+              'owns what it bought.',
+              style: T.meta.copyWith(color: T.accent700),
+            ),
+          ],
 
           if (measured) ...[
             const SizedBox(height: T.gap),

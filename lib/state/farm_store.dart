@@ -26,6 +26,10 @@ class FarmStore extends ChangeNotifier {
         _unpaidTxns = v;
         notifyListeners();
       }),
+      Db.watchAssetTxns().listen((v) {
+        _assetTxns = v;
+        notifyListeners();
+      }),
       Db.watchPartners().listen((v) {
         _partners = v;
         notifyListeners();
@@ -61,6 +65,7 @@ class FarmStore extends ChangeNotifier {
   FarmMonth? _month;
   List<Txn> _monthTxns = const [];
   List<Txn> _unpaidTxns = const [];
+  List<Txn> _assetTxns = const [];
   List<Partner> _partners = const [];
   List<Product> _products = const [];
   List<FarmOrder> _orders = const [];
@@ -101,6 +106,9 @@ class FarmStore extends ChangeNotifier {
   /// Money the partners actually put in, which is cash the farm can spend.
   /// Reinvested profit is left out: it never left the farm in the first place.
   num get capitalIn => _partners.fold<num>(0, (a, p) => a + p.invested);
+
+  /// Everything the farm owns — cattle and equipment, across every month.
+  num get assetsOwned => _assetTxns.fold<num>(0, (a, t) => a + t.amount);
 
   Partner? partnerFor(String uid) {
     for (final p in _partners) {

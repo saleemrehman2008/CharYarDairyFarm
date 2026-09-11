@@ -14,6 +14,7 @@ Txn entry({
   bool paid = true,
   String? customerId,
   String? settlesTxnId,
+  String? category,
   String monthId = '2026-09',
 }) => Txn(
   id: 'txn${_seq++}',
@@ -22,7 +23,7 @@ Txn entry({
   type: type,
   party: 'Someone',
   customerId: customerId,
-  category: type.categories.first,
+  category: category ?? type.categories.first,
   amount: amount,
   paid: paid,
   paidAt: paid ? DateTime(2026, 9, 10) : null,
@@ -230,6 +231,57 @@ void main() {
         ),
       ], opening: 5000);
       expect(books.cash, 15000);
+    });
+  });
+
+  group('cattle and equipment are owned, not spent', () {
+    // The farm's first month: 22 lakh of capital, 25 lakh of buffalo, a bag of
+    // feed and one day's milk.
+    final monthTxns = [
+      entry(
+        type: TxnType.purchase,
+        amount: 2500000,
+        category: 'Cattle purchase',
+      ),
+      entry(type: TxnType.purchase, amount: 400000, category: 'Fodder / feed'),
+      entry(type: TxnType.sale, amount: 7200, category: 'Milk'),
+    ];
+    final books = Books(
+      monthId: '2026-09',
+      openingCash: 0,
+      capital: 2200000,
+      monthTxns: monthTxns,
+      unpaidTxns: const [],
+    );
+
+    test('the buffalo are held out of the running costs', () {
+      expect(books.assetsBought, 2500000);
+      expect(books.costs, 400000);
+    });
+
+    test('profit reflects the month, not the herd', () {
+      // Without this the month would show a 28.9 lakh "loss" for buying stock.
+      expect(books.profit, 7200 - 400000);
+    });
+
+    test('but the cash for them is still gone', () {
+      // 2,200,000 capital + 7,200 milk − 2,500,000 cattle − 400,000 feed
+      expect(books.cash, -692800);
+    });
+
+    test('feed and salaries are still ordinary costs', () {
+      final running = Books(
+        monthId: '2026-09',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [
+          entry(type: TxnType.expense, amount: 30000, category: 'Salaries'),
+          entry(type: TxnType.expense, amount: 8000, category: 'Rent'),
+        ],
+        unpaidTxns: const [],
+      );
+      expect(running.assetsBought, 0);
+      expect(running.costs, 38000);
     });
   });
 

@@ -296,6 +296,10 @@ class _LedgerRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                if (txn.isCapitalAsset) ...[
+                  const SizedBox(height: 6),
+                  const Tag('farm asset · not a cost', tone: TagTone.accent),
+                ],
                 if (!txn.paid) ...[
                   const SizedBox(height: 6),
                   Row(

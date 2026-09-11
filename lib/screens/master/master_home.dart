@@ -46,13 +46,15 @@ class MasterHome extends StatelessWidget {
               Row(
                 children: [
                   _Mini(label: 'Partner capital', value: rs(books.capital)),
-                  _Mini(label: 'Paid out this month', value: rs(books.paidOut)),
+                  _Mini(label: 'Farm assets', value: rs(store.assetsOwned)),
+                  _Mini(label: 'Paid out', value: rs(books.paidOut)),
                 ],
               ),
               const SizedBox(height: 10),
               Text(
-                'Everything the co-founders put in, less everything the farm '
-                'has actually paid out. Unpaid bills are not taken off yet.',
+                'Cash in hand: what the co-founders put in, less what the farm '
+                'has actually paid out. Cattle and equipment are paid for but '
+                'still owned — they count under farm assets, not as a cost.',
                 style: T.meta,
               ),
             ],
@@ -73,8 +75,11 @@ class MasterHome extends StatelessWidget {
             const SizedBox(width: T.gap),
             Expanded(
               child: _Kpi(
-                label: 'Purchases & expenses',
+                label: 'Running costs',
                 value: rs(books.costs),
+                note: books.assetsBought > 0
+                    ? '+ ${rs(books.assetsBought)} assets'
+                    : 'feed, salaries, bills',
                 onTap: () => onGo(2, accountsFilter: AccountsFilter.expenses),
               ),
             ),
@@ -114,9 +119,17 @@ class MasterHome extends StatelessWidget {
               Text(rs(books.profit), style: T.num28),
               const SizedBox(height: 4),
               Text(
-                'Sales ${rs(books.sales)} − Costs ${rs(books.costs)}',
+                'Sales ${rs(books.sales)} − Running costs ${rs(books.costs)}',
                 style: T.meta,
               ),
+              if (books.assetsBought > 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${rs(books.assetsBought)} of cattle & equipment bought this '
+                  'month is not counted here — the farm still owns it.',
+                  style: T.meta,
+                ),
+              ],
               const SizedBox(height: 10),
               RatioBar(fraction: books.profitBar),
               const SizedBox(height: 14),

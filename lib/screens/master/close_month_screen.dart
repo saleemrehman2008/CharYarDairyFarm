@@ -42,12 +42,21 @@ class _CloseMonthScreenState extends State<CloseMonthScreen> {
             child: Column(
               children: [
                 _Line(label: 'Sales', value: rs(books.sales)),
-                _Line(label: '− Purchases', value: rs(books.purchases)),
-                _Line(label: '− Expenses', value: rs(books.expenses)),
+                _Line(label: '− Running costs', value: rs(books.costs)),
                 _Line(
                   label: _arIncluded ? '+ Receivables kept' : '− Receivables',
                   value: rs(books.receivable),
                 ),
+                if (books.assetsBought > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${rs(books.assetsBought)} of cattle & equipment was '
+                      'bought this month. It is not a cost — the farm owns it '
+                      '— so it is not taken off the profit.',
+                      style: T.meta,
+                    ),
+                  ),
                 const Divider(height: 18),
                 const Align(
                   alignment: Alignment.centerLeft,

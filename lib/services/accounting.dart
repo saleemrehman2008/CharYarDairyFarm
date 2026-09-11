@@ -12,6 +12,9 @@ class Books {
   }) : sales = _sum(monthTxns, TxnType.sale),
        purchases = _sum(monthTxns, TxnType.purchase),
        expenses = _sum(monthTxns, TxnType.expense),
+       assetsBought = monthTxns
+           .where((t) => t.isCapitalAsset)
+           .fold<num>(0, (a, t) => a + t.amount),
        receipts = _sum(monthTxns, TxnType.receipt),
        payments = _sum(monthTxns, TxnType.payment),
        paidSales = _sum(monthTxns, TxnType.sale, cashAtEntryOnly: true),
@@ -45,6 +48,10 @@ class Books {
   final num purchases;
   final num expenses;
 
+  /// Cattle and equipment bought this month. The cash for these is gone, but
+  /// the farm owns them, so they are not part of [costs].
+  final num assetsBought;
+
   /// Every receipt and payment this month, settlements included — these rows
   /// *are* the moment the money moved, which is exactly what cash wants.
   final num receipts;
@@ -64,10 +71,13 @@ class Books {
   final num receivable;
   final num payable;
 
-  num get costs => purchases + expenses;
+  /// What it cost to run the farm this month — feed, salaries, bills, vet.
+  /// Cattle and equipment are deliberately left out; see [assetsBought].
+  num get costs => purchases + expenses - assetsBought;
 
-  /// Profit for the open month, on an accrual basis. Capital is not income, so
-  /// it never touches this.
+  /// Profit for the open month, on an accrual basis. Neither the partners'
+  /// capital nor the cattle they bought with it is income or cost, so neither
+  /// touches this figure.
   num get profit => sales - costs;
 
   /// Everything the farm has trading with, including what the partners put in.
