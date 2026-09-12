@@ -95,6 +95,10 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
       toast(context, 'That price does not look right.');
       return;
     }
+    if (price > 0 && _book && _handledBy.text.trim().isEmpty) {
+      toast(context, 'Who paid for it? Fill that in first.');
+      return;
+    }
 
     final actor = context.read<Session>().actor;
     setState(() => _busy = true);

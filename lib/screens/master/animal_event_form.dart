@@ -100,6 +100,10 @@ class _AnimalEventFormScreenState extends State<AnimalEventFormScreen> {
       toast(context, 'Write down what happened.');
       return;
     }
+    if (cost > 0 && _book && _handledBy.text.trim().isEmpty) {
+      toast(context, 'Who paid for it? Fill that in first.');
+      return;
+    }
 
     setState(() => _busy = true);
     try {

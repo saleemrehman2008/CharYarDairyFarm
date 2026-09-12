@@ -491,6 +491,9 @@ Future<Settlement?> askSettlement(
 }) {
   var via = PayVia.cash;
   final who = TextEditingController();
+  // Money that moved without a name against it is money nobody can be asked
+  // about later, so the sheet will not close until there is one.
+  var named = false;
 
   return showModalBottomSheet<Settlement>(
     context: context,
@@ -527,23 +530,40 @@ Future<Settlement?> askSettlement(
               label: incoming ? 'Received by' : 'Paid by',
               controller: who,
               hint: incoming ? 'Who took the money' : 'Who handed it over',
+              onChanged: (v) =>
+                  setSheetState(() => named = v.trim().isNotEmpty),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 6),
+            Text(
+              named
+                  ? ' '
+                  : incoming
+                  ? 'Who took the money? Needed before this can be saved.'
+                  : 'Who handed it over? Needed before this can be saved.',
+              style: T.meta.copyWith(
+                color: named ? T.n600 : const Color(0xFF8C2F20),
+              ),
+            ),
+            const SizedBox(height: 12),
             PrimaryButton(
               label: 'Save',
-              onPressed: () => Navigator.pop(
-                sheetContext,
-                Settlement(payVia: via, handledBy: who.text.trim()),
-              ),
+              onPressed: named
+                  ? () => Navigator.pop(
+                      sheetContext,
+                      Settlement(payVia: via, handledBy: who.text.trim()),
+                    )
+                  : null,
             ),
             if (allowUnpaid) ...[
               const SizedBox(height: 10),
               GhostButton(
                 label: 'Nothing taken — they still owe it',
-                onPressed: () => Navigator.pop(
-                  sheetContext,
-                  Settlement(payVia: null, handledBy: who.text.trim()),
-                ),
+                onPressed: named
+                    ? () => Navigator.pop(
+                        sheetContext,
+                        Settlement(payVia: null, handledBy: who.text.trim()),
+                      )
+                    : null,
               ),
             ],
             const SizedBox(height: 8),

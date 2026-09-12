@@ -100,6 +100,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       toast(context, 'Add the total amount.');
       return;
     }
+    // Money that moved needs a name against it, or nobody can be asked about
+    // it a month later.
+    if (_paid && _handledBy.text.trim().isEmpty) {
+      toast(context, 'Who handled the money? Fill that in first.');
+      return;
+    }
 
     final store = context.read<FarmStore>();
     final actor = context.read<Session>().actor;
