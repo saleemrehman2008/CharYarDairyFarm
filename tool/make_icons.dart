@@ -154,16 +154,52 @@ String? _flag(List<String> args, String name) {
     'Backdrop colours: ${backdrop.map((c) => 'rgb(${c[0]},${c[1]},${c[2]})').join(', ')}',
   );
 
+  // Is the backdrop a colour, or a grey?
+  //
+  // It decides how a pixel is judged, and the difference matters. A grey
+  // chessboard can only be told apart by how close a pixel is to it, and
+  // close is all one can ask, because the bull is grey too. A magenta key can
+  // be told apart by what colour it *is* — and that is a far better question,
+  // because a shaded magenta in the shadow of a milk can is still magenta,
+  // while chrome in shadow is still grey. Measuring distance confuses those
+  // two; asking the hue does not.
+  final key = _average(backdrop);
+  final keyHue = _hue(key);
+  final keySat = _saturation(key);
+  final keyed = keySat > 0.25;
+
+  stdout.writeln(
+    keyed
+        ? 'Backdrop is a colour key at hue ${keyHue.round()}°'
+        : 'Backdrop is neutral — judging by distance',
+  );
+
   /// How far a pixel is from the nearest backdrop colour.
   int distance(int x, int y) {
     final p = _rgb(src, x, y);
     var best = 1 << 20;
     for (final c in backdrop) {
-      final d = (p[0] - c[0]).abs() + (p[1] - c[1]).abs() + (p[2] - c[2]).abs();
+      final d =
+          (p[0] - c[0]).abs() + (p[1] - c[1]).abs() + (p[2] - c[2]).abs();
       if (d < best) best = d;
     }
     return best;
   }
+
+  /// Whether this pixel is the backdrop's own colour, however light or dark
+  /// the render has made it.
+  bool isKey(int x, int y) {
+    final p = _rgb(src, x, y);
+    final sat = _saturation(p);
+    if (sat < keySat * 0.30) return false;
+    var d = (_hue(p) - keyHue).abs();
+    if (d > 180) d = 360 - d;
+    return d < 28;
+  }
+
+  /// The one test everything below uses.
+  bool isBackdrop(int x, int y, int tolerance) =>
+      keyed ? isKey(x, y) : distance(x, y) <= tolerance;
 
   // The chessboard is two flat greys, but the seam between two squares is a
   // blend of the two, so the tolerance has to be wide enough to swallow the
@@ -187,7 +223,7 @@ String? _flag(List<String> args, String name) {
     if (x < 0 || y < 0 || x >= w || y >= h) return;
     final i = y * w + x;
     if (seen[i]) return;
-    if (distance(x, y) > tolerance) return;
+    if (!isBackdrop(x, y, tolerance)) return;
     seen[i] = true;
     queue.add(i);
   }
@@ -212,24 +248,27 @@ String? _flag(List<String> args, String name) {
     push(x, y + 1, spread);
   }
 
-  // The rim: pixels the flood stopped at are part backdrop, part artwork, and
-  // left alone they draw a grey outline round everything. Their alpha is
-  // pulled down by however much backdrop is in them.
-  for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      if (seen[y * w + x]) continue;
-      if (!_touchesClear(seen, x, y, w, h)) continue;
-      final d = distance(x, y);
-      if (d >= edge) continue;
-      final p = out.getPixel(x, y);
-      out.setPixelRgba(
-        x,
-        y,
-        p.r.round(),
-        p.g.round(),
-        p.b.round(),
-        (255 * (d / edge)).round(),
-      );
+  // Softening the rim by how much backdrop is in it only makes sense when
+  // the backdrop was a grey the artwork half shares. Against a colour key a
+  // pixel either is that colour or is not, and thinning the edge there just
+  // gnaws at the shape.
+  if (!keyed) {
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (seen[y * w + x]) continue;
+        if (!_touchesClear(seen, x, y, w, h)) continue;
+        final d = distance(x, y);
+        if (d >= edge) continue;
+        final p = out.getPixel(x, y);
+        out.setPixelRgba(
+          x,
+          y,
+          p.r.round(),
+          p.g.round(),
+          p.b.round(),
+          (255 * (d / edge)).round(),
+        );
+      }
     }
   }
 
@@ -306,6 +345,48 @@ String? _flag(List<String> args, String name) {
     out.setPixelRgba(x, y, c[0], c[1], c[2], out.getPixel(x, y).a.round());
   }
 
+  // Last: wring the key's colour out of anything that kept a trace of it.
+  //
+  // The pass above hands a boundary pixel the colour of the artwork inside
+  // it, which works where there is an inside. On a line one pixel wide there
+  // is none — the whole stroke is boundary — so the bull's outline came out
+  // wearing a pink thread down one side. Rather than hunt for a donor that
+  // does not exist, that pixel simply has the pink taken out of it: the hue
+  // is drained to grey and the brightness left exactly where it was.
+  //
+  // Safe because nothing in this artwork is anywhere near the key's hue. The
+  // milk is warm cream, the chrome has no hue at all, the lettering is blue.
+  // Only what the backdrop touched is wearing magenta, so only that changes.
+  if (keyed) {
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (seen[y * w + x]) continue;
+        final px = out.getPixel(x, y);
+        if (px.a < 8) continue;
+
+        final c = [px.r.round(), px.g.round(), px.b.round()];
+        final sat = _saturation(c);
+        if (sat < 0.06) continue;
+
+        var d = (_hue(c) - keyHue).abs();
+        if (d > 180) d = 360 - d;
+        if (d > 42) continue;
+
+        // Fully the key's hue, fully drained; further off, less so.
+        final pull = 1 - (d / 42);
+        final grey = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]);
+        out.setPixelRgba(
+          x,
+          y,
+          (c[0] + (grey - c[0]) * pull).round(),
+          (c[1] + (grey - c[1]) * pull).round(),
+          (c[2] + (grey - c[2]) * pull).round(),
+          px.a.round(),
+        );
+      }
+    }
+  }
+
   return (out, cut);
 }
 
@@ -318,6 +399,44 @@ bool _touchesClear(List<bool> seen, int x, int y, int w, int h) {
     }
   }
   return false;
+}
+
+/// The middle of a set of colours.
+List<int> _average(List<List<int>> colours) {
+  var r = 0, g = 0, b = 0;
+  for (final c in colours) {
+    r += c[0];
+    g += c[1];
+    b += c[2];
+  }
+  final n = colours.length;
+  return [r ~/ n, g ~/ n, b ~/ n];
+}
+
+/// Which colour this is, on the wheel, 0–360.
+double _hue(List<int> c) {
+  final r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+  final max = [r, g, b].reduce((a, x) => a > x ? a : x);
+  final min = [r, g, b].reduce((a, x) => a < x ? a : x);
+  final d = max - min;
+  if (d == 0) return 0;
+  double h;
+  if (max == r) {
+    h = ((g - b) / d) % 6;
+  } else if (max == g) {
+    h = (b - r) / d + 2;
+  } else {
+    h = (r - g) / d + 4;
+  }
+  h *= 60;
+  return h < 0 ? h + 360 : h;
+}
+
+/// How much colour there is in it, 0–1. Grey is zero however light or dark.
+double _saturation(List<int> c) {
+  final max = [c[0], c[1], c[2]].reduce((a, x) => a > x ? a : x);
+  final min = [c[0], c[1], c[2]].reduce((a, x) => a < x ? a : x);
+  return max == 0 ? 0 : (max - min) / max;
 }
 
 List<int> _rgb(img.Image im, int x, int y) {
