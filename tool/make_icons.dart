@@ -5,7 +5,7 @@
 // straight into the app it would carry a grey chessboard around the bull.
 // This finds that backdrop, cuts it away for real, and writes out the pieces.
 //
-//   dart run tool/make_icons.dart <image> [--mark l,t,r,b] [--dry]
+//   dart run tool/make_icons.dart <image> [--mark l,t,r,b] [--grip N] [--dry]
 //
 // It produces three things:
 //
@@ -20,6 +20,11 @@
 // `--mark` says which part of the artwork the mark is, in fractions of the
 // trimmed lockup: `--mark 0.44,0.0,0.72,0.52` is the box from 44% across and
 // the very top to 72% across and 52% down.
+//
+// `--grip` is how close a pixel has to be to the backdrop to be cut away. The
+// default is cautious. Shoot the logo against a colour nothing in it shares —
+// magenta against cream, chrome and blue — and it can go far higher, which is
+// what clears the shaded backdrop trapped inside an enclosed shape.
 
 import 'dart:collection';
 import 'dart:io';
@@ -39,8 +44,10 @@ const _launcher = {
   'mipmap-xxxhdpi': 192,
 };
 
-/// Where the splash-and-can roundel sits in this particular artwork.
-const _defaultMark = '0.43,0.01,0.85,0.46';
+/// Where the splash-and-cans roundel sits in the artwork we have. The
+/// defaults below are the ones that came out right for it — shot against a
+/// flat magenta, which nothing in the logo shares, so the cut can be hard.
+const _defaultMark = '0.47,0.0,1.0,0.47';
 
 void main(List<String> args) {
   if (args.isEmpty) {
@@ -56,6 +63,8 @@ void main(List<String> args) {
 
   final dry = args.contains('--dry');
   final markSpec = _flag(args, '--mark') ?? _defaultMark;
+  final grip = int.tryParse(_flag(args, '--grip') ?? '') ?? 90;
+  final spread = int.tryParse(_flag(args, '--spread') ?? '') ?? 145;
 
   var photo = img.decodeImage(source.readAsBytesSync());
   if (photo == null) {
@@ -65,7 +74,7 @@ void main(List<String> args) {
   stdout.writeln('Read ${photo.width}x${photo.height}');
 
   photo = photo.convert(numChannels: 4);
-  final cut = _stripBackdrop(photo);
+  final cut = _stripBackdrop(photo, grip: grip, spread: spread);
   stdout.writeln('Backdrop removed: ${cut.$2} pixels');
 
   final lockup = _trimClear(cut.$1);
@@ -122,7 +131,11 @@ String? _flag(List<String> args, String name) {
 /// the seams between squares and the blend around each edge.
 ///
 /// Returns the cut image and how many pixels went.
-(img.Image, int) _stripBackdrop(img.Image src) {
+(img.Image, int) _stripBackdrop(
+  img.Image src, {
+  int grip = 14,
+  int spread = 42,
+}) {
   final out = img.Image.from(src);
   final w = src.width, h = src.height;
 
@@ -157,8 +170,14 @@ String? _flag(List<String> args, String name) {
   // grid lines as well. It can afford to be: the flood only ever walks in
   // from the outside, so however wide it is set it cannot wander into the
   // middle of the artwork.
-  const exact = 14; // unmistakably one of the backdrop's own colours
-  const spread = 52; // a seam or a blended edge next to one
+  // How close a pixel has to be to count as backdrop.
+  //
+  // A grey chessboard sits near the artwork's own greys and has to be cut
+  // narrowly, at the default. A magenta key sits nowhere near cream, chrome
+  // or blue, so it can be cut hard — and needs to be, because a 3D render
+  // shades its own background inside an enclosed ring and those pixels are
+  // no longer quite the colour they started as.
+  final exact = grip;
   const edge = 130; // part backdrop, part artwork
 
   final seen = List<bool>.filled(w * h, false);
@@ -212,6 +231,79 @@ String? _flag(List<String> args, String name) {
         (255 * (d / edge)).round(),
       );
     }
+  }
+
+  // The fringe: a pixel of artwork sitting right on the boundary is
+  // literally a mixture of artwork and backdrop, so it keeps a trace of the
+  // backdrop's colour — the hairline of magenta around everything that gives
+  // a bad cutout away. Rubbing those pixels out would eat into the shape, so
+  // instead each one takes its colour from the artwork just inside it and
+  // keeps its own alpha. The edge stays exactly where it was; only its colour
+  // is corrected.
+  //
+  // Two rings deep, because a render's edge is soft and one pixel is rarely
+  // the whole of it.
+  var rim = <int>[];
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      if (seen[y * w + x]) continue;
+      if (_touchesClear(seen, x, y, w, h)) rim.add(y * w + x);
+    }
+  }
+
+  final isRim = List<bool>.filled(w * h, false);
+  for (final i in rim) {
+    isRim[i] = true;
+  }
+  // A second ring in from the first.
+  final rim2 = <int>[];
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final i = y * w + x;
+      if (seen[i] || isRim[i]) continue;
+      for (var dy = -1; dy <= 1 && !isRim[i]; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+          final nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (isRim[ny * w + nx]) {
+            rim2.add(i);
+            dy = 2;
+            break;
+          }
+        }
+      }
+    }
+  }
+  for (final i in rim2) {
+    isRim[i] = true;
+  }
+  rim = [...rim, ...rim2];
+
+  // Each rim pixel takes the average of the solid artwork near it.
+  final fixed = <int, List<int>>{};
+  for (final i in rim) {
+    final x = i % w, y = i ~/ w;
+    var r = 0, g = 0, b = 0, n = 0;
+    for (var dy = -3; dy <= 3; dy++) {
+      for (var dx = -3; dx <= 3; dx++) {
+        final nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        final j = ny * w + nx;
+        if (seen[j] || isRim[j]) continue; // only solid artwork donates
+        final q = _rgb(src, nx, ny);
+        r += q[0];
+        g += q[1];
+        b += q[2];
+        n++;
+      }
+    }
+    if (n > 0) fixed[i] = [r ~/ n, g ~/ n, b ~/ n];
+  }
+
+  for (final entry in fixed.entries) {
+    final x = entry.key % w, y = entry.key ~/ w;
+    final c = entry.value;
+    out.setPixelRgba(x, y, c[0], c[1], c[2], out.getPixel(x, y).a.round());
   }
 
   return (out, cut);
