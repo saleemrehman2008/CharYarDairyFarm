@@ -158,6 +158,13 @@ service cloud.firestore {
       allow read, write: if isPartner();
     }
 
+    // Full-size animal pictures, kept here rather than in Firebase Storage —
+    // Storage needs a card on a billing account, and a shrunk photo costs the
+    // free tier almost nothing.
+    match /animal_photos/{id} {
+      allow read, write: if isPartner();
+    }
+
     match /animal_events/{id} {
       allow read, create: if isPartner();
       allow update: if isPartner();

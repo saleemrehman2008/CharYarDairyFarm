@@ -6,6 +6,7 @@ import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 import 'animal_form.dart';
 import 'animal_screen.dart';
@@ -234,7 +235,7 @@ class _AnimalRow extends StatelessWidget {
     dim: !animal.status.isHere,
     child: Row(
       children: [
-        AnimalPhoto(url: animal.photoUrl, size: 62),
+        FarmPhotoView(data: animal.thumb, url: animal.photoUrl, size: 62),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -298,34 +299,6 @@ class _Chip extends StatelessWidget {
           style: T.meta.copyWith(color: on ? Colors.white : T.n700),
         ),
       ),
-    ),
-  );
-}
-
-/// An animal's picture, square, with the camera mark when there is none.
-class AnimalPhoto extends StatelessWidget {
-  const AnimalPhoto({super.key, required this.url, this.size = 62});
-
-  final String url;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: DecoratedBox(
-      decoration: BoxDecoration(color: T.accent100, border: T.hair),
-      child: url.isEmpty
-          ? const Center(
-              child: Icon(Icons.photo_camera_outlined, color: T.accent400),
-            )
-          : Image.network(
-              url,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Center(
-                child: Icon(Icons.broken_image_outlined, color: T.accent400),
-              ),
-            ),
     ),
   );
 }

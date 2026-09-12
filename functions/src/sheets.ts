@@ -59,7 +59,7 @@ export const HEADERS: Record<Tab, string[]> = {
   ],
   Animals: [
     'id', 'tag', 'name', 'species', 'sex', 'status', 'bornOn', 'boughtOn',
-    'price', 'litres/day', 'mother', 'nextDue', 'nextDueWhat', 'photo',
+    'price', 'litres/day', 'mother', 'nextDue', 'nextDueWhat', 'hasPhoto',
   ],
   AnimalEvents: [
     'id', 'tag', 'date', 'kind', 'what', 'cost', 'litres', 'nextDue', 'calf',

@@ -30,6 +30,10 @@ class Db {
   static Col get animals => fs.collection('animals');
   static Col get animalEvents => fs.collection('animal_events');
 
+  /// Full-size pictures, one document each, kept apart from the records so a
+  /// list of animals never has to carry them.
+  static Col get animalPhotos => fs.collection('animal_photos');
+
   static Col get months => fs.collection('months');
   static Col get logs => fs.collection('logs');
   static DocumentReference<Map<String, dynamic>> get farmSettings =>
@@ -178,6 +182,16 @@ class Db {
   static Stream<List<Animal>> watchAnimals() => animals.snapshots().map(
     (q) => q.docs.map(Animal.fromDoc).toList()..sort(Animal.byTag),
   );
+
+  /// The full-size picture, read only when it is actually being looked at.
+  static Future<String> animalPhoto(String photoId) async {
+    try {
+      final snap = await animalPhotos.doc(photoId).get();
+      return s((snap.data() ?? const {})['data']);
+    } catch (_) {
+      return '';
+    }
+  }
 
   /// One animal's history, newest first.
   static Stream<List<AnimalEvent>> watchAnimalEvents(String animalId) =>

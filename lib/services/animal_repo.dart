@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/models.dart';
 import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
+import 'photo_store.dart';
 import 'txn_repo.dart';
 
 /// The cattle register: what the farm owns on four legs.
@@ -83,7 +83,7 @@ class AnimalRepo {
       'species': species.name,
       'sex': sex.name,
       'status': AnimalStatus.onFarm.name,
-      'photoUrl': '',
+      'thumb': '',
       'dailyLitres': dailyLitres,
       'bornOn': ?_ts(bornOn),
       'boughtOn': ?_ts(boughtOn),
@@ -95,8 +95,7 @@ class AnimalRepo {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    final url = await _putPhoto(doc.id, photo);
-    await doc.update({'photoUrl': url});
+    await doc.update({'thumb': await _putPhoto(doc.id, photo)});
 
     String? txnId;
     if (price > 0 && bookPurchase) {
@@ -147,8 +146,8 @@ class AnimalRepo {
 
   /// Replaces the animal's photo — she grows, and tags get replaced.
   static Future<String> setPhoto(Actor actor, Animal animal, File file) async {
-    final url = await _putPhoto(animal.id, file);
-    await Db.animals.doc(animal.id).update({'photoUrl': url});
+    final thumb = await _putPhoto(animal.id, file);
+    await Db.animals.doc(animal.id).update({'thumb': thumb});
     await Log.write(
       actor,
       LogKind.cattle,
@@ -156,7 +155,7 @@ class AnimalRepo {
       refType: 'animal',
       refId: animal.id,
     );
-    return url;
+    return thumb;
   }
 
   /// Name, note and the dates — the things that get corrected after the fact.
@@ -418,7 +417,7 @@ class AnimalRepo {
       'txnId': ?txnId,
       'calfId': ?calfId,
       'calfTag': ?calfTag,
-      'photoUrl': '',
+      'thumb': '',
       'byName': actor.name,
       'byUid': actor.uid,
       'createdAt': FieldValue.serverTimestamp(),
@@ -426,8 +425,7 @@ class AnimalRepo {
 
     if (photo != null) {
       try {
-        final url = await _putPhoto('events/${doc.id}', photo);
-        await doc.update({'photoUrl': url});
+        await doc.update({'thumb': await _putPhoto('evt_${doc.id}', photo)});
       } catch (_) {
         // The line itself matters more than the picture attached to it.
       }
@@ -439,13 +437,17 @@ class AnimalRepo {
     }, SetOptions(merge: true));
   }
 
-  static Future<String> _putPhoto(String path, File file) async {
-    final ext = file.path.split('.').last.toLowerCase();
-    final ref = FirebaseStorage.instance.ref(
-      'animals/$path.${ext.isEmpty ? 'jpg' : ext}',
-    );
-    await ref.putFile(file);
-    return ref.getDownloadURL();
+  /// Shrinks a photo and files it: the thumbnail onto the record itself, the
+  /// bigger one into its own document so a list never drags it along.
+  ///
+  /// Returns the thumbnail, which is what the caller writes to the record.
+  static Future<String> _putPhoto(String photoId, File file) async {
+    final photo = await Photos.prepare(file);
+    await Db.animalPhotos.doc(photoId).set({
+      'data': photo.full,
+      'at': FieldValue.serverTimestamp(),
+    });
+    return photo.thumb;
   }
 
   static Timestamp? _ts(DateTime? d) =>

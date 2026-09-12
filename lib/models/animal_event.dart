@@ -78,6 +78,7 @@ class AnimalEvent {
     this.weightKg = 0,
     this.txnId,
     this.photoUrl = '',
+    this.thumb = '',
     this.nextDueOn,
     this.calfId,
     this.calfTag,
@@ -104,6 +105,9 @@ class AnimalEvent {
   final String? txnId;
 
   final String photoUrl;
+
+  /// The small picture kept on the entry itself.
+  final String thumb;
 
   /// When the next dose or check falls due.
   final DateTime? nextDueOn;
@@ -134,6 +138,7 @@ class AnimalEvent {
       weightKg: n(m['weightKg']),
       txnId: m['txnId'] == null ? null : s(m['txnId']),
       photoUrl: s(m['photoUrl']),
+      thumb: s(m['thumb']),
       nextDueOn: dt(m['nextDueOn']),
       calfId: m['calfId'] == null ? null : s(m['calfId']),
       calfTag: m['calfTag'] == null ? null : s(m['calfTag']),

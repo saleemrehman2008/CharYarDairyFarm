@@ -10,6 +10,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 
 /// Registering an animal, whether it was bought or born here.
@@ -167,24 +168,7 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 96,
-                      height: 96,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: T.accent100,
-                          border: T.hair,
-                        ),
-                        child: _photo == null
-                            ? const Center(
-                                child: Icon(
-                                  Icons.photo_camera_outlined,
-                                  color: T.accent400,
-                                ),
-                              )
-                            : Image.file(_photo!, fit: BoxFit.cover),
-                      ),
-                    ),
+                    FarmPhotoView(file: _photo, size: 96),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

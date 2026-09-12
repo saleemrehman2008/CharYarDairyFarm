@@ -11,6 +11,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 
 /// Rates and the shop catalogue. Every change is logged and synced.
@@ -147,12 +148,7 @@ class _ProductRowState extends State<_ProductRow> {
           children: [
             InkWell(
               onTap: _busy ? null : _pickPhoto,
-              child: ProductPhoto(
-                url: p.photoUrl,
-                width: 88,
-                height: 88,
-                busy: _busy,
-              ),
+              child: FarmPhotoView(data: p.photo, url: p.photoUrl, size: 88),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -279,59 +275,6 @@ class _AddItemCardState extends State<_AddItemCard> {
         const SizedBox(height: 14),
         PrimaryButton(label: 'Add to shop', busy: _busy, onPressed: _add),
       ],
-    ),
-  );
-}
-
-/// Warm placeholder until the farm uploads a real photo.
-class ProductPhoto extends StatelessWidget {
-  const ProductPhoto({
-    super.key,
-    required this.url,
-    required this.width,
-    required this.height,
-    this.busy = false,
-  });
-
-  final String url;
-  final double width;
-  final double height;
-  final bool busy;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: width,
-    height: height,
-    child: DecoratedBox(
-      decoration: BoxDecoration(color: T.accent100, border: T.hair),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (url.isEmpty)
-            const Center(
-              child: Icon(Icons.photo_camera_outlined, color: T.accent400),
-            )
-          else
-            Image.network(
-              url,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Center(
-                child: Icon(Icons.broken_image_outlined, color: T.accent400),
-              ),
-            ),
-          if (busy)
-            const ColoredBox(
-              color: Color(0x66FFFFFF),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-        ],
-      ),
     ),
   );
 }

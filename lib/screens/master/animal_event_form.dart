@@ -10,6 +10,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 
 /// Adding a line to an animal's record: a vaccination, an illness, a
@@ -280,11 +281,7 @@ class _AnimalEventFormScreenState extends State<AnimalEventFormScreen> {
             child: Row(
               children: [
                 if (_photo != null) ...[
-                  SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: Image.file(_photo!, fit: BoxFit.cover),
-                  ),
+                  FarmPhotoView(file: _photo, size: 56),
                   const SizedBox(width: 10),
                 ],
                 Expanded(

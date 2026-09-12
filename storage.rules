@@ -24,15 +24,6 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Animal photos, and pictures attached to their history. The register is
-    // the farm's own, so only the master and co-founders can even look.
-    match /animals/{file=**} {
-      allow read: if isStaff();
-      allow write: if isStaff()
-        && request.resource.size < 8 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
-    }
-
     match /{allPaths=**} {
       allow read, write: if false;
     }

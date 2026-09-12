@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
@@ -6,6 +9,7 @@ import 'package:char_yar_dairy_farm/services/animal_repo.dart';
 import 'package:char_yar_dairy_farm/services/bill_clock.dart';
 import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
+import 'package:char_yar_dairy_farm/services/photo_store.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 import 'package:char_yar_dairy_farm/util/phone.dart';
 import 'package:char_yar_dairy_farm/widgets/app_shell.dart';
@@ -546,7 +550,8 @@ void main() {
       species: species,
       sex: sex,
       status: status,
-      photoUrl: 'x',
+      photoUrl: '',
+      thumb: 'x',
       dailyLitres: dailyLitres,
       bornOn: bornOn,
       motherId: motherId,
@@ -667,6 +672,55 @@ void main() {
       expect(assetCategories, isNot(contains('Vet & medicine')));
       expect(TxnType.purchase.categories, contains('Vet & medicine'));
       expect(TxnType.sale.categories, contains('Cattle sale'));
+    });
+  });
+
+  group('photos fit inside the record', () {
+    /// A picture roughly the shape and busyness of a real photo — flat colour
+    /// would compress to nothing and prove nothing.
+    Uint8List photoOf(int w, int h) {
+      final im = img.Image(width: w, height: h);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          im.setPixelRgb(x, y, (x * 7) % 256, (y * 13) % 256, (x + y) % 256);
+        }
+      }
+      return Uint8List.fromList(img.encodeJpg(im, quality: 95));
+    }
+
+    test('a photo comes back small enough for a Firestore document', () {
+      final photo = shrinkPhoto(photoOf(1200, 900));
+      // A document stops at a megabyte; base64 is a third bigger than the
+      // bytes it carries. Both sizes have to clear that with room to spare.
+      expect(photo.full.length, lessThan(Photos.maxEncoded));
+      expect(photo.thumb.length, lessThan(photo.full.length));
+      expect(photo.thumb, isNotEmpty);
+    });
+
+    test('an oversized photo is shrunk until it fits, not rejected', () {
+      // What a phone hands over when the picker's resize did not happen.
+      final photo = shrinkPhoto(photoOf(2400, 1800));
+      expect(photo.full.length, lessThan(Photos.maxEncoded));
+    });
+
+    test('the thumbnail is small enough to sit in a long list', () {
+      final photo = shrinkPhoto(photoOf(1200, 900));
+      // A hundred animals at this size is a megabyte for the whole register,
+      // read once and then cached.
+      expect(photo.thumb.length, lessThan(30 * 1024));
+    });
+
+    test('what goes in comes back out', () {
+      final photo = shrinkPhoto(photoOf(400, 300));
+      final bytes = Photos.decode(photo.thumb);
+      expect(bytes, isNotNull);
+      expect(img.decodeImage(bytes!)!.width, Photos.thumbWidth);
+    });
+
+    test('nothing at all is not a crash', () {
+      expect(Photos.decode(null), isNull);
+      expect(Photos.decode(''), isNull);
+      expect(Photos.decode('not base64 at all !!'), isNull);
     });
   });
 

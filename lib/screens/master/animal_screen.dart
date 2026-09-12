@@ -12,10 +12,10 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 import 'animal_event_form.dart';
 import 'animal_form.dart';
-import 'cattle_screen.dart' show AnimalPhoto;
 
 /// One animal: its picture, its tag, and everything that has happened to it.
 class AnimalScreen extends StatelessWidget {
@@ -110,7 +110,7 @@ class _HeaderState extends State<_Header> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AnimalPhoto(url: a.photoUrl, size: 110),
+              _BigPhoto(animal: a),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -158,6 +158,53 @@ class _HeaderState extends State<_Header> {
       ),
     );
   }
+}
+
+/// The animal's picture at full size.
+///
+/// The small one is on the record already, so it appears at once; the bigger
+/// one is fetched from its own document and swapped in behind it. Nobody
+/// watches a grey box while a buffalo loads.
+class _BigPhoto extends StatefulWidget {
+  const _BigPhoto({required this.animal});
+
+  final Animal animal;
+
+  @override
+  State<_BigPhoto> createState() => _BigPhotoState();
+}
+
+class _BigPhotoState extends State<_BigPhoto> {
+  String? _full;
+  String? _loadedFor;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_BigPhoto old) {
+    super.didUpdateWidget(old);
+    // A new photo was taken: the thumbnail changed, so fetch the big one again.
+    if (old.animal.thumb != widget.animal.thumb) _load(force: true);
+  }
+
+  Future<void> _load({bool force = false}) async {
+    final id = widget.animal.id;
+    if (!force && _loadedFor == id) return;
+    _loadedFor = id;
+    final data = await Db.animalPhoto(id);
+    if (mounted && data.isNotEmpty) setState(() => _full = data);
+  }
+
+  @override
+  Widget build(BuildContext context) => FarmPhotoView(
+    data: _full ?? widget.animal.thumb,
+    url: widget.animal.photoUrl,
+    size: 110,
+  );
 }
 
 class _Figures extends StatelessWidget {
@@ -472,7 +519,7 @@ class _EventRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (e.photoUrl.isNotEmpty) ...[
-            AnimalPhoto(url: e.photoUrl, size: 46),
+            FarmPhotoView(data: e.thumb, url: e.photoUrl, size: 46),
             const SizedBox(width: 10),
           ],
           Expanded(

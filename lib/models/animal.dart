@@ -75,6 +75,7 @@ class Animal {
     required this.sex,
     required this.status,
     required this.photoUrl,
+    required this.thumb,
     required this.dailyLitres,
     required this.createdAt,
     this.bornOn,
@@ -99,7 +100,13 @@ class Animal {
   final Species species;
   final Sex sex;
   final AnimalStatus status;
+
+  /// A Storage link, from before pictures moved into the record itself.
   final String photoUrl;
+
+  /// The small picture, base64, kept on the animal so a list needs nothing
+  /// else. The big one lives in its own document.
+  final String thumb;
 
   /// Litres a day at the last milk reading. Zero for anything not milking.
   final num dailyLitres;
@@ -189,6 +196,7 @@ class Animal {
       sex: Sex.parse(m['sex']),
       status: AnimalStatus.parse(m['status']),
       photoUrl: s(m['photoUrl']),
+      thumb: s(m['thumb']),
       dailyLitres: n(m['dailyLitres']),
       bornOn: dt(m['bornOn']),
       boughtOn: dt(m['boughtOn']),

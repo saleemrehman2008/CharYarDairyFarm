@@ -8,8 +8,8 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
-import '../shared/products_screen.dart' show ProductPhoto;
 
 class ShopScreen extends StatelessWidget {
   const ShopScreen({super.key, required this.onGoToCart});
@@ -164,7 +164,8 @@ class _ProductTile extends StatelessWidget {
           // shape here is what buried them on a wide screen.
           Expanded(
             child: LayoutBuilder(
-              builder: (_, c) => ProductPhoto(
+              builder: (_, c) => FarmPhotoView(
+                data: product.photo,
                 url: product.photoUrl,
                 width: c.maxWidth,
                 height: c.maxHeight,

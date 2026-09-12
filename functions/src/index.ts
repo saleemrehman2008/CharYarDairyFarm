@@ -625,7 +625,9 @@ export const syncAnimal = onDocumentWritten(
       `${a.motherTag ?? ''}`,
       day(a.nextDueOn),
       `${a.nextDueWhat ?? ''}`,
-      `${a.photoUrl ?? ''}`,
+      // Whether there is a picture, not the picture. It lives in the
+      // database as base64 and a cell full of that helps nobody.
+      a.thumb ? 'yes' : 'no',
     ]);
   },
 );

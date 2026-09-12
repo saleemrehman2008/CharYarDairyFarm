@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/models.dart';
 import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
+import 'photo_store.dart';
 
 class ProductRepo {
   ProductRepo._();
@@ -22,7 +22,7 @@ class ProductRepo {
       'name': name,
       'unit': unit,
       'price': price,
-      'photoUrl': '',
+      'photo': '',
       'active': true,
       'sortOrder': sortOrder,
       'updatedBy': actor.uid,
@@ -77,20 +77,21 @@ class ProductRepo {
     );
   }
 
+  /// The shop picture, shrunk and kept on the product itself.
+  ///
+  /// Firebase Storage would be the obvious home, but switching it on needs a
+  /// card on a billing account with no spending ceiling, and the farm would
+  /// rather not. A shop tile is 220 points wide, so a small picture is all it
+  /// was ever going to show. See [Photos].
   static Future<String> uploadPhoto(
     Actor actor,
     Product product,
     File file,
   ) async {
-    final ext = file.path.split('.').last.toLowerCase();
-    final ref = FirebaseStorage.instance.ref(
-      'products/${product.id}.${ext.isEmpty ? 'jpg' : ext}',
-    );
-    await ref.putFile(file);
-    final url = await ref.getDownloadURL();
+    final photo = await Photos.prepare(file);
 
     await Db.products.doc(product.id).update({
-      'photoUrl': url,
+      'photo': photo.full,
       'updatedBy': actor.uid,
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -101,6 +102,6 @@ class ProductRepo {
       refType: 'product',
       refId: product.id,
     );
-    return url;
+    return photo.full;
   }
 }
