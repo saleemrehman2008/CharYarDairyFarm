@@ -1,3 +1,5 @@
+export 'animal.dart';
+export 'animal_event.dart';
 export 'app_user.dart';
 export 'bill.dart';
 export 'delivery.dart';

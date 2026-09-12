@@ -67,6 +67,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _raiseDueBills();
         notifyListeners();
       }),
+      Db.watchAnimals().listen((v) {
+        _animals = v;
+        notifyListeners();
+      }),
       if (isMaster)
         Db.watchUsers().listen((v) {
           _users = v;
@@ -97,6 +101,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Bill> _bills = const [];
   List<Delivery> _deliveries = const [];
   List<Delivery> _unbilled = const [];
+  List<Animal> _animals = const [];
   bool _running = false;
   bool _again = false;
   List<AppUser> _users = const [];
@@ -127,6 +132,37 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Everyone who can still be billed, closed khaatas included.
   List<UdhaarAccount> get billableKhaata =>
       _udhaar.where((u) => u.isBillable).toList();
+
+  // ---- The cattle register ----
+
+  /// Every animal ever registered, including the ones that have left.
+  List<Animal> get animals => _animals;
+
+  List<Animal> get herd => _animals.where((a) => a.status.isHere).toList();
+
+  /// Animals that could be a mother: females still on the farm.
+  List<Animal> get dams =>
+      herd.where((a) => a.sex == Sex.female && a.species.milks).toList();
+
+  /// A vaccination or check that has come round, soonest first. This is the
+  /// whole reason for writing the next date down.
+  List<Animal> get dueChecks =>
+      herd.where((a) => a.dueSoon()).toList()
+        ..sort((a, b) => a.nextDueOn!.compareTo(b.nextDueOn!));
+
+  /// What the herd is giving a day, by the last reading of each animal.
+  num get herdLitresPerDay =>
+      herd.fold<num>(0, (a, x) => a + (x.isMilking ? x.dailyLitres : 0));
+
+  int get milkingCount => herd.where((a) => a.isMilking).length;
+
+  Animal? animalById(String? id) {
+    if (id == null) return null;
+    for (final a in _animals) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
 
   @override
   List<Bill> get bills => _bills;

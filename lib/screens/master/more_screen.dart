@@ -14,6 +14,7 @@ import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
 import '../shared/products_screen.dart';
 import 'activity_log_screen.dart';
+import 'cattle_screen.dart';
 import 'udhaar_registrations_screen.dart';
 import 'team_access_screen.dart';
 import 'users_screen.dart';
@@ -46,6 +47,12 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.handshake_outlined,
           badge: store.pendingUdhaar.length,
           onTap: () => _push(context, store, const UdhaarRegistrationsScreen()),
+        ),
+        _Row(
+          label: 'Cattle register',
+          icon: Icons.pets_outlined,
+          badge: store.dueChecks.length,
+          onTap: () => _push(context, store, const CattleScreen()),
         ),
         _Row(
           label: 'Products & rates',

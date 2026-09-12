@@ -25,6 +25,11 @@ class Db {
   static Col get udhaarAccounts => fs.collection('udhaar_accounts');
   static Col get deliveries => fs.collection('deliveries');
   static Col get bills => fs.collection('bills');
+
+  /// The cattle register and each animal's history.
+  static Col get animals => fs.collection('animals');
+  static Col get animalEvents => fs.collection('animal_events');
+
   static Col get months => fs.collection('months');
   static Col get logs => fs.collection('logs');
   static DocumentReference<Map<String, dynamic>> get farmSettings =>
@@ -167,6 +172,23 @@ class Db {
       .where('billed', isEqualTo: false)
       .snapshots()
       .map((q) => q.docs.map(Delivery.fromDoc).toList());
+
+  /// The whole cattle register. Sorted in Dart — an ordered query would drop
+  /// any animal saved without the field it orders on.
+  static Stream<List<Animal>> watchAnimals() => animals.snapshots().map(
+    (q) => q.docs.map(Animal.fromDoc).toList()..sort(Animal.byTag),
+  );
+
+  /// One animal's history, newest first.
+  static Stream<List<AnimalEvent>> watchAnimalEvents(String animalId) =>
+      animalEvents
+          .where('animalId', isEqualTo: animalId)
+          .snapshots()
+          .map(
+            (q) =>
+                q.docs.map(AnimalEvent.fromDoc).toList()
+                  ..sort((a, b) => b.date.compareTo(a.date)),
+          );
 
   /// Bills that still have something owing, newest first.
   static Stream<List<Bill>> watchBills() => bills

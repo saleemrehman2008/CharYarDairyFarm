@@ -10,7 +10,8 @@ enum LogKind {
   investment,
   user,
   udhaar,
-  products;
+  products,
+  cattle;
 
   static LogKind parse(Object? v) => switch (s(v)) {
     'login' => LogKind.login,
@@ -20,6 +21,7 @@ enum LogKind {
     'user' => LogKind.user,
     'udhaar' => LogKind.udhaar,
     'products' => LogKind.products,
+    'cattle' => LogKind.cattle,
     _ => LogKind.transaction,
   };
 
@@ -32,6 +34,7 @@ enum LogKind {
     LogKind.user => 'User',
     LogKind.udhaar => 'Udhaar',
     LogKind.products => 'Products',
+    LogKind.cattle => 'Cattle',
   };
 }
 

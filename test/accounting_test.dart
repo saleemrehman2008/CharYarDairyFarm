@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/animal_repo.dart';
 import 'package:char_yar_dairy_farm/services/bill_clock.dart';
 import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
@@ -524,6 +525,148 @@ void main() {
       expect(isLastDayOfMonth(DateTime(2027, 2, 28)), isTrue);
       expect(isLastDayOfMonth(DateTime(2028, 2, 28)), isFalse);
       expect(daysInMonth(DateTime(2028, 2, 1)), 29);
+    });
+  });
+
+  group('the cattle register', () {
+    Animal animal({
+      String tag = 'B-01',
+      String name = '',
+      Species species = Species.buffalo,
+      Sex sex = Sex.female,
+      AnimalStatus status = AnimalStatus.onFarm,
+      num dailyLitres = 0,
+      DateTime? bornOn,
+      DateTime? nextDueOn,
+      String? motherId,
+    }) => Animal(
+      id: tag,
+      tag: tag,
+      name: name,
+      species: species,
+      sex: sex,
+      status: status,
+      photoUrl: 'x',
+      dailyLitres: dailyLitres,
+      bornOn: bornOn,
+      motherId: motherId,
+      nextDueOn: nextDueOn,
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    test('the tag letter says what the animal is', () {
+      expect(AnimalRepo.formatTag(Species.buffalo.tagLetter, 1), 'B-01');
+      expect(AnimalRepo.formatTag(Species.cow.tagLetter, 7), 'C-07');
+      expect(AnimalRepo.formatTag(Species.goat.tagLetter, 12), 'G-12');
+      expect(AnimalRepo.formatTag(Species.qurbani.tagLetter, 3), 'Q-03');
+      // Past a hundred the tag simply grows.
+      expect(AnimalRepo.formatTag('B', 142), 'B-142');
+    });
+
+    test('the register reads B-2 before B-10, not after', () {
+      final sorted = [
+        animal(tag: 'B-10'),
+        animal(tag: 'C-01'),
+        animal(tag: 'B-02'),
+        animal(tag: 'B-01'),
+      ]..sort(Animal.byTag);
+      expect(sorted.map((a) => a.tag).toList(), [
+        'B-01',
+        'B-02',
+        'B-10',
+        'C-01',
+      ]);
+    });
+
+    test('only buffalo and cows are asked about milk', () {
+      expect(Species.buffalo.milks, isTrue);
+      expect(Species.cow.milks, isTrue);
+      expect(Species.goat.milks, isFalse);
+      expect(Species.qurbani.milks, isFalse);
+    });
+
+    test(
+      'a vaccination due next week shows up, one due next month does not',
+      () {
+        final now = DateTime(2026, 9, 12);
+        expect(animal(nextDueOn: DateTime(2026, 9, 15)).dueSoon(now), isTrue);
+        expect(animal(nextDueOn: DateTime(2026, 10, 20)).dueSoon(now), isFalse);
+      },
+    );
+
+    test('a date gone by is overdue', () {
+      final now = DateTime(2026, 9, 12);
+      final late = animal(nextDueOn: DateTime(2026, 9, 1));
+      expect(late.overdue(now), isTrue);
+      expect(late.dueSoon(now), isTrue);
+      expect(animal(nextDueOn: DateTime(2026, 9, 12)).overdue(now), isFalse);
+    });
+
+    test('an animal that has left the farm stops asking for anything', () {
+      final sold = animal(
+        status: AnimalStatus.sold,
+        nextDueOn: DateTime(2026, 1, 1),
+        dailyLitres: 6,
+      );
+      expect(sold.dueSoon(DateTime(2026, 9, 12)), isFalse);
+      expect(sold.overdue(DateTime(2026, 9, 12)), isFalse);
+      expect(sold.isMilking, isFalse, reason: 'she is not here to milk');
+    });
+
+    test('age reads in months until two years, then in years', () {
+      final born = DateTime(
+        DateTime.now().year - 3,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+      expect(animal(bornOn: born).ageLabel, '3 yr');
+      expect(animal(bornOn: null).ageLabel, isNull);
+    });
+
+    test('the tag is the name when there is no name', () {
+      expect(animal(tag: 'B-04').label, 'B-04');
+      expect(animal(tag: 'B-04', name: 'Kaali').label, 'B-04 Kaali');
+      expect(
+        animal(tag: 'G-02', species: Species.goat, sex: Sex.male).summary,
+        startsWith('Goat · Male'),
+      );
+    });
+
+    test('a calf knows it was born here', () {
+      expect(animal(motherId: 'B-01').bornHere, isTrue);
+      expect(animal().bornHere, isFalse);
+    });
+
+    test('what costs money is written down as costing money', () {
+      // The kinds that send an entry to the books, and the ones that do not.
+      expect(EventKind.vaccination.costable, isTrue);
+      expect(EventKind.insemination.costable, isTrue);
+      expect(EventKind.treatment.costable, isTrue);
+      expect(EventKind.milkReading.costable, isFalse);
+      expect(EventKind.calving.costable, isFalse);
+    });
+
+    test('only the ones that come round again ask for a next date', () {
+      expect(EventKind.vaccination.repeats, isTrue);
+      expect(EventKind.pregnancyCheck.repeats, isTrue);
+      expect(EventKind.illness.repeats, isFalse);
+    });
+
+    test('bought, sold and died are not offered as a choice', () {
+      // They are written by the register itself, when the animal arrives or
+      // leaves — picking them from a list would leave the books untouched.
+      expect(EventKind.chooseable, isNot(contains(EventKind.bought)));
+      expect(EventKind.chooseable, isNot(contains(EventKind.sold)));
+      expect(EventKind.chooseable, isNot(contains(EventKind.died)));
+      expect(EventKind.chooseable, contains(EventKind.vaccination));
+    });
+
+    test('a cattle purchase is an asset, a vet bill is not', () {
+      // What the register books has to agree with how the books treat it.
+      expect(assetCategories, contains('Cattle purchase'));
+      expect(assetCategories, isNot(contains('Vet & medicine')));
+      expect(TxnType.purchase.categories, contains('Vet & medicine'));
+      expect(TxnType.sale.categories, contains('Cattle sale'));
     });
   });
 

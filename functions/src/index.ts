@@ -599,3 +599,95 @@ async function raiseOneBill(uid: string, monthId: string): Promise<boolean> {
     return true;
   });
 }
+
+// ---------------------------------------------------------------------------
+// The cattle register -> Animals and AnimalEvents tabs
+// ---------------------------------------------------------------------------
+
+export const syncAnimal = onDocumentWritten(
+  {document: 'animals/{id}', ...sheetOpts},
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+
+    const a = after.data() ?? {};
+    await upsertRow('Animals', after.id, [
+      after.id,
+      `${a.tag ?? ''}`,
+      `${a.name ?? ''}`,
+      `${a.species ?? ''}`,
+      `${a.sex ?? ''}`,
+      `${a.status ?? ''}`,
+      day(a.bornOn),
+      day(a.boughtOn),
+      Number(a.price ?? 0),
+      Number(a.dailyLitres ?? 0),
+      `${a.motherTag ?? ''}`,
+      day(a.nextDueOn),
+      `${a.nextDueWhat ?? ''}`,
+      `${a.photoUrl ?? ''}`,
+    ]);
+  },
+);
+
+export const syncAnimalEvent = onDocumentWritten(
+  {document: 'animal_events/{id}', ...sheetOpts},
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+
+    const e = after.data() ?? {};
+    await upsertRow('AnimalEvents', after.id, [
+      after.id,
+      `${e.animalTag ?? ''}`,
+      day(e.date),
+      `${e.kind ?? ''}`,
+      `${e.what ?? ''}`,
+      Number(e.cost ?? 0),
+      Number(e.litres ?? 0),
+      day(e.nextDueOn),
+      `${e.calfTag ?? ''}`,
+      `${e.byName ?? ''}`,
+      `${e.txnId ?? ''}`,
+    ]);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Vaccinations and checks that have come due, 07:00 Asia/Karachi
+// ---------------------------------------------------------------------------
+
+/// The register carries a next date for vaccinations and pregnancy checks.
+/// A date written down and never looked at is worth nothing, so the morning
+/// it falls due the co-founders are told.
+export const cattleChecksDue = onSchedule(
+  {schedule: '0 7 * * *', timeZone: 'Asia/Karachi'},
+  async () => {
+    const here = new Date(Date.now() + 5 * 60 * 60 * 1000);
+    const endOfDay = new Date(Date.UTC(
+      here.getUTCFullYear(),
+      here.getUTCMonth(),
+      here.getUTCDate(),
+      18, 59, 59,
+    ));
+
+    const due = await db()
+      .collection('animals')
+      .where('status', '==', 'onFarm')
+      .where('nextDueOn', '<=', endOfDay)
+      .get();
+    if (due.empty) return;
+
+    const lines = due.docs.map((d) => {
+      const a = d.data();
+      return `${a.tag}${a.name ? ` ${a.name}` : ''} · ` +
+        `${a.nextDueWhat ?? 'check'}`;
+    });
+
+    await notifyCofounders(
+      due.size === 1 ? 'A check is due' : `${due.size} checks are due`,
+      lines.join('\n'),
+      {type: 'cattle'},
+    );
+  },
+);

@@ -149,6 +149,22 @@ service cloud.firestore {
       allow write: if isPartner();
     }
 
+    // ---- The cattle register ----
+    //
+    // The herd is an asset of the farm and its history is a record of money
+    // spent, so it belongs to the four of them and nobody else. Staff on the
+    // round and customers cannot see it at all.
+    match /animals/{id} {
+      allow read, write: if isPartner();
+    }
+
+    match /animal_events/{id} {
+      allow read, create: if isPartner();
+      allow update: if isPartner();
+      // History is not rewritten; a mistake is corrected with another line.
+      allow delete: if isMaster();
+    }
+
     // ---- The ledger ----
     // Entries are never hard-deleted; the master sets deletedAt instead, so the
     // row survives in the Google Sheet marked deleted.

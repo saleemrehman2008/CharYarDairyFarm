@@ -20,6 +20,8 @@ export type Tab =
   | 'Udhaar'
   | 'Bills'
   | 'Deliveries'
+  | 'Animals'
+  | 'AnimalEvents'
   | 'Users'
   | 'Log';
 
@@ -54,6 +56,14 @@ export const HEADERS: Record<Tab, string[]> = {
   Deliveries: [
     'id', 'date', 'month', 'customer', 'litres', 'rate', 'amount', 'slot',
     'deliveredBy', 'billed', 'billId',
+  ],
+  Animals: [
+    'id', 'tag', 'name', 'species', 'sex', 'status', 'bornOn', 'boughtOn',
+    'price', 'litres/day', 'mother', 'nextDue', 'nextDueWhat', 'photo',
+  ],
+  AnimalEvents: [
+    'id', 'tag', 'date', 'kind', 'what', 'cost', 'litres', 'nextDue', 'calf',
+    'by', 'txnId',
   ],
   Users: ['uid', 'name', 'email', 'role', 'status', 'createdAt'],
   Log: ['at', 'who', 'kind', 'what'],
