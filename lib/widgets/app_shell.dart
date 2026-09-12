@@ -98,7 +98,7 @@ class _TopBar extends StatelessWidget {
               ),
             )
           else
-            Image.asset('assets/logo.png', width: 36, height: 36),
+            const FarmLogo(width: 36, mark: true),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

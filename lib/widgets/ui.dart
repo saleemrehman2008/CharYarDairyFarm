@@ -180,6 +180,38 @@ class GhostButton extends StatelessWidget {
 
 enum TagTone { neutral, accent, good, warn, bad }
 
+/// The farm's logo, on the navy it was drawn for.
+///
+/// The lockup is silver and white on a dark ground — put it straight onto the
+/// app's pale pages and half of it disappears. So it keeps its own ground
+/// wherever it is shown, which is also what a logo is supposed to have.
+class FarmLogo extends StatelessWidget {
+  const FarmLogo({super.key, this.width = 180, this.mark = false});
+
+  final double width;
+
+  /// The roundel alone. At 36 points the whole lockup is a smudge; one mark
+  /// is still recognisable.
+  final bool mark;
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = mark ? 'assets/mark.png' : 'assets/logo.png';
+    if (mark) {
+      // The mark is drawn on its ground already.
+      return Image.asset(asset, width: width, height: width);
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: width * 0.07,
+        vertical: width * 0.06,
+      ),
+      color: T.accent900,
+      child: Image.asset(asset, width: width),
+    );
+  }
+}
+
 /// Small status chip: "Open", "Pending", "unpaid", "Sheets synced".
 class Tag extends StatelessWidget {
   const Tag(this.label, {super.key, this.tone = TagTone.neutral});

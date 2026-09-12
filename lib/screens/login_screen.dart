@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset('assets/logo.png', width: 180),
+                const FarmLogo(width: 200),
                 const SizedBox(height: 22),
                 const Kicker('Fresh & natural · Quality milk'),
                 const SizedBox(height: 10),
