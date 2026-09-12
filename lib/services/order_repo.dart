@@ -26,18 +26,26 @@ class OrderRepo {
     }
   }
 
+  /// Places an order for one or more days.
+  ///
+  /// [perDayTotal] is what a single day's items come to; the order's total is
+  /// that across every day chosen. Each day is delivered and paid for on its
+  /// own, so a week of milk is one order the round sees seven times.
   static Future<String> place({
     required Actor actor,
     required List<OrderItem> items,
-    required num total,
+    required num perDayTotal,
+    required List<DateTime> days,
     required String mode,
     required String slot,
-    required String repeat,
     required PayMethod pay,
     required String address,
     required String mobile,
   }) async {
+    final dayKeys = (days.map(dayKeyOf).toSet().toList()..sort());
+    final total = perDayTotal * dayKeys.length;
     final number = await _nextNumber();
+
     final doc = await Db.orders.add({
       'number': number,
       'customerId': actor.uid,
@@ -48,32 +56,19 @@ class OrderRepo {
       'total': total,
       'mode': mode,
       'slot': slot,
-      'repeat': repeat,
+      'repeat': dayKeys.length > 1 ? 'days' : 'once',
+      'dayKeys': dayKeys,
+      'doneDays': <String>[],
       'pay': pay.name,
       'status': OrderStatus.newOrder.key,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    // "Daily" turns the order into a standing subscription; a scheduled Cloud
-    // Function raises the next day's order from it at 04:00 PKT.
-    if (repeat == 'daily') {
-      await Db.subscriptions.add({
-        'customerId': actor.uid,
-        'customerName': actor.name,
-        'items': {for (final i in items) i.productId: i.toMap()},
-        'total': total,
-        'slot': slot,
-        'mode': mode,
-        'pay': pay.name,
-        'active': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-
     await Log.write(
       actor,
       LogKind.order,
-      'placed order #$number for ${rs(total)}',
+      'placed order #$number for ${rs(total)}'
+      '${dayKeys.length > 1 ? ' over ${dayKeys.length} days' : ''}',
       refType: 'order',
       refId: doc.id,
     );
@@ -130,42 +125,92 @@ class OrderRepo {
     final next = order.status.next;
     if (next == null) return;
 
-    final now = DateTime.now();
-    await Db.orders.doc(order.id).update({
-      'status': next.key,
-      if (next == OrderStatus.delivered) 'deliveredAt': Timestamp.fromDate(now),
-    });
-
+    // The last step is a delivery, and a delivery always belongs to a day.
     if (next == OrderStatus.delivered) {
-      await TxnRepo.add(
-        actor: actor,
-        monthId: monthIdOf(now),
-        type: TxnType.sale,
-        party: order.customerName,
-        customerId: order.customerId,
-        category: _categoryFor(order),
-        amount: order.total,
-        // A khaata order always goes on the account; anything else is paid at
-        // the door unless the person delivering says otherwise.
-        paid: !order.isUdhaar && collected,
-        note: 'Order #${order.number} · ${order.itemsText}',
-        orderId: order.id,
+      final day = order.daysLeft.isEmpty
+          ? dayKeyOf(DateTime.now())
+          : order.daysLeft.first;
+      return deliverDay(
+        actor,
+        order,
+        dayKey: day,
+        collected: collected,
         payVia: payVia,
         handledBy: handledBy,
-        date: now,
       );
-
-      if (order.isUdhaar) {
-        await Db.udhaarAccounts.doc(order.customerId).set({
-          'balance': FieldValue.increment(order.total),
-        }, SetOptions(merge: true));
-      }
     }
+
+    await Db.orders.doc(order.id).update({'status': next.key});
 
     await Log.write(
       actor,
       LogKind.order,
       'moved order #${order.number} to ${next.label.toLowerCase()}',
+      refType: 'order',
+      refId: order.id,
+    );
+  }
+
+  /// Marks one day of an order delivered, and books that day's money.
+  ///
+  /// A week's order is seven deliveries. Each one is its own sale on the day
+  /// the milk actually goes out, which is the only way the books can say what
+  /// the farm earned on a Tuesday. The order is finished when its last day is.
+  ///
+  /// Safe to run twice: a day already marked is left alone, so two phones on
+  /// the round cannot book the same milk twice.
+  static Future<void> deliverDay(
+    Actor actor,
+    FarmOrder order, {
+    required String dayKey,
+    bool collected = true,
+    PayVia payVia = PayVia.cash,
+    String handledBy = '',
+  }) async {
+    if (order.deliveredOn(dayKey)) return;
+
+    final now = DateTime.now();
+    final last = order.daysLeft.length <= 1;
+    final amount = order.perDay;
+    final which = order.dayLabel(dayKey);
+
+    await Db.orders.doc(order.id).update({
+      'doneDays': FieldValue.arrayUnion([dayKey]),
+      'status': last ? OrderStatus.delivered.key : OrderStatus.out.key,
+      if (last) 'deliveredAt': Timestamp.fromDate(now),
+    });
+
+    await TxnRepo.add(
+      actor: actor,
+      monthId: monthIdOf(now),
+      type: TxnType.sale,
+      party: order.customerName,
+      customerId: order.customerId,
+      category: _categoryFor(order),
+      amount: amount,
+      // A khaata order always goes on the account; anything else is paid at
+      // the door unless the person delivering says otherwise.
+      paid: !order.isUdhaar && collected,
+      note:
+          'Order #${order.number} · ${order.itemsText}'
+          '${which.isEmpty ? '' : ' · $which'}',
+      orderId: order.id,
+      payVia: payVia,
+      handledBy: handledBy,
+      date: now,
+    );
+
+    if (order.isUdhaar) {
+      await Db.udhaarAccounts.doc(order.customerId).set({
+        'balance': FieldValue.increment(amount),
+      }, SetOptions(merge: true));
+    }
+
+    await Log.write(
+      actor,
+      LogKind.order,
+      'delivered order #${order.number}'
+      '${which.isEmpty ? '' : ' ($which)'} — ${rs(amount)}',
       refType: 'order',
       refId: order.id,
     );

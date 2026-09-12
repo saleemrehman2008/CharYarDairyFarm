@@ -675,6 +675,135 @@ void main() {
     });
   });
 
+  group('an order can run over several days', () {
+    FarmOrder orderOf({
+      required List<String> days,
+      List<String> done = const [],
+      num perDay = 220,
+      String slot = 'morning',
+      OrderStatus status = OrderStatus.newOrder,
+      String mode = 'delivery',
+    }) => FarmOrder(
+      id: 'o1',
+      number: '1042',
+      customerId: 'c1',
+      customerName: 'Ahmed',
+      address: 'House 4',
+      mobile: '03001234567',
+      items: const [
+        OrderItem(
+          productId: 'p1',
+          name: 'Fresh milk',
+          qty: 1,
+          price: 220,
+          unit: 'L',
+        ),
+      ],
+      total: perDay * days.length,
+      mode: mode,
+      slot: slot,
+      repeat: days.length > 1 ? 'days' : 'once',
+      dayKeys: days,
+      doneDays: done,
+      pay: PayMethod.cod,
+      status: status,
+      createdAt: DateTime(2026, 9, 12),
+    );
+
+    test('a week of milk is a week of money, not one day of it', () {
+      final week = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      expect(week.total, 660);
+      expect(week.perDay, 220);
+      expect(week.isMultiDay, isTrue);
+    });
+
+    test('one day is still one day', () {
+      final one = orderOf(days: ['2026-09-13']);
+      expect(one.total, 220);
+      expect(one.perDay, 220);
+      expect(one.isMultiDay, isFalse);
+    });
+
+    test('the round sees it on every day it was ordered for', () {
+      final week = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      expect(week.dueOn('2026-09-14'), isTrue);
+      expect(week.dueOn('2026-09-16'), isFalse);
+    });
+
+    test('a day delivered drops off the round and the rest stay', () {
+      final week = orderOf(
+        days: ['2026-09-13', '2026-09-14', '2026-09-15'],
+        done: ['2026-09-13'],
+      );
+      expect(week.deliveredOn('2026-09-13'), isTrue);
+      expect(week.daysLeft, ['2026-09-14', '2026-09-15']);
+      expect(week.allDaysDone, isFalse);
+    });
+
+    test('the order is finished only when its last day is', () {
+      final week = orderOf(
+        days: ['2026-09-13', '2026-09-14'],
+        done: ['2026-09-13', '2026-09-14'],
+      );
+      expect(week.daysLeft, isEmpty);
+      expect(week.allDaysDone, isTrue);
+    });
+
+    test('each day says which one it is', () {
+      final week = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      expect(week.dayLabel('2026-09-13'), 'day 1 of 3');
+      expect(week.dayLabel('2026-09-15'), 'day 3 of 3');
+      // A single day needs no such label.
+      expect(orderOf(days: ['2026-09-13']).dayLabel('2026-09-13'), '');
+    });
+
+    test('consecutive days read as a span, scattered ones as a list', () {
+      final run = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      expect(run.daysText, contains('(3 days)'));
+      final scattered = orderOf(days: ['2026-09-13', '2026-09-16']);
+      expect(scattered.daysText, contains(','));
+      expect(scattered.daysText, isNot(contains('days)')));
+    });
+
+    test('an order from before days existed still has one', () {
+      // Read back off a document with no dayKeys: it is a single delivery on
+      // the day it was placed, so it can never vanish from the round.
+      final legacy = FarmOrder(
+        id: 'old',
+        number: '900',
+        customerId: 'c1',
+        customerName: 'Ahmed',
+        address: '',
+        mobile: '',
+        items: const [],
+        total: 220,
+        mode: 'delivery',
+        slot: 'morning',
+        repeat: 'once',
+        dayKeys: [dayKeyOf(DateTime(2026, 9, 1))],
+        doneDays: const [],
+        pay: PayMethod.cod,
+        status: OrderStatus.newOrder,
+        createdAt: DateTime(2026, 9, 1),
+      );
+      expect(legacy.dueOn('2026-09-01'), isTrue);
+      expect(legacy.perDay, 220);
+    });
+
+    test('a day key is the same string however it is written', () {
+      expect(dayKeyOf(DateTime(2026, 9, 5)), '2026-09-05');
+      expect(dayKeyOf(DateTime(2026, 9, 5, 23, 59)), '2026-09-05');
+      expect(dayFromKey('2026-09-05'), DateTime(2026, 9, 5));
+      expect(dayFromKey('rubbish'), isNull);
+    });
+
+    test('a missing list is an empty list, not a crash', () {
+      expect(strings(null), isEmpty);
+      expect(strings('not a list'), isEmpty);
+      expect(strings(['2026-09-13', '']), ['2026-09-13']);
+    });
+  });
+
   group('photos fit inside the record', () {
     /// A picture roughly the shape and busyness of a real photo — flat colour
     /// would compress to nothing and prove nothing.

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../util/money.dart';
 import 'helpers.dart';
 
 enum OrderStatus {
@@ -132,6 +134,8 @@ class FarmOrder {
     required this.mode,
     required this.slot,
     required this.repeat,
+    required this.dayKeys,
+    required this.doneDays,
     required this.pay,
     required this.status,
     this.approvedBy,
@@ -157,6 +161,17 @@ class FarmOrder {
   final String mode; // delivery | pickup
   final String slot; // morning | evening
   final String repeat; // once | daily
+
+  /// The days this order is to be delivered on, `YYYY-MM-DD`, in order.
+  ///
+  /// A customer ordering milk for the coming week places one order with seven
+  /// days on it. Each day is delivered and paid for on its own, so the round
+  /// shows the order on every one of those days and the money lands the day
+  /// the milk actually goes out.
+  final List<String> dayKeys;
+
+  /// The days already delivered.
+  final List<String> doneDays;
   final PayMethod pay;
   final OrderStatus status;
   final String? approvedBy;
@@ -168,9 +183,52 @@ class FarmOrder {
   bool get isApproved => approvedAt != null;
   bool get isUdhaar => pay == PayMethod.udhaar;
 
-  /// "4 L Fresh milk, 1 kg Yogurt · daily"
+  /// What one day of this order comes to. The total is that across every day.
+  num get perDay => dayKeys.isEmpty ? total : total / dayKeys.length;
+
+  bool get isMultiDay => dayKeys.length > 1;
+
+  /// Days still to go out, in order.
+  List<String> get daysLeft =>
+      dayKeys.where((d) => !doneDays.contains(d)).toList();
+
+  bool deliveredOn(String dayKey) => doneDays.contains(dayKey);
+  bool dueOn(String dayKey) => dayKeys.contains(dayKey);
+
+  /// Whether the whole order has gone out.
+  bool get allDaysDone => daysLeft.isEmpty && dayKeys.isNotEmpty;
+
+  /// "day 3 of 7", for the round and the receipt line.
+  String dayLabel(String dayKey) {
+    final i = dayKeys.indexOf(dayKey);
+    if (!isMultiDay || i < 0) return '';
+    return 'day ${i + 1} of ${dayKeys.length}';
+  }
+
+  /// "13–19 Sep" or "13 Sep, 15 Sep, 18 Sep" — how the days read at a glance.
+  String get daysText {
+    if (dayKeys.isEmpty) return '';
+    final dates = dayKeys.map(dayFromKey).nonNulls.toList();
+    if (dates.isEmpty) return '';
+    if (dates.length == 1) return fmtDate(dates.first);
+
+    // A run of consecutive days reads as a span; anything else is listed.
+    final consecutive = List.generate(
+      dates.length,
+      (i) => i == 0 || dates[i].difference(dates[i - 1]).inDays == 1,
+    ).every((x) => x);
+
+    if (consecutive) {
+      return '${fmtDate(dates.first)} – ${fmtDate(dates.last)} '
+          '(${dates.length} days)';
+    }
+    return dates.map(fmtDate).join(', ');
+  }
+
+  /// "4 L Fresh milk, 1 kg Yogurt · 7 days"
   String get itemsText {
     final parts = items.map((e) => e.line).join(', ');
+    if (isMultiDay) return '$parts · ${dayKeys.length} days';
     return repeat == 'daily' ? '$parts · daily' : parts;
   }
 
@@ -203,6 +261,12 @@ class FarmOrder {
       mode: s(m['mode']).isEmpty ? 'delivery' : s(m['mode']),
       slot: s(m['slot']).isEmpty ? 'morning' : s(m['slot']),
       repeat: s(m['repeat']).isEmpty ? 'once' : s(m['repeat']),
+      // Orders placed before days were a thing are a single delivery, on the
+      // day they were ordered.
+      dayKeys: strings(m['dayKeys']).isEmpty
+          ? [dayKeyOf(dtOr(m['createdAt']))]
+          : strings(m['dayKeys']),
+      doneDays: strings(m['doneDays']),
       pay: PayMethod.parse(m['pay']),
       status: OrderStatus.parse(m['status']),
       approvedBy: m['approvedBy'] == null ? null : s(m['approvedBy']),

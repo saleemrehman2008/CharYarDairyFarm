@@ -35,7 +35,7 @@ export const HEADERS: Record<Tab, string[]> = {
   ],
   Orders: [
     'id', 'number', 'date', 'customer', 'items', 'total', 'mode', 'slot',
-    'repeat', 'payment', 'status', 'approvedBy', 'deliveredAt',
+    'days', 'delivered days', 'payment', 'status', 'approvedBy', 'deliveredAt',
   ],
   Partners: ['id', 'name', 'invested', 'reinvested', 'withdrawn', 'ratio%'],
   MonthClose: [

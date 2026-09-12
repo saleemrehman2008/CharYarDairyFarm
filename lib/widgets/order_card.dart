@@ -35,7 +35,10 @@ class OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final needsApproval = order.status == OrderStatus.newOrder;
     final canApprove = needsApproval && !order.isApproved && onApprove != null;
-    final advanceLabel = order.status.advanceLabel;
+    // A week's order is delivered a day at a time, from the round.
+    final advanceLabel = order.isMultiDay && order.status == OrderStatus.out
+        ? null
+        : order.status.advanceLabel;
     final canCancel = onCancel != null && needsApproval && !order.isApproved;
     final canAdvance =
         onAdvance != null &&
@@ -68,6 +71,19 @@ class OrderCard extends StatelessWidget {
               '${order.pay.short} · ${rs(order.total)}',
               style: T.meta,
             ),
+            // Which days it is for. A week's order is one order with seven
+            // deliveries on it, each paid for as it goes out.
+            const SizedBox(height: 4),
+            Text(
+              order.isMultiDay
+                  ? '${order.daysText} · ${rs(order.perDay)} a day · '
+                        '${order.doneDays.length} of ${order.dayKeys.length} '
+                        'delivered'
+                  : 'For ${order.daysText}',
+              style: T.meta.copyWith(
+                color: order.isMultiDay ? T.accent700 : T.n600,
+              ),
+            ),
             // Where it goes, for whoever is doing the round.
             if (showAddress && order.address.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -76,7 +92,10 @@ class OrderCard extends StatelessWidget {
                 Text(Phone.pretty(order.mobile), style: T.meta),
             ],
             const SizedBox(height: 10),
-            StepBar(step: order.status.step),
+            if (order.isMultiDay)
+              _DayTicks(order: order)
+            else
+              StepBar(step: order.status.step),
             const SizedBox(height: 8),
             Text(
               order.isApproved
@@ -129,4 +148,49 @@ class OrderCard extends StatelessWidget {
     OrderStatus.delivered => TagTone.good,
     OrderStatus.cancelled => TagTone.bad,
   };
+}
+
+/// A tick per day of a multi-day order, so the customer can see which days
+/// have come and which are still to come.
+class _DayTicks extends StatelessWidget {
+  const _DayTicks({required this.order});
+
+  final FarmOrder order;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 5,
+    runSpacing: 5,
+    children: [
+      for (final key in order.dayKeys)
+        Builder(
+          builder: (_) {
+            final done = order.deliveredOn(key);
+            final date = dayFromKey(key);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              decoration: BoxDecoration(
+                color: done ? T.accent100 : Colors.transparent,
+                border: Border.all(color: done ? T.accent300 : T.divider),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    done ? Icons.check : Icons.schedule,
+                    size: 11,
+                    color: done ? T.accent700 : T.n500,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    date == null ? key : fmtDate(date),
+                    style: T.meta.copyWith(color: done ? T.accent800 : T.n600),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+    ],
+  );
 }

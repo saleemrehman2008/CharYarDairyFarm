@@ -14,4 +14,20 @@ abstract class RoundData extends ChangeNotifier {
   List<Delivery> get monthDeliveries;
   List<Bill> get bills;
   List<Bill> get unpaidBills;
+
+  /// Shop orders the round has to take out: approved, not yet finished, and
+  /// going to a door rather than being collected from the farm.
+  List<FarmOrder> get roundOrders;
+}
+
+/// The same filtering for either store. An extension rather than a method on
+/// the interface, because both stores `implement` it and would each have to
+/// carry their own copy of a rule that is the same for both.
+extension RoundOrders on RoundData {
+  /// The orders still to go out on one day, in one slot. A week's order turns
+  /// up on each of its days until that day is marked delivered.
+  List<FarmOrder> ordersOn(String dayKey, String slot) => roundOrders
+      .where((o) => o.dueOn(dayKey) && !o.deliveredOn(dayKey))
+      .where((o) => (o.slot == 'evening') == (slot == 'evening'))
+      .toList();
 }

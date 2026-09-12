@@ -18,7 +18,6 @@ class Db {
   static Col get products => fs.collection('products');
   static Col get transactions => fs.collection('transactions');
   static Col get orders => fs.collection('orders');
-  static Col get subscriptions => fs.collection('subscriptions');
 
   /// Khaata accounts. The collection keeps its original `udhaar_accounts` name
   /// so no data has to be migrated; everything the farm reads says "khaata".
@@ -64,12 +63,12 @@ class Db {
       .snapshots()
       .map((q) => q.docs.map(Partner.fromDoc).toList());
 
-  /// Active-only filtering happens in Dart rather than in the query: a farm
-  /// has a handful of products, and this way the app needs no composite index,
-  /// which is one less thing to get wrong when setting the project up.
-  /// The shop order. Sorted in Dart, not by Firestore: a product saved without
-  /// a sortOrder would be dropped from an ordered query outright, and an item
-  /// missing from the shop is worse than one in the wrong place.
+  /// The shop catalogue, in shop order.
+  ///
+  /// Both the sorting and the active-only filter happen in Dart. A farm has a
+  /// handful of products, so it costs nothing — and an ordered query would
+  /// drop any product saved without the field it orders on, which would take
+  /// an item out of the shop altogether.
   static Stream<List<Product>> watchProducts({bool onlyActive = false}) =>
       products.snapshots().map((s) {
         final all = s.docs.map(Product.fromDoc);

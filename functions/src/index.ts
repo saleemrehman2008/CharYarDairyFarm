@@ -89,7 +89,8 @@ export const syncOrder = onDocumentWritten(
       Number(o.total ?? 0),
       `${o.mode ?? ''}`,
       `${o.slot ?? ''}`,
-      `${o.repeat ?? ''}`,
+      (o.dayKeys ?? []).join(' '),
+      (o.doneDays ?? []).join(' '),
       `${o.pay ?? ''}`,
       `${o.status ?? ''}`,
       `${o.approvedByName ?? o.approvedBy ?? ''}`,
@@ -347,55 +348,6 @@ export const syncLog = onDocumentCreated(
       `${l.kind ?? ''}`,
       `${l.what ?? ''}`,
     ]);
-  },
-);
-
-// ---------------------------------------------------------------------------
-// Daily orders from standing subscriptions, 04:00 Asia/Karachi
-// ---------------------------------------------------------------------------
-
-export const raiseDailyOrders = onSchedule(
-  {schedule: '0 4 * * *', timeZone: 'Asia/Karachi'},
-  async () => {
-    const subs = await db()
-      .collection('subscriptions')
-      .where('active', '==', true)
-      .get();
-    if (subs.empty) return;
-
-    const settings = db().doc('settings/farm');
-
-    for (const sub of subs.docs) {
-      const s = sub.data();
-      try {
-        // Keep the order numbers in the same sequence the app uses.
-        const number = await db().runTransaction(async (tx) => {
-          const snap = await tx.get(settings);
-          const next = Number(snap.data()?.orderSeq ?? 1000) + 1;
-          tx.set(settings, {orderSeq: next}, {merge: true});
-          return `${next}`;
-        });
-
-        await db().collection('orders').add({
-          number,
-          customerId: s.customerId,
-          customerName: s.customerName ?? '',
-          items: s.items ?? {},
-          total: Number(s.total ?? 0),
-          mode: s.mode ?? 'delivery',
-          slot: s.slot ?? 'morning',
-          repeat: 'daily',
-          pay: s.pay ?? 'cod',
-          status: 'new',
-          subscriptionId: sub.id,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-      } catch (err) {
-        logger.error(`Could not raise the daily order for ${sub.id}`, err);
-      }
-    }
-
-    logger.info(`Raised ${subs.size} daily orders`);
   },
 );
 

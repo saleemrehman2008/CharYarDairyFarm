@@ -202,10 +202,11 @@ service cloud.firestore {
             && request.resource.data.status == 'new'
             && !('approvedBy' in request.resource.data));
 
-      // Staff move an order along the round; only a partner approves one.
+      // Staff move an order along the round: the status, when it went out, and
+      // which of its days have been delivered. Only a partner approves one.
       allow update: if isPartner()
         || (isDelivery()
-            && changedKeys().hasOnly(['status', 'deliveredAt']))
+            && changedKeys().hasOnly(['status', 'deliveredAt', 'doneDays']))
         // A customer may call off their own order while the farm has not
         // started on it — nothing else about it, and never once approved.
         || (signedIn()

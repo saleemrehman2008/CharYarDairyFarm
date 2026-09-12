@@ -11,6 +11,7 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../util/phone.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/day_picker.dart';
 import '../../widgets/ui.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -25,7 +26,10 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String _mode = 'delivery';
   String _slot = 'morning';
-  String _repeat = 'once';
+
+  /// Which days the order is for. Today unless the customer says otherwise.
+  late Set<String> _days = {dayKeyOf(DateTime.now())};
+
   PayMethod _pay = PayMethod.cod;
   bool _busy = false;
 
@@ -48,7 +52,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.watch<Cart>();
     final user = context.watch<Session>().user;
     final lines = cart.lines(store.products);
-    final total = cart.total(store.products);
+    final perDay = cart.total(store.products);
+    final total = perDay * (_days.isEmpty ? 1 : _days.length);
 
     if (lines.isEmpty) {
       return const PageBody(
@@ -168,22 +173,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         const SizedBox(height: T.gap),
 
-        const Kicker('Repeat'),
+        const Kicker('Which days'),
         const SizedBox(height: 6),
-        Segmented<String>(
-          value: _repeat,
-          compact: true,
-          options: const [('once', 'One-off'), ('daily', 'Daily')],
-          onChanged: (v) => setState(() => _repeat = v),
-        ),
-        if (_repeat == 'daily') ...[
-          const SizedBox(height: 5),
-          Text(
-            'The farm will raise this order every day for your slot until you '
-            'ask them to stop.',
-            style: T.meta,
+        RegCard(
+          padding: const EdgeInsets.all(10),
+          child: DayPicker(
+            selected: _days,
+            onChanged: (v) => setState(() => _days = v),
           ),
-        ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          _days.isEmpty
+              ? 'Pick at least one day.'
+              : _days.length == 1
+              ? 'One delivery, on $_dayList. Tap more days to order for a '
+                    'week or a month at a time.'
+              : '${_days.length} deliveries · ${rs(perDay)} each · '
+                    '$_dayList. Each day is paid for as it comes.',
+          style: T.meta,
+        ),
         const SizedBox(height: T.pad),
 
         const Kicker('Payment'),
@@ -201,7 +210,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         PrimaryButton(
           label: 'Place order · ${rs(total)}',
           busy: _busy,
-          onPressed: user?.canOrder == true ? () => _place(lines, total) : null,
+          onPressed: user?.canOrder == true && _days.isNotEmpty
+              ? () => _place(lines, perDay)
+              : null,
         ),
         if (user?.canOrder != true) ...[
           const SizedBox(height: 8),
@@ -254,7 +265,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         PayMethod.cod => null,
       };
 
-  Future<void> _place(List<OrderItem> lines, num total) async {
+  /// "13 Sep – 19 Sep", for the line under the calendar.
+  String get _dayList {
+    final dates = (_days.toList()..sort()).map(dayFromKey).nonNulls.toList();
+    if (dates.isEmpty) return '';
+    if (dates.length == 1) return fmtDateFull(dates.first);
+    final run = List.generate(
+      dates.length,
+      (i) => i == 0 || dates[i].difference(dates[i - 1]).inDays == 1,
+    ).every((x) => x);
+    return run
+        ? '${fmtDate(dates.first)} – ${fmtDate(dates.last)}'
+        : dates.map(fmtDate).join(', ');
+  }
+
+  Future<void> _place(List<OrderItem> lines, num perDayTotal) async {
     final session = context.read<Session>();
     final user = session.user;
 
@@ -287,16 +312,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await OrderRepo.place(
         actor: session.actor,
         items: lines,
-        total: total,
+        perDayTotal: perDayTotal,
+        days: (_days.toList()..sort()).map(dayFromKey).nonNulls.toList(),
         mode: _mode,
         slot: _slot,
-        repeat: _repeat,
         pay: _pay,
         address: _mode == 'delivery' ? address : '',
         mobile: _mode == 'delivery' ? Phone.normalise(mobile) : '',
       );
       if (!mounted) return;
-      setState(() => _newAddress = false);
+      setState(() {
+        _newAddress = false;
+        _days = {dayKeyOf(DateTime.now())};
+      });
       context.read<Cart>().clear();
       widget.onOrdered();
       toast(context, 'Order placed · the farm has been notified');

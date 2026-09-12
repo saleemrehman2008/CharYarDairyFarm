@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/delivery_repo.dart';
+import '../../services/order_repo.dart';
 import '../../state/round_data.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
@@ -28,6 +29,11 @@ class DeliveriesScreen extends StatefulWidget {
 class _DeliveriesScreenState extends State<DeliveriesScreen> {
   DateTime _day = DateTime.now();
 
+  /// Which round is on screen. Nothing is locked to the clock: a customer
+  /// missed in the morning is marked from the morning list at nine at night,
+  /// and the day still reads correctly afterwards.
+  String _slot = DateTime.now().hour >= 12 ? 'evening' : 'morning';
+
   bool get _isToday {
     final now = DateTime.now();
     return _day.year == now.year &&
@@ -47,16 +53,30 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     final store = context.watch<RoundData>();
     final customers = store.khaataCustomers;
     final dayKey = Delivery.dayKey(_day);
-    final today = {
+    final marked = {
       for (final d in store.monthDeliveries)
         if (Delivery.dayKey(d.date) == dayKey) d.customerId: d,
     };
 
-    final morning = customers.where((c) => c.slot != 'evening').toList();
-    final evening = customers.where((c) => c.slot == 'evening').toList();
-    final done = customers.where((c) => today.containsKey(c.uid)).length;
-    final litres = today.values.fold<num>(0, (a, d) => a + d.litres);
-    final amount = today.values.fold<num>(0, (a, d) => a + d.amount);
+    List<UdhaarAccount> inSlot(String slot) => customers
+        .where((c) => (c.slot == 'evening') == (slot == 'evening'))
+        .toList();
+
+    final mine = inSlot(_slot);
+    final orders = store.ordersOn(dayKey, _slot);
+    final doneOrders = store.roundOrders
+        .where((o) => o.deliveredOn(dayKey))
+        .where((o) => (o.slot == 'evening') == (_slot == 'evening'))
+        .toList();
+
+    final left =
+        mine.where((c) => !marked.containsKey(c.uid)).length + orders.length;
+    final litres = marked.values.fold<num>(0, (a, d) => a + d.litres);
+    final amount = marked.values.fold<num>(0, (a, d) => a + d.amount);
+
+    int leftIn(String slot) =>
+        inSlot(slot).where((c) => !marked.containsKey(c.uid)).length +
+        store.ordersOn(dayKey, slot).length;
 
     final body = PageBody(
       children: [
@@ -87,8 +107,8 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               ),
               const Divider(height: 16),
               Text(
-                '$done of ${customers.length} delivered · ${qty(litres)} L · '
-                '${rs(amount)}',
+                '${marked.length} of ${customers.length} khaata delivered · '
+                '${qty(litres)} L · ${rs(amount)}',
                 style: T.meta,
               ),
             ],
@@ -96,32 +116,74 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         ),
         const SizedBox(height: T.pad),
 
-        if (customers.isEmpty)
+        // Two rounds a day, so two lists. Either can be opened at any hour —
+        // the morning list is where a morning customer is marked off, even if
+        // it is being done in the evening.
+        Segmented<String>(
+          value: _slot,
+          options: [
+            ('morning', 'Morning ${_count(leftIn('morning'))}'),
+            ('evening', 'Evening ${_count(leftIn('evening'))}'),
+          ],
+          onChanged: (v) => setState(() => _slot = v),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          left == 0
+              ? 'This round is done.'
+              : '$left still to go on the $_slot round.',
+          style: T.meta,
+        ),
+        const SizedBox(height: T.pad),
+
+        if (customers.isEmpty && orders.isEmpty && doneOrders.isEmpty)
           const EmptyNote(
-            'No khaata customers yet. Once someone registers and a co-founder '
-            'approves them, they appear here every day.',
+            'Nothing on this round. Khaata customers appear here every day '
+            'once a co-founder approves them, and shop orders appear on the '
+            'days the customer asked for.',
           ),
 
-        if (morning.isNotEmpty) ...[
-          const SectionTitle('Morning 6–9'),
-          for (final c in morning)
+        if (mine.isNotEmpty) ...[
+          const SectionTitle('Khaata round'),
+          for (final c in mine)
             _RoundRow(
               key: ValueKey('${c.uid}_$dayKey'),
               account: c,
-              delivery: today[c.uid],
+              delivery: marked[c.uid],
               day: _day,
             ),
           const SizedBox(height: 10),
         ],
 
-        if (evening.isNotEmpty) ...[
-          const SectionTitle('Evening 5–8'),
-          for (final c in evening)
-            _RoundRow(
-              key: ValueKey('${c.uid}_$dayKey'),
-              account: c,
-              delivery: today[c.uid],
-              day: _day,
+        if (orders.isNotEmpty) ...[
+          const SectionTitle('Shop orders'),
+          for (final o in orders)
+            _OrderRow(
+              key: ValueKey('${o.id}_$dayKey'),
+              order: o,
+              dayKey: dayKey,
+            ),
+          const SizedBox(height: 10),
+        ],
+
+        if (doneOrders.isNotEmpty) ...[
+          const SectionTitle('Orders done today'),
+          for (final o in doneOrders)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.check, size: 15, color: T.accent700),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '#${o.number} · ${o.customerName} · ${o.itemsText}',
+                      style: T.meta,
+                    ),
+                  ),
+                  Text(rs(o.perDay), style: T.meta),
+                ],
+              ),
             ),
         ],
       ],
@@ -129,6 +191,110 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
     if (widget.asTab) return body;
     return FarmScaffold(title: 'Daily round', showBack: true, body: body);
+  }
+
+  /// "· 3 left", or nothing at all when the round is clear.
+  static String _count(int left) => left == 0 ? '' : '· $left';
+}
+
+/// One shop order on the round, for one of its days.
+///
+/// A week's order shows up here every day it was ordered for, and each day is
+/// delivered and paid for on its own.
+class _OrderRow extends StatefulWidget {
+  const _OrderRow({super.key, required this.order, required this.dayKey});
+
+  final FarmOrder order;
+  final String dayKey;
+
+  @override
+  State<_OrderRow> createState() => _OrderRowState();
+}
+
+class _OrderRowState extends State<_OrderRow> {
+  bool _busy = false;
+
+  Future<void> _deliver() async {
+    final o = widget.order;
+    final settlement = o.isUdhaar
+        ? const Settlement(payVia: PayVia.cash, handledBy: '')
+        : await askSettlement(
+            context,
+            incoming: true,
+            party: o.customerName,
+            amount: o.perDay,
+            allowUnpaid: true,
+          );
+    if (settlement == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await OrderRepo.deliverDay(
+        context.read<Session>().actor,
+        o,
+        dayKey: widget.dayKey,
+        collected: !o.isUdhaar && settlement.collected,
+        payVia: settlement.payVia ?? PayVia.cash,
+        handledBy: settlement.handledBy,
+      );
+      if (mounted) toast(context, '#${o.number} delivered');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not save it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final o = widget.order;
+    final which = o.dayLabel(widget.dayKey);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: T.gap),
+      child: RegCard(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    o.customerName,
+                    style: T.cardTitle,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Tag('#${o.number}', tone: TagTone.neutral),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(o.itemsText, style: T.body),
+            const SizedBox(height: 2),
+            Text(
+              [
+                rs(o.perDay),
+                o.pay.short,
+                if (which.isNotEmpty) which,
+              ].join(' · '),
+              style: T.meta,
+            ),
+            if (o.address.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('${o.address} · ${o.mobile}', style: T.meta),
+            ],
+            const SizedBox(height: 10),
+            GhostButton(
+              label: 'Delivered',
+              icon: Icons.check,
+              compact: true,
+              onPressed: _busy ? null : _deliver,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
