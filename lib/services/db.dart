@@ -58,10 +58,17 @@ class Db {
   /// Active-only filtering happens in Dart rather than in the query: a farm
   /// has a handful of products, and this way the app needs no composite index,
   /// which is one less thing to get wrong when setting the project up.
+  /// The shop order. Sorted in Dart, not by Firestore: a product saved without
+  /// a sortOrder would be dropped from an ordered query outright, and an item
+  /// missing from the shop is worse than one in the wrong place.
   static Stream<List<Product>> watchProducts({bool onlyActive = false}) =>
-      products.orderBy('sortOrder').snapshots().map((s) {
+      products.snapshots().map((s) {
         final all = s.docs.map(Product.fromDoc);
-        return (onlyActive ? all.where((p) => p.active) : all).toList();
+        return (onlyActive ? all.where((p) => p.active) : all).toList()
+          ..sort((a, b) {
+            final byOrder = a.sortOrder.compareTo(b.sortOrder);
+            return byOrder != 0 ? byOrder : a.name.compareTo(b.name);
+          });
       });
 
   /// Transactions for one farm month, newest first. Soft-deleted rows are

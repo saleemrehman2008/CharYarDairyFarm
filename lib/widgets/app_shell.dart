@@ -336,12 +336,26 @@ class FarmTabBar extends StatelessWidget {
 class PageBody extends StatelessWidget {
   const PageBody({super.key, required this.children, this.padBottom = 24});
 
+  /// A column of text and figures stops being readable somewhere past this,
+  /// so on a tablet the page is centred rather than stretched end to end.
+  static const maxContent = 720.0;
+
   final List<Widget> children;
   final double padBottom;
 
+  /// Side padding for a page this wide: the usual margin on a phone, and
+  /// enough on a tablet to hold the column to [maxContent].
+  static double sidePad(double width) =>
+      width > maxContent + T.pad * 2 ? (width - maxContent) / 2 : T.pad;
+
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: EdgeInsets.fromLTRB(T.pad, T.pad, T.pad, padBottom),
-    children: children,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (_, c) {
+      final side = sidePad(c.maxWidth);
+      return ListView(
+        padding: EdgeInsets.fromLTRB(side, T.pad, side, padBottom),
+        children: children,
+      );
+    },
   );
 }

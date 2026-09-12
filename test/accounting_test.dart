@@ -7,6 +7,7 @@ import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 import 'package:char_yar_dairy_farm/util/phone.dart';
+import 'package:char_yar_dairy_farm/widgets/app_shell.dart';
 
 /// Helper so each case reads as the entry a farmer would type.
 var _seq = 0;
@@ -523,6 +524,21 @@ void main() {
       expect(isLastDayOfMonth(DateTime(2027, 2, 28)), isTrue);
       expect(isLastDayOfMonth(DateTime(2028, 2, 28)), isFalse);
       expect(daysInMonth(DateTime(2028, 2, 1)), 29);
+    });
+  });
+
+  group('the page fits the screen it is on', () {
+    test('a phone keeps its margins and all of its width', () {
+      expect(PageBody.sidePad(360), 16);
+      expect(PageBody.sidePad(412), 16);
+      // A big phone in landscape is still not a tablet.
+      expect(PageBody.sidePad(700), 16);
+    });
+
+    test('a tablet holds the column to a readable width', () {
+      // The 1205 pt tablet the farm is testing on: 720 of content, centred.
+      expect(PageBody.sidePad(1205), (1205 - 720) / 2);
+      expect(1205 - 2 * PageBody.sidePad(1205), PageBody.maxContent);
     });
   });
 

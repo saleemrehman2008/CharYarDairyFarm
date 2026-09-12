@@ -58,8 +58,11 @@ class ShopScreen extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            // Tiles are sized, not counted. Two to a phone, more across a
+            // tablet — fixing the column count instead would give a tablet two
+            // enormous tiles and push the price off the bottom of the screen.
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 220,
               crossAxisSpacing: T.gap,
               mainAxisSpacing: T.gap,
               mainAxisExtent: 250,
@@ -156,8 +159,10 @@ class _ProductTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AspectRatio(
-            aspectRatio: 4 / 3,
+          // The photo takes whatever is left after the name, the price and the
+          // buttons have had their room — never the other way round. A fixed
+          // shape here is what buried them on a wide screen.
+          Expanded(
             child: LayoutBuilder(
               builder: (_, c) => ProductPhoto(
                 url: product.photoUrl,
@@ -174,7 +179,7 @@ class _ProductTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           Text('${rs(product.price)} / ${product.unit}', style: T.meta),
-          const Spacer(),
+          const SizedBox(height: 8),
           Row(
             children: [
               _Step(
