@@ -227,6 +227,62 @@ class OrderRepo {
     );
   }
 
+  /// Master only: takes back a day that was marked delivered by mistake.
+  ///
+  /// The mark is not the whole of it. Marking a day delivered books a sale,
+  /// and on a khaata order it raises what the customer owes — so undoing it
+  /// has to reverse both, or the books and the round tell different stories.
+  ///
+  /// Nothing is erased. The sale is marked deleted, which keeps it in the log
+  /// and the backup with a line through it, so a correction can always be
+  /// told apart from something that never happened.
+  static Future<void> undoDay(
+    Actor actor,
+    FarmOrder order, {
+    required String dayKey,
+  }) async {
+    if (!order.deliveredOn(dayKey)) return;
+    final amount = order.amountOn(dayKey);
+
+    // The sale this day booked, found by the order and the amount.
+    try {
+      final sales = await Db.transactions
+          .where('orderId', isEqualTo: order.id)
+          .get();
+      for (final doc in sales.docs) {
+        final t = Txn.fromDoc(doc);
+        if (t.isDeleted || t.type != TxnType.sale) continue;
+        if ((t.amount - amount).abs() > 0.01) continue;
+        await TxnRepo.softDelete(actor, t);
+        break;
+      }
+    } catch (_) {
+      // The day still comes back off the order; the entry can be deleted by
+      // hand from the ledger if this could not find it.
+    }
+
+    if (order.isUdhaar) {
+      await Db.udhaarAccounts.doc(order.customerId).set({
+        'balance': FieldValue.increment(-amount),
+      }, SetOptions(merge: true));
+    }
+
+    await Db.orders.doc(order.id).update({
+      'doneDays': FieldValue.arrayRemove([dayKey]),
+      'status': OrderStatus.out.key,
+      'deliveredAt': null,
+    });
+
+    await Log.write(
+      actor,
+      LogKind.order,
+      'undid the delivery of order #${order.number} for '
+      '$dayKey — ${rs(amount)} taken back out',
+      refType: 'order',
+      refId: order.id,
+    );
+  }
+
   /// Orders of mixed goods are booked under the biggest line's category.
   static String _categoryFor(FarmOrder order) {
     if (order.items.isEmpty) return 'Other sale';

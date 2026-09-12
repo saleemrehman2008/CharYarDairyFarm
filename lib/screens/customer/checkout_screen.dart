@@ -12,6 +12,7 @@ import '../../util/money.dart';
 import '../../util/phone.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/day_picker.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -224,6 +225,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             detail: _detail(method, store),
             onTap: () => setState(() => _pay = method),
           ),
+
+        // Anything but cash needs somewhere to send it, so the farm's own
+        // account is put in front of the customer rather than left for them
+        // to ask about.
+        if (_pay == PayMethod.bank || _pay == PayMethod.jazzcash) ...[
+          const SizedBox(height: T.gap),
+          _PayTo(settings: store.settings, method: _pay),
+        ],
 
         const SizedBox(height: 22),
         PrimaryButton(
@@ -482,4 +491,59 @@ class _CartLine extends StatelessWidget {
     dates.length,
     (i) => i == 0 || dates[i].difference(dates[i - 1]).inDays == 1,
   ).every((x) => x);
+}
+
+/// The farm's own account, for a customer paying by transfer.
+///
+/// A number typed wrong sends the money to a stranger, so the QR comes first
+/// where there is one — it is scanned, not read.
+class _PayTo extends StatelessWidget {
+  const _PayTo({required this.settings, required this.method});
+
+  final FarmSettings settings;
+  final PayMethod method;
+
+  @override
+  Widget build(BuildContext context) {
+    final bank = method == PayMethod.bank;
+    final detail = bank ? settings.bankAccount : settings.jazzcashNumber;
+
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(bank ? 'Send it to' : 'JazzCash / EasyPaisa'),
+          const SizedBox(height: 8),
+          if (detail.isEmpty)
+            Text(
+              'The farm has not put its account details in yet. Please ring '
+              'them before sending anything.',
+              style: T.meta.copyWith(color: T.alert),
+            )
+          else ...[
+            SelectableText(detail, style: T.num22),
+            const SizedBox(height: 4),
+            Text(settings.name, style: T.meta),
+          ],
+          if (settings.bankQr.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Center(child: FarmPhotoView(data: settings.bankQr, size: 190)),
+            const SizedBox(height: 6),
+            Center(
+              child: Text(
+                'Scan this instead of typing the number.',
+                style: T.meta,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'Send it, then place the order. The farm marks it received when '
+            'the money lands.',
+            style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
 }

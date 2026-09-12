@@ -5,6 +5,7 @@ import '../../models/models.dart';
 import '../../services/order_repo.dart';
 import '../../state/customer_store.dart';
 import '../../state/session.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/order_card.dart';
 import '../../widgets/ui.dart';
@@ -42,14 +43,31 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     }
   }
 
+  OrderFilter _filter = OrderFilter.pending;
+
   @override
   Widget build(BuildContext context) {
-    final orders = context.watch<CustomerStore>().orders;
+    final all = context.watch<CustomerStore>().orders;
+    final orders = _filter.apply(all);
 
     return PageBody(
       children: [
+        Segmented<OrderFilter>(
+          value: _filter,
+          options: [for (final f in OrderFilter.values) (f, f.label)],
+          onChanged: (v) => setState(() => _filter = v),
+        ),
+        const SizedBox(height: T.pad),
         if (orders.isEmpty)
-          const EmptyNote('No orders yet. Your first one will show up here.')
+          EmptyNote(switch (_filter) {
+            OrderFilter.pending =>
+              all.isEmpty
+                  ? 'No orders yet. Your first one will show up here.'
+                  : 'Nothing on its way right now.',
+            OrderFilter.completed => 'Nothing delivered yet.',
+            OrderFilter.all =>
+              'No orders yet. Your first one will show up here.',
+          })
         else
           for (final o in orders)
             OrderCard(

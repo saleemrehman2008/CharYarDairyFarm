@@ -62,6 +62,29 @@ enum OrderStatus {
       this != OrderStatus.delivered && this != OrderStatus.cancelled;
 }
 
+/// How a list of orders is narrowed down. The same three everywhere — the
+/// farm side, the customer's own orders, and the rider's.
+enum OrderFilter {
+  pending('Pending'),
+  completed('Completed'),
+  all('All');
+
+  const OrderFilter(this.label);
+
+  final String label;
+
+  /// Cancelled orders show only under All: they are not pending, and calling
+  /// them completed would put them in the same bucket as milk that went out.
+  bool covers(FarmOrder o) => switch (this) {
+    OrderFilter.pending => o.status.isOpen,
+    OrderFilter.completed => o.status == OrderStatus.delivered,
+    OrderFilter.all => true,
+  };
+
+  List<FarmOrder> apply(List<FarmOrder> orders) =>
+      orders.where(covers).toList();
+}
+
 enum PayMethod {
   cod,
   bank,
@@ -223,6 +246,16 @@ class FarmOrder {
   /// What the person delivering has to come back with. A khaata order is
   /// billed at month end, so nothing is taken at the door.
   num toCollectOn(String dayKey) => isUdhaar ? 0 : amountOn(dayKey);
+
+  /// What has been paid so far.
+  ///
+  /// A day paid for at the door is paid; a khaata day is not — it goes onto
+  /// the month's bill instead, and is paid when that bill is.
+  num get paidSoFar =>
+      isUdhaar ? 0 : doneDays.fold<num>(0, (a, d) => a + amountOn(d));
+
+  /// What is still to pay on this order.
+  num get leftToPay => isUdhaar ? 0 : total - paidSoFar;
 
   bool get isMultiDay => dayKeys.length > 1;
 

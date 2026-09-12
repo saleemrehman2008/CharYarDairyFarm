@@ -93,6 +93,14 @@ class StaffStore extends ChangeNotifier implements RoundData {
   List<FarmOrder> get roundOrders =>
       openOrders.where((o) => o.mode != 'pickup').toList();
 
+  @override
+  List<FarmOrder> get allOpenOrders =>
+      _orders.where((o) => o.status.isOpen).toList();
+
+  /// Everything the rider's phone has, finished or not — what the three
+  /// filters on his Orders tab pick from.
+  List<FarmOrder> get allOpenOrdersAndDone => _orders;
+
   /// Everyone on today's round who has not been marked yet.
   int get roundLeft {
     final key = Delivery.dayKey(DateTime.now());

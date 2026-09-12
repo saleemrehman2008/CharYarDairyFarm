@@ -18,6 +18,11 @@ abstract class RoundData extends ChangeNotifier {
   /// Shop orders the round has to take out: approved, not yet finished, and
   /// going to a door rather than being collected from the farm.
   List<FarmOrder> get roundOrders;
+
+  /// Every order the farm has on its books that is still to go out, approved
+  /// or not. The round shows only the approved ones, but it uses this to say
+  /// why the others are missing instead of showing an empty screen.
+  List<FarmOrder> get allOpenOrders;
 }
 
 /// The same filtering for either store. An extension rather than a method on
@@ -29,5 +34,16 @@ extension RoundOrders on RoundData {
   List<FarmOrder> ordersOn(String dayKey, String slot) => roundOrders
       .where((o) => o.dueOn(dayKey) && !o.deliveredOn(dayKey))
       .where((o) => (o.slot == 'evening') == (slot == 'evening'))
+      .toList();
+
+  /// Orders for today that a co-founder has not approved yet, so the round
+  /// cannot show them. A rider staring at an empty list deserves to know.
+  List<FarmOrder> awaitingApprovalOn(String dayKey) => allOpenOrders
+      .where((o) => !o.isApproved && o.dueOn(dayKey) && !o.deliveredOn(dayKey))
+      .toList();
+
+  /// Approved orders for days still to come.
+  List<FarmOrder> laterThan(String dayKey) => roundOrders
+      .where((o) => o.daysLeft.any((d) => d.compareTo(dayKey) > 0))
       .toList();
 }

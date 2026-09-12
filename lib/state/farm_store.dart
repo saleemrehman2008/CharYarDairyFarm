@@ -288,6 +288,9 @@ class FarmStore extends ChangeNotifier implements RoundData {
       .where((o) => o.status.isOpen && o.isApproved && o.mode != 'pickup')
       .toList();
 
+  @override
+  List<FarmOrder> get allOpenOrders => openOrders;
+
   List<UdhaarAccount> get pendingUdhaar =>
       _udhaar.where((u) => u.status == UdhaarStatus.pending).toList();
 

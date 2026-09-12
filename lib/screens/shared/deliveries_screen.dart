@@ -34,6 +34,10 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
   /// and the day still reads correctly afterwards.
   String _slot = DateTime.now().hour >= 12 ? 'evening' : 'morning';
 
+  /// Near the end of a round, "what is left" is the only question. Off by
+  /// default: the whole street in order is what the rider walks by.
+  bool _onlyLeft = false;
+
   bool get _isToday {
     final now = DateTime.now();
     return _day.year == now.year &&
@@ -73,12 +77,13 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
           _Stop(name: o.customerName, order: o),
     ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
-    final stops = stopsIn(_slot);
-    final left = stops.where((x) => !x.done(dayKey)).length;
+    final all = stopsIn(_slot);
+    final left = all.where((x) => !x.done(dayKey)).length;
+    final stops = _onlyLeft ? all.where((x) => !x.done(dayKey)).toList() : all;
 
     // What has to come back in the rider's pocket. Khaata milk is billed at
     // month end, so only orders are counted.
-    final toCollect = stops
+    final toCollect = all
         .where((x) => !x.done(dayKey))
         .fold<num>(0, (a, x) => a + (x.order?.toCollectOn(dayKey) ?? 0));
 
@@ -87,6 +92,9 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
     int leftIn(String slot) =>
         stopsIn(slot).where((x) => !x.done(dayKey)).length;
+
+    final waiting = store.awaitingApprovalOn(dayKey);
+    final later = store.laterThan(dayKey);
 
     final body = PageBody(
       children: [
@@ -144,13 +152,58 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
           ],
           onChanged: (v) => setState(() => _slot = v),
         ),
-        const SizedBox(height: 6),
-        Text(
-          left == 0
-              ? 'This round is done.'
-              : '$left still to go on the $_slot round.',
-          style: T.meta,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                left == 0
+                    ? 'This round is done.'
+                    : '$left still to go on the $_slot round.',
+                style: T.meta,
+              ),
+            ),
+            if (left > 0 && all.length > left)
+              GhostButton(
+                label: _onlyLeft ? 'Show all' : 'Only left ($left)',
+                compact: true,
+                onPressed: () => setState(() => _onlyLeft = !_onlyLeft),
+              ),
+          ],
         ),
+
+        // An empty list is not an explanation. If an order is not here, the
+        // round says why rather than leaving the rider to wonder.
+        if (waiting.isNotEmpty || later.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: T.n100, border: T.hair),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (waiting.isNotEmpty)
+                  Text(
+                    '${waiting.length} '
+                    '${waiting.length == 1 ? 'order is' : 'orders are'} '
+                    'waiting for a co-founder to approve. They appear here as '
+                    'soon as that happens.',
+                    style: T.meta.copyWith(color: T.accent800),
+                  ),
+                if (waiting.isNotEmpty && later.isNotEmpty)
+                  const SizedBox(height: 4),
+                if (later.isNotEmpty)
+                  Text(
+                    '${later.length} '
+                    '${later.length == 1 ? 'order is' : 'orders are'} for '
+                    'later days.',
+                    style: T.meta,
+                  ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: T.pad),
 
         if (stops.isEmpty)
@@ -215,6 +268,36 @@ class _OrderRow extends StatefulWidget {
 class _OrderRowState extends State<_OrderRow> {
   bool _busy = false;
 
+  /// Master only: this day was marked delivered by mistake.
+  Future<void> _undo() async {
+    final o = widget.order;
+    final ok = await confirm(
+      context,
+      title: 'Undo this delivery?',
+      body:
+          '#${o.number} · ${o.customerName}\n\n'
+          '${rs(o.amountOn(widget.dayKey))} comes back out of the books, and '
+          'the day goes back on the round. The entry stays in the log marked '
+          'deleted.',
+      confirmLabel: 'Undo it',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await OrderRepo.undoDay(
+        context.read<Session>().actor,
+        o,
+        dayKey: widget.dayKey,
+      );
+      if (mounted) toast(context, 'Undone');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not undo it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _deliver() async {
     final o = widget.order;
     final settlement = o.isUdhaar
@@ -250,11 +333,19 @@ class _OrderRowState extends State<_OrderRow> {
   Widget build(BuildContext context) {
     final o = widget.order;
     final which = o.dayLabel(widget.dayKey);
+    // Only the person actually at the door marks a delivery. A co-founder
+    // tapping it by mistake would book money the farm never took.
+    final role = context.watch<Session>().role;
+    final canMark = role == Role.staff;
+    final canUndo = role == Role.master;
+    final done = o.deliveredOn(widget.dayKey);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: T.gap),
       child: RegCard(
         padding: const EdgeInsets.all(12),
+        stripe: done ? T.done : T.pending,
+        wash: done ? T.doneWash : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -267,7 +358,14 @@ class _OrderRowState extends State<_OrderRow> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Tag('Order #${o.number}', tone: TagTone.warn),
+                Tag(
+                  done
+                      ? 'Delivered'
+                      : o.isApproved
+                      ? 'Ready · #${o.number}'
+                      : 'Order #${o.number}',
+                  tone: done ? TagTone.good : TagTone.warn,
+                ),
               ],
             ),
             const SizedBox(height: 2),
@@ -309,12 +407,35 @@ class _OrderRowState extends State<_OrderRow> {
               Text('${o.address} · ${o.mobile}', style: T.meta),
             ],
             const SizedBox(height: 10),
-            GhostButton(
-              label: 'Delivered',
-              icon: Icons.check,
-              compact: true,
-              onPressed: _busy ? null : _deliver,
-            ),
+            if (done)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      o.isUdhaar
+                          ? 'On their khaata.'
+                          : '${rs(o.amountOn(widget.dayKey))} taken.',
+                      style: T.meta.copyWith(color: T.done),
+                    ),
+                  ),
+                  if (canUndo)
+                    GhostButton(
+                      label: 'Undo',
+                      compact: true,
+                      danger: true,
+                      onPressed: _busy ? null : _undo,
+                    ),
+                ],
+              )
+            else if (canMark)
+              GhostButton(
+                label: 'Delivered',
+                icon: Icons.check,
+                compact: true,
+                onPressed: _busy ? null : _deliver,
+              )
+            else
+              Text('The rider marks this delivered.', style: T.meta),
           ],
         ),
       ),
@@ -400,11 +521,18 @@ class _RoundRowState extends State<_RoundRow> {
   Widget build(BuildContext context) {
     final a = widget.account;
     final litres = num.tryParse(_litres.text.trim()) ?? 0;
+    // Marking milk delivered is the rider's job. A co-founder tapping it by
+    // mistake would put milk on somebody's bill that never left the van.
+    final role = context.watch<Session>().role;
+    final canMark = role == Role.staff;
+    final canUndo = role == Role.master;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: T.gap),
       child: RegCard(
         padding: const EdgeInsets.all(12),
+        stripe: _delivered ? T.done : T.pending,
+        wash: _delivered ? T.doneWash : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -448,12 +576,24 @@ class _RoundRowState extends State<_RoundRow> {
               children: [
                 SizedBox(
                   width: 92,
-                  child: Field(
-                    label: 'Litres',
-                    controller: _litres,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() {}),
-                  ),
+                  child: canMark
+                      ? Field(
+                          label: 'Litres',
+                          controller: _litres,
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Kicker('Litres'),
+                            const SizedBox(height: 5),
+                            Text(
+                              qty(widget.delivery?.litres ?? a.litresPerDay),
+                              style: T.num22,
+                            ),
+                          ],
+                        ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -465,15 +605,16 @@ class _RoundRowState extends State<_RoundRow> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: GhostButton(
-                    label: _delivered ? 'Update' : 'Delivered',
-                    icon: _delivered ? null : Icons.check,
-                    compact: true,
-                    onPressed: _busy ? null : () => _save(clear: false),
+                if (canMark)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: GhostButton(
+                      label: _delivered ? 'Update' : 'Delivered',
+                      icon: _delivered ? null : Icons.check,
+                      compact: true,
+                      onPressed: _busy ? null : () => _save(clear: false),
+                    ),
                   ),
-                ),
               ],
             ),
             if (_delivered) ...[
@@ -486,12 +627,13 @@ class _RoundRowState extends State<_RoundRow> {
                       style: T.meta,
                     ),
                   ),
-                  GhostButton(
-                    label: 'Not delivered',
-                    compact: true,
-                    danger: true,
-                    onPressed: _busy ? null : () => _save(clear: true),
-                  ),
+                  if (canMark || canUndo)
+                    GhostButton(
+                      label: canMark ? 'Not delivered' : 'Undo',
+                      compact: true,
+                      danger: true,
+                      onPressed: _busy ? null : () => _save(clear: true),
+                    ),
                 ],
               ),
             ],

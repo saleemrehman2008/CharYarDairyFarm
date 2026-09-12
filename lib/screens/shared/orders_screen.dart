@@ -13,8 +13,6 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/order_card.dart';
 import '../../widgets/ui.dart';
 
-enum OrderFilter { all, open, fresh }
-
 /// Orders for the master; the same list is the co-founder's Approvals tab.
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key, this.showUdhaarRequests = false});
@@ -27,28 +25,19 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  OrderFilter _filter = OrderFilter.all;
+  OrderFilter _filter = OrderFilter.pending;
   String? _busyId;
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
-    final orders = switch (_filter) {
-      OrderFilter.all => store.orders,
-      OrderFilter.open => store.openOrders,
-      OrderFilter.fresh =>
-        store.orders.where((o) => o.status == OrderStatus.newOrder).toList(),
-    };
+    final orders = _filter.apply(store.orders);
 
     return PageBody(
       children: [
         Segmented<OrderFilter>(
           value: _filter,
-          options: const [
-            (OrderFilter.all, 'All'),
-            (OrderFilter.open, 'Open'),
-            (OrderFilter.fresh, 'New'),
-          ],
+          options: [for (final f in OrderFilter.values) (f, f.label)],
           onChanged: (v) => setState(() => _filter = v),
         ),
         const SizedBox(height: T.pad),
@@ -61,7 +50,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ],
 
         if (orders.isEmpty)
-          const EmptyNote('No orders here yet.')
+          EmptyNote(switch (_filter) {
+            OrderFilter.pending => 'Nothing waiting. Every order is done.',
+            OrderFilter.completed => 'Nothing delivered yet.',
+            OrderFilter.all => 'No orders yet.',
+          })
         else
           for (final o in orders)
             OrderCard(
@@ -69,7 +62,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
               busy: _busyId == o.id,
               showAddress: true,
               onApprove: () => _run(o, approve: true),
-              onAdvance: () => _run(o, approve: false),
             ),
       ],
     );

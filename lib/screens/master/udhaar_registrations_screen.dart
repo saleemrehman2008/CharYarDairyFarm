@@ -17,7 +17,8 @@ class UdhaarRegistrationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accounts = context.watch<FarmStore>().udhaarAccounts;
+    final store = context.watch<FarmStore>();
+    final accounts = store.udhaarAccounts;
 
     return FarmScaffold(
       title: 'Khaata registrations',
@@ -35,7 +36,13 @@ class UdhaarRegistrationsScreen extends StatelessWidget {
             const EmptyNote('No khaata registrations yet.')
           else
             for (final a in accounts)
-              _UdhaarCard(key: ValueKey(a.uid), account: a),
+              _UdhaarCard(
+                key: ValueKey(a.uid),
+                account: a,
+                days: store.monthDeliveries
+                    .where((d) => d.customerId == a.uid)
+                    .toList(),
+              ),
         ],
       ),
     );
@@ -43,9 +50,13 @@ class UdhaarRegistrationsScreen extends StatelessWidget {
 }
 
 class _UdhaarCard extends StatefulWidget {
-  const _UdhaarCard({super.key, required this.account});
+  const _UdhaarCard({super.key, required this.account, this.days = const []});
 
   final UdhaarAccount account;
+
+  /// This month's deliveries for this customer, so the farm can see what has
+  /// actually gone out rather than only what it comes to.
+  final List<Delivery> days;
 
   @override
   State<_UdhaarCard> createState() => _UdhaarCardState();
@@ -162,10 +173,14 @@ class _UdhaarCardState extends State<_UdhaarCard> {
             const SizedBox(height: 4),
             Text(
               a.balance > 0
-                  ? 'Owes ${rs(a.balance)} right now'
-                  : 'Nothing owing',
+                  ? 'Owes ${rs(a.balance)} from before'
+                  : 'Nothing owing from before',
               style: T.meta,
             ),
+            if (a.isApproved) ...[
+              const SizedBox(height: 8),
+              _MonthSoFar(account: a, days: widget.days),
+            ],
             const SizedBox(height: 8),
             Text(
               a.approvedByName == null
@@ -347,4 +362,80 @@ class _UdhaarCardState extends State<_UdhaarCard> {
     UdhaarStatus.none => TagTone.neutral,
     UdhaarStatus.closed => TagTone.neutral,
   };
+}
+
+/// What this customer has actually taken this month, day by day.
+///
+/// The same picture the customer sees on their own phone, so when the two of
+/// them talk about a bill they are looking at the same thing.
+class _MonthSoFar extends StatelessWidget {
+  const _MonthSoFar({required this.account, required this.days});
+
+  final UdhaarAccount account;
+  final List<Delivery> days;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final byDay = {for (final d in days) d.date.day: d};
+    final litres = days.fold<num>(0, (a, d) => a + d.litres);
+    final amount = days.fold<num>(0, (a, d) => a + d.amount);
+    final soFar = now.day;
+    final missed = soFar - byDay.length;
+    final left = daysInMonth(now) - soFar;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: T.accent100, border: T.hair),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${qty(litres)} L this month', style: T.num22),
+          const SizedBox(height: 2),
+          Text(
+            '${byDay.length} ${byDay.length == 1 ? 'day' : 'days'} delivered'
+            '${missed > 0 ? ' · $missed missed' : ''} · ${rs(amount)} so far',
+            style: T.meta,
+          ),
+          if (left > 0 && account.litresPerDay > 0) ...[
+            const SizedBox(height: 2),
+            Text(
+              '$left days left · about '
+              '${rs(left * account.litresPerDay * account.rate)} still to come',
+              style: T.meta,
+            ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              for (var day = 1; day <= soFar; day++)
+                Container(
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: byDay.containsKey(day)
+                        ? T.accent300
+                        : Colors.transparent,
+                    border: Border.all(
+                      color: byDay.containsKey(day) ? T.accent300 : T.divider,
+                    ),
+                  ),
+                  child: Text(
+                    '$day',
+                    style: T.meta.copyWith(
+                      fontSize: 9,
+                      color: byDay.containsKey(day) ? T.accent900 : T.n400,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

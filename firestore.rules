@@ -185,7 +185,11 @@ service cloud.firestore {
         || (isDelivery()
             && request.resource.data.type in ['sale', 'receipt']);
 
-      allow update: if isPartner();
+      // Marking an entry deleted rewrites what the farm earned, so it is the
+      // master's alone. Everything else about an entry a partner may correct.
+      allow update: if isMaster()
+        || (isPartner() && !changedKeys().hasAny(['deletedAt']));
+
       allow delete: if false;
     }
 
@@ -202,9 +206,12 @@ service cloud.firestore {
             && request.resource.data.status == 'new'
             && !('approvedBy' in request.resource.data));
 
-      // Staff move an order along the round: the status, when it went out, and
-      // which of its days have been delivered. Only a partner approves one.
-      allow update: if isPartner()
+      // The rider marks the days delivered; a partner approves the order and
+      // nothing more. Delivering is not a co-founder's button — see the
+      // deliveries rule above for why.
+      allow update: if isMaster()
+        || (isPartner()
+            && !changedKeys().hasAny(['doneDays', 'deliveredAt']))
         || (isDelivery()
             && changedKeys().hasOnly(['status', 'deliveredAt', 'doneDays']))
         // A customer may call off their own order while the farm has not
@@ -255,10 +262,45 @@ service cloud.firestore {
     // ---- The daily milk round ----
     // Staff write it; the customer may read their own days so they can check
     // the bill against what they actually took.
+    // Milk is marked delivered by the person who actually handed it over.
+    // A co-founder tapping it by mistake would put milk on a bill that never
+    // left the van, so the button is gone from their app and refused here.
+    // The master can still correct a mistake — somebody has to be able to.
     match /deliveries/{id} {
       allow read: if onTheRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
-      allow create, update, delete: if onTheRound();
+
+      allow create: if isDelivery() || isMaster();
+      allow delete: if isDelivery() || isMaster();
+
+      allow update: if isDelivery() || isMaster()
+        // A partner may stamp a day as billed, and nothing else about it.
+        || (isPartner() && changedKeys().hasOnly(['billId', 'billed']));
+    }
+
+    // A rider's day: what milk went out with him, what came back, and the
+    // cash he is holding until a founder takes it in.
+    match /rider_days/{id} {
+      allow read: if onTheRound();
+
+      // His own day, and only his own.
+      allow create: if isDelivery()
+        && request.resource.data.riderId == request.auth.uid;
+
+      allow update: if isMaster()
+        // The rider adds to his own tally and hands it over.
+        || (isDelivery() && resource.data.riderId == request.auth.uid
+            && !changedKeys().hasAny(['receivedBy', 'receivedByName',
+                                      'receivedAt', 'receivedCash',
+                                      'receivedLitres']))
+        // A founder counts it and takes it in. Nothing else about the day is
+        // theirs to touch — the tally is the round's own record.
+        || (isPartner() && changedKeys().hasOnly(['receivedBy',
+                                                  'receivedByName',
+                                                  'receivedAt', 'receivedCash',
+                                                  'receivedLitres', 'status']));
+
+      allow delete: if isMaster();
     }
 
     // ---- Khaata bills ----

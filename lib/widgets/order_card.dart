@@ -91,6 +91,36 @@ class OrderCard extends StatelessWidget {
               if (order.mobile.isNotEmpty)
                 Text(Phone.pretty(order.mobile), style: T.meta),
             ],
+            const SizedBox(height: 8),
+            // Where the money stands, which is the other half of "where is my
+            // order" and the half a customer actually worries about.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: order.isUdhaar
+                    ? T.n100
+                    : order.leftToPay <= 0
+                    ? T.doneWash
+                    : T.accent100,
+                border: T.hair,
+              ),
+              child: Text(
+                order.isUdhaar
+                    ? 'On your khaata — it goes onto the month\'s bill.'
+                    : order.paidSoFar <= 0
+                    ? '${rs(order.total)} to pay, as each day comes.'
+                    : order.leftToPay <= 0
+                    ? 'Paid in full · ${rs(order.paidSoFar)}'
+                    : '${rs(order.paidSoFar)} paid · '
+                          '${rs(order.leftToPay)} still to pay',
+                style: T.meta.copyWith(
+                  color: order.leftToPay <= 0 && !order.isUdhaar
+                      ? T.done
+                      : T.n800,
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
             if (order.isMultiDay)
               _DayTicks(order: order)

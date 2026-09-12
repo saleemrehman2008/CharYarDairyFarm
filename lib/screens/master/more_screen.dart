@@ -16,6 +16,7 @@ import '../shared/products_screen.dart';
 import 'activity_log_screen.dart';
 import 'cattle_screen.dart';
 import 'handovers_screen.dart';
+import 'payment_details_screen.dart';
 import 'udhaar_registrations_screen.dart';
 import 'team_access_screen.dart';
 import 'users_screen.dart';
@@ -68,6 +69,11 @@ class MoreScreen extends StatelessWidget {
               _push(context, store, const ProductsScreen(asSubScreen: true)),
         ),
         if (isMaster) ...[
+          _Row(
+            label: 'Payment details',
+            icon: Icons.qr_code_2,
+            onTap: () => _push(context, store, const PaymentDetailsScreen()),
+          ),
           _Row(
             label: 'Team access',
             icon: Icons.badge_outlined,

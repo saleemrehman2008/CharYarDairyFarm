@@ -15,6 +15,8 @@ class RegCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(T.pad),
     this.onTap,
     this.dim = false,
+    this.stripe,
+    this.wash,
   });
 
   final Widget child;
@@ -24,11 +26,28 @@ class RegCard extends StatelessWidget {
   /// Blocked users and inactive rows render at 55% opacity.
   final bool dim;
 
+  /// A thick edge down the left, for a row whose state should read from
+  /// across a courtyard: green for done, a soft red for still to go.
+  final Color? stripe;
+
+  /// A faint tint behind the card, to go with the stripe.
+  final Color? wash;
+
   @override
   Widget build(BuildContext context) {
     Widget card = RegMarks(
       child: DecoratedBox(
-        decoration: BoxDecoration(border: T.hair),
+        decoration: BoxDecoration(
+          color: wash,
+          border: stripe == null
+              ? T.hair
+              : Border(
+                  left: BorderSide(color: stripe!, width: 4),
+                  top: BorderSide(color: T.divider, width: T.hairline),
+                  right: BorderSide(color: T.divider, width: T.hairline),
+                  bottom: BorderSide(color: T.divider, width: T.hairline),
+                ),
+        ),
         child: Padding(padding: padding, child: child),
       ),
     );

@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
-import '../../services/order_repo.dart';
-import '../../state/session.dart';
 import '../../state/staff_store.dart';
-import '../../util/money.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/order_card.dart';
 import '../../widgets/ui.dart';
@@ -23,72 +21,41 @@ class StaffOrdersScreen extends StatefulWidget {
 
 class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
   String? _busyId;
-
-  Future<void> _advance(FarmOrder order) async {
-    final next = order.status.next;
-    if (next == null) return;
-
-    var collected = true;
-    var payVia = PayVia.cash;
-    var handledBy = '';
-
-    // Delivery is when the money is handed over — ask unless it goes on the
-    // customer's khaata.
-    if (next == OrderStatus.delivered && !order.isUdhaar) {
-      final settled = await askSettlement(
-        context,
-        incoming: true,
-        party: order.customerName,
-        amount: order.total,
-        allowUnpaid: true,
-      );
-      if (settled == null || !mounted) return;
-      collected = settled.collected;
-      payVia = settled.payVia ?? PayVia.cash;
-      handledBy = settled.handledBy;
-    }
-
-    setState(() => _busyId = order.id);
-    try {
-      await OrderRepo.advance(
-        context.read<Session>().actor,
-        order,
-        collected: collected,
-        payVia: payVia,
-        handledBy: handledBy,
-      );
-      if (!mounted) return;
-      toast(
-        context,
-        next == OrderStatus.delivered && !collected
-            ? 'Delivered · ${rs(order.total)} still to collect'
-            : 'Order #${order.number} · ${next.label.toLowerCase()}',
-      );
-    } catch (e) {
-      if (mounted) toast(context, 'Could not update the order. $e');
-    } finally {
-      if (mounted) setState(() => _busyId = null);
-    }
-  }
+  OrderFilter _filter = OrderFilter.pending;
 
   @override
   Widget build(BuildContext context) {
-    final orders = context.watch<StaffStore>().openOrders;
+    final store = context.watch<StaffStore>();
+    final orders = _filter.apply(store.allOpenOrdersAndDone);
+    final waiting = store.allOpenOrders.where((o) => !o.isApproved).length;
 
     return PageBody(
       children: [
+        Text(
+          'What is coming. Milk is marked delivered on the round, where the '
+          'day and the money are.',
+          style: T.meta,
+        ),
+        const SizedBox(height: 10),
+        Segmented<OrderFilter>(
+          value: _filter,
+          options: [for (final f in OrderFilter.values) (f, f.label)],
+          onChanged: (v) => setState(() => _filter = v),
+        ),
+        if (waiting > 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            '$waiting ${waiting == 1 ? 'order is' : 'orders are'} waiting for '
+            'a co-founder to approve. They reach the round after that.',
+            style: T.meta.copyWith(color: T.accent800),
+          ),
+        ],
+        const SizedBox(height: T.pad),
         if (orders.isEmpty)
-          const EmptyNote(
-            'Nothing to deliver right now. Approved orders appear here.',
-          )
+          const EmptyNote('Nothing here.')
         else
           for (final o in orders)
-            OrderCard(
-              order: o,
-              busy: _busyId == o.id,
-              showAddress: true,
-              onAdvance: () => _advance(o),
-            ),
+            OrderCard(order: o, busy: _busyId == o.id, showAddress: true),
       ],
     );
   }
