@@ -10,6 +10,7 @@ import 'package:char_yar_dairy_farm/services/bill_clock.dart';
 import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/services/photo_store.dart';
+import 'package:char_yar_dairy_farm/services/rider_repo.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 import 'package:char_yar_dairy_farm/util/phone.dart';
 import 'package:char_yar_dairy_farm/widgets/app_shell.dart';
@@ -100,6 +101,20 @@ Partner partner(String id, {num invested = 0, num reinvested = 0}) => Partner(
   reinvested: reinvested,
   withdrawn: 0,
   createdAt: DateTime(2026, 1, 1),
+);
+
+/// A khaata house on the round, taking so many litres a day.
+UdhaarAccount _khaataStop(String id, num litres) => UdhaarAccount(
+  uid: id,
+  name: id,
+  address: '',
+  mobile: '',
+  slot: 'morning',
+  litresPerDay: litres,
+  rate: 220,
+  balance: 0,
+  status: UdhaarStatus.approved,
+  createdAt: DateTime(2026, 9, 1),
 );
 
 void main() {
@@ -1022,6 +1037,212 @@ void main() {
       // The 1205 pt tablet the farm is testing on: 720 of content, centred.
       expect(PageBody.sidePad(1205), (1205 - 720) / 2);
       expect(1205 - 2 * PageBody.sidePad(1205), PageBody.maxContent);
+    });
+  });
+
+  group('a rider\'s day has to close', () {
+    RiderDay dayOf({
+      num loaded = 0,
+      num delivered = 0,
+      num spotLitres = 0,
+      num spotCash = 0,
+      num collected = 0,
+      num returned = 0,
+      num received = 0,
+      RiderDayStatus status = RiderDayStatus.open,
+    }) => RiderDay(
+      id: 'r1_2026-09-12',
+      riderId: 'r1',
+      riderName: 'Rafique',
+      dayKey: '2026-09-12',
+      status: status,
+      loadedLitres: loaded,
+      deliveredLitres: delivered,
+      spotLitres: spotLitres,
+      spotCash: spotCash,
+      collectedCash: collected,
+      returnedLitres: returned,
+      receivedCash: received,
+      createdAt: DateTime(2026, 9, 12),
+    );
+
+    test('the milk adds up when everywhere it went is accounted for', () {
+      // 20 out: 12 on the round, 5 to orders, 2 sold on the road, 1 back.
+      final day = dayOf(loaded: 20, delivered: 17, spotLitres: 2, returned: 1);
+      expect(day.milkUnaccounted, 0);
+      expect(day.milkAddsUp, isTrue);
+    });
+
+    test('milk that went nowhere shows up as a gap', () {
+      final day = dayOf(loaded: 20, delivered: 12, spotLitres: 2, returned: 1);
+      expect(day.milkUnaccounted, 5);
+      expect(day.milkAddsUp, isFalse);
+    });
+
+    test('the cash in his hand is what he took, less what was taken in', () {
+      final day = dayOf(collected: 1100, spotCash: 440);
+      expect(day.cashInHand, 1540);
+
+      final after = dayOf(collected: 1100, spotCash: 440, received: 1540);
+      expect(after.cashInHand, 0);
+    });
+
+    test('a founder counting short leaves the rest against the rider', () {
+      // He said 8,400; 8,000 was counted.
+      final day = dayOf(collected: 8400, received: 8000);
+      expect(day.cashInHand, 400);
+    });
+
+    test('an untouched day is empty, and a day with milk on it is not', () {
+      expect(dayOf().isEmpty, isTrue);
+      expect(dayOf(loaded: 20).isEmpty, isFalse);
+      expect(dayOf(collected: 100).isEmpty, isFalse);
+    });
+
+    test('the load sheet groups stops by what each one takes', () {
+      final sheet = RiderRepo.loadSheet(
+        khaata: [
+          _khaataStop('a', 5),
+          _khaataStop('b', 5),
+          _khaataStop('c', 5),
+          _khaataStop('d', 1),
+        ],
+        orders: const [],
+        dayKey: '2026-09-12',
+        slot: 'morning',
+      );
+      // Three houses on five litres, one on a litre: 16 L to load.
+      expect(sheet.length, 2);
+      expect(sheet.first.litres, 5);
+      expect(sheet.first.stops, 3);
+      expect(sheet.first.total, 15);
+      expect(sheet.fold<num>(0, (a, l) => a + l.total), 16);
+    });
+
+    test('only what is sold by the litre goes in the milk can', () {
+      // A kilo of ghee is not milk and has no business in the load.
+      final order = FarmOrder(
+        id: 'o1',
+        number: '1',
+        customerId: 'c1',
+        customerName: 'Ahmed',
+        address: '',
+        mobile: '',
+        items: const [
+          OrderItem(
+            productId: 'milk',
+            name: 'Fresh milk',
+            qty: 3,
+            price: 220,
+            unit: 'L',
+            dayKeys: ['2026-09-12'],
+          ),
+          OrderItem(
+            productId: 'ghee',
+            name: 'Deesi Ghee',
+            qty: 1,
+            price: 2000,
+            unit: 'kg',
+            dayKeys: ['2026-09-12'],
+          ),
+        ],
+        total: 2660,
+        mode: 'delivery',
+        slot: 'morning',
+        repeat: 'once',
+        dayKeys: const ['2026-09-12'],
+        doneDays: const [],
+        pay: PayMethod.cod,
+        status: OrderStatus.newOrder,
+        createdAt: DateTime(2026, 9, 12),
+      );
+      expect(RiderRepo.milkIn(order, '2026-09-12'), 3);
+      expect(order.amountOn('2026-09-12'), 2660);
+    });
+  });
+
+  group('cash on a motorcycle is not the farm\'s cash', () {
+    Books booksWith({required num withRider}) => Books(
+      monthId: '2026-09',
+      openingCash: 0,
+      capital: 0,
+      monthTxns: [entry(type: TxnType.sale, amount: 5000)],
+      unpaidTxns: const [],
+      withRider: withRider,
+    );
+
+    test('a sale the rider is still carrying is held out of the cash', () {
+      expect(booksWith(withRider: 0).cash, 5000);
+      expect(booksWith(withRider: 1540).cash, 3460);
+      // Every rupee is still there when the rider's pocket is counted in.
+      expect(booksWith(withRider: 1540).cashIncludingRiders, 5000);
+    });
+
+    test('the money breakdown still adds up with cash on the road', () {
+      const money = MoneySummary(
+        capital: 100000,
+        assets: 0,
+        runningCosts: 0,
+        sales: 5000,
+        cash: 103460,
+        receivable: 0,
+        payable: 0,
+        withRider: 1540,
+      );
+      expect(money.farmMoney, 105000);
+      expect(money.expected, 105000);
+      expect(money.reconciles, isTrue);
+    });
+  });
+
+  group('an order list narrows to three', () {
+    FarmOrder at(OrderStatus status) => FarmOrder(
+      id: status.name,
+      number: '1',
+      customerId: 'c1',
+      customerName: 'Ahmed',
+      address: '',
+      mobile: '',
+      items: const [],
+      total: 220,
+      mode: 'delivery',
+      slot: 'morning',
+      repeat: 'once',
+      dayKeys: const ['2026-09-12'],
+      doneDays: const [],
+      pay: PayMethod.cod,
+      status: status,
+      createdAt: DateTime(2026, 9, 12),
+    );
+
+    final all = [
+      at(OrderStatus.newOrder),
+      at(OrderStatus.preparing),
+      at(OrderStatus.out),
+      at(OrderStatus.delivered),
+      at(OrderStatus.cancelled),
+    ];
+
+    test('pending is everything still to do', () {
+      expect(OrderFilter.pending.apply(all).length, 3);
+    });
+
+    test('completed is what was delivered, and nothing else', () {
+      final done = OrderFilter.completed.apply(all);
+      expect(done.length, 1);
+      expect(done.single.status, OrderStatus.delivered);
+    });
+
+    test('a cancelled order is neither, and shows only under All', () {
+      expect(
+        OrderFilter.pending.apply(all).map((o) => o.status),
+        isNot(contains(OrderStatus.cancelled)),
+      );
+      expect(
+        OrderFilter.completed.apply(all).map((o) => o.status),
+        isNot(contains(OrderStatus.cancelled)),
+      );
+      expect(OrderFilter.all.apply(all).length, 5);
     });
   });
 
