@@ -96,6 +96,11 @@ class _AnimalEventFormScreenState extends State<AnimalEventFormScreen> {
       toast(context, 'How many litres a day?');
       return;
     }
+    if (_kind == EventKind.weight &&
+        (num.tryParse(_weight.text.trim()) ?? 0) <= 0) {
+      toast(context, 'What did she weigh?');
+      return;
+    }
     if (_kind != EventKind.milkReading && _what.text.trim().isEmpty) {
       toast(context, 'Write down what happened.');
       return;

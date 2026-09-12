@@ -67,9 +67,12 @@ class _UdhaarCardState extends State<_UdhaarCard> {
     super.dispose();
   }
 
-  num get _typedLitres =>
-      num.tryParse(_litres.text.trim()) ?? widget.account.litresPerDay;
-  num get _typedRate => num.tryParse(_rate.text.trim()) ?? widget.account.rate;
+  num? get _typedLitres => num.tryParse(_litres.text.trim());
+  num? get _typedRate => num.tryParse(_rate.text.trim());
+
+  /// Both terms have to be real numbers before anything is saved. Left blank,
+  /// the old value would quietly stand and nobody would know which it was.
+  bool get _termsFilled => (_typedRate ?? 0) > 0 && (_typedLitres ?? -1) >= 0;
 
   /// Bills one customer for the milk they have taken this month, without
   /// waiting for the month to end.
@@ -204,13 +207,18 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    rs(_typedLitres * _typedRate * 30),
+                    _termsFilled
+                        ? rs((_typedLitres ?? 0) * (_typedRate ?? 0) * 30)
+                        : '—',
                     style: T.num22.copyWith(color: T.accent800),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'A month at this rate — '
-                    '${qty(_typedLitres)} L a day × ${rs(_typedRate)} × 30 days',
+                    _termsFilled
+                        ? 'A month at this rate — '
+                              '${qty(_typedLitres ?? 0)} L a day × '
+                              '${rs(_typedRate ?? 0)} × 30 days'
+                        : 'Fill in the rate and the litres a day.',
                     style: T.meta,
                   ),
                 ],
@@ -229,7 +237,7 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                   GhostButton(
                     label: 'Approve khaata',
                     icon: Icons.check,
-                    onPressed: _busy
+                    onPressed: _busy || !_termsFilled
                         ? null
                         : () => _run(
                             () => UdhaarRepo.approve(
@@ -244,14 +252,14 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                 else
                   GhostButton(
                     label: 'Save rate & litres',
-                    onPressed: _busy
+                    onPressed: _busy || !_termsFilled
                         ? null
                         : () => _run(
                             () => UdhaarRepo.setTerms(
                               actor,
                               a,
-                              rate: _typedRate,
-                              litresPerDay: _typedLitres,
+                              rate: _typedRate!,
+                              litresPerDay: _typedLitres!,
                             ),
                             'Saved',
                           ),

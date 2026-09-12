@@ -80,6 +80,7 @@ class _ProductRowState extends State<_ProductRow> {
     final price = num.tryParse(_rate.text.trim());
     if (price == null || price <= 0) {
       _rate.text = widget.product.price.round().toString();
+      toast(context, 'A rate cannot be left empty — put the old one back.');
       return;
     }
     if (price == widget.product.price) return;

@@ -179,6 +179,8 @@ class _BillCardState extends State<_BillCard> {
   /// Pre-filled with the full balance, because most people pay in full.
   Future<num?> _askAmount(Bill bill) {
     final controller = TextEditingController(text: '${bill.balance.round()}');
+    num typed() => num.tryParse(controller.text.trim()) ?? 0;
+
     return showModalBottomSheet<num>(
       context: context,
       isScrollControlled: true,
@@ -189,35 +191,41 @@ class _BillCardState extends State<_BillCard> {
           top: T.pad,
           bottom: MediaQuery.of(sheetContext).viewInsets.bottom + T.pad,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Payment from ${bill.customerName}', style: T.screenTitle),
-            const SizedBox(height: 4),
-            Text('Owing ${rs(bill.balance)}', style: T.meta),
-            const SizedBox(height: T.pad),
-            Field(
-              label: 'Amount taken (Rs)',
-              controller: controller,
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Taking less than the full amount is fine — the rest stays on '
-              'their khaata and shows on the next bill.',
-              style: T.meta,
-            ),
-            const SizedBox(height: 18),
-            PrimaryButton(
-              label: 'Continue',
-              onPressed: () => Navigator.pop(
-                sheetContext,
-                num.tryParse(controller.text.trim()),
+        child: StatefulBuilder(
+          builder: (context, setSheetState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Payment from ${bill.customerName}', style: T.screenTitle),
+              const SizedBox(height: 4),
+              Text('Owing ${rs(bill.balance)}', style: T.meta),
+              const SizedBox(height: T.pad),
+              Field(
+                label: 'Amount taken (Rs)',
+                controller: controller,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setSheetState(() {}),
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                typed() <= 0
+                    ? 'How much was handed over?'
+                    : 'Taking less than the full amount is fine — the rest '
+                          'stays on their khaata and shows on the next bill.',
+                style: T.meta.copyWith(
+                  color: typed() <= 0 ? const Color(0xFF8C2F20) : T.n600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              PrimaryButton(
+                label: 'Continue',
+                onPressed: typed() > 0
+                    ? () => Navigator.pop(sheetContext, typed())
+                    : null,
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     ).whenComplete(controller.dispose);

@@ -55,6 +55,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final lines = cart.lines(store.products);
     final total = cart.total(store.products);
     final days = cart.allDays.toList()..sort();
+    // An item with no days would fall through to "every day" on the round, so
+    // the order cannot be placed until every line has been given its days.
+    final allLinesHaveDays = lines.every((l) => l.dayKeys.isNotEmpty);
 
     if (lines.isEmpty) {
       return const PageBody(
@@ -226,7 +229,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         PrimaryButton(
           label: 'Place order · ${rs(total)}',
           busy: _busy,
-          onPressed: user?.canOrder == true && days.isNotEmpty
+          onPressed: user?.canOrder == true && allLinesHaveDays
               ? () => _place(lines)
               : null,
         ),
@@ -236,6 +239,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'Your account is still waiting for approval, so orders cannot be '
             'placed yet.',
             style: T.meta,
+          ),
+        ] else if (!allLinesHaveDays) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Every item needs at least one day. Tap "Days" on the line marked '
+            'in red.',
+            style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
           ),
         ],
         const SizedBox(height: 10),

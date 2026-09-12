@@ -926,6 +926,27 @@ void main() {
       expect(onKhaata.toCollectOn('2026-09-13'), 0);
     });
 
+    test('an item with no days of its own is a legacy order, not a daily', () {
+      // dueOn is true for an empty list so an order saved before items had
+      // days still shows up. Checkout must therefore never let a line be
+      // saved without days — this is the rule that makes that safe.
+      const dayless = OrderItem(
+        productId: 'ghee',
+        name: 'Deesi Ghee',
+        qty: 1,
+        price: 2000,
+        unit: 'kg',
+      );
+      expect(dayless.dueOn('2026-09-13'), isTrue);
+      expect(dayless.dueOn('2027-01-01'), isTrue);
+      expect(dayless.total, 2000, reason: 'one delivery, not many');
+
+      // With days, it goes out on those days and no others.
+      final dated = ghee(['2026-09-13']);
+      expect(dated.dueOn('2026-09-13'), isTrue);
+      expect(dated.dueOn('2026-09-14'), isFalse);
+    });
+
     test('a day key is the same string however it is written', () {
       expect(dayKeyOf(DateTime(2026, 9, 5)), '2026-09-05');
       expect(dayKeyOf(DateTime(2026, 9, 5, 23, 59)), '2026-09-05');

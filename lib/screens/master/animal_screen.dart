@@ -362,6 +362,7 @@ class _ActionsState extends State<_Actions> {
                   label: 'Sold for (Rs)',
                   controller: price,
                   keyboardType: TextInputType.number,
+                  onChanged: (_) => setDialogState(() {}),
                 ),
                 const SizedBox(height: T.gap),
                 const Kicker('How the money came'),
@@ -373,7 +374,18 @@ class _ActionsState extends State<_Actions> {
                   onChanged: (v) => setDialogState(() => via = v),
                 ),
                 const SizedBox(height: T.gap),
-                Field(label: 'Received by', controller: who),
+                Field(
+                  label: 'Received by',
+                  controller: who,
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+                const SizedBox(height: 4),
+                if ((num.tryParse(price.text.trim()) ?? 0) <= 0 ||
+                    who.text.trim().isEmpty)
+                  Text(
+                    'The price and who took the money are both needed.',
+                    style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+                  ),
               ],
             ],
           ),
@@ -383,9 +395,18 @@ class _ActionsState extends State<_Actions> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(sold ? 'Sold' : 'Confirm'),
+          StatefulBuilder(
+            builder: (context, _) => TextButton(
+              // A sale with no price and no name is money the books will
+              // never see, so it cannot be confirmed until both are in.
+              onPressed:
+                  !sold ||
+                      ((num.tryParse(price.text.trim()) ?? 0) > 0 &&
+                          who.text.trim().isNotEmpty)
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: Text(sold ? 'Sold' : 'Confirm'),
+            ),
           ),
         ],
       ),
