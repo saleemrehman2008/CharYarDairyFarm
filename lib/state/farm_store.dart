@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart' show SetOptions;
 import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
@@ -71,9 +72,14 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _animals = v;
         notifyListeners();
       }),
+      Db.watchOpenRiderDays().listen((v) {
+        _riderDays = v;
+        notifyListeners();
+      }),
       if (isMaster)
         Db.watchUsers().listen((v) {
           _users = v;
+          _publishFounders();
           notifyListeners();
         }),
     ]);
@@ -102,6 +108,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Delivery> _deliveries = const [];
   List<Delivery> _unbilled = const [];
   List<Animal> _animals = const [];
+  List<RiderDay> _riderDays = const [];
   bool _running = false;
   bool _again = false;
   List<AppUser> _users = const [];
@@ -186,7 +193,35 @@ class FarmStore extends ChangeNotifier implements RoundData {
     capital: capitalIn,
     monthTxns: _monthTxns,
     unpaidTxns: _unpaidTxns,
+    withRider: cashWithRiders,
   );
+
+  // ---- Out with the riders ----
+
+  /// Every rider day still open or waiting to be taken in.
+  List<RiderDay> get riderDays => _riderDays;
+
+  /// Handovers a founder has been asked to take in.
+  List<RiderDay> get handoversWaiting =>
+      _riderDays.where((d) => d.isWaiting).toList();
+
+  /// Riders out on the road right now with something on them.
+  List<RiderDay> get ridersOut =>
+      _riderDays.where((d) => d.isOpen && !d.isEmpty).toList();
+
+  /// Cash taken at doors that no founder has taken in yet.
+  num get cashWithRiders => _riderDays.fold<num>(
+    0,
+    (a, d) => a + (d.cashInHand > 0 ? d.cashInHand : 0),
+  );
+
+  /// Milk out with the riders and not yet accounted for.
+  num get milkWithRiders => _riderDays
+      .where((d) => d.isOpen)
+      .fold<num>(
+        0,
+        (a, d) => a + (d.milkUnaccounted > 0 ? d.milkUnaccounted : 0),
+      );
 
   Map<String, double> get ratios => ratiosOf(_partners);
 
@@ -221,6 +256,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     cash: books.cash,
     receivable: books.receivable,
     payable: books.payable,
+    withRider: cashWithRiders,
   );
 
   Partner? partnerFor(String uid) {
@@ -264,6 +300,41 @@ class FarmStore extends ChangeNotifier implements RoundData {
       _unpaidTxns.where((t) => t.isReceivable).toList();
 
   int get approvalCount => pendingOrders.length + pendingUdhaar.length;
+
+  /// Keeps the rider-readable list of co-founders in step with the real one.
+  ///
+  /// A rider's phone cannot read the users collection — it has no business
+  /// knowing who else uses the app — but he does have to pick somebody to
+  /// hand the day's cash to. So the master's app writes the names where
+  /// everyone can see them, and rewrites them whenever they change.
+  Future<void> _publishFounders() async {
+    if (!isMaster) return;
+    final live =
+        _users
+            .where((u) => u.role.isPartner && u.status != UserStatus.blocked)
+            .map((u) => FarmPerson(uid: u.uid, name: u.name))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+    if (live.isEmpty) return;
+
+    final known = _settings.founders;
+    final same =
+        known.length == live.length &&
+        List.generate(
+          live.length,
+          (i) => known[i].uid == live[i].uid && known[i].name == live[i].name,
+        ).every((x) => x);
+    if (same) return;
+
+    try {
+      await Db.farmSettings.set({
+        'founders': [for (final p in live) p.toMap()],
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // A rider picking from a stale list is a small thing; failing the
+      // master's home screen over it is not.
+    }
+  }
 
   /// Raises any bill that has fallen due.
   ///

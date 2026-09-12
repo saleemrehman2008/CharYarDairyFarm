@@ -212,9 +212,7 @@ class _BillCardState extends State<_BillCard> {
                     ? 'How much was handed over?'
                     : 'Taking less than the full amount is fine — the rest '
                           'stays on their khaata and shows on the next bill.',
-                style: T.meta.copyWith(
-                  color: typed() <= 0 ? const Color(0xFF8C2F20) : T.n600,
-                ),
+                style: T.meta.copyWith(color: typed() <= 0 ? T.alert : T.n600),
               ),
               const SizedBox(height: 18),
               PrimaryButton(

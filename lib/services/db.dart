@@ -33,6 +33,9 @@ class Db {
   /// list of animals never has to carry them.
   static Col get animalPhotos => fs.collection('animal_photos');
 
+  /// One document per rider per day: milk out, milk delivered, cash held.
+  static Col get riderDays => fs.collection('rider_days');
+
   static Col get months => fs.collection('months');
   static Col get logs => fs.collection('logs');
   static DocumentReference<Map<String, dynamic>> get farmSettings =>
@@ -202,6 +205,24 @@ class Db {
                 q.docs.map(AnimalEvent.fromDoc).toList()
                   ..sort((a, b) => b.date.compareTo(a.date)),
           );
+
+  /// One rider's day, watched by the rider's own phone.
+  static Stream<RiderDay?> watchRiderDay(String riderId, String dayKey) =>
+      riderDays
+          .doc(RiderDay.idFor(riderId, dayKey))
+          .snapshots()
+          .map((d) => d.exists ? RiderDay.fromDoc(d) : null);
+
+  /// Every rider day that is not closed yet — what the founders are waiting
+  /// to take in, and what is still out on the road.
+  static Stream<List<RiderDay>> watchOpenRiderDays() => riderDays
+      .where('status', whereIn: ['open', 'handedOver'])
+      .snapshots()
+      .map(
+        (q) =>
+            q.docs.map(RiderDay.fromDoc).toList()
+              ..sort((a, b) => b.dayKey.compareTo(a.dayKey)),
+      );
 
   /// Bills that still have something owing, newest first.
   static Stream<List<Bill>> watchBills() => bills

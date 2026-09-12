@@ -129,7 +129,7 @@ class GhostButton extends StatelessWidget {
     final fg = onPressed == null
         ? T.n500
         : danger
-        ? const Color(0xFF8C2F20)
+        ? T.alert
         : T.accent700;
     return SizedBox(
       height: compact ? 34 : T.tap,
@@ -173,9 +173,9 @@ class Tag extends StatelessWidget {
     final (bg, fg) = switch (tone) {
       TagTone.neutral => (T.n200, T.n700),
       TagTone.accent => (T.accent100, T.accent700),
-      TagTone.good => (const Color(0xFFE6EFE2), const Color(0xFF3D5A33)),
+      TagTone.good => (T.doneWash, T.done),
       TagTone.warn => (T.accent200, T.accent800),
-      TagTone.bad => (const Color(0xFFF3E0DC), const Color(0xFF8C2F20)),
+      TagTone.bad => (T.pendingWash, T.pending),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -298,7 +298,12 @@ class StepBar extends StatelessWidget {
       for (var i = 1; i <= steps; i++) ...[
         if (i > 1) const SizedBox(width: 3),
         Expanded(
-          child: Container(height: 6, color: i <= step ? T.accent : T.n300),
+          child: Container(
+            height: 6,
+            // Each segment carries its own depth, so a finished bar is dark
+            // all the way and a new one is barely there.
+            color: i <= step ? T.stage(i, steps: steps) : T.n300,
+          ),
         ),
       ],
     ],
@@ -540,9 +545,7 @@ Future<Settlement?> askSettlement(
                   : incoming
                   ? 'Who took the money? Needed before this can be saved.'
                   : 'Who handed it over? Needed before this can be saved.',
-              style: T.meta.copyWith(
-                color: named ? T.n600 : const Color(0xFF8C2F20),
-              ),
+              style: T.meta.copyWith(color: named ? T.n600 : T.alert),
             ),
             const SizedBox(height: 12),
             PrimaryButton(

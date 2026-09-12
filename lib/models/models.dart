@@ -10,5 +10,6 @@ export 'helpers.dart';
 export 'log_entry.dart';
 export 'partner.dart';
 export 'product.dart';
+export 'rider_day.dart';
 export 'txn.dart';
 export 'udhaar.dart';

@@ -9,6 +9,7 @@ class Books {
     required this.capital,
     required List<Txn> monthTxns,
     required List<Txn> unpaidTxns,
+    this.withRider = 0,
   }) : sales = _sum(monthTxns, TxnType.sale),
        purchases = _sum(monthTxns, TxnType.purchase),
        expenses = _sum(monthTxns, TxnType.expense),
@@ -42,6 +43,14 @@ class Books {
   /// already sitting in the cash it came from; counting it again would inflate
   /// the balance.
   final num capital;
+
+  /// Cash a rider has taken at doors and not yet handed in.
+  ///
+  /// The sale is real and the money exists, but it is in somebody's pocket on
+  /// a motorcycle, not in the farm's box. Counting it as the farm's own would
+  /// say the farm can spend what it cannot reach, so it is held out of [cash]
+  /// and shown on its own until a founder takes it in.
+  final num withRider;
 
   /// Booked this month, paid or not.
   final num sales;
@@ -81,7 +90,11 @@ class Books {
   num get profit => sales - costs;
 
   /// Everything the farm has trading with, including what the partners put in.
-  num get cash => capital + operatingCash;
+  num get cash => capital + operatingCash - withRider;
+
+  /// Cash the farm can actually put its hand on, plus what a rider is still
+  /// carrying. This is every rupee the sales have brought in.
+  num get cashIncludingRiders => cash + withRider;
 
   /// The same figure with partner capital taken back out — what the farm has
   /// made or lost in cash terms, which is what carries into the next month.
@@ -133,6 +146,7 @@ class MoneySummary {
     required this.cash,
     required this.receivable,
     required this.payable,
+    this.withRider = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -154,8 +168,13 @@ class MoneySummary {
   final num receivable;
   final num payable;
 
-  /// Cash plus what is still to come in — the money the farm can count on.
-  num get farmMoney => cash + receivable;
+  /// Taken at a door and not yet handed in. Owed to the farm by its own
+  /// rider, which is why it sits beside [receivable] rather than in [cash].
+  final num withRider;
+
+  /// Cash, what a rider is carrying, and what is still to come in — the money
+  /// the farm can count on.
+  num get farmMoney => cash + withRider + receivable;
 
   /// The same figure read down the waterfall. It should equal [farmMoney];
   /// when it does not, an entry is missing or double counted.

@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+                    style: T.meta.copyWith(color: T.alert),
                   ),
                 ],
               ],

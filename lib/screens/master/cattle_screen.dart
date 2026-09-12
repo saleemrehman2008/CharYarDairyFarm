@@ -209,7 +209,7 @@ class _DueCard extends StatelessWidget {
                   Text(
                     fmtDate(a.nextDueOn!),
                     style: T.meta.copyWith(
-                      color: a.overdue() ? const Color(0xFF8C2F20) : T.n600,
+                      color: a.overdue() ? T.alert : T.n600,
                     ),
                   ),
                   const Icon(Icons.chevron_right, size: 16, color: T.n500),

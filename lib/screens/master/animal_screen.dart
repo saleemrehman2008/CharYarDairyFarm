@@ -294,12 +294,7 @@ class _Line extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 10),
-      Text(
-        value,
-        style: T.bodyMid.copyWith(
-          color: bad ? const Color(0xFF8C2F20) : T.n800,
-        ),
-      ),
+      Text(value, style: T.bodyMid.copyWith(color: bad ? T.alert : T.n800)),
     ],
   );
 }
@@ -384,7 +379,7 @@ class _ActionsState extends State<_Actions> {
                     who.text.trim().isEmpty)
                   Text(
                     'The price and who took the money are both needed.',
-                    style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+                    style: T.meta.copyWith(color: T.alert),
                   ),
               ],
             ],

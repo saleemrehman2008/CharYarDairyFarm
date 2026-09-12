@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
+import 'rider_repo.dart';
 import 'txn_repo.dart';
 
 class OrderRepo {
@@ -206,6 +207,15 @@ class OrderRepo {
         'balance': FieldValue.increment(amount),
       }, SetOptions(merge: true));
     }
+
+    // The day's tally: the milk that left the van, and the cash that came
+    // back. A khaata order takes no money at the door.
+    await RiderRepo.countDelivery(
+      actor,
+      dayKey: dayKey,
+      litres: RiderRepo.milkIn(order, dayKey),
+      cash: order.isUdhaar || !collected ? 0 : amount,
+    );
 
     await Log.write(
       actor,

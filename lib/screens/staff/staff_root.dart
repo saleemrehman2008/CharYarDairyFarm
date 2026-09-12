@@ -7,6 +7,7 @@ import '../../widgets/app_shell.dart';
 import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
 import 'staff_orders_screen.dart';
+import 'rider_day_screen.dart';
 
 /// The delivery person's whole app: the round, the orders to drop off, and the
 /// money to collect. Nothing about the farm's books is reachable from here, and
@@ -56,6 +57,12 @@ class _StaffTabsState extends State<_StaffTabs> {
         title: 'Orders to deliver',
         badge: store.openOrders.length,
         body: const StaffOrdersScreen(),
+      ),
+      TabDef(
+        label: 'My day',
+        icon: Icons.inventory_2_outlined,
+        title: 'My day',
+        body: const RiderDayScreen(),
       ),
       TabDef(
         label: 'Collect',

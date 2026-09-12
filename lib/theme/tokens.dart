@@ -1,41 +1,81 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens taken from the handoff README (derived from the farm logo).
-/// Keep every colour, radius and type size in this one place so the whole app
-/// shifts together if the brand is ever retuned.
+/// Design tokens, taken from the farm's logo: the blue of the milk splash,
+/// the near-navy behind it, and the steel of the bull.
+///
+/// Every colour, radius and type size lives in this one file so the whole app
+/// shifts together. The pages stay light — a round is walked in daylight, and
+/// a dark screen in the sun cannot be read.
 abstract final class T {
   // ---- Colours ----
-  static const bg = Color(0xFFF6F2EC);
-  static const surface = Color(0xFFECE5DB);
-  static const text = Color(0xFF221B15);
-  static const accent = Color(0xFF9A6A3F); // bronze
-  static const accent2 = Color(0xFFB98A4D); // gold
-  static const divider = Color(0x29221B15); // rgba(34,27,21,.16)
+  static const bg = Color(0xFFF4F7F9);
+  static const surface = Color(0xFFE7EDF2);
+  static const text = Color(0xFF16202B);
+  static const accent = Color(0xFF2277AF); // logo blue
+  static const accent2 = Color(0xFF4FC3F7); // the bright splash
+  static const divider = Color(0x2916202B);
 
-  // Accent ramp 100 -> 900
-  static const accent100 = Color(0xFFF9F1E6);
-  static const accent200 = Color(0xFFF0DFC8);
-  static const accent300 = Color(0xFFE2C5A0);
-  static const accent400 = Color(0xFFCBA475);
-  static const accent500 = Color(0xFFAD8351);
-  static const accent600 = Color(0xFF8F683C);
-  static const accent700 = Color(0xFF6E4F2C);
-  static const accent800 = Color(0xFF4D371E);
-  static const accent900 = Color(0xFF2F2214);
+  /// Accent ramp 100 -> 900, palest wash to near-navy.
+  ///
+  /// This is also the app's progress scale: the further something has come,
+  /// the deeper the blue. See [stage].
+  static const accent100 = Color(0xFFE9F3FA);
+  static const accent200 = Color(0xFFCFE6F5);
+  static const accent300 = Color(0xFFA6D2EE);
+  static const accent400 = Color(0xFF6FB6E2);
+  static const accent500 = Color(0xFF3D95CE);
+  static const accent600 = Color(0xFF2277AF);
+  static const accent700 = Color(0xFF175C8C);
+  static const accent800 = Color(0xFF0F3F63);
+  static const accent900 = Color(0xFF0B2438);
 
-  // Neutral ramp 100 -> 900
-  static const n100 = Color(0xFFF8F5F1);
-  static const n200 = Color(0xFFEBE6DF);
-  static const n300 = Color(0xFFD8D1C8);
-  static const n400 = Color(0xFFBAB2A8);
-  static const n500 = Color(0xFF9A9187);
-  static const n600 = Color(0xFF7A7168);
-  static const n700 = Color(0xFF5C554D);
-  static const n800 = Color(0xFF413B35);
-  static const n900 = Color(0xFF2A2521);
+  // Neutral ramp 100 -> 900, cool steel rather than warm paper.
+  static const n100 = Color(0xFFF5F7F9);
+  static const n200 = Color(0xFFE6EAEE);
+  static const n300 = Color(0xFFCFD6DD);
+  static const n400 = Color(0xFFAEB8C2);
+  static const n500 = Color(0xFF8B96A2);
+  static const n600 = Color(0xFF6C7784);
+  static const n700 = Color(0xFF515C68);
+  static const n800 = Color(0xFF39424C);
+  static const n900 = Color(0xFF212933);
+
+  // ---- Meaning ----
+  /// Done, and nothing left to do about it.
+  static const done = Color(0xFF2E7D5B);
+  static const doneWash = Color(0xFFE4F1EA);
+
+  /// Still to do. Not an error — just not finished.
+  static const pending = Color(0xFF9C3B2C);
+  static const pendingWash = Color(0xFFFBE9E5);
+
+  /// Something wrong that needs a person: an overdue check, a missing rate.
+  static const alert = Color(0xFF8C2F20);
+
+  /// How far along something is, in colour: the further it has come, the
+  /// deeper the blue. One step of an order, one stage of anything.
+  ///
+  /// [step] runs from 1; anything at or past [steps] is the darkest.
+  static Color stage(int step, {int steps = 4}) =>
+      switch (step.clamp(0, steps)) {
+        <= 0 => n300,
+        1 => accent300,
+        2 => accent500,
+        3 => accent700,
+        _ => accent900,
+      };
+
+  /// The wash behind a stage, for a card or a strip.
+  static Color stageWash(int step, {int steps = 4}) =>
+      switch (step.clamp(0, steps)) {
+        <= 0 => n200,
+        1 => accent100,
+        2 => accent200,
+        _ => accent300,
+      };
 
   /// Ratio-bar / partner dot colours, in order.
-  static const partnerColors = [accent700, accent500, accent400, accent300];
+  static const partnerColors = [accent700, accent500, accent300, accent800];
 
   // ---- Shape ----
   /// Square-ish corners: the design uses 0–4 px only.

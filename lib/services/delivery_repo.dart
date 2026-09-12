@@ -5,6 +5,7 @@ import '../util/money.dart';
 import 'bill_repo.dart';
 import 'db.dart';
 import 'log_service.dart';
+import 'rider_repo.dart';
 
 /// The daily milk round.
 ///
@@ -23,8 +24,23 @@ class DeliveryRepo {
   }) async {
     final id = Delivery.idFor(account.uid, date);
 
+    // What was already marked, so a correction moves the tally by the
+    // difference rather than counting the milk twice.
+    Delivery? before;
+    try {
+      final snap = await Db.deliveries.doc(id).get();
+      if (snap.exists) before = Delivery.fromDoc(snap);
+    } catch (_) {
+      // Nothing there, or unreadable — treat it as a first mark.
+    }
+
     if (litres <= 0) {
       await Db.deliveries.doc(id).delete();
+      await RiderRepo.countDelivery(
+        actor,
+        dayKey: dayKeyOf(date),
+        litres: -(before?.litres ?? 0),
+      );
       await Log.write(
         actor,
         LogKind.udhaar,
@@ -48,6 +64,15 @@ class DeliveryRepo {
       'billed': false,
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    // The milk leaves the van whoever marks it, so the day's tally follows
+    // the delivery rather than waiting to be typed in at the end. Khaata milk
+    // is not paid for at the door, so no cash is counted here.
+    await RiderRepo.countDelivery(
+      actor,
+      dayKey: dayKeyOf(date),
+      litres: litres - (before?.litres ?? 0),
+    );
 
     await Log.write(
       actor,

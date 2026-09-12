@@ -289,10 +289,7 @@ class _RegisterFormState extends State<_RegisterForm> {
           if (_mobile.text.trim().isNotEmpty && !Phone.isValid(_mobile.text))
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                Phone.error,
-                style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
-              ),
+              child: Text(Phone.error, style: T.meta.copyWith(color: T.alert)),
             ),
           const SizedBox(height: T.gap),
           const Kicker('Delivery timing'),

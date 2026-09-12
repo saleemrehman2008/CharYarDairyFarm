@@ -119,7 +119,7 @@ class _CloseMonthScreenState extends State<CloseMonthScreen> {
                         'there is nothing to share out. Check that every sale '
                         'is entered — a big one-off buy like cattle will show '
                         'as a loss in the month you pay for it.',
-              style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+              style: T.meta.copyWith(color: T.alert),
             ),
           ],
           const SizedBox(height: 10),

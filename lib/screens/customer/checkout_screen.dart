@@ -245,7 +245,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Text(
             'Every item needs at least one day. Tap "Days" on the line marked '
             'in red.',
-            style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+            style: T.meta.copyWith(color: T.alert),
           ),
         ],
         const SizedBox(height: 10),
@@ -455,7 +455,7 @@ class _CartLine extends StatelessWidget {
                   child: Text(
                     when,
                     style: T.meta.copyWith(
-                      color: dates.isEmpty ? const Color(0xFF8C2F20) : T.n700,
+                      color: dates.isEmpty ? T.alert : T.n700,
                     ),
                   ),
                 ),

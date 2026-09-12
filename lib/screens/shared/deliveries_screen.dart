@@ -432,16 +432,14 @@ class _RoundRowState extends State<_RoundRow> {
                         'nothing to collect, billed at month end'
                   : '${rs(a.rate)} / L · usually ${qty(a.litresPerDay)} L · '
                         'nothing to collect, billed at month end',
-              style: T.meta.copyWith(
-                color: a.rate <= 0 ? const Color(0xFF8C2F20) : T.n700,
-              ),
+              style: T.meta.copyWith(color: a.rate <= 0 ? T.alert : T.n700),
             ),
             if (a.rate <= 0) ...[
               const SizedBox(height: 4),
               Text(
                 'Set a rate in Khaata registrations before delivering, or this '
                 'milk is billed at nothing.',
-                style: T.meta.copyWith(color: const Color(0xFF8C2F20)),
+                style: T.meta.copyWith(color: T.alert),
               ),
             ],
             const SizedBox(height: 10),

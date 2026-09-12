@@ -65,6 +65,12 @@ class StaffStore extends ChangeNotifier implements RoundData {
   String get monthId => monthIdOf(DateTime.now());
   FarmSettings get settings => _settings;
 
+  /// Who the day's cash can be handed to.
+  List<FarmPerson> get founders => _settings.founders;
+
+  /// The shop rate, which is what a spot sale goes out at.
+  num get milkRate => _settings.milkPriceCache;
+
   /// Approved khaata customers, in the order the round is walked.
   @override
   List<UdhaarAccount> get khaataCustomers =>
