@@ -90,6 +90,11 @@ enum PayMethod {
   };
 }
 
+/// One line of an order, with the days it is to be delivered on.
+///
+/// Each item carries its own days, because they do not go out together: milk
+/// comes every morning and a kilo of ghee comes once. Ordering both and
+/// putting one set of days on the order would send four kilos of ghee.
 class OrderItem {
   const OrderItem({
     required this.productId,
@@ -97,6 +102,7 @@ class OrderItem {
     required this.qty,
     required this.price,
     required this.unit,
+    this.dayKeys = const [],
   });
 
   final String productId;
@@ -105,7 +111,16 @@ class OrderItem {
   final num price;
   final String unit;
 
-  num get total => qty * price;
+  /// The days this item goes out on, `YYYY-MM-DD`, in order.
+  final List<String> dayKeys;
+
+  /// One delivery of this line.
+  num get each => qty * price;
+
+  /// Every delivery of it, across all its days.
+  num get total => each * (dayKeys.isEmpty ? 1 : dayKeys.length);
+
+  bool dueOn(String dayKey) => dayKeys.isEmpty || dayKeys.contains(dayKey);
 
   /// "4 L Fresh milk"
   String get line {
@@ -113,11 +128,16 @@ class OrderItem {
     return '$q $unit $name';
   }
 
+  /// "4 L Fresh milk · 7 days"
+  String get lineWithDays =>
+      dayKeys.length > 1 ? '$line · ${dayKeys.length} days' : line;
+
   Map<String, dynamic> toMap() => {
     'name': name,
     'qty': qty,
     'price': price,
     'unit': unit,
+    'dayKeys': dayKeys,
   };
 }
 
@@ -183,8 +203,26 @@ class FarmOrder {
   bool get isApproved => approvedAt != null;
   bool get isUdhaar => pay == PayMethod.udhaar;
 
-  /// What one day of this order comes to. The total is that across every day.
-  num get perDay => dayKeys.isEmpty ? total : total / dayKeys.length;
+  /// The items going out on one day. Milk every morning, ghee on the one
+  /// day it was asked for.
+  List<OrderItem> itemsOn(String dayKey) =>
+      items.where((i) => i.dueOn(dayKey)).toList();
+
+  /// What that day's delivery comes to — which is what the customer pays on
+  /// the day, and what the books take when it is marked delivered.
+  num amountOn(String dayKey) {
+    final due = itemsOn(dayKey);
+    if (due.isEmpty) return 0;
+    // An order from before items carried days: the whole thing is one drop.
+    if (items.every((i) => i.dayKeys.isEmpty)) {
+      return dayKeys.isEmpty ? total : total / dayKeys.length;
+    }
+    return due.fold<num>(0, (a, i) => a + i.each);
+  }
+
+  /// What the person delivering has to come back with. A khaata order is
+  /// billed at month end, so nothing is taken at the door.
+  num toCollectOn(String dayKey) => isUdhaar ? 0 : amountOn(dayKey);
 
   bool get isMultiDay => dayKeys.length > 1;
 
@@ -225,12 +263,14 @@ class FarmOrder {
     return dates.map(fmtDate).join(', ');
   }
 
-  /// "4 L Fresh milk, 1 kg Yogurt · 7 days"
-  String get itemsText {
-    final parts = items.map((e) => e.line).join(', ');
-    if (isMultiDay) return '$parts · ${dayKeys.length} days';
-    return repeat == 'daily' ? '$parts · daily' : parts;
-  }
+  /// "4 L Fresh milk · 7 days, 1 kg Ghee" — each line with its own count,
+  /// because they do not all go out the same number of times.
+  String get itemsText =>
+      items.map((e) => isMultiDay ? e.lineWithDays : e.line).join(', ');
+
+  /// The same for one day's drop: just what is going out that morning.
+  String itemsTextOn(String dayKey) =>
+      itemsOn(dayKey).map((e) => e.line).join(', ');
 
   String get modeLabel => mode == 'pickup' ? 'Farm pickup' : 'Home delivery';
   String get slotLabel => slot == 'evening' ? 'Evening 5–8' : 'Morning 6–9';
@@ -246,6 +286,7 @@ class FarmOrder {
         qty: n(v['qty']),
         price: n(v['price']),
         unit: s(v['unit']),
+        dayKeys: strings(v['dayKeys']),
       );
     }).toList()..sort((a, b) => a.name.compareTo(b.name));
 

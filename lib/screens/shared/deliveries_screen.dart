@@ -58,25 +58,35 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         if (Delivery.dayKey(d.date) == dayKey) d.customerId: d,
     };
 
-    List<UdhaarAccount> inSlot(String slot) => customers
-        .where((c) => (c.slot == 'evening') == (slot == 'evening'))
-        .toList();
+    bool inSlot(String slot, String theirs) =>
+        (theirs == 'evening') == (slot == 'evening');
 
-    final mine = inSlot(_slot);
-    final orders = store.ordersOn(dayKey, _slot);
-    final doneOrders = store.roundOrders
-        .where((o) => o.deliveredOn(dayKey))
-        .where((o) => (o.slot == 'evening') == (_slot == 'evening'))
-        .toList();
+    // One list of doors, not two. The rider walks a street, not a category —
+    // so a khaata house and an order house sit in the same list, in name
+    // order, each saying which it is and what has to be collected.
+    List<_Stop> stopsIn(String slot) => <_Stop>[
+      for (final c in customers)
+        if (inSlot(slot, c.slot))
+          _Stop(name: c.name, account: c, delivery: marked[c.uid]),
+      for (final o in store.roundOrders)
+        if (o.dueOn(dayKey) && inSlot(slot, o.slot))
+          _Stop(name: o.customerName, order: o),
+    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
-    final left =
-        mine.where((c) => !marked.containsKey(c.uid)).length + orders.length;
+    final stops = stopsIn(_slot);
+    final left = stops.where((x) => !x.done(dayKey)).length;
+
+    // What has to come back in the rider's pocket. Khaata milk is billed at
+    // month end, so only orders are counted.
+    final toCollect = stops
+        .where((x) => !x.done(dayKey))
+        .fold<num>(0, (a, x) => a + (x.order?.toCollectOn(dayKey) ?? 0));
+
     final litres = marked.values.fold<num>(0, (a, d) => a + d.litres);
     final amount = marked.values.fold<num>(0, (a, d) => a + d.amount);
 
     int leftIn(String slot) =>
-        inSlot(slot).where((c) => !marked.containsKey(c.uid)).length +
-        store.ordersOn(dayKey, slot).length;
+        stopsIn(slot).where((x) => !x.done(dayKey)).length;
 
     final body = PageBody(
       children: [
@@ -107,10 +117,17 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               ),
               const Divider(height: 16),
               Text(
-                '${marked.length} of ${customers.length} khaata delivered · '
-                '${qty(litres)} L · ${rs(amount)}',
+                '${marked.length} khaata houses done · ${qty(litres)} L · '
+                '${rs(amount)}',
                 style: T.meta,
               ),
+              if (toCollect > 0) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '${rs(toCollect)} still to collect from orders',
+                  style: T.bodyMid.copyWith(color: T.accent800),
+                ),
+              ],
             ],
           ),
         ),
@@ -136,56 +153,27 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         ),
         const SizedBox(height: T.pad),
 
-        if (customers.isEmpty && orders.isEmpty && doneOrders.isEmpty)
+        if (stops.isEmpty)
           const EmptyNote(
             'Nothing on this round. Khaata customers appear here every day '
             'once a co-founder approves them, and shop orders appear on the '
             'days the customer asked for.',
-          ),
-
-        if (mine.isNotEmpty) ...[
-          const SectionTitle('Khaata round'),
-          for (final c in mine)
-            _RoundRow(
-              key: ValueKey('${c.uid}_$dayKey'),
-              account: c,
-              delivery: marked[c.uid],
-              day: _day,
-            ),
-          const SizedBox(height: 10),
-        ],
-
-        if (orders.isNotEmpty) ...[
-          const SectionTitle('Shop orders'),
-          for (final o in orders)
-            _OrderRow(
-              key: ValueKey('${o.id}_$dayKey'),
-              order: o,
-              dayKey: dayKey,
-            ),
-          const SizedBox(height: 10),
-        ],
-
-        if (doneOrders.isNotEmpty) ...[
-          const SectionTitle('Orders done today'),
-          for (final o in doneOrders)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  const Icon(Icons.check, size: 15, color: T.accent700),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '#${o.number} · ${o.customerName} · ${o.itemsText}',
-                      style: T.meta,
-                    ),
-                  ),
-                  Text(rs(o.perDay), style: T.meta),
-                ],
+          )
+        else
+          for (final stop in stops)
+            if (stop.account != null)
+              _RoundRow(
+                key: ValueKey('${stop.account!.uid}_$dayKey'),
+                account: stop.account!,
+                delivery: stop.delivery,
+                day: _day,
+              )
+            else
+              _OrderRow(
+                key: ValueKey('${stop.order!.id}_$dayKey'),
+                order: stop.order!,
+                dayKey: dayKey,
               ),
-            ),
-        ],
       ],
     );
 
@@ -195,6 +183,19 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   /// "· 3 left", or nothing at all when the round is clear.
   static String _count(int left) => left == 0 ? '' : '· $left';
+}
+
+/// One door on the round: either a khaata house or a shop order.
+class _Stop {
+  const _Stop({required this.name, this.account, this.delivery, this.order});
+
+  final String name;
+  final UdhaarAccount? account;
+  final Delivery? delivery;
+  final FarmOrder? order;
+
+  bool done(String dayKey) =>
+      account != null ? delivery != null : order!.deliveredOn(dayKey);
 }
 
 /// One shop order on the round, for one of its days.
@@ -222,7 +223,7 @@ class _OrderRowState extends State<_OrderRow> {
             context,
             incoming: true,
             party: o.customerName,
-            amount: o.perDay,
+            amount: o.amountOn(widget.dayKey),
             allowUnpaid: true,
           );
     if (settlement == null || !mounted) return;
@@ -266,19 +267,42 @@ class _OrderRowState extends State<_OrderRow> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Tag('#${o.number}', tone: TagTone.neutral),
+                Tag('Order #${o.number}', tone: TagTone.warn),
               ],
             ),
             const SizedBox(height: 2),
-            Text(o.itemsText, style: T.body),
-            const SizedBox(height: 2),
-            Text(
-              [
-                rs(o.perDay),
-                o.pay.short,
-                if (which.isNotEmpty) which,
-              ].join(' · '),
-              style: T.meta,
+            Text(o.itemsTextOn(widget.dayKey), style: T.body),
+            if (which.isNotEmpty) Text(which, style: T.meta),
+            const SizedBox(height: 8),
+
+            // The one thing the rider must not get wrong: an order is paid at
+            // the door, a khaata order is not.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: o.isUdhaar ? Colors.transparent : T.accent100,
+                border: T.hair,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    o.isUdhaar
+                        ? 'Nothing to collect'
+                        : 'Collect ${rs(o.amountOn(widget.dayKey))}',
+                    style: T.bodyMid.copyWith(
+                      color: o.isUdhaar ? T.n700 : T.accent800,
+                    ),
+                  ),
+                  Text(
+                    o.isUdhaar
+                        ? 'Goes on their khaata — billed at month end'
+                        : o.pay.short,
+                    style: T.meta,
+                  ),
+                ],
+              ),
             ),
             if (o.address.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -393,6 +417,8 @@ class _RoundRowState extends State<_RoundRow> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const Tag('Khaata', tone: TagTone.neutral),
+                const SizedBox(width: 6),
                 if (_delivered)
                   const Tag('Delivered', tone: TagTone.good)
                 else
@@ -403,9 +429,9 @@ class _RoundRowState extends State<_RoundRow> {
             Text(
               a.rate <= 0
                   ? 'No rate set · usually ${qty(a.litresPerDay)} L · '
-                        'owes ${rs(a.balance)}'
+                        'nothing to collect, billed at month end'
                   : '${rs(a.rate)} / L · usually ${qty(a.litresPerDay)} L · '
-                        'owes ${rs(a.balance)}',
+                        'nothing to collect, billed at month end',
               style: T.meta.copyWith(
                 color: a.rate <= 0 ? const Color(0xFF8C2F20) : T.n700,
               ),

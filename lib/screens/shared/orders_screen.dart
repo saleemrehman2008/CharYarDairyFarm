@@ -183,7 +183,8 @@ class _UdhaarRequestCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${account.mobile} · ${account.slotLabel} · '
-            '${account.litresPerDay} L/day · limit Rs ${account.limit}',
+            '${qty(account.litresPerDay)} L/day · about '
+            '${rs(account.monthlyEstimate)} a month',
             style: T.meta,
           ),
           const SizedBox(height: 10),

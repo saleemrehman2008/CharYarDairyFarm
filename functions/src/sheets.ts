@@ -46,7 +46,8 @@ export const HEADERS: Record<Tab, string[]> = {
     'closedBy', 'closedAt',
   ],
   Udhaar: [
-    'uid', 'name', 'mobile', 'address', 'slot', 'litres', 'limit', 'balance',
+    'uid', 'name', 'mobile', 'address', 'slot', 'litres', 'rate', 'a month',
+    'balance',
     'status', 'approvedBy',
   ],
   Bills: [

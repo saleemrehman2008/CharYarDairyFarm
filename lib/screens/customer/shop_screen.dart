@@ -95,11 +95,15 @@ class _UdhaarBanner extends StatelessWidget {
     final (tone, body) = switch (store.udhaarStatus) {
       UdhaarStatus.approved => (
         TagTone.good,
-        store.billDue == null
-            ? 'You owe ${rs(u?.balance ?? 0)} of your ${rs(u?.limit ?? 0)} '
-                  'limit. Your bill comes at the end of every month.'
-            : 'Your ${monthName(store.billDue!.monthId)} bill is ready: '
-                  '${rs(store.billDue!.balance)} to pay. Open the Khaata tab.',
+        store.billDue != null
+            ? 'Your ${monthName(store.billDue!.monthId)} bill is ready: '
+                  '${rs(store.billDue!.balance)} to pay. Open the Khaata tab.'
+            : store.litresThisMonth <= 0
+            ? 'Nothing delivered yet this month. Your bill comes at the end '
+                  'of the month.'
+            : '${qty(store.litresThisMonth)} L delivered this month · '
+                  '${rs(store.amountThisMonth)} so far'
+                  '${(u?.balance ?? 0) > 0 ? ' · ${rs(u!.balance)} still owing from before' : ''}.',
       ),
       UdhaarStatus.pending => (
         TagTone.warn,

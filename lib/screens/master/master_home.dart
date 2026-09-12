@@ -192,7 +192,9 @@ class MasterHome extends StatelessWidget {
           tag: 'Khaata',
           tone: TagTone.warn,
           text: '${u.name} wants a monthly account',
-          meta: '${qty(u.litresPerDay)} L/day · limit ${rs(u.limit)}',
+          meta:
+              '${qty(u.litresPerDay)} L/day · about '
+              '${rs(u.monthlyEstimate)} a month',
           onTap: () => _push(context, store, const UdhaarRegistrationsScreen()),
         ),
       );

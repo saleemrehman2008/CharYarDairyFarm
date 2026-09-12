@@ -108,7 +108,9 @@ class CofounderHome extends StatelessWidget {
             _Row(
               tag: 'Khaata',
               text: '${u.name} wants a monthly account',
-              meta: '${qty(u.litresPerDay)} L/day · limit ${rs(u.limit)}',
+              meta:
+                  '${qty(u.litresPerDay)} L/day · about '
+                  '${rs(u.monthlyEstimate)} a month',
             ),
           const SizedBox(height: 8),
           Text('Open the Approvals tab to act on these.', style: T.meta),

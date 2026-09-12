@@ -26,24 +26,23 @@ class OrderRepo {
     }
   }
 
-  /// Places an order for one or more days.
+  /// Places an order. Each item carries the days it is wanted on.
   ///
-  /// [perDayTotal] is what a single day's items come to; the order's total is
-  /// that across every day chosen. Each day is delivered and paid for on its
-  /// own, so a week of milk is one order the round sees seven times.
+  /// A basket of milk every morning and a kilo of ghee on Friday is one order
+  /// the round sees on every one of those days — with only that day's items on
+  /// it, and only that day's money.
   static Future<String> place({
     required Actor actor,
     required List<OrderItem> items,
-    required num perDayTotal,
-    required List<DateTime> days,
     required String mode,
     required String slot,
     required PayMethod pay,
     required String address,
     required String mobile,
   }) async {
-    final dayKeys = (days.map(dayKeyOf).toSet().toList()..sort());
-    final total = perDayTotal * dayKeys.length;
+    final dayKeys = <String>{for (final i in items) ...i.dayKeys}.toList()
+      ..sort();
+    final total = items.fold<num>(0, (a, i) => a + i.total);
     final number = await _nextNumber();
 
     final doc = await Db.orders.add({
@@ -171,7 +170,9 @@ class OrderRepo {
 
     final now = DateTime.now();
     final last = order.daysLeft.length <= 1;
-    final amount = order.perDay;
+    // Only what is going out today: milk on an ordinary morning, milk and the
+    // ghee on the day the ghee was asked for.
+    final amount = order.amountOn(dayKey);
     final which = order.dayLabel(dayKey);
 
     await Db.orders.doc(order.id).update({
@@ -192,7 +193,7 @@ class OrderRepo {
       // the door unless the person delivering says otherwise.
       paid: !order.isUdhaar && collected,
       note:
-          'Order #${order.number} · ${order.itemsText}'
+          'Order #${order.number} · ${order.itemsTextOn(dayKey)}'
           '${which.isEmpty ? '' : ' · $which'}',
       orderId: order.id,
       payVia: payVia,

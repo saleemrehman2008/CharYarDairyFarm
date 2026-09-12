@@ -81,13 +81,6 @@ class CustomerStore extends ChangeNotifier {
 
   int get openOrderCount => _orders.where((o) => o.status.isOpen).length;
 
-  /// An udhaar order is refused if it would push the balance past the limit.
-  bool udhaarFits(num orderTotal) {
-    final u = _udhaar;
-    if (u == null || !u.isApproved) return false;
-    return u.balance + orderTotal <= u.limit;
-  }
-
   @override
   void dispose() {
     for (final s in _subs) {

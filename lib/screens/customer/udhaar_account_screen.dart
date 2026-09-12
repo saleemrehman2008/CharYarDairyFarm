@@ -43,21 +43,37 @@ class UdhaarAccountScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               if (store.udhaarApproved && u != null) ...[
-                Text(rs(u.balance), style: T.num30),
+                // What this month has come to so far, which is the number a
+                // customer actually wants: how much milk has come, and what
+                // it will cost when the bill is raised.
+                Text(rs(store.amountThisMonth), style: T.num30),
                 const SizedBox(height: 6),
                 Text(
-                  'What you owe right now · limit ${rs(u.limit)}',
+                  '${qty(store.litresThisMonth)} L delivered this month at '
+                  '${rs(u.rate)} / L — this month\'s bill so far',
                   style: T.meta,
                 ),
-                const SizedBox(height: 10),
-                RatioBar(fraction: u.limit <= 0 ? 0 : u.balance / u.limit),
-                const SizedBox(height: 12),
-                Text(
-                  'This month so far: ${qty(store.litresThisMonth)} L · '
-                  '${rs(store.amountThisMonth)} at ${rs(u.rate)} / L. '
-                  'Your bill comes at month end.',
-                  style: T.meta,
-                ),
+                if (u.balance > 0) ...[
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Still owing from before: ${rs(u.balance)}',
+                    style: T.bodyMid,
+                  ),
+                  Text(
+                    'That comes onto your next bill along with this month.',
+                    style: T.meta,
+                  ),
+                ],
+                if (u.litresPerDay > 0) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'At ${qty(u.litresPerDay)} L a day, a full month is about '
+                    '${rs(u.monthlyEstimate)}.',
+                    style: T.meta,
+                  ),
+                ],
               ] else if (store.udhaarStatus == UdhaarStatus.pending) ...[
                 Text(
                   'Your request is with the co-founders. Any one of them can '

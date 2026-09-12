@@ -27,7 +27,6 @@ class UdhaarRepo {
       'litresPerDay': litresPerDay,
       // Starts at the shop rate; the master can give a regular a better one.
       'rate': milkRate,
-      'limit': UdhaarAccount.suggestLimit(litresPerDay, milkRate),
       'balance': 0,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
@@ -45,13 +44,13 @@ class UdhaarRepo {
   static Future<void> approve(
     Actor actor,
     UdhaarAccount account, {
-    num? limit,
     num? rate,
+    num? litresPerDay,
   }) async {
     await Db.udhaarAccounts.doc(account.uid).update({
       'status': 'approved',
-      'limit': ?limit,
       'rate': ?rate,
+      'litresPerDay': ?litresPerDay,
       'approvedBy': actor.uid,
       'approvedByName': actor.name,
       'approvedAt': FieldValue.serverTimestamp(),
@@ -59,8 +58,8 @@ class UdhaarRepo {
     await Log.write(
       actor,
       LogKind.udhaar,
-      'approved udhaar for ${account.name} '
-      '(limit ${rs(limit ?? account.limit)})',
+      'approved a khaata for ${account.name} '
+      'at ${rs(rate ?? account.rate)} / L',
       refType: 'udhaar',
       refId: account.uid,
     );
@@ -112,23 +111,23 @@ class UdhaarRepo {
     );
   }
 
-  /// Master only. The rate and the limit are the two terms of a khaata, so
-  /// they are changed together.
+  /// Master only. The rate and the daily litres are the two terms of a
+  /// khaata: what the milk costs, and how much of it goes out each day.
   static Future<void> setTerms(
     Actor actor,
     UdhaarAccount account, {
-    required num limit,
-    num? rate,
+    required num rate,
+    required num litresPerDay,
   }) async {
     await Db.udhaarAccounts.doc(account.uid).update({
-      'limit': limit,
-      'rate': ?rate,
+      'rate': rate,
+      'litresPerDay': litresPerDay,
     });
     await Log.write(
       actor,
       LogKind.udhaar,
-      'set ${account.name}\'s khaata to ${rs(limit)} limit'
-      '${rate == null ? '' : ' at ${rs(rate)} / L'}',
+      'set ${account.name}\'s khaata to ${qty(litresPerDay)} L/day '
+      'at ${rs(rate)} / L',
       refType: 'udhaar',
       refId: account.uid,
     );

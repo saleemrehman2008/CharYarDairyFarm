@@ -26,8 +26,8 @@ class UdhaarRegistrationsScreen extends StatelessWidget {
         children: [
           Text(
             'A khaata customer takes milk through the month and is billed at '
-            'month end. The rate is theirs alone; the limit caps how much they '
-            'can owe before the farm stops delivering.',
+            'month end. The rate is theirs alone — a regular can be given a '
+            'little off the shop price.',
             style: T.meta,
           ),
           const SizedBox(height: 14),
@@ -52,8 +52,8 @@ class _UdhaarCard extends StatefulWidget {
 }
 
 class _UdhaarCardState extends State<_UdhaarCard> {
-  late final _limit = TextEditingController(
-    text: widget.account.limit.round().toString(),
+  late final _litres = TextEditingController(
+    text: qty(widget.account.litresPerDay),
   );
   late final _rate = TextEditingController(
     text: widget.account.rate.round().toString(),
@@ -62,13 +62,14 @@ class _UdhaarCardState extends State<_UdhaarCard> {
 
   @override
   void dispose() {
-    _limit.dispose();
+    _litres.dispose();
     _rate.dispose();
     super.dispose();
   }
 
-  num? get _typedLimit => num.tryParse(_limit.text.trim());
-  num? get _typedRate => num.tryParse(_rate.text.trim());
+  num get _typedLitres =>
+      num.tryParse(_litres.text.trim()) ?? widget.account.litresPerDay;
+  num get _typedRate => num.tryParse(_rate.text.trim()) ?? widget.account.rate;
 
   /// Bills one customer for the milk they have taken this month, without
   /// waiting for the month to end.
@@ -157,9 +158,9 @@ class _UdhaarCardState extends State<_UdhaarCard> {
             ),
             const SizedBox(height: 4),
             Text(
-              a.isApproved
-                  ? 'Owes ${rs(a.balance)} of ${rs(a.limit)}'
-                  : 'Suggested limit ${rs(a.limit)}',
+              a.balance > 0
+                  ? 'Owes ${rs(a.balance)} right now'
+                  : 'Nothing owing',
               style: T.meta,
             ),
             const SizedBox(height: 8),
@@ -180,22 +181,45 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                     label: 'Rate / litre',
                     controller: _rate,
                     keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Field(
-                    label: 'Limit (Rs)',
-                    controller: _limit,
+                    label: 'Litres / day',
+                    controller: _litres,
                     keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: T.accent100, border: T.hair),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    rs(_typedLitres * _typedRate * 30),
+                    style: T.num22.copyWith(color: T.accent800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'A month at this rate — '
+                    '${qty(_typedLitres)} L a day × ${rs(_typedRate)} × 30 days',
+                    style: T.meta,
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 5),
             Text(
-              'This customer pays their own rate — a regular can be given a '
-              'little off the shop price.',
+              'An estimate. The real bill is whatever milk actually went out, '
+              'day by day.',
               style: T.meta,
             ),
             const SizedBox(height: 12),
@@ -211,23 +235,23 @@ class _UdhaarCardState extends State<_UdhaarCard> {
                             () => UdhaarRepo.approve(
                               actor,
                               a,
-                              limit: _typedLimit,
                               rate: _typedRate,
+                              litresPerDay: _typedLitres,
                             ),
                             '${a.name} now has a khaata',
                           ),
                   )
                 else
                   GhostButton(
-                    label: 'Save rate & limit',
-                    onPressed: _busy || _typedLimit == null
+                    label: 'Save rate & litres',
+                    onPressed: _busy
                         ? null
                         : () => _run(
                             () => UdhaarRepo.setTerms(
                               actor,
                               a,
-                              limit: _typedLimit!,
                               rate: _typedRate,
+                              litresPerDay: _typedLitres,
                             ),
                             'Saved',
                           ),

@@ -676,63 +676,135 @@ void main() {
   });
 
   group('an order can run over several days', () {
+    OrderItem milk(List<String> days, {num qty = 1}) => OrderItem(
+      productId: 'milk',
+      name: 'Fresh milk',
+      qty: qty,
+      price: 220,
+      unit: 'L',
+      dayKeys: days,
+    );
+
+    OrderItem ghee(List<String> days) => OrderItem(
+      productId: 'ghee',
+      name: 'Deesi Ghee',
+      qty: 1,
+      price: 2000,
+      unit: 'kg',
+      dayKeys: days,
+    );
+
+    /// One order, built the way the app builds one: every item carrying the
+    /// days it is wanted on.
     FarmOrder orderOf({
-      required List<String> days,
+      required List<OrderItem> items,
       List<String> done = const [],
-      num perDay = 220,
       String slot = 'morning',
       OrderStatus status = OrderStatus.newOrder,
       String mode = 'delivery',
-    }) => FarmOrder(
-      id: 'o1',
-      number: '1042',
-      customerId: 'c1',
-      customerName: 'Ahmed',
-      address: 'House 4',
-      mobile: '03001234567',
-      items: const [
-        OrderItem(
-          productId: 'p1',
-          name: 'Fresh milk',
-          qty: 1,
-          price: 220,
-          unit: 'L',
-        ),
-      ],
-      total: perDay * days.length,
-      mode: mode,
-      slot: slot,
-      repeat: days.length > 1 ? 'days' : 'once',
-      dayKeys: days,
-      doneDays: done,
-      pay: PayMethod.cod,
-      status: status,
-      createdAt: DateTime(2026, 9, 12),
-    );
+    }) {
+      final days = <String>{for (final i in items) ...i.dayKeys}.toList()
+        ..sort();
+      return FarmOrder(
+        id: 'o1',
+        number: '1042',
+        customerId: 'c1',
+        customerName: 'Ahmed',
+        address: 'House 4',
+        mobile: '03001234567',
+        items: items,
+        total: items.fold<num>(0, (t, i) => t + i.total),
+        mode: mode,
+        slot: slot,
+        repeat: days.length > 1 ? 'days' : 'once',
+        dayKeys: days,
+        doneDays: done,
+        pay: PayMethod.cod,
+        status: status,
+        createdAt: DateTime(2026, 9, 12),
+      );
+    }
 
     test('a week of milk is a week of money, not one day of it', () {
-      final week = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      final week = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-14', '2026-09-15']),
+        ],
+      );
       expect(week.total, 660);
-      expect(week.perDay, 220);
+      expect(week.amountOn('2026-09-13'), 220);
       expect(week.isMultiDay, isTrue);
     });
 
     test('one day is still one day', () {
-      final one = orderOf(days: ['2026-09-13']);
+      final one = orderOf(
+        items: [
+          milk(['2026-09-13']),
+        ],
+      );
       expect(one.total, 220);
-      expect(one.perDay, 220);
+      expect(one.amountOn('2026-09-13'), 220);
       expect(one.isMultiDay, isFalse);
     });
 
+    test('the ghee goes out once, not every day the milk does', () {
+      // Saleem's own case: milk for four days and one kilo of ghee. One set
+      // of days across the order would have delivered four kilos of ghee.
+      final order = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16']),
+          ghee(['2026-09-13']),
+        ],
+      );
+      expect(order.total, 220 * 4 + 2000);
+      expect(order.dayKeys.length, 4);
+
+      // The first day carries both; the rest are milk alone.
+      expect(order.amountOn('2026-09-13'), 2220);
+      expect(order.amountOn('2026-09-14'), 220);
+      expect(order.itemsOn('2026-09-13').length, 2);
+      expect(order.itemsOn('2026-09-14').single.name, 'Fresh milk');
+    });
+
+    test('every day added up is the whole order, no more and no less', () {
+      final order = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-14']),
+          ghee(['2026-09-14']),
+        ],
+      );
+      final summed = order.dayKeys.fold<num>(
+        0,
+        (t, d) => t + order.amountOn(d),
+      );
+      expect(summed, order.total);
+    });
+
+    test('a day nothing was ordered for costs nothing', () {
+      final order = orderOf(
+        items: [
+          milk(['2026-09-13']),
+        ],
+      );
+      expect(order.amountOn('2026-09-20'), 0);
+      expect(order.itemsOn('2026-09-20'), isEmpty);
+    });
+
     test('the round sees it on every day it was ordered for', () {
-      final week = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      final week = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-14', '2026-09-15']),
+        ],
+      );
       expect(week.dueOn('2026-09-14'), isTrue);
       expect(week.dueOn('2026-09-16'), isFalse);
     });
 
     test('a day delivered drops off the round and the rest stay', () {
       final week = orderOf(
-        days: ['2026-09-13', '2026-09-14', '2026-09-15'],
+        items: [
+          milk(['2026-09-13', '2026-09-14', '2026-09-15']),
+        ],
         done: ['2026-09-13'],
       );
       expect(week.deliveredOn('2026-09-13'), isTrue);
@@ -742,7 +814,9 @@ void main() {
 
     test('the order is finished only when its last day is', () {
       final week = orderOf(
-        days: ['2026-09-13', '2026-09-14'],
+        items: [
+          milk(['2026-09-13', '2026-09-14']),
+        ],
         done: ['2026-09-13', '2026-09-14'],
       );
       expect(week.daysLeft, isEmpty);
@@ -750,24 +824,43 @@ void main() {
     });
 
     test('each day says which one it is', () {
-      final week = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      final week = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-14', '2026-09-15']),
+        ],
+      );
       expect(week.dayLabel('2026-09-13'), 'day 1 of 3');
       expect(week.dayLabel('2026-09-15'), 'day 3 of 3');
       // A single day needs no such label.
-      expect(orderOf(days: ['2026-09-13']).dayLabel('2026-09-13'), '');
+      expect(
+        orderOf(
+          items: [
+            milk(['2026-09-13']),
+          ],
+        ).dayLabel('2026-09-13'),
+        '',
+      );
     });
 
     test('consecutive days read as a span, scattered ones as a list', () {
-      final run = orderOf(days: ['2026-09-13', '2026-09-14', '2026-09-15']);
+      final run = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-14', '2026-09-15']),
+        ],
+      );
       expect(run.daysText, contains('(3 days)'));
-      final scattered = orderOf(days: ['2026-09-13', '2026-09-16']);
+      final scattered = orderOf(
+        items: [
+          milk(['2026-09-13', '2026-09-16']),
+        ],
+      );
       expect(scattered.daysText, contains(','));
       expect(scattered.daysText, isNot(contains('days)')));
     });
 
     test('an order from before days existed still has one', () {
-      // Read back off a document with no dayKeys: it is a single delivery on
-      // the day it was placed, so it can never vanish from the round.
+      // Read back off a document with no days on the items: the whole thing
+      // is one drop, on the day it was placed.
       final legacy = FarmOrder(
         id: 'old',
         number: '900',
@@ -775,7 +868,15 @@ void main() {
         customerName: 'Ahmed',
         address: '',
         mobile: '',
-        items: const [],
+        items: const [
+          OrderItem(
+            productId: 'milk',
+            name: 'Fresh milk',
+            qty: 1,
+            price: 220,
+            unit: 'L',
+          ),
+        ],
         total: 220,
         mode: 'delivery',
         slot: 'morning',
@@ -787,7 +888,42 @@ void main() {
         createdAt: DateTime(2026, 9, 1),
       );
       expect(legacy.dueOn('2026-09-01'), isTrue);
-      expect(legacy.perDay, 220);
+      expect(legacy.amountOn('2026-09-01'), 220);
+      // An item with no days of its own belongs to whatever day is asked for.
+      expect(legacy.itemsOn('2026-09-01'), isNotEmpty);
+    });
+
+    test('the rider collects for an order and nothing for a khaata', () {
+      final cash = orderOf(
+        items: [
+          milk(['2026-09-13']),
+        ],
+      );
+      expect(cash.toCollectOn('2026-09-13'), 220);
+
+      // The same order on a khaata: the milk goes out, the money does not.
+      final onKhaata = FarmOrder(
+        id: 'o2',
+        number: '1043',
+        customerId: 'c1',
+        customerName: 'Ahmed',
+        address: '',
+        mobile: '',
+        items: [
+          milk(['2026-09-13']),
+        ],
+        total: 220,
+        mode: 'delivery',
+        slot: 'morning',
+        repeat: 'once',
+        dayKeys: const ['2026-09-13'],
+        doneDays: const [],
+        pay: PayMethod.udhaar,
+        status: OrderStatus.newOrder,
+        createdAt: DateTime(2026, 9, 12),
+      );
+      expect(onKhaata.amountOn('2026-09-13'), 220);
+      expect(onKhaata.toCollectOn('2026-09-13'), 0);
     });
 
     test('a day key is the same string however it is written', () {
@@ -983,12 +1119,37 @@ void main() {
     });
   });
 
-  group('udhaar limit', () {
-    test('is litres x rate x 30 x 1.2, rounded up to a thousand', () {
-      // 5 * 200 * 30 * 1.2 = 36000
-      expect(UdhaarAccount.suggestLimit(5, 200), 36000);
-      // 4 * 210 * 30 * 1.2 = 30240 -> 31000
-      expect(UdhaarAccount.suggestLimit(4, 210), 31000);
+  group('what a khaata comes to in a month', () {
+    UdhaarAccount khaata({required num litres, required num rate}) =>
+        UdhaarAccount(
+          uid: 'c1',
+          name: 'Ahmed',
+          address: 'House 4',
+          mobile: '03001234567',
+          slot: 'morning',
+          litresPerDay: litres,
+          rate: rate,
+          balance: 0,
+          status: UdhaarStatus.approved,
+          createdAt: DateTime(2026, 9, 1),
+        );
+
+    test('litres a day at their own rate, across thirty days', () {
+      // Saleem's own example: 2 L a day at Rs 220.
+      expect(khaata(litres: 2, rate: 220).monthlyEstimate, 13200);
+      expect(khaata(litres: 5, rate: 200).monthlyEstimate, 30000);
+      expect(khaata(litres: 1.5, rate: 210).monthlyEstimate, 9450);
+    });
+
+    test('nothing ordered is nothing owed', () {
+      expect(khaata(litres: 0, rate: 220).monthlyEstimate, 0);
+    });
+
+    test('the line reads the way it would be said out loud', () {
+      expect(
+        khaata(litres: 2, rate: 220).monthlyLine,
+        '2 L/day × Rs 220 × 30 days ≈ Rs 13,200 a month',
+      );
     });
   });
 

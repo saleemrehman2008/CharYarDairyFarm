@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../util/money.dart';
 import 'helpers.dart';
 
 enum UdhaarStatus {
@@ -37,7 +39,6 @@ class UdhaarAccount {
     required this.slot,
     required this.litresPerDay,
     required this.rate,
-    required this.limit,
     required this.balance,
     required this.status,
     this.approvedBy,
@@ -58,7 +59,6 @@ class UdhaarAccount {
   /// product list.
   final num rate;
 
-  final num limit;
   final num balance;
   final UdhaarStatus status;
   final String? approvedBy;
@@ -73,15 +73,22 @@ class UdhaarAccount {
   /// farm either way.
   bool get isBillable =>
       status == UdhaarStatus.approved || status == UdhaarStatus.closed;
-  num get headroom => limit - balance;
-
   String get slotLabel => slot == 'evening' ? 'Evening 5–8' : 'Morning 6–9';
 
-  /// Suggested limit: litres x milk rate x 30 x 1.2, rounded up to Rs 1,000.
-  static num suggestLimit(num litresPerDay, num milkRate) {
-    final raw = litresPerDay * milkRate * 30 * 1.2;
-    return (raw / 1000).ceil() * 1000;
-  }
+  /// What a month of this khaata comes to at the customer's own rate — two
+  /// litres a day at Rs 220 is about Rs 13,200.
+  ///
+  /// An estimate, not a promise: the bill is whatever milk actually went out,
+  /// day by day. It is here so both sides know roughly what is coming before
+  /// the month ends.
+  num get monthlyEstimate => litresPerDay * rate * 30;
+
+  /// "2 L/day × Rs 220 ≈ Rs 13,200 a month"
+  String get monthlyLine => monthEstimateLine(litresPerDay, rate);
+
+  static String monthEstimateLine(num litresPerDay, num rate) =>
+      '${qty(litresPerDay)} L/day × ${rs(rate)} × 30 days ≈ '
+      '${rs(litresPerDay * rate * 30)} a month';
 
   factory UdhaarAccount.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final m = doc.data() ?? const {};
@@ -93,7 +100,6 @@ class UdhaarAccount {
       slot: s(m['slot']).isEmpty ? 'morning' : s(m['slot']),
       litresPerDay: n(m['litresPerDay']),
       rate: n(m['rate']),
-      limit: n(m['limit']),
       balance: n(m['balance']),
       status: UdhaarStatus.parse(m['status']),
       approvedBy: m['approvedBy'] == null ? null : s(m['approvedBy']),

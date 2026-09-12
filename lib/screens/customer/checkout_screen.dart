@@ -27,8 +27,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _mode = 'delivery';
   String _slot = 'morning';
 
-  /// Which days the order is for. Today unless the customer says otherwise.
-  late Set<String> _days = {dayKeyOf(DateTime.now())};
+  /// The item whose calendar is open, if any. One at a time keeps the page
+  /// from becoming a wall of months.
+  String? _openCalendar;
 
   PayMethod _pay = PayMethod.cod;
   bool _busy = false;
@@ -52,8 +53,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.watch<Cart>();
     final user = context.watch<Session>().user;
     final lines = cart.lines(store.products);
-    final perDay = cart.total(store.products);
-    final total = perDay * (_days.isEmpty ? 1 : _days.length);
+    final total = cart.total(store.products);
+    final days = cart.allDays.toList()..sort();
 
     if (lines.isEmpty) {
       return const PageBody(
@@ -63,33 +64,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
     }
 
-    final udhaarFits = store.udhaarFits(total);
-    final udhaarBlocked = store.udhaarApproved && !udhaarFits;
-    // An udhaar choice that no longer fits falls back to cash on delivery.
-    if (_pay == PayMethod.udhaar && !udhaarFits) _pay = PayMethod.cod;
+    // Khaata is offered to anyone with an approved account; a customer who
+    // loses theirs falls back to cash on delivery.
+    final onKhaata = store.udhaarApproved;
+    if (_pay == PayMethod.udhaar && !onKhaata) _pay = PayMethod.cod;
 
     return PageBody(
       children: [
+        Text(
+          'Each item has its own days. Milk every morning, ghee on the one '
+          'day you want it — tap "Days" on a line to choose.',
+          style: T.meta,
+        ),
+        const SizedBox(height: 10),
+
+        for (final l in lines)
+          _CartLine(
+            key: ValueKey(l.productId),
+            line: l,
+            open: _openCalendar == l.productId,
+            onToggle: () => setState(
+              () => _openCalendar = _openCalendar == l.productId
+                  ? null
+                  : l.productId,
+            ),
+            onDays: (v) => cart.setDays(l.productId, v),
+          ),
+
+        const SizedBox(height: 6),
         RegCard(
           child: Column(
             children: [
-              for (final l in lines)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(l.line, style: T.body)),
-                      Text(rs(l.total), style: T.bodyMid),
-                    ],
-                  ),
-                ),
-              const Divider(height: 18),
               Row(
                 children: [
                   const Expanded(child: Text('Total', style: T.cardTitle)),
                   Text(rs(total), style: T.num22),
                 ],
               ),
+              if (days.length > 1) ...[
+                const Divider(height: 18),
+                for (final d in days)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${fmtDate(dayFromKey(d) ?? DateTime.now())} · '
+                            '${_itemsOn(lines, d)}',
+                            style: T.meta,
+                          ),
+                        ),
+                        Text(
+                          rs(cart.amountOn(d, store.products)),
+                          style: T.meta,
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                Text(
+                  'You pay each day for what comes that day.',
+                  style: T.meta,
+                ),
+              ],
             ],
           ),
         ),
@@ -173,36 +211,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         const SizedBox(height: T.gap),
 
-        const Kicker('Which days'),
-        const SizedBox(height: 6),
-        RegCard(
-          padding: const EdgeInsets.all(10),
-          child: DayPicker(
-            selected: _days,
-            onChanged: (v) => setState(() => _days = v),
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          _days.isEmpty
-              ? 'Pick at least one day.'
-              : _days.length == 1
-              ? 'One delivery, on $_dayList. Tap more days to order for a '
-                    'week or a month at a time.'
-              : '${_days.length} deliveries · ${rs(perDay)} each · '
-                    '$_dayList. Each day is paid for as it comes.',
-          style: T.meta,
-        ),
-        const SizedBox(height: T.pad),
-
         const Kicker('Payment'),
         const SizedBox(height: 4),
         for (final method in PayMethod.values)
           _PayOption(
             method: method,
             selected: _pay == method,
-            enabled: method != PayMethod.udhaar || udhaarFits,
-            detail: _detail(method, store, udhaarBlocked),
+            enabled: method != PayMethod.udhaar || onKhaata,
+            detail: _detail(method, store),
             onTap: () => setState(() => _pay = method),
           ),
 
@@ -210,8 +226,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         PrimaryButton(
           label: 'Place order · ${rs(total)}',
           busy: _busy,
-          onPressed: user?.canOrder == true && _days.isNotEmpty
-              ? () => _place(lines, perDay)
+          onPressed: user?.canOrder == true && days.isNotEmpty
+              ? () => _place(lines)
               : null,
         ),
         if (user?.canOrder != true) ...[
@@ -243,43 +259,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     toast(context, 'Cart emptied');
   }
 
-  String? _detail(PayMethod m, CustomerStore store, bool udhaarBlocked) =>
-      switch (m) {
-        PayMethod.bank =>
-          store.settings.bankAccount.isEmpty
-              ? null
-              : store.settings.bankAccount,
-        PayMethod.jazzcash =>
-          store.settings.jazzcashNumber.isEmpty
-              ? null
-              : store.settings.jazzcashNumber,
-        PayMethod.udhaar => switch (store.udhaarStatus) {
-          UdhaarStatus.approved =>
-            udhaarBlocked
-                ? 'This order would pass your ${rs(store.udhaar?.limit ?? 0)} '
-                      'limit.'
-                : 'Added to your month-end bill.',
-          UdhaarStatus.pending => 'Your registration is still being approved.',
-          _ => 'Register for a khaata first, in the Khaata tab.',
-        },
-        PayMethod.cod => null,
-      };
+  String? _detail(PayMethod m, CustomerStore store) => switch (m) {
+    PayMethod.bank =>
+      store.settings.bankAccount.isEmpty ? null : store.settings.bankAccount,
+    PayMethod.jazzcash =>
+      store.settings.jazzcashNumber.isEmpty
+          ? null
+          : store.settings.jazzcashNumber,
+    PayMethod.udhaar => switch (store.udhaarStatus) {
+      UdhaarStatus.approved => 'Added to your month-end bill.',
+      UdhaarStatus.pending => 'Your registration is still being approved.',
+      _ => 'Register for a khaata first, in the Khaata tab.',
+    },
+    PayMethod.cod => null,
+  };
 
-  /// "13 Sep – 19 Sep", for the line under the calendar.
-  String get _dayList {
-    final dates = (_days.toList()..sort()).map(dayFromKey).nonNulls.toList();
-    if (dates.isEmpty) return '';
-    if (dates.length == 1) return fmtDateFull(dates.first);
-    final run = List.generate(
-      dates.length,
-      (i) => i == 0 || dates[i].difference(dates[i - 1]).inDays == 1,
-    ).every((x) => x);
-    return run
-        ? '${fmtDate(dates.first)} – ${fmtDate(dates.last)}'
-        : dates.map(fmtDate).join(', ');
-  }
+  /// "1 L Fresh milk, 1 kg Ghee" — what is going out on one day.
+  static String _itemsOn(List<OrderItem> lines, String dayKey) =>
+      lines.where((l) => l.dueOn(dayKey)).map((l) => l.line).join(', ');
 
-  Future<void> _place(List<OrderItem> lines, num perDayTotal) async {
+  Future<void> _place(List<OrderItem> lines) async {
     final session = context.read<Session>();
     final user = session.user;
 
@@ -312,8 +311,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await OrderRepo.place(
         actor: session.actor,
         items: lines,
-        perDayTotal: perDayTotal,
-        days: (_days.toList()..sort()).map(dayFromKey).nonNulls.toList(),
         mode: _mode,
         slot: _slot,
         pay: _pay,
@@ -323,7 +320,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() {
         _newAddress = false;
-        _days = {dayKeyOf(DateTime.now())};
+        _openCalendar = null;
       });
       context.read<Cart>().clear();
       widget.onOrdered();
@@ -384,4 +381,95 @@ class _PayOption extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// One line of the basket: what it is, what it costs, and the days it comes.
+class _CartLine extends StatelessWidget {
+  const _CartLine({
+    super.key,
+    required this.line,
+    required this.open,
+    required this.onToggle,
+    required this.onDays,
+  });
+
+  final OrderItem line;
+  final bool open;
+  final VoidCallback onToggle;
+  final ValueChanged<Set<String>> onDays;
+
+  @override
+  Widget build(BuildContext context) {
+    final dates = line.dayKeys.map(dayFromKey).nonNulls.toList();
+    final when = dates.isEmpty
+        ? 'No day picked'
+        : dates.length == 1
+        ? fmtDate(dates.first)
+        : _run(dates)
+        ? '${fmtDate(dates.first)} – ${fmtDate(dates.last)} '
+              '(${dates.length} days)'
+        : dates.map(fmtDate).join(', ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: T.gap),
+      child: RegCard(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(line.line, style: T.cardTitle)),
+                Text(rs(line.total), style: T.bodyMid),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    line.dayKeys.length > 1
+                        ? '${rs(line.each)} each × ${line.dayKeys.length} days'
+                        : rs(line.each),
+                    style: T.meta,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.event_outlined, size: 15, color: T.n600),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    when,
+                    style: T.meta.copyWith(
+                      color: dates.isEmpty ? const Color(0xFF8C2F20) : T.n700,
+                    ),
+                  ),
+                ),
+                GhostButton(
+                  label: open ? 'Done' : 'Days',
+                  compact: true,
+                  onPressed: onToggle,
+                ),
+              ],
+            ),
+            if (open) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              DayPicker(selected: line.dayKeys.toSet(), onChanged: onDays),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static bool _run(List<DateTime> dates) => List.generate(
+    dates.length,
+    (i) => i == 0 || dates[i].difference(dates[i - 1]).inDays == 1,
+  ).every((x) => x);
 }

@@ -71,12 +71,12 @@ class OrderCard extends StatelessWidget {
               '${order.pay.short} · ${rs(order.total)}',
               style: T.meta,
             ),
-            // Which days it is for. A week's order is one order with seven
-            // deliveries on it, each paid for as it goes out.
+            // Which days it is for. Each item has its own, so a week of milk
+            // and one kilo of ghee sit on the same order.
             const SizedBox(height: 4),
             Text(
               order.isMultiDay
-                  ? '${order.daysText} · ${rs(order.perDay)} a day · '
+                  ? '${order.daysText} · '
                         '${order.doneDays.length} of ${order.dayKeys.length} '
                         'delivered'
                   : 'For ${order.daysText}',

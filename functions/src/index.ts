@@ -276,7 +276,8 @@ export const syncUdhaar = onDocumentWritten(
       `${u.address ?? ''}`,
       `${u.slot ?? ''}`,
       Number(u.litresPerDay ?? 0),
-      Number(u.limit ?? 0),
+      Number(u.rate ?? 0),
+      Number(u.litresPerDay ?? 0) * Number(u.rate ?? 0) * 30,
       Number(u.balance ?? 0),
       `${u.status ?? ''}`,
       `${u.approvedByName ?? u.approvedBy ?? ''}`,
@@ -285,8 +286,8 @@ export const syncUdhaar = onDocumentWritten(
     if (!before?.exists) {
       await notifyCofounders(
         'New udhaar registration',
-        `${u.name} · ${u.litresPerDay} L/day · suggested limit ` +
-          `${rs(u.limit)}`,
+        `${u.name} · ${u.litresPerDay} L/day · about ` +
+          `${rs(Number(u.litresPerDay ?? 0) * Number(u.rate ?? 0) * 30)} a month`,
         {type: 'udhaar', uid: after.id},
       );
       return;
@@ -296,7 +297,8 @@ export const syncUdhaar = onDocumentWritten(
       await notifyUser(
         after.id,
         'Udhaar approved',
-        `You can now buy on monthly credit, up to ${rs(u.limit)}.`,
+        'You can now take milk through the month and settle one bill at ' +
+          'the end of it.',
         {type: 'udhaar'},
       );
     }
