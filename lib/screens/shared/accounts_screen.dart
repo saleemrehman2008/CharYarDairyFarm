@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../models/models.dart';
+import '../../services/accounting.dart';
 import '../../services/db.dart';
 import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
@@ -12,19 +14,41 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
 import 'new_entry_screen.dart';
 
+/// The five ways of looking at the ledger, each with its own colour.
+///
+/// The colour is the point. Five identically blue chips meant that once the
+/// page had scrolled you could no longer tell which one you had pressed, so
+/// the chosen filter now paints the figure at the top of the page as well as
+/// its own chip. The colours are the money colours, not new ones: what has
+/// come in is green, what has gone out is red, what is still owed either way
+/// is pale.
 enum AccountsFilter {
-  all,
-  sales,
-  expenses,
-  receivable,
-  payable;
+  all('All', T.accent600),
+  sales('Sales', T.moneyIn),
+  expenses('Expenses', T.moneyOut),
+  receivable('To receive', T.moneyGet),
+  payable('To pay', T.moneyDue);
 
-  String get label => switch (this) {
-    AccountsFilter.all => 'All',
-    AccountsFilter.sales => 'Sales',
-    AccountsFilter.expenses => 'Expenses',
-    AccountsFilter.receivable => 'Receivable',
-    AccountsFilter.payable => 'Payable',
+  const AccountsFilter(this.label, this.tone);
+
+  final String label;
+  final Color tone;
+
+  /// The one figure this view is about.
+  num totalFrom(Books books) => switch (this) {
+    AccountsFilter.all => books.cash,
+    AccountsFilter.sales => books.sales,
+    AccountsFilter.expenses => books.costs,
+    AccountsFilter.receivable => books.receivable,
+    AccountsFilter.payable => books.payable,
+  };
+
+  String get heading => switch (this) {
+    AccountsFilter.all => 'Cash in hand',
+    AccountsFilter.sales => 'Sales this period',
+    AccountsFilter.expenses => 'Running costs',
+    AccountsFilter.receivable => 'Still to collect',
+    AccountsFilter.payable => 'Still to pay',
   };
 }
 
@@ -78,6 +102,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// added to and settled.
   Widget _openMonth(FarmStore store) {
     final isMaster = context.watch<Session>().role == Role.master;
+    final l = L.of(context);
     final books = store.books;
     final rows = _rows(store.monthTxns, store);
 
@@ -90,73 +115,49 @@ class _AccountsScreenState extends State<AccountsScreen> {
           onPick: (id) => setState(() => _viewing = id),
         ),
         const SizedBox(height: T.pad),
-        Row(
-          children: [
-            Expanded(
-              child: _Mini(label: 'Receivable', value: rs(books.receivable)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _Mini(label: 'Payable', value: rs(books.payable)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _Mini(label: 'Cash', value: rs(books.cash)),
-            ),
-          ],
+
+        HeroCard(
+          label: l.t(_filter.heading),
+          value: rs(_filter.totalFrom(books)),
+          gradient: T.washOf(_filter.tone),
+          note: l.t2('%s entries', rows.length),
+          trailing: Tag(periodLabel(store.month, short: true)),
         ),
         const SizedBox(height: T.pad),
 
-        Row(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(border: T.hair),
-                  child: Row(
-                    children: [
-                      for (final (i, f) in AccountsFilter.values.indexed)
-                        _FilterChip(
-                          label: f.label,
-                          selected: f == _filter,
-                          first: i == 0,
-                          onTap: () => setState(() => _filter = f),
-                        ),
-                    ],
-                  ),
-                ),
+        _FilterBar(
+          filter: _filter,
+          onPick: (f) => setState(() => _filter = f),
+        ),
+        const SizedBox(height: 12),
+
+        GhostButton(
+          label: l.t('Add an entry'),
+          icon: Icons.add,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChangeNotifierProvider.value(
+                value: store,
+                child: const NewEntryScreen(),
               ),
             ),
-            const SizedBox(width: 8),
-            GhostButton(
-              label: 'Add',
-              icon: Icons.add,
-              compact: true,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChangeNotifierProvider.value(
-                    value: store,
-                    child: const NewEntryScreen(),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
         const SizedBox(height: 12),
 
         Text(
-          'All farm money in one place: milk & product sales, cattle, feed, '
-          'bills, rent, food, salaries. Anything sold or bought on credit '
-          'stays unpaid until you mark it paid.',
+          l.t(
+            'All farm money in one place: milk & product sales, cattle, feed, '
+            'bills, rent, food, salaries. Anything sold or bought on credit '
+            'stays unpaid until you mark it paid.',
+          ),
           style: T.meta,
         ),
         const SizedBox(height: 14),
 
         if (rows.isEmpty)
-          const EmptyNote('Nothing booked here yet. Tap Add to start.')
+          EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
         else
           for (final t in rows)
             _LedgerRow(
@@ -234,22 +235,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
             const SizedBox(height: T.pad),
 
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DecoratedBox(
-                decoration: BoxDecoration(border: T.hair),
-                child: Row(
-                  children: [
-                    for (final (i, f) in AccountsFilter.values.indexed)
-                      _FilterChip(
-                        label: f.label,
-                        selected: f == _filter,
-                        first: i == 0,
-                        onTap: () => setState(() => _filter = f),
-                      ),
-                  ],
-                ),
-              ),
+            _FilterBar(
+              filter: _filter,
+              onPick: (f) => setState(() => _filter = f),
             ),
             const SizedBox(height: 14),
 
@@ -336,61 +324,85 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 }
 
-class _Mini extends StatelessWidget {
-  const _Mini({required this.label, required this.value});
+/// The row of filters. Each chip wears its own colour when chosen, and the
+/// figure above the list wears it too.
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({required this.filter, required this.onPick});
 
-  final String label;
-  final String value;
+  final AccountsFilter filter;
+  final ValueChanged<AccountsFilter> onPick;
 
   @override
-  Widget build(BuildContext context) => RegCard(
-    padding: const EdgeInsets.all(10),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Kicker(label),
-        const SizedBox(height: 4),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(value, style: T.cardTitle),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final f in AccountsFilter.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 7),
+              child: _FilterChip(
+                label: l.t(f.label),
+                tone: f.tone,
+                selected: f == filter,
+                onTap: () => onPick(f),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
+    required this.tone,
     required this.selected,
-    required this.first,
     required this.onTap,
   });
 
   final String label;
+  final Color tone;
   final bool selected;
-  final bool first;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Container(
-      height: 36,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 11),
-      decoration: BoxDecoration(
-        color: selected ? T.accent : Colors.transparent,
-        border: first
-            ? null
-            : const Border(left: BorderSide(color: T.divider, width: 1)),
-      ),
-      child: Text(
-        label,
-        style: T.bodyMid.copyWith(
-          fontSize: 12,
-          color: selected ? T.accent100 : T.n700,
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(T.pill),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 36,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        decoration: BoxDecoration(
+          color: selected ? tone : Colors.white,
+          borderRadius: BorderRadius.circular(T.pill),
+          border: Border.all(
+            color: selected ? tone : T.n300,
+            width: 1.3,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: tone.withValues(alpha: 0.32),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: T.bodyMid.copyWith(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : T.n700,
+          ),
         ),
       ),
     ),
@@ -476,10 +488,15 @@ class _LedgerRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // Deep when the money has moved, pale when it is still owed.
               Text(
                 signedRs(txn.amount, incoming: txn.type.isIncoming),
                 style: T.bodyMid.copyWith(
-                  color: txn.type.isIncoming ? T.accent700 : T.text,
+                  color: T.money(
+                    incoming: txn.type.isIncoming,
+                    settled: txn.paid,
+                  ),
+                  fontWeight: T.moneyWeight(txn.paid),
                 ),
               ),
               if (isMaster)

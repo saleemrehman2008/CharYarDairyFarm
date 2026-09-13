@@ -521,18 +521,35 @@ class FarmLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = mark ? 'assets/mark.png' : 'assets/logo.png';
+    // Decode at the size it will be drawn at, times the screen's own scale.
+    // Without this the whole picture is decoded at full size into memory for
+    // a 36-point badge, which is most of what the app was doing while it
+    // looked like it was still loading.
+    final ratio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 3;
+    final cache = (width * ratio).round();
+
     if (mark) {
       // The mark is drawn on its ground already.
-      return Image.asset(asset, width: width, height: width);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(T.radiusXs),
+        child: Image.asset(
+          'assets/mark.png',
+          width: width,
+          height: width,
+          cacheWidth: cache,
+        ),
+      );
     }
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: width * 0.07,
         vertical: width * 0.06,
       ),
-      color: T.accent900,
-      child: Image.asset(asset, width: width),
+      decoration: BoxDecoration(
+        color: T.accent900,
+        borderRadius: T.roundSm,
+      ),
+      child: Image.asset('assets/logo.png', width: width, cacheWidth: cache),
     );
   }
 }

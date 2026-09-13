@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +30,15 @@ Future<void> main() async {
   Object? initError;
   try {
     await Firebase.initializeApp();
+
+    // Keep what the phone has already seen. The farm's data changes slowly and
+    // its signal does not: with the cache on, a screen draws from the last
+    // snapshot straight away and the fresh figures slide in behind it, instead
+    // of the app sitting on a spinner while it fetches what it already knew.
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
   } catch (e) {
     initError = e;
   }

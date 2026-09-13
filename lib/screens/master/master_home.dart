@@ -16,6 +16,7 @@ import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
 import '../shared/new_entry_screen.dart';
 import '../shared/products_screen.dart';
+import '../shared/report_screen.dart';
 import 'activity_log_screen.dart';
 import 'cattle_screen.dart';
 import 'close_month_screen.dart';
@@ -183,6 +184,12 @@ class MasterHome extends StatelessWidget {
         badge: store.dueChecks.length,
         onTap: () => _push(context, store, const CattleScreen()),
       ),
+    ActionTile(
+      icon: Icons.bar_chart,
+      label: l.t('Report'),
+      tone: T.moneyIn,
+      onTap: () => _push(context, store, const ReportScreen()),
+    ),
     ActionTile(
       icon: Icons.sell_outlined,
       label: l.t('Rates'),

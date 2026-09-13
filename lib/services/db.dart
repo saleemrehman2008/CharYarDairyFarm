@@ -93,6 +93,26 @@ class Db {
               ..sort((a, b) => b.date.compareTo(a.date)),
       );
 
+  /// The ledger from a date onwards, for a report that spans more than one
+  /// period. Pass null for the lot.
+  ///
+  /// Filtered on the entry's own date rather than on the period it was booked
+  /// into, because the reader is asking about a stretch of time, not about the
+  /// farm's settling-up arrangements.
+  static Stream<List<Txn>> watchTxnsSince(DateTime? from) {
+    final q = from == null
+        ? transactions
+        : transactions.where(
+            'date',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(from),
+          );
+    return q.snapshots().map(
+      (s) =>
+          s.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList()
+            ..sort((a, b) => b.date.compareTo(a.date)),
+    );
+  }
+
   /// Every unsettled entry, whatever month it was booked in — these carry
   /// forward across a month close.
   static Stream<List<Txn>> watchUnpaidTxns() => transactions
