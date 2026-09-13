@@ -47,7 +47,7 @@ const _launcher = {
 /// Where the splash-and-cans roundel sits in the artwork we have. The
 /// defaults below are the ones that came out right for it — shot against a
 /// flat magenta, which nothing in the logo shares, so the cut can be hard.
-const _defaultMark = '0.47,0.0,1.0,0.47';
+const _defaultMark = '0.48,0.0,0.95,0.46';
 
 void main(List<String> args) {
   if (args.isEmpty) {
@@ -74,10 +74,22 @@ void main(List<String> args) {
   stdout.writeln('Read ${photo.width}x${photo.height}');
 
   photo = photo.convert(numChannels: 4);
-  final cut = _stripBackdrop(photo, grip: grip, spread: spread);
-  stdout.writeln('Backdrop removed: ${cut.$2} pixels');
 
-  final lockup = _trimClear(cut.$1);
+  // A picture that already has its background off needs nothing doing to it,
+  // and doing something anyway would be worse than useless: with no backdrop
+  // to sample, the border reads as black, and everything dark in the artwork
+  // starts looking like something to cut away.
+  final img.Image cleaned;
+  if (_alreadyClear(photo)) {
+    stdout.writeln('Already transparent — nothing to cut.');
+    cleaned = photo;
+  } else {
+    final cut = _stripBackdrop(photo, grip: grip, spread: spread);
+    stdout.writeln('Backdrop removed: ${cut.$2} pixels');
+    cleaned = cut.$1;
+  }
+
+  final lockup = _trimClear(cleaned);
   stdout.writeln('Artwork is ${lockup.width}x${lockup.height}');
 
   // ---- the whole lockup ----
@@ -111,6 +123,27 @@ void main(List<String> args) {
     File(path).writeAsBytesSync(img.encodePng(_onNavy(mark, entry.value)));
     stdout.writeln('Wrote $path (${entry.value}px)');
   }
+}
+
+/// Whether the picture arrived with its background already taken off.
+///
+/// Judged at the border, because that is where a backdrop always is: if every
+/// edge is see-through, somebody has done this already.
+bool _alreadyClear(img.Image im) {
+  var clear = 0, total = 0;
+  for (var x = 0; x < im.width; x += 2) {
+    for (final y in [0, im.height - 1]) {
+      if (im.getPixel(x, y).a < 16) clear++;
+      total++;
+    }
+  }
+  for (var y = 0; y < im.height; y += 2) {
+    for (final x in [0, im.width - 1]) {
+      if (im.getPixel(x, y).a < 16) clear++;
+      total++;
+    }
+  }
+  return total > 0 && clear / total > 0.97;
 }
 
 String? _flag(List<String> args, String name) {
@@ -179,8 +212,7 @@ String? _flag(List<String> args, String name) {
     final p = _rgb(src, x, y);
     var best = 1 << 20;
     for (final c in backdrop) {
-      final d =
-          (p[0] - c[0]).abs() + (p[1] - c[1]).abs() + (p[2] - c[2]).abs();
+      final d = (p[0] - c[0]).abs() + (p[1] - c[1]).abs() + (p[2] - c[2]).abs();
       if (d < best) best = d;
     }
     return best;
