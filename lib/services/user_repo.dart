@@ -137,11 +137,20 @@ class UserRepo {
   /// links it from their user document.
   static Future<void> _ensurePartner(Actor actor) async {
     try {
+      // The link is written back onto the user document either way, because
+      // the security rules read it from there to tell whose share a
+      // co-founder is allowed to decide about. A partner the master added by
+      // hand would otherwise have a record with nothing pointing at it.
       final existing = await Db.partners
           .where('userId', isEqualTo: actor.uid)
           .limit(1)
           .get();
-      if (existing.docs.isNotEmpty) return;
+      if (existing.docs.isNotEmpty) {
+        await Db.users.doc(actor.uid).set({
+          'partnerId': existing.docs.first.id,
+        }, SetOptions(merge: true));
+        return;
+      }
 
       final partner = await Db.partners.add({
         'userId': actor.uid,

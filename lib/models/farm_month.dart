@@ -79,33 +79,52 @@ class MonthShare {
     byPhone: byPhone,
   );
 
+  /// The frozen slice, as the master writes it at the seal. The decision is
+  /// not in here: it belongs to the co-founder and is written separately, so
+  /// the database itself can hold each of them to their own row.
   Map<String, dynamic> toMap() => {
     'partnerId': partnerId,
     'name': name,
     'ratio': ratio,
     'share': share,
-    'choice': choice,
+  };
+
+  /// What one co-founder decided, as stored under their own key.
+  Map<String, dynamic> decisionMap() => {
     'withdraw': withdraw,
-    if (decidedAt != null) 'decidedAt': Timestamp.fromDate(decidedAt!),
+    'decidedAt': decidedAt == null ? null : Timestamp.fromDate(decidedAt!),
     'decidedBy': decidedBy,
     'byPhone': byPhone,
   };
 
+  /// The same slice with a decision laid over it.
+  MonthShare withDecision(Map<String, dynamic> m) => MonthShare(
+    partnerId: partnerId,
+    name: name,
+    ratio: ratio,
+    share: share,
+    choice: choice,
+    withdraw: n(m['withdraw']).clamp(0, share),
+    decidedAt: dt(m['decidedAt']),
+    decidedBy: s(m['decidedBy']),
+    byPhone: b(m['byPhone']),
+  );
+
   factory MonthShare.fromMap(Map<String, dynamic> m) {
     final share = n(m['share']);
-    final choice = s(m['choice']).isEmpty ? 'withdraw' : s(m['choice']);
+    // A period closed before decisions were split out carried the whole
+    // answer in one word. A period sealed since carries no answer at all
+    // until its co-founder writes one, and an unanswered share takes nothing.
+    final legacy = m.containsKey('choice');
+    final choice = legacy ? s(m['choice']) : 'reinvest';
     return MonthShare(
       partnerId: s(m['partnerId']),
       name: s(m['name']),
       ratio: d(m['ratio']),
       share: share,
       choice: choice,
-      // A period closed before split decisions existed recorded only the
-      // choice, so read the amount back out of it.
-      withdraw: m['withdraw'] == null
-          ? (choice == 'reinvest' ? 0 : share)
-          : n(m['withdraw']),
-      decidedAt: dt(m['decidedAt']),
+      withdraw: legacy ? (choice == 'reinvest' ? 0 : share) : 0,
+      decidedAt: legacy ? dt(m['decidedAt']) ?? DateTime(2000) : null,
       decidedBy: s(m['decidedBy']),
       byPhone: b(m['byPhone']),
     );
@@ -225,10 +244,27 @@ class FarmMonth {
       expenses: m['expenses'] == null ? null : n(m['expenses']),
       receivables: m['receivables'] == null ? null : n(m['receivables']),
       assets: m['assets'] == null ? null : n(m['assets']),
-      shares: ((m['shares'] as List?) ?? const [])
-          .whereType<Map>()
-          .map((e) => MonthShare.fromMap(e.cast<String, dynamic>()))
-          .toList(),
+      shares: _readShares(m),
     );
   }
+}
+
+/// The frozen slices with each co-founder's own decision laid over them.
+///
+/// Two fields rather than one, because two different people write them and
+/// the database has to be able to tell them apart. The master writes the
+/// slices at the seal; each co-founder writes only their own key under
+/// `decisions`. Nobody can touch anybody else's, and that is enforced by the
+/// rules rather than by the app being polite.
+List<MonthShare> _readShares(Map<String, dynamic> m) {
+  final decisions =
+      (m['decisions'] as Map?)?.cast<String, dynamic>() ?? const {};
+  return ((m['shares'] as List?) ?? const [])
+      .whereType<Map>()
+      .map((e) => MonthShare.fromMap(e.cast<String, dynamic>()))
+      .map((base) {
+        final d = (decisions[base.partnerId] as Map?)?.cast<String, dynamic>();
+        return d == null ? base : base.withDecision(d);
+      })
+      .toList();
 }

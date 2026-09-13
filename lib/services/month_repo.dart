@@ -138,6 +138,7 @@ class MonthRepo {
       'profit': books.profit,
       'profitShared': profitToShare,
       'shares': shares.map((e) => e.toMap()).toList(),
+      'decisions': <String, dynamic>{},
     });
 
     // The next period starts with the cash trading actually left behind. What
@@ -179,24 +180,16 @@ class MonthRepo {
       throw StateError('That period is not out for decisions.');
     }
 
-    // Read the period again inside a transaction: two co-founders deciding at
-    // the same moment would otherwise each write the whole array back and one
-    // of them would lose their answer.
-    await Db.fs.runTransaction((tx) async {
-      final ref = Db.months.doc(period.id);
-      final snap = await tx.get(ref);
-      final fresh = FarmMonth.fromDoc(snap);
-      final mine = fresh.shareFor(partnerId);
-      if (mine == null) throw StateError('No share to decide on.');
+    final mine = period.shareFor(partnerId);
+    if (mine == null) throw StateError('No share to decide on.');
 
-      final updated = [
-        for (final s in fresh.shares)
-          if (s.partnerId == partnerId)
-            s.decide(withdraw: withdraw, by: actor.uid, byPhone: byPhone)
-          else
-            s,
-      ];
-      tx.update(ref, {'shares': updated.map((e) => e.toMap()).toList()});
+    // One key of one map, so two co-founders answering at the same moment
+    // cannot overwrite each other — and so the rules can insist that a
+    // co-founder only ever writes their own.
+    await Db.months.doc(period.id).update({
+      'decisions.$partnerId': mine
+          .decide(withdraw: withdraw, by: actor.uid, byPhone: byPhone)
+          .decisionMap(),
     });
 
     await Log.write(
@@ -294,6 +287,7 @@ class MonthRepo {
       'to': FieldValue.delete(),
       'sealedAt': FieldValue.delete(),
       'shares': <Map<String, dynamic>>[],
+      'decisions': <String, dynamic>{},
     });
 
     await Log.write(
