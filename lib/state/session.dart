@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/db.dart';
 import '../services/log_service.dart';
+import '../services/month_repo.dart';
 import '../services/notif_service.dart';
 import '../services/user_repo.dart';
 
@@ -160,6 +161,10 @@ class Session extends ChangeNotifier {
           signOut();
         } else {
           Notifs.register(appUser);
+          // Anyone who writes to the ledger needs to know which period is
+          // open, so an entry made after a seal lands in the new one rather
+          // than in figures the co-founders are already deciding about.
+          if (appUser.role.canDeliver) MonthRepo.trackBooking();
         }
       },
       onError: (Object e) =>
@@ -178,6 +183,7 @@ class Session extends ChangeNotifier {
 
   Future<void> signOut() async {
     await Notifs.unregister();
+    await MonthRepo.stopTracking();
     await AuthService.signOut();
   }
 

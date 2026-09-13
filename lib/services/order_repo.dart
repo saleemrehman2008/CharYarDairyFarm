@@ -5,6 +5,7 @@ import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
 import 'rider_repo.dart';
+import 'month_repo.dart';
 import 'txn_repo.dart';
 
 class OrderRepo {
@@ -184,7 +185,7 @@ class OrderRepo {
 
     await TxnRepo.add(
       actor: actor,
-      monthId: monthIdOf(now),
+      monthId: MonthRepo.bookingId,
       type: TxnType.sale,
       party: order.customerName,
       customerId: order.customerId,

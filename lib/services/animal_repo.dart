@@ -7,6 +7,7 @@ import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
 import 'photo_store.dart';
+import 'month_repo.dart';
 import 'txn_repo.dart';
 
 /// The cattle register: what the farm owns on four legs.
@@ -102,7 +103,7 @@ class AnimalRepo {
       final on = boughtOn ?? DateTime.now();
       txnId = await TxnRepo.add(
         actor: actor,
-        monthId: monthIdOf(on),
+        monthId: MonthRepo.bookingId,
         type: TxnType.purchase,
         party: name.isEmpty ? tag : '$tag $name',
         // An asset category: the farm owns the animal, it has not spent the
@@ -203,7 +204,7 @@ class AnimalRepo {
     if (status == AnimalStatus.sold && price > 0 && bookSale) {
       txnId = await TxnRepo.add(
         actor: actor,
-        monthId: monthIdOf(date),
+        monthId: MonthRepo.bookingId,
         type: TxnType.sale,
         party: animal.label,
         category: 'Cattle sale',
@@ -287,7 +288,7 @@ class AnimalRepo {
     if (cost > 0 && bookCost) {
       txnId = await TxnRepo.add(
         actor: actor,
-        monthId: monthIdOf(date),
+        monthId: MonthRepo.bookingId,
         type: TxnType.purchase,
         party: animal.label,
         category: 'Vet & medicine',

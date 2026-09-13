@@ -55,6 +55,11 @@ class DeliveryRepo {
       'customerId': account.uid,
       'customerName': account.name,
       'date': Timestamp.fromDate(date),
+      // The customer's month, not the farm's accounting period. Khaata runs
+      // on its own calendar and always has: milk is billed at the end of the
+      // customer's month whatever the partners are doing about profit, and a
+      // household must never get an extra bill because the founders settled
+      // up on the 14th.
       'monthId': monthIdOf(date),
       'litres': litres,
       'rate': account.rate,

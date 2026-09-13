@@ -8,6 +8,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/decision_banner.dart';
 import '../../widgets/ui.dart';
 
 /// What this co-founder has put in and what the farm owes them so far.
@@ -25,6 +26,7 @@ class CofounderHome extends StatelessWidget {
 
     return PageBody(
       children: [
+        const DecisionBanner(),
         RegCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

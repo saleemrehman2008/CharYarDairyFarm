@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
+import 'month_repo.dart';
 import 'txn_repo.dart';
 
 /// The rider's day: milk out, milk delivered, milk sold at the roadside, milk
@@ -98,7 +99,7 @@ class RiderRepo {
 
     await TxnRepo.add(
       actor: actor,
-      monthId: monthIdOf(now),
+      monthId: MonthRepo.bookingId,
       type: TxnType.sale,
       party: 'Spot sale',
       category: 'Milk',

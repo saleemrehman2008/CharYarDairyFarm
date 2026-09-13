@@ -245,6 +245,20 @@ class Db {
       .snapshots()
       .map((d) => d.exists ? FarmMonth.fromDoc(d) : null);
 
+  /// The period whose figures are frozen and out with the co-founders.
+  ///
+  /// There is at most one — the app will not seal a second until the first is
+  /// closed — but the query returns a list so a farm that somehow has two can
+  /// still see both rather than silently showing one.
+  static Stream<List<FarmMonth>> watchSealedMonths() => months
+      .where('status', isEqualTo: 'sealed')
+      .snapshots()
+      .map(
+        (q) =>
+            q.docs.map(FarmMonth.fromDoc).toList()
+              ..sort((a, b) => a.id.compareTo(b.id)),
+      );
+
   static Stream<List<FarmMonth>> watchClosedMonths() => months
       .where('status', isEqualTo: 'closed')
       .snapshots()

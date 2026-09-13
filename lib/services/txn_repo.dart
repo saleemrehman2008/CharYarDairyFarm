@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/models.dart';
 import '../util/money.dart';
 import 'db.dart';
+import 'month_repo.dart';
 import 'log_service.dart';
 
 /// Writes to the ledger. Cloud Functions mirror every change to the
@@ -89,7 +90,7 @@ class TxnRepo {
     final isSale = txn.type == TxnType.sale;
     await add(
       actor: actor,
-      monthId: monthIdOf(now),
+      monthId: MonthRepo.bookingId,
       type: isSale ? TxnType.receipt : TxnType.payment,
       party: txn.party,
       category: isSale ? 'Khaata receipt' : _paymentCategory(txn),

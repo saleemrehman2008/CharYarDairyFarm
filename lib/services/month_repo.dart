@@ -1,19 +1,22 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/models.dart';
 import '../util/money.dart';
 import 'accounting.dart';
-import 'bill_repo.dart';
 import 'db.dart';
 import 'log_service.dart';
 
 class MonthRepo {
   MonthRepo._();
 
-  /// The month the farm is currently booking into: the oldest month still
+  /// The period the farm is currently booking into: the oldest period still
   /// marked open, or today's month if the farm has never closed one.
-  static Stream<FarmMonth> watchOpen() =>
-      Db.months.where('status', isEqualTo: 'open').snapshots().map((q) {
+  static Stream<FarmMonth> watchOpen() => Db.months
+      .where('status', isEqualTo: 'open')
+      .snapshots()
+      .map((q) {
         if (q.docs.isEmpty) {
           return FarmMonth(
             id: monthIdOf(DateTime.now()),
@@ -24,9 +27,50 @@ class MonthRepo {
         final months = q.docs.map(FarmMonth.fromDoc).toList()
           ..sort((a, b) => a.id.compareTo(b.id));
         return months.first;
+      })
+      .map((m) {
+        _bookingId = m.id;
+        return m;
       });
 
-  /// Creates the month document the first time the farm books anything.
+  // ---- Which period a new entry belongs to ----
+
+  static String _bookingId = monthIdOf(DateTime.now());
+  static StreamSubscription<FarmMonth>? _bookingSub;
+
+  /// The period a new entry is booked into — the open one, not the calendar
+  /// month the clock says.
+  ///
+  /// These are usually the same. They part company the moment a period is
+  /// sealed: from then until midnight, the calendar still says September while
+  /// the farm is already trading in the next period, and an entry stamped
+  /// `2026-09` would land in a period whose figures are frozen and already out
+  /// with the co-founders. It would be counted by nobody.
+  ///
+  /// Only the booking changes. The entry's own date is still the day it
+  /// happened, and that is what every screen shows.
+  static String get bookingId => _bookingId;
+
+  /// Keeps [bookingId] in step. Safe to call more than once.
+  ///
+  /// Only for people whose phone is allowed to read the periods — partners and
+  /// the rider. A customer never writes to the ledger, so they never need it.
+  static void trackBooking() {
+    _bookingSub ??= watchOpen().listen(
+      (_) {},
+      onError: (Object _) {
+        // No access, or no connection. The calendar month is a good enough
+        // guess, and it is only ever wrong between a seal and midnight.
+      },
+    );
+  }
+
+  static Future<void> stopTracking() async {
+    await _bookingSub?.cancel();
+    _bookingSub = null;
+  }
+
+  /// Creates the period document the first time the farm books anything.
   static Future<void> ensureOpen(String monthId, {num openingCash = 0}) async {
     final ref = Db.months.doc(monthId);
     final snap = await ref.get();
@@ -34,41 +78,55 @@ class MonthRepo {
     await ref.set({
       'status': 'open',
       'openingCash': openingCash,
+      'from': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  /// Master only. Posts every partner's share, opens the next month with the
-  /// cash that is actually left, and bills every khaata customer for the month.
+  /// Master only. Freezes the period's figures and sends every co-founder
+  /// their share to decide on.
   ///
-  /// Unpaid entries are not touched: they carry forward and stay in AR/AP until
-  /// someone marks them paid.
-  static Future<void> close({
+  /// This is the moment that matters. The figures are written down here and
+  /// never worked out again, so a co-founder who answers two days later is
+  /// answering about the same money as the one who answered in two minutes.
+  /// The next period opens in the same breath, which is what keeps it true:
+  /// milk sold an hour after this is next period's milk, whatever the calendar
+  /// says.
+  ///
+  /// Nothing is paid out and no share is posted. That waits for [close].
+  static Future<void> seal({
     required Actor actor,
-    required FarmMonth month,
+    required FarmMonth period,
     required Books books,
     required List<Partner> partners,
     required bool arIncluded,
-    required Map<String, String> choices,
-    required List<UdhaarAccount> khaataAccounts,
-    required List<Delivery> monthDeliveries,
   }) async {
-    final profitToShare = books.profitToShare(arIncluded: arIncluded);
-    final shares = shareOut(
-      partners: partners,
-      profitToShare: profitToShare,
-      choices: choices,
-    );
+    if (period.isFrozen) return;
 
     final now = DateTime.now();
-    final nextId = nextMonthId(month.id);
+    final profitToShare = books.profitToShare(arIncluded: arIncluded);
+    final ratios = ratiosOf(partners);
+
+    final shares = [
+      for (final p in partners)
+        MonthShare(
+          partnerId: p.id,
+          name: p.name,
+          ratio: ratios[p.id] ?? 0,
+          share: ((ratios[p.id] ?? 0) * profitToShare).round(),
+          choice: 'reinvest',
+        ),
+    ];
+
+    final nextId = nextPeriodId(period.id, now);
     final batch = Db.fs.batch();
 
-    batch.update(Db.months.doc(month.id), {
-      'status': 'closed',
-      'closedAt': Timestamp.fromDate(now),
-      'closedBy': actor.uid,
-      'closedByName': actor.name,
+    batch.update(Db.months.doc(period.id), {
+      'status': 'sealed',
+      'to': Timestamp.fromDate(now),
+      'sealedAt': Timestamp.fromDate(now),
+      'sealedBy': actor.uid,
+      'sealedByName': actor.name,
       'arIncluded': arIncluded,
       'sales': books.sales,
       'purchases': books.purchases,
@@ -82,58 +140,168 @@ class MonthRepo {
       'shares': shares.map((e) => e.toMap()).toList(),
     });
 
-    num withdrawnTotal = 0;
-    for (final share in shares) {
+    // The next period starts with the cash trading actually left behind. What
+    // the partners take out is not deducted here — it leaves the farm when it
+    // is paid, which is after the close, and it is booked then.
+    batch.set(Db.months.doc(nextId), {
+      'status': 'open',
+      'openingCash': books.operatingCash,
+      'from': Timestamp.fromDate(now),
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await batch.commit();
+    _bookingId = nextId;
+
+    await Log.write(
+      actor,
+      LogKind.monthClose,
+      'sealed ${periodLabel(period)} at ${rs(profitToShare)} to share, and '
+      'sent it to ${shares.length} co-founders',
+      refType: 'month',
+      refId: period.id,
+    );
+  }
+
+  /// One co-founder says how much of their share they are taking out. The rest
+  /// goes back into the farm as investment.
+  ///
+  /// The decision is theirs. The master may enter it for them only after
+  /// speaking to them, and then [byPhone] records that it was second hand.
+  static Future<void> decide({
+    required Actor actor,
+    required FarmMonth period,
+    required String partnerId,
+    required num withdraw,
+    bool byPhone = false,
+  }) async {
+    if (!period.isSealed) {
+      throw StateError('That period is not out for decisions.');
+    }
+
+    // Read the period again inside a transaction: two co-founders deciding at
+    // the same moment would otherwise each write the whole array back and one
+    // of them would lose their answer.
+    await Db.fs.runTransaction((tx) async {
+      final ref = Db.months.doc(period.id);
+      final snap = await tx.get(ref);
+      final fresh = FarmMonth.fromDoc(snap);
+      final mine = fresh.shareFor(partnerId);
+      if (mine == null) throw StateError('No share to decide on.');
+
+      final updated = [
+        for (final s in fresh.shares)
+          if (s.partnerId == partnerId)
+            s.decide(withdraw: withdraw, by: actor.uid, byPhone: byPhone)
+          else
+            s,
+      ];
+      tx.update(ref, {'shares': updated.map((e) => e.toMap()).toList()});
+    });
+
+    await Log.write(
+      actor,
+      LogKind.monthClose,
+      byPhone
+          ? 'entered ${rs(withdraw)} withdrawal for a co-founder after '
+                'confirming by phone · ${periodLabel(period)}'
+          : 'chose to take ${rs(withdraw)} out of ${periodLabel(period)}',
+      refType: 'month',
+      refId: period.id,
+    );
+  }
+
+  /// Master only. Posts every co-founder's decision and finishes the period.
+  ///
+  /// Every share must have been decided first, because the money is theirs.
+  /// Unpaid entries are not touched: they carry forward and stay in the
+  /// receivables and payables until someone marks them paid.
+  static Future<void> close({
+    required Actor actor,
+    required FarmMonth period,
+  }) async {
+    if (!period.isSealed) {
+      throw StateError('Seal the period before closing it.');
+    }
+    if (!period.allDecided) {
+      throw StateError('Every co-founder has to decide first.');
+    }
+
+    final now = DateTime.now();
+    final batch = Db.fs.batch();
+
+    batch.update(Db.months.doc(period.id), {
+      'status': 'closed',
+      'closedAt': Timestamp.fromDate(now),
+      'closedBy': actor.uid,
+      'closedByName': actor.name,
+    });
+
+    for (final share in period.shares) {
       final ref = Db.partners.doc(share.partnerId);
-      if (share.isReinvested) {
-        batch.update(ref, {'reinvested': FieldValue.increment(share.share)});
-      } else {
-        batch.update(ref, {'withdrawn': FieldValue.increment(share.share)});
-        withdrawnTotal += share.share;
-        // A withdrawal is real money leaving the farm, so it is a payment row.
+      if (share.reinvest > 0) {
+        batch.update(ref, {
+          'reinvested': FieldValue.increment(share.reinvest),
+        });
+      }
+      if (share.withdraw > 0) {
+        batch.update(ref, {'withdrawn': FieldValue.increment(share.withdraw)});
+        // Real money leaving the farm, so it is a payment row — booked into
+        // the period that is open now, because that is when it leaves.
         batch.set(Db.transactions.doc(), {
           'date': Timestamp.fromDate(now),
-          'monthId': month.id,
+          'monthId': bookingId,
           'type': TxnType.payment.name,
           'party': share.name,
           'category': 'Other payment',
-          'amount': share.share,
+          'amount': share.withdraw,
           'paid': true,
           'paidAt': Timestamp.fromDate(now),
-          'note': 'Profit share – ${share.name} · ${monthShort(month.id)}',
+          'note':
+              'Profit share – ${share.name} · ${periodLabel(period, short: true)}',
           'createdBy': actor.uid,
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
     }
 
-    // The next month opens with what trading left behind, minus what the
-    // partners took out. Their capital is not carried here — the balance adds
-    // it fresh from the partner records every time, so folding it in would
-    // count it again next month.
-    batch.set(Db.months.doc(nextId), {
-      'status': 'open',
-      'openingCash': books.operatingCash - withdrawnTotal,
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
     await batch.commit();
-
-    // Closing the month is also when every khaata customer gets their bill.
-    await BillRepo.raiseAll(
-      actor,
-      monthId: month.id,
-      accounts: khaataAccounts,
-      monthDeliveries: monthDeliveries,
-    );
 
     await Log.write(
       actor,
       LogKind.monthClose,
-      'closed ${monthName(month.id)} and shared ${rs(profitToShare)} '
-      '(${arIncluded ? 'AR counted' : 'AR rolled'})',
+      'closed ${periodLabel(period)}: ${rs(period.totalWithdraw)} taken out, '
+      '${rs(period.totalReinvest)} back into the farm',
       refType: 'month',
-      refId: month.id,
+      refId: period.id,
+    );
+  }
+
+  /// Master only. Puts a sealed period back to open, before anything is paid.
+  ///
+  /// For the case where the master sealed by mistake, or an entry turns out to
+  /// be missing. Everything written since goes on living in the period that
+  /// was opened at the seal — it is not swept backwards — so this undoes the
+  /// freeze, not the trading.
+  static Future<void> unseal({
+    required Actor actor,
+    required FarmMonth period,
+  }) async {
+    if (!period.isSealed) return;
+
+    await Db.months.doc(period.id).update({
+      'status': 'open',
+      'to': FieldValue.delete(),
+      'sealedAt': FieldValue.delete(),
+      'shares': <Map<String, dynamic>>[],
+    });
+
+    await Log.write(
+      actor,
+      LogKind.monthClose,
+      'reopened ${periodLabel(period)} — the figures are being worked out again',
+      refType: 'month',
+      refId: period.id,
     );
   }
 }

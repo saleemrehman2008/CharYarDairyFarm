@@ -39,6 +39,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _closedMonths = v;
         notifyListeners();
       }),
+      Db.watchSealedMonths().listen((v) {
+        _sealed = v.isEmpty ? null : v.first;
+        notifyListeners();
+      }),
       Db.watchPartners().listen((v) {
         _partners = v;
         notifyListeners();
@@ -100,6 +104,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _unpaidTxns = const [];
   List<Txn> _assetTxns = const [];
   List<FarmMonth> _closedMonths = const [];
+  FarmMonth? _sealed;
   List<Partner> _partners = const [];
   List<Product> _products = const [];
   List<FarmOrder> _orders = const [];
@@ -183,6 +188,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   /// Months already closed, newest first — the ledger can be looked back at.
   List<FarmMonth> get closedMonths => _closedMonths;
+
+  /// The period waiting on the co-founders: frozen figures, decisions coming
+  /// in. Null when there is none, which is most of the time.
+  FarmMonth? get sealedPeriod => _sealed;
 
   List<AppUser> get users => _users;
   FarmSettings get settings => _settings;

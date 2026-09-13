@@ -9,6 +9,7 @@ import '../../state/round_data.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/decision_banner.dart';
 import '../../widgets/ui.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/bills_screen.dart';
@@ -43,6 +44,7 @@ class MasterHome extends StatelessWidget {
 
     return PageBody(
       children: [
+        const DecisionBanner(),
         HeroCard(
           label: l.t('Cash in hand'),
           value: rs(books.cash),
@@ -350,8 +352,15 @@ class _PeriodCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           PrimaryButton(
-            label: l.t('Work out shares'),
-            icon: Icons.pie_chart_outline,
+            label: store.sealedPeriod == null
+                ? l.t('Work out shares')
+                : l.t2(
+                    '%s is out for decisions',
+                    periodLabel(store.sealedPeriod!, short: true),
+                  ),
+            icon: store.sealedPeriod == null
+                ? Icons.pie_chart_outline
+                : Icons.how_to_vote_outlined,
             onPressed: store.partners.isEmpty
                 ? null
                 : () => Navigator.push(
