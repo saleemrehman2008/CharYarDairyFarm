@@ -4,10 +4,14 @@ import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
-import 'reg_marks.dart';
 
-/// A transparent hairline-bordered card with registration marks — the single
-/// container every screen is built from.
+/// A white, rounded, softly lifted card — the single container every screen
+/// is built from.
+///
+/// This used to be a transparent box with a hairline border and printer's
+/// registration marks in the corners. On a phone in daylight that reads as one
+/// flat grey sheet with nothing on it to grab, so the card now has its own
+/// surface and sits slightly above the page.
 class RegCard extends StatelessWidget {
   const RegCard({
     super.key,
@@ -35,36 +39,335 @@ class RegCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget card = RegMarks(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: wash,
-          border: stripe == null
-              ? T.hair
-              : Border(
-                  left: BorderSide(color: stripe!, width: 4),
-                  top: BorderSide(color: T.divider, width: T.hairline),
-                  right: BorderSide(color: T.divider, width: T.hairline),
-                  bottom: BorderSide(color: T.divider, width: T.hairline),
-                ),
+    Widget card = DecoratedBox(
+      decoration: BoxDecoration(
+        color: wash ?? Colors.white,
+        borderRadius: T.round,
+        boxShadow: T.shadow,
+      ),
+      child: ClipRRect(
+        borderRadius: T.round,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            splashColor: T.accent100,
+            highlightColor: T.accent100.withValues(alpha: 0.5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The stripe is the card's own edge, so it runs the full
+                // height however tall the row grows.
+                if (stripe != null) Container(width: 4, color: stripe),
+                Expanded(child: Padding(padding: padding, child: child)),
+              ],
+            ),
+          ),
         ),
-        child: Padding(padding: padding, child: child),
       ),
     );
 
     if (dim) card = Opacity(opacity: 0.55, child: card);
-    if (onTap == null) return card;
-
-    return InkWell(
-      onTap: onTap,
-      splashColor: T.accent100,
-      highlightColor: T.accent100.withValues(alpha: 0.5),
-      child: card,
-    );
+    return card;
   }
 }
 
-/// Solid bronze, light text, 48 px tall, registration marks in the corners.
+/// The headline figure on a page: white on the farm's navy-to-blue wash.
+///
+/// Only one of these belongs on a screen — it is the answer to "how are we
+/// doing", and a page with three of them has no answer at all.
+class HeroCard extends StatelessWidget {
+  const HeroCard({
+    super.key,
+    required this.label,
+    required this.value,
+    this.note,
+    this.trailing,
+    this.gradient,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final String? note;
+
+  /// A chip on the same line as the label — "Open", "Sealed", a period name.
+  final Widget? trailing;
+
+  /// Overrides the navy wash, for a page that has taken a filter's colour.
+  final LinearGradient? gradient;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: gradient ?? T.heroWash,
+      borderRadius: T.round,
+      boxShadow: T.shadowLift,
+    ),
+    child: ClipRRect(
+      borderRadius: T.round,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 16, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label.toUpperCase(),
+                        style: T.kicker.copyWith(color: T.accent200),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    ?trailing,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  value,
+                  style: T.num36.copyWith(color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (note != null) ...[
+                  const SizedBox(height: 4),
+                  Text(note!, style: T.meta.copyWith(color: T.accent200)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// A figure in a small card with a coloured top edge — the pair of tiles under
+/// the hero. The edge carries the meaning, so the tiles read at a glance.
+class StatTile extends StatelessWidget {
+  const StatTile({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.tone,
+    this.note,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final Color tone;
+  final String? note;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: T.round,
+      boxShadow: T.shadow,
+    ),
+    child: ClipRRect(
+      borderRadius: T.round,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(height: 3, color: tone),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label.toUpperCase(),
+                      style: T.kicker,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(value, style: T.num26.copyWith(color: tone)),
+                    ),
+                    if (note != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        note!,
+                        style: T.meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// One square in the grid of things a person can go and do: icon in a tinted
+/// rounded square, name underneath.
+class ActionTile extends StatelessWidget {
+  const ActionTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.tone,
+    this.onTap,
+    this.badge = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color tone;
+  final VoidCallback? onTap;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: T.roundSm,
+      boxShadow: T.shadow,
+    ),
+    child: ClipRRect(
+      borderRadius: T.roundSm,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: tone.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(T.radiusXs + 3),
+                      ),
+                      child: Icon(icon, size: 21, color: tone),
+                    ),
+                    if (badge > 0)
+                      Positioned(
+                        right: -5,
+                        top: -4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: T.pending,
+                            borderRadius: BorderRadius.circular(T.pill),
+                          ),
+                          child: Text(
+                            '$badge',
+                            style: T.meta.copyWith(
+                              color: Colors.white,
+                              fontSize: 10,
+                              height: 1.2,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: T.meta.copyWith(
+                    color: T.text,
+                    fontSize: 11.5,
+                    height: 1.2,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Three to a row on a phone, more on a tablet — sized by the tiles rather
+/// than by a fixed count, so nothing stretches across a wide screen.
+class ActionGrid extends StatelessWidget {
+  const ActionGrid({super.key, required this.tiles});
+
+  final List<ActionTile> tiles;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (_, c) {
+      final columns = (c.maxWidth / 118).floor().clamp(3, 6);
+      const gap = 9.0;
+      final side = (c.maxWidth - gap * (columns - 1)) / columns;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final t in tiles) SizedBox(width: side, child: t)],
+      );
+    },
+  );
+}
+
+/// A rupee figure written in the colour of its state: deep when the money has
+/// moved, pale when it is still only owed.
+class Money extends StatelessWidget {
+  const Money(
+    this.amount, {
+    super.key,
+    required this.incoming,
+    required this.settled,
+    this.style,
+  });
+
+  final num amount;
+  final bool incoming;
+  final bool settled;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    rs(amount),
+    style: (style ?? T.bodyMid).copyWith(
+      color: T.money(incoming: incoming, settled: settled),
+      fontWeight: T.moneyWeight(settled),
+    ),
+  );
+}
+
+/// The one action a screen is really for: the logo's blue, rounded, lifted.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -87,14 +390,32 @@ class PrimaryButton extends StatelessWidget {
     return SizedBox(
       height: height,
       width: double.infinity,
-      child: RegMarks(
-        color: enabled ? T.accent200 : T.n400,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: enabled
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [T.accent700, T.accent600],
+                )
+              : null,
+          color: enabled ? null : T.n300,
+          borderRadius: T.roundSm,
+          boxShadow: enabled
+              ? const [
+                  BoxShadow(
+                    color: Color(0x4D2277AF),
+                    blurRadius: 14,
+                    offset: Offset(0, 5),
+                  ),
+                ]
+              : null,
+        ),
         child: Material(
-          color: enabled ? T.accent : T.n400,
-          borderRadius: BorderRadius.circular(T.radius),
+          type: MaterialType.transparency,
           child: InkWell(
             onTap: enabled ? onPressed : null,
-            borderRadius: BorderRadius.circular(T.radius),
+            borderRadius: T.roundSm,
             child: Center(
               child: busy
                   ? const SizedBox(
@@ -156,10 +477,14 @@ class GhostButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: fg,
-          side: BorderSide(color: onPressed == null ? T.n300 : T.divider),
-          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14),
+          backgroundColor: Colors.white,
+          side: BorderSide(
+            color: onPressed == null ? T.n300 : fg.withValues(alpha: 0.45),
+            width: 1.4,
+          ),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16),
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(T.radius)),
+            borderRadius: BorderRadius.all(Radius.circular(T.radiusSm)),
           ),
           textStyle: T.bodyMid,
         ),
@@ -224,15 +549,15 @@ class Tag extends StatelessWidget {
     final (bg, fg) = switch (tone) {
       TagTone.neutral => (T.n200, T.n700),
       TagTone.accent => (T.accent100, T.accent700),
-      TagTone.good => (T.doneWash, T.done),
-      TagTone.warn => (T.accent200, T.accent800),
+      TagTone.good => (T.moneyInWash, T.moneyIn),
+      TagTone.warn => (T.moneyDueWash, T.moneyDue),
       TagTone.bad => (T.pendingWash, T.pending),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(T.radius),
+        borderRadius: BorderRadius.circular(T.pill),
       ),
       child: Text(
         label,
@@ -257,7 +582,7 @@ class Kicker extends StatelessWidget {
       Text(text.toUpperCase(), style: T.kicker);
 }
 
-/// Square-cornered segmented control used for filters and either/or choices.
+/// Rounded segmented control used for filters and either/or choices.
 class Segmented<V> extends StatelessWidget {
   const Segmented({
     super.key,
@@ -265,6 +590,7 @@ class Segmented<V> extends StatelessWidget {
     required this.options,
     required this.onChanged,
     this.compact = false,
+    this.tone,
   });
 
   final V value;
@@ -272,18 +598,26 @@ class Segmented<V> extends StatelessWidget {
   final ValueChanged<V> onChanged;
   final bool compact;
 
+  /// The colour the chosen segment takes. Defaults to the app's blue; a
+  /// filtered page passes its own so the control matches the page.
+  final Color? tone;
+
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(border: T.hair),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(3),
+    decoration: BoxDecoration(
+      color: T.n200,
+      borderRadius: BorderRadius.circular(T.radiusSm),
+    ),
     child: Row(
       children: [
-        for (final (i, option) in options.indexed)
+        for (final option in options)
           Expanded(
             child: _Seg(
               label: option.$2,
               selected: option.$1 == value,
-              first: i == 0,
               compact: compact,
+              tone: tone ?? T.accent,
               onTap: () => onChanged(option.$1),
             ),
           ),
@@ -296,39 +630,51 @@ class _Seg extends StatelessWidget {
   const _Seg({
     required this.label,
     required this.selected,
-    required this.first,
     required this.compact,
+    required this.tone,
     required this.onTap,
   });
 
   final String label;
   final bool selected;
-  final bool first;
   final bool compact;
+  final Color tone;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Container(
-      height: compact ? 36 : T.tap,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: selected ? T.accent : Colors.transparent,
-        border: first
-            ? null
-            : const Border(left: BorderSide(color: T.divider, width: 1)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: T.bodyMid.copyWith(
-            fontSize: compact ? 12 : 13,
-            color: selected ? T.accent100 : T.n700,
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(T.radiusXs),
+      child: Container(
+        height: compact ? 32 : 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? tone : Colors.transparent,
+          borderRadius: BorderRadius.circular(T.radiusXs),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: tone.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: T.bodyMid.copyWith(
+              fontSize: compact ? 12 : 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? Colors.white : T.n700,
+            ),
           ),
         ),
       ),
@@ -351,9 +697,12 @@ class StepBar extends StatelessWidget {
         Expanded(
           child: Container(
             height: 6,
-            // Each segment carries its own depth, so a finished bar is dark
-            // all the way and a new one is barely there.
-            color: i <= step ? T.stage(i, steps: steps) : T.n300,
+            decoration: BoxDecoration(
+              // Each segment carries its own depth, so a finished bar is dark
+              // all the way and a new one is barely there.
+              color: i <= step ? T.stage(i, steps: steps) : T.n300,
+              borderRadius: BorderRadius.circular(T.pill),
+            ),
           ),
         ),
       ],
@@ -369,14 +718,17 @@ class RatioBar extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 6,
-    child: LayoutBuilder(
-      builder: (_, c) => Stack(
-        children: [
-          Container(color: T.n300),
-          Container(width: c.maxWidth * fraction.clamp(0, 1), color: color),
-        ],
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(T.pill),
+    child: SizedBox(
+      height: 7,
+      child: LayoutBuilder(
+        builder: (_, c) => Stack(
+          children: [
+            Container(color: T.n300),
+            Container(width: c.maxWidth * fraction.clamp(0, 1), color: color),
+          ],
+        ),
       ),
     ),
   );
@@ -476,6 +828,83 @@ class Picker<V> extends StatelessWidget {
 }
 
 /// Section heading above a list.
+/// A setting you turn on or off, with room to say what it does.
+///
+/// [why] is shown when the row cannot be used — a switch that is greyed out
+/// with no explanation is just a broken control.
+class SwitchRow extends StatelessWidget {
+  const SwitchRow({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.note,
+    this.why,
+    this.enabled = true,
+  });
+
+  final String title;
+  final String? note;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final String? why;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = enabled && onChanged != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Opacity(
+          opacity: live ? 1 : 0.45,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: T.cardTitle),
+                    if (note != null)
+                      Text(note!, style: T.meta.copyWith(fontSize: 11.5)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Switch(
+                value: value,
+                onChanged: live ? onChanged : null,
+                activeThumbColor: Colors.white,
+                activeTrackColor: T.moneyIn,
+                inactiveThumbColor: Colors.white,
+                inactiveTrackColor: T.n300,
+                trackOutlineColor: const WidgetStatePropertyAll(
+                  Colors.transparent,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!live && why != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: T.moneyDueWash,
+              borderRadius: BorderRadius.circular(T.radiusXs),
+            ),
+            child: Text(
+              why!,
+              style: T.meta.copyWith(color: T.moneyDue, fontSize: 11.5),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.text, {super.key, this.trailing});
 

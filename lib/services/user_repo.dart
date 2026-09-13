@@ -172,6 +172,13 @@ class UserRepo {
     }, SetOptions(merge: true));
   }
 
+  /// The language this person reads the app in. Theirs alone — no other
+  /// account changes with it, and it is not an approval of any kind, so
+  /// anybody may set their own.
+  static Future<void> setLang(String uid, Lang lang) async {
+    await Db.users.doc(uid).set({'lang': lang.id}, SetOptions(merge: true));
+  }
+
   static Future<void> saveFcmToken(String uid, String token) async {
     try {
       await Db.users.doc(uid).set({

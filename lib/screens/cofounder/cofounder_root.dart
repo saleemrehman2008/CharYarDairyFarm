@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../state/farm_store.dart';
 import '../../widgets/app_shell.dart';
 import '../shared/accounts_screen.dart';
@@ -27,57 +28,69 @@ class _CofounderTabs extends StatefulWidget {
 }
 
 class _CofounderTabsState extends State<_CofounderTabs> {
-  int _index = 0;
+  String _tab = 'home';
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
+    final l = L.of(context);
+    final f = store.features;
 
     final tabs = <TabDef>[
-      const TabDef(
-        label: 'Home',
+      TabDef(
+        id: 'home',
+        label: l.t('Home'),
         icon: Icons.cottage_outlined,
-        title: 'Your share',
-        body: CofounderHome(),
+        title: l.t('Your share'),
+        body: const CofounderHome(),
       ),
+      // Approvals covers shop orders and khaata sign-ups. With both switched
+      // off there is nothing that can arrive here, so the tab goes too.
+      if (f.orders || f.khaata)
+        TabDef(
+          id: 'approvals',
+          label: l.t('Approvals'),
+          icon: Icons.check_circle_outline,
+          title: l.t('Approvals'),
+          badge: store.approvalCount,
+          body: const OrdersScreen(showUdhaarRequests: true),
+        ),
       TabDef(
-        label: 'Approvals',
-        icon: Icons.check_circle_outline,
-        title: 'Approvals',
-        badge: store.approvalCount,
-        body: const OrdersScreen(showUdhaarRequests: true),
-      ),
-      const TabDef(
-        label: 'Accounts',
+        id: 'accounts',
+        label: l.t('Accounts'),
         icon: Icons.account_balance_wallet_outlined,
-        title: 'Accounts',
-        body: AccountsScreen(),
-      ),
-      const TabDef(
-        label: 'Co-founders',
-        icon: Icons.groups_outlined,
-        title: 'Co-founders',
-        body: CofoundersScreen(),
+        title: l.t('Accounts'),
+        body: const AccountsScreen(),
       ),
       TabDef(
-        label: 'More',
+        id: 'partners',
+        label: l.t('Co-founders'),
+        icon: Icons.groups_outlined,
+        title: l.t('Co-founders'),
+        body: const CofoundersScreen(),
+      ),
+      TabDef(
+        id: 'more',
+        label: l.t('More'),
         icon: Icons.more_horiz,
-        title: 'More',
-        badge: store.unpaidBills.length,
+        title: l.t('More'),
+        badge: f.khaata ? store.unpaidBills.length : 0,
         body: const MoreScreen(),
       ),
     ];
 
+    final index = tabIndexOf(tabs, _tab);
+
     return FarmScaffold(
-      title: tabs[_index].title,
+      title: tabs[index].title,
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: [for (final t in tabs) t.body],
       ),
       bottomBar: FarmTabBar(
         tabs: tabs,
-        index: _index,
-        onChanged: (i) => setState(() => _index = i),
+        index: index,
+        onChanged: (i) => setState(() => _tab = tabs[i].id),
       ),
     );
   }

@@ -101,16 +101,6 @@ class StaffStore extends ChangeNotifier implements RoundData {
   /// filters on his Orders tab pick from.
   List<FarmOrder> get allOpenOrdersAndDone => _orders;
 
-  /// Everyone on today's round who has not been marked yet.
-  int get roundLeft {
-    final key = Delivery.dayKey(DateTime.now());
-    final done = _deliveries
-        .where((d) => Delivery.dayKey(d.date) == key)
-        .map((d) => d.customerId)
-        .toSet();
-    return khaataCustomers.where((c) => !done.contains(c.uid)).length;
-  }
-
   /// The 11 o'clock sweep: whoever was missed on the last day of the month
   /// still gets billed tonight. Idempotent, so it does not matter that a
   /// partner's phone may be doing the same thing at the same moment.

@@ -42,8 +42,8 @@ abstract final class T {
 
   // ---- Meaning ----
   /// Done, and nothing left to do about it.
-  static const done = Color(0xFF2E7D5B);
-  static const doneWash = Color(0xFFE4F1EA);
+  static const done = Color(0xFF0E8A4F);
+  static const doneWash = Color(0xFFE3F5EB);
 
   /// Still to do. Not an error — just not finished.
   static const pending = Color(0xFF9C3B2C);
@@ -51,6 +51,40 @@ abstract final class T {
 
   /// Something wrong that needs a person: an overdue check, a missing rate.
   static const alert = Color(0xFF8C2F20);
+
+  // ---- Money ----
+  /// Money is read in two grades, and the farm asked for the difference to be
+  /// visible from across the room: what has actually moved is deep and bold,
+  /// what is still only promised is pale and light.
+  ///
+  /// Deep: the rupee changed hands. Pale: it has not, yet.
+  static const moneyIn = done; // received
+  static const moneyInWash = doneWash;
+  static const moneyOut = Color(0xFFC62828); // paid out
+  static const moneyOutWash = Color(0xFFFCE8E8);
+  static const moneyGet = Color(0xFF4A82C2); // receivable — still to come
+  static const moneyGetWash = Color(0xFFEAF1FA);
+  static const moneyDue = Color(0xFFAD7C36); // payable — still to go
+  static const moneyDueWash = Color(0xFFFBF2E4);
+
+  /// The colour a figure should be written in.
+  ///
+  /// [settled] is whether the money has moved. A sale that is paid is deep
+  /// green; the same sale unpaid is pale blue, because the farm does not have
+  /// it yet.
+  static Color money({required bool incoming, required bool settled}) =>
+      incoming
+      ? (settled ? moneyIn : moneyGet)
+      : (settled ? moneyOut : moneyDue);
+
+  static Color moneyWash({required bool incoming, required bool settled}) =>
+      incoming
+      ? (settled ? moneyInWash : moneyGetWash)
+      : (settled ? moneyOutWash : moneyDueWash);
+
+  /// Weight goes with the grade: settled money is stated, unsettled is noted.
+  static FontWeight moneyWeight(bool settled) =>
+      settled ? FontWeight.w600 : FontWeight.w500;
 
   /// How far along something is, in colour: the further it has come, the
   /// deeper the blue. One step of an order, one stage of anything.
@@ -78,11 +112,53 @@ abstract final class T {
   static const partnerColors = [accent700, accent500, accent300, accent800];
 
   // ---- Shape ----
-  /// Square-ish corners: the design uses 0–4 px only.
-  static const radius = 2.0;
+  /// Rounded, and lifted off the page rather than ruled off it.
+  ///
+  /// The first cut of this app drew everything as hairline boxes with square
+  /// corners, which read as one flat grey sheet — the farm's word for it was
+  /// "pheeka". Cards now round and cast a shadow, so a tap target looks like
+  /// an object you could pick up.
+  static const radius = 16.0;
+  static const radiusSm = 12.0;
+  static const radiusXs = 9.0;
+  static const pill = 999.0;
   static const hairline = 1.0;
 
   static Border get hair => Border.all(color: divider, width: hairline);
+
+  static BorderRadius get round => BorderRadius.circular(radius);
+  static BorderRadius get roundSm => BorderRadius.circular(radiusSm);
+
+  /// A card at rest: a hairline of contact plus a soft spread, so it lifts
+  /// without the muddy grey halo a single big blur leaves on a pale page.
+  static const List<BoxShadow> shadow = [
+    BoxShadow(color: Color(0x0F0B2438), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x140B2438), blurRadius: 18, offset: Offset(0, 6)),
+  ];
+
+  /// The one thing on the screen that matters most.
+  static const List<BoxShadow> shadowLift = [
+    BoxShadow(color: Color(0x1A0B2438), blurRadius: 6, offset: Offset(0, 2)),
+    BoxShadow(color: Color(0x2B0B2438), blurRadius: 40, offset: Offset(0, 18)),
+  ];
+
+  /// The navy-to-blue wash behind a headline figure.
+  static const LinearGradient heroWash = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [accent900, accent700, accent600],
+    stops: [0, 0.6, 1],
+  );
+
+  /// The same wash in any hue, for a filtered page that has taken a colour.
+  static LinearGradient washOf(Color c) => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color.lerp(c, const Color(0xFF04101A), 0.62)!,
+      c,
+    ],
+  );
 
   // ---- Spacing ----
   static const gap = 12.0;

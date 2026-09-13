@@ -33,10 +33,12 @@ class Session extends ChangeNotifier {
 
   StreamSubscription<fb.User?>? _authSub;
   StreamSubscription<AppUser?>? _userSub;
+  StreamSubscription<FarmSettings>? _settingsSub;
   Timer? _watchdog;
 
   fb.User? _fbUser;
   AppUser? _user;
+  FarmSettings? _settings;
   bool _loading = true;
   bool _docMissing = false;
   String? _error;
@@ -56,6 +58,23 @@ class Session extends ChangeNotifier {
   /// True while the user document has not been created yet — the first moment
   /// after a brand new sign-in.
   bool get awaitingProfile => signedIn && _user == null && !_docMissing;
+
+  /// The farm's own settings, read once for the whole app.
+  ///
+  /// Every role needs these — a customer to know whether the shop is running,
+  /// a rider to know who he can hand cash to — so they are held here rather
+  /// than in the partners' store, which the other roles never build.
+  FarmSettings get settings => _settings ?? FarmSettings.fallback;
+
+  /// Which parts of the farm are switched on. Master only decides these;
+  /// everybody else lives with the answer.
+  Features get features => settings.features;
+
+  /// True until the settings have been read once. A tab that would otherwise
+  /// appear and then vanish waits on this.
+  bool get settingsLoading => _settings == null;
+
+  Lang get lang => _user?.lang ?? Lang.en;
 
   Role get role => _user?.role ?? Role.customer;
   Actor get actor => Actor(
@@ -93,8 +112,12 @@ class Session extends ChangeNotifier {
     await _userSub?.cancel();
     _userSub = null;
 
+    await _settingsSub?.cancel();
+    _settingsSub = null;
+
     if (u == null) {
       _user = null;
+      _settings = null;
       _docMissing = false;
       _error = null;
       _settle();
@@ -112,6 +135,16 @@ class Session extends ChangeNotifier {
     } catch (_) {
       // Offline first run: the document stream below will pick it up later.
     }
+
+    // Settings never hold up sign-in: a farm whose settings cannot be read
+    // still has an app, it just runs on what it last knew.
+    _settingsSub = Db.watchSettings().listen(
+      (v) {
+        _settings = v;
+        notifyListeners();
+      },
+      onError: (Object _) {},
+    );
 
     _userSub = Db.watchUser(u.uid).listen(
       (appUser) {
@@ -153,6 +186,7 @@ class Session extends ChangeNotifier {
     _watchdog?.cancel();
     _authSub?.cancel();
     _userSub?.cancel();
+    _settingsSub?.cancel();
     super.dispose();
   }
 }

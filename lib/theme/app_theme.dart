@@ -44,7 +44,7 @@ ThemeData buildAppTheme() {
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
-      fillColor: T.n100,
+      fillColor: Colors.white,
       hintStyle: T.body.copyWith(color: T.n500),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       border: _inputBorder(T.divider),
@@ -89,6 +89,6 @@ ThemeData buildAppTheme() {
 }
 
 OutlineInputBorder _inputBorder(Color c) => OutlineInputBorder(
-  borderRadius: const BorderRadius.all(Radius.circular(T.radius)),
+  borderRadius: const BorderRadius.all(Radius.circular(T.radiusSm)),
   borderSide: BorderSide(color: c, width: T.hairline),
 );

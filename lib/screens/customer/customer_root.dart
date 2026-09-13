@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../state/cart.dart';
 import '../../state/customer_store.dart';
 import '../../state/session.dart';
 import '../../widgets/app_shell.dart';
+import '../notice_screen.dart';
 import 'checkout_screen.dart';
 import 'my_orders_screen.dart';
 import 'shop_screen.dart';
@@ -31,55 +33,82 @@ class _CustomerTabs extends StatefulWidget {
 }
 
 class _CustomerTabsState extends State<_CustomerTabs> {
-  int _index = 0;
+  String _tab = 'shop';
 
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<Session>();
     final store = context.watch<CustomerStore>();
     final cart = context.watch<Cart>();
+    final l = L.of(context);
+    final f = session.features;
+
+    // Nothing is being sold yet. Say so rather than show a shop with no
+    // shelves and a khaata with no account.
+    if (!f.anythingForCustomers) {
+      return NoticeScreen(
+        title: l.t('The farm is not taking orders yet'),
+        body: l.t(
+          'Char Yar Dairy Farm has not opened online ordering or monthly '
+          'khaata accounts yet. You will be able to order here as soon as it '
+          'does.',
+        ),
+        secondaryLabel: l.t('Sign out'),
+        onSecondary: session.signOut,
+      );
+    }
 
     final tabs = <TabDef>[
-      TabDef(
-        label: 'Shop',
-        icon: Icons.storefront_outlined,
-        title: 'Shop',
-        body: ShopScreen(onGoToCart: () => setState(() => _index = 1)),
-      ),
-      TabDef(
-        label: 'Cart',
-        icon: Icons.shopping_basket_outlined,
-        title: 'Checkout',
-        badge: cart.lineCount,
-        body: CheckoutScreen(onOrdered: () => setState(() => _index = 2)),
-      ),
-      TabDef(
-        label: 'Orders',
-        icon: Icons.receipt_long_outlined,
-        title: 'My orders',
-        badge: store.openOrderCount,
-        body: const MyOrdersScreen(),
-      ),
-      TabDef(
-        label: 'Khaata',
-        icon: Icons.handshake_outlined,
-        title: 'Khaata',
-        // A bill waiting to be paid puts a mark on the tab, so it is noticed
-        // without having to go looking.
-        badge: store.unpaidBills.length,
-        body: const UdhaarAccountScreen(),
-      ),
+      if (f.orders) ...[
+        TabDef(
+          id: 'shop',
+          label: l.t('Shop'),
+          icon: Icons.storefront_outlined,
+          title: l.t('Shop'),
+          body: ShopScreen(onGoToCart: () => setState(() => _tab = 'cart')),
+        ),
+        TabDef(
+          id: 'cart',
+          label: l.t('Cart'),
+          icon: Icons.shopping_basket_outlined,
+          title: l.t('Checkout'),
+          badge: cart.lineCount,
+          body: CheckoutScreen(onOrdered: () => setState(() => _tab = 'orders')),
+        ),
+        TabDef(
+          id: 'orders',
+          label: l.t('Orders'),
+          icon: Icons.receipt_long_outlined,
+          title: l.t('My orders'),
+          badge: store.openOrderCount,
+          body: const MyOrdersScreen(),
+        ),
+      ],
+      if (f.khaata)
+        TabDef(
+          id: 'khaata',
+          label: l.t('Khaata'),
+          icon: Icons.handshake_outlined,
+          title: l.t('Khaata'),
+          // A bill waiting to be paid puts a mark on the tab, so it is noticed
+          // without having to go looking.
+          badge: store.unpaidBills.length,
+          body: const UdhaarAccountScreen(),
+        ),
     ];
 
+    final index = tabIndexOf(tabs, _tab);
+
     return FarmScaffold(
-      title: tabs[_index].title,
+      title: tabs[index].title,
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: [for (final t in tabs) t.body],
       ),
       bottomBar: FarmTabBar(
         tabs: tabs,
-        index: _index,
-        onChanged: (i) => setState(() => _index = i),
+        index: index,
+        onChanged: (i) => setState(() => _tab = tabs[i].id),
       ),
     );
   }

@@ -7,11 +7,13 @@ import '../services/links.dart';
 import '../services/update_check.dart';
 import '../state/session.dart';
 import '../theme/tokens.dart';
+import '../screens/shared/my_account_screen.dart';
 import 'ui.dart';
 
 /// One tab in the bottom bar.
 class TabDef {
   const TabDef({
+    required this.id,
     required this.label,
     required this.icon,
     required this.title,
@@ -19,11 +21,24 @@ class TabDef {
     this.badge = 0,
   });
 
+  /// What this tab is, regardless of where it sits.
+  ///
+  /// The master can switch whole parts of the farm off, so the bar is not a
+  /// fixed list any more and position numbers cannot be trusted. Code that
+  /// sends someone to another tab names it.
+  final String id;
+
   final String label;
   final IconData icon;
   final String title;
   final Widget body;
   final int badge;
+}
+
+/// Where [id] sits in [tabs] right now, or 0 if it is switched off.
+int tabIndexOf(List<TabDef> tabs, String id) {
+  final i = tabs.indexWhere((t) => t.id == id);
+  return i < 0 ? 0 : i;
 }
 
 /// The chrome every screen sits in: logo or back arrow, title and role line,
@@ -51,16 +66,33 @@ class FarmScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: T.bg,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            _TopBar(title: title, showBack: showBack, user: user),
-            const Divider(),
-            const UpdateBanner(),
-            Expanded(child: body),
-          ],
-        ),
+      body: Column(
+        children: [
+          // The bar keeps its own white ground running up under the status
+          // bar, so the page reads as one sheet rather than a strip on grey.
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x0F0B2438),
+                  blurRadius: 12,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  _TopBar(title: title, showBack: showBack, user: user),
+                  const UpdateBanner(),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: body),
+        ],
       ),
       bottomNavigationBar: bottomBar,
       floatingActionButton: floating,
@@ -115,17 +147,43 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           if (user != null && user!.role.isPartner) const _SheetsTag(),
-          const SizedBox(width: 6),
-          TextButton(
-            onPressed: session.signOut,
-            style: TextButton.styleFrom(
-              foregroundColor: T.n700,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              minimumSize: const Size(0, T.tap),
-              textStyle: T.meta,
+          const SizedBox(width: 4),
+          // Everybody reaches their own language and the way out from here,
+          // including a customer, whose app has no More tab to put it in.
+          if (user != null)
+            IconButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyAccountScreen()),
+              ),
+              icon: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: T.accent100,
+                  borderRadius: BorderRadius.circular(T.radiusXs),
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  size: 18,
+                  color: T.accent700,
+                ),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              tooltip: 'My account',
+            )
+          else
+            TextButton(
+              onPressed: session.signOut,
+              style: TextButton.styleFrom(
+                foregroundColor: T.n700,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, T.tap),
+                textStyle: T.meta,
+              ),
+              child: const Text('Sign out'),
             ),
-            child: const Text('Sign out'),
-          ),
         ],
       ),
     );
@@ -171,11 +229,13 @@ class _SheetsTag extends StatelessWidget {
   const _SheetsTag();
 
   @override
-  Widget build(BuildContext context) => StreamBuilder<FarmSettings>(
-    stream: Db.watchSettings(),
-    builder: (context, snap) {
-      final settings = snap.data;
-      if (settings == null) return const SizedBox.shrink();
+  Widget build(BuildContext context) => Builder(
+    builder: (context) {
+      // Reads the settings the session already holds. This used to open a
+      // second Firestore listener on the same document from every screen.
+      final session = context.watch<Session>();
+      if (session.settingsLoading) return const SizedBox.shrink();
+      final settings = session.settings;
 
       if (settings.sheetId.isEmpty) {
         return const Tag('Sheets off', tone: TagTone.neutral);
@@ -252,7 +312,8 @@ class _UpdateBannerState extends State<UpdateBanner> {
   }
 }
 
-/// Bottom tab bar: 11 px labels, thin icons, badge count in an accent square.
+/// Bottom tab bar. The tab you are on sits in a tinted rounded pill, so which
+/// page is open reads without having to compare five icons' shades of grey.
 class FarmTabBar extends StatelessWidget {
   const FarmTabBar({
     super.key,
@@ -268,65 +329,95 @@ class FarmTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: const BoxDecoration(
-      color: T.bg,
-      border: Border(top: BorderSide(color: T.divider, width: 1)),
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(color: Color(0x140B2438), blurRadius: 16, offset: Offset(0, -3)),
+      ],
     ),
     child: SafeArea(
       top: false,
-      child: Row(
-        children: [
-          for (final (i, tab) in tabs.indexed)
-            Expanded(
-              child: InkWell(
-                onTap: () => onChanged(i),
-                child: SizedBox(
-                  height: 58,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          children: [
+            for (final (i, tab) in tabs.indexed)
+              Expanded(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: () => onChanged(i),
+                    borderRadius: BorderRadius.circular(T.radiusSm),
+                    child: SizedBox(
+                      height: 52,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            tab.icon,
-                            size: 20,
-                            color: i == index ? T.accent : T.n600,
-                          ),
-                          if (tab.badge > 0)
-                            Positioned(
-                              right: -8,
-                              top: -6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 3,
-                                  vertical: 1,
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 160),
+                                width: 40,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: i == index
+                                      ? T.accent100
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(T.radiusXs),
                                 ),
-                                color: T.accent,
-                                child: Text(
-                                  '${tab.badge}',
-                                  style: T.meta.copyWith(
-                                    color: T.accent100,
-                                    fontSize: 10,
-                                    height: 1.1,
-                                  ),
+                                child: Icon(
+                                  tab.icon,
+                                  size: 20,
+                                  color: i == index ? T.accent : T.n500,
                                 ),
                               ),
+                              if (tab.badge > 0)
+                                Positioned(
+                                  right: -2,
+                                  top: -3,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: T.pending,
+                                      borderRadius: BorderRadius.circular(T.pill),
+                                    ),
+                                    child: Text(
+                                      '${tab.badge}',
+                                      style: T.meta.copyWith(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            tab.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: T.tabLabel.copyWith(
+                              color: i == index ? T.accent : T.n500,
+                              fontWeight: i == index
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                             ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        tab.label,
-                        style: T.tabLabel.copyWith(
-                          color: i == index ? T.accent : T.n600,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     ),
   );

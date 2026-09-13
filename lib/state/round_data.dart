@@ -42,6 +42,16 @@ extension RoundOrders on RoundData {
       .where((o) => !o.isApproved && o.dueOn(dayKey) && !o.deliveredOn(dayKey))
       .toList();
 
+  /// Everyone on today's round who has not been marked yet.
+  int get roundLeft {
+    final key = Delivery.dayKey(DateTime.now());
+    final done = monthDeliveries
+        .where((d) => Delivery.dayKey(d.date) == key)
+        .map((d) => d.customerId)
+        .toSet();
+    return khaataCustomers.where((c) => !done.contains(c.uid)).length;
+  }
+
   /// Approved orders for days still to come.
   List<FarmOrder> laterThan(String dayKey) => roundOrders
       .where((o) => o.daysLeft.any((d) => d.compareTo(dayKey) > 0))

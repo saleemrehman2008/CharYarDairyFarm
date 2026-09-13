@@ -47,6 +47,24 @@ enum UserStatus {
   };
 }
 
+/// The two ways the app can be read.
+///
+/// Both are written in the same alphabet — Roman Urdu is Urdu spelled with
+/// English letters, the way the farm already writes on WhatsApp. That keeps
+/// one font, one direction and one set of numerals, so switching costs the
+/// app nothing.
+enum Lang {
+  en('en', 'English'),
+  ur('ur', 'Roman Urdu');
+
+  const Lang(this.id, this.label);
+
+  final String id;
+  final String label;
+
+  static Lang parse(Object? v) => s(v) == 'ur' ? Lang.ur : Lang.en;
+}
+
 class AppUser {
   AppUser({
     required this.uid,
@@ -58,6 +76,7 @@ class AppUser {
     required this.address,
     required this.mobile,
     this.partnerId,
+    required this.lang,
     required this.createdAt,
   });
 
@@ -74,6 +93,11 @@ class AppUser {
   final String mobile;
 
   final String? partnerId;
+
+  /// Each person reads the app in their own language; it is their setting,
+  /// not the farm's.
+  final Lang lang;
+
   final DateTime createdAt;
 
   bool get canOrder => status == UserStatus.active;
@@ -97,6 +121,7 @@ class AppUser {
       address: s(m['address']),
       mobile: s(m['mobile']),
       partnerId: m['partnerId'] == null ? null : s(m['partnerId']),
+      lang: Lang.parse(m['lang']),
       createdAt: dtOr(m['createdAt']),
     );
   }

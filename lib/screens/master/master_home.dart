@@ -1,18 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
+import '../../models/models.dart';
 import '../../services/accounting.dart';
 import '../../state/farm_store.dart';
+import '../../state/round_data.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
 import '../shared/accounts_screen.dart';
+import '../shared/bills_screen.dart';
+import '../shared/deliveries_screen.dart';
+import '../shared/new_entry_screen.dart';
+import '../shared/products_screen.dart';
+import 'activity_log_screen.dart';
+import 'cattle_screen.dart';
 import 'close_month_screen.dart';
+import 'handovers_screen.dart';
 import 'udhaar_registrations_screen.dart';
 import 'users_screen.dart';
 
-typedef GoTab = void Function(int index, {AccountsFilter? accountsFilter});
+/// Sends the person to another tab by name.
+///
+/// By name rather than by number because the bottom bar is no longer a fixed
+/// list — the master can switch parts of the farm off, and Orders may simply
+/// not be there.
+typedef GoTab = void Function(String tabId, {AccountsFilter? accountsFilter});
 
 class MasterHome extends StatelessWidget {
   const MasterHome({super.key, required this.onGo});
@@ -22,60 +37,48 @@ class MasterHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
+    final l = L.of(context);
+    final f = store.features;
     final books = store.books;
 
     return PageBody(
       children: [
-        // ---- Current balance ----
-        RegCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Kicker(
-                      'Current balance · ${monthName(store.month.id)}',
-                    ),
-                  ),
-                  const Tag('Open', tone: TagTone.accent),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(rs(books.cash), style: T.num36),
-              const SizedBox(height: 6),
-              Text(
-                'Cash the farm has in hand right now. The breakdown is below.',
-                style: T.meta,
-              ),
-            ],
-          ),
+        HeroCard(
+          label: l.t('Cash in hand'),
+          value: rs(books.cash),
+          note: books.withRider > 0
+              ? l.t2('%s is still with the rider', rs(books.withRider))
+              : l.t('Everything the farm can spend today.'),
+          trailing: Tag(monthShort(store.month.id), tone: TagTone.accent),
         ),
         const SizedBox(height: T.gap),
 
-        // ---- Where the money is ----
-        _MoneyCard(money: store.money),
-        const SizedBox(height: T.gap),
-
-        // ---- KPI grid ----
+        // Two pairs of tiles: what the period has done, and what is still
+        // owed either way. Colour carries the meaning — deep for money that
+        // has moved, pale for money that has not.
         Row(
           children: [
             Expanded(
-              child: _Kpi(
-                label: 'Sales MTD',
+              child: StatTile(
+                label: l.t('Sales'),
                 value: rs(books.sales),
-                onTap: () => onGo(2, accountsFilter: AccountsFilter.sales),
+                tone: T.moneyIn,
+                note: monthShort(store.month.id),
+                onTap: () =>
+                    onGo('accounts', accountsFilter: AccountsFilter.sales),
               ),
             ),
             const SizedBox(width: T.gap),
             Expanded(
-              child: _Kpi(
-                label: 'Running costs',
+              child: StatTile(
+                label: l.t('Running costs'),
                 value: rs(books.costs),
+                tone: T.moneyOut,
                 note: books.assetsBought > 0
-                    ? '+ ${rs(books.assetsBought)} assets'
-                    : 'feed, salaries, bills',
-                onTap: () => onGo(2, accountsFilter: AccountsFilter.expenses),
+                    ? l.t2('+ %s assets', rs(books.assetsBought))
+                    : l.t('feed, salaries, bills'),
+                onTap: () =>
+                    onGo('accounts', accountsFilter: AccountsFilter.expenses),
               ),
             ),
           ],
@@ -84,127 +87,165 @@ class MasterHome extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _Kpi(
-                label: 'Accounts receivable',
+              child: StatTile(
+                label: l.t('To receive'),
                 value: rs(books.receivable),
-                note: '${store.receivablesDue.length} unpaid sales',
-                onTap: () => onGo(2, accountsFilter: AccountsFilter.receivable),
+                tone: T.moneyGet,
+                note: l.t2('%s unpaid', store.receivablesDue.length),
+                onTap: () =>
+                    onGo('accounts', accountsFilter: AccountsFilter.receivable),
               ),
             ),
             const SizedBox(width: T.gap),
             Expanded(
-              child: _Kpi(
-                label: 'Accounts payable',
+              child: StatTile(
+                label: l.t('To pay'),
                 value: rs(books.payable),
-                note: '${store.payablesDue.length} unpaid bills',
-                onTap: () => onGo(2, accountsFilter: AccountsFilter.payable),
+                tone: T.moneyDue,
+                note: l.t2('%s bills', store.payablesDue.length),
+                onTap: () =>
+                    onGo('accounts', accountsFilter: AccountsFilter.payable),
               ),
             ),
           ],
         ),
-        const SizedBox(height: T.gap),
+        const SizedBox(height: 20),
 
-        // ---- Month to date ----
-        RegCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Kicker('${monthShort(store.month.id)} — earned, not held'),
-              const SizedBox(height: 8),
-              Text(rs(books.profit), style: T.num28),
-              const SizedBox(height: 4),
-              Text(
-                'Sales ${rs(books.sales)} − Running costs ${rs(books.costs)}',
-                style: T.meta,
-              ),
-              if (books.assetsBought > 0) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '${rs(books.assetsBought)} of cattle & equipment bought this '
-                  'month is not counted here — the farm still owns it.',
-                  style: T.meta,
-                ),
-              ],
-              if (books.profit < 0) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'This month has spent more than it has sold. That is not '
-                  'money lost — the farm still holds ${rs(books.cash)} in cash. '
-                  'It is normal while stocking up: feed is bought in one go and '
-                  'eaten over months, while milk sells a little each day.',
-                  style: T.meta.copyWith(color: T.accent700),
-                ),
-              ],
-              const SizedBox(height: 10),
-              RatioBar(fraction: books.profitBar),
-              const SizedBox(height: 14),
-              PrimaryButton(
-                label: 'Close ${monthShort(store.month.id)} & share profit',
-                onPressed: store.partners.isEmpty
-                    ? null
-                    : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChangeNotifierProvider.value(
-                            value: store,
-                            child: const CloseMonthScreen(),
-                          ),
-                        ),
-                      ),
-              ),
-              if (store.partners.isEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Add co-founders before closing a month — there is nobody to '
-                  'share the profit with yet.',
-                  style: T.meta,
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 22),
+        SectionTitle(l.t('Do')),
+        const SizedBox(height: 4),
+        ActionGrid(tiles: _actions(context, store, l, f)),
+        const SizedBox(height: 20),
 
-        // ---- Needs attention ----
-        const SectionTitle('Needs attention'),
-        ..._attention(context, store),
+        _PeriodCard(store: store),
+        const SizedBox(height: 20),
+
+        _MoneyCard(money: store.money),
+        const SizedBox(height: 20),
+
+        SectionTitle(l.t('Needs attention')),
+        const SizedBox(height: 4),
+        ..._attention(context, store, l, f),
       ],
     );
   }
 
-  List<Widget> _attention(BuildContext context, FarmStore store) {
+  List<ActionTile> _actions(
+    BuildContext context,
+    FarmStore store,
+    L l,
+    Features f,
+  ) => [
+    ActionTile(
+      icon: Icons.add,
+      label: l.t('New entry'),
+      tone: T.accent600,
+      onTap: () => _push(context, store, const NewEntryScreen()),
+    ),
+    if (f.rider)
+      ActionTile(
+        icon: Icons.local_shipping_outlined,
+        label: l.t('Round'),
+        tone: T.moneyIn,
+        badge: store.roundLeft,
+        onTap: () => _push(context, store, const DeliveriesScreen()),
+      ),
+    if (f.khaata)
+      ActionTile(
+        icon: Icons.receipt_outlined,
+        label: l.t('Khaata bills'),
+        tone: T.moneyGet,
+        badge: store.unpaidBills.length,
+        onTap: () => _push(context, store, const BillsScreen()),
+      ),
+    if (f.khaata)
+      ActionTile(
+        icon: Icons.handshake_outlined,
+        label: l.t('Khaata sign-ups'),
+        tone: T.moneyDue,
+        badge: store.pendingUdhaar.length,
+        onTap: () => _push(context, store, const UdhaarRegistrationsScreen()),
+      ),
+    if (f.rider)
+      ActionTile(
+        icon: Icons.account_balance_wallet_outlined,
+        label: l.t('Handover'),
+        tone: T.accent700,
+        badge: store.handoversWaiting.length,
+        onTap: () => _push(context, store, const HandoversScreen()),
+      ),
+    if (f.cattle)
+      ActionTile(
+        icon: Icons.pets_outlined,
+        label: l.t('Cattle'),
+        tone: const Color(0xFF6544B0),
+        badge: store.dueChecks.length,
+        onTap: () => _push(context, store, const CattleScreen()),
+      ),
+    ActionTile(
+      icon: Icons.sell_outlined,
+      label: l.t('Rates'),
+      tone: T.accent500,
+      onTap: () =>
+          _push(context, store, const ProductsScreen(asSubScreen: true)),
+    ),
+    ActionTile(
+      icon: Icons.manage_accounts_outlined,
+      label: l.t('Users'),
+      tone: T.n600,
+      badge: store.pendingUsers.length,
+      onTap: () => _push(context, store, const UsersScreen()),
+    ),
+    ActionTile(
+      icon: Icons.history,
+      label: l.t('Activity log'),
+      tone: T.moneyDue,
+      onTap: () => _push(context, store, const ActivityLogScreen()),
+    ),
+  ];
+
+  List<Widget> _attention(
+    BuildContext context,
+    FarmStore store,
+    L l,
+    Features f,
+  ) {
     final rows = <Widget>[];
 
-    for (final o in store.pendingOrders) {
-      rows.add(
-        _AttentionRow(
-          tag: 'Order',
-          tone: TagTone.warn,
-          text: '#${o.number} · ${o.customerName} · ${rs(o.total)}',
-          meta: o.itemsText,
-          onTap: () => onGo(1),
-        ),
-      );
+    if (f.orders) {
+      for (final o in store.pendingOrders) {
+        rows.add(
+          _AttentionRow(
+            tag: l.t('Order'),
+            tone: TagTone.warn,
+            text: '#${o.number} · ${o.customerName} · ${rs(o.total)}',
+            meta: o.itemsText,
+            onTap: () => onGo('orders'),
+          ),
+        );
+      }
     }
-    for (final u in store.pendingUdhaar) {
-      rows.add(
-        _AttentionRow(
-          tag: 'Khaata',
-          tone: TagTone.warn,
-          text: '${u.name} wants a monthly account',
-          meta:
-              '${qty(u.litresPerDay)} L/day · about '
-              '${rs(u.monthlyEstimate)} a month',
-          onTap: () => _push(context, store, const UdhaarRegistrationsScreen()),
-        ),
-      );
+    if (f.khaata) {
+      for (final u in store.pendingUdhaar) {
+        rows.add(
+          _AttentionRow(
+            tag: l.t('Khaata'),
+            tone: TagTone.warn,
+            text: l.t2('%s wants a monthly account', u.name),
+            meta:
+                '${qty(u.litresPerDay)} L/day · ${rs(u.monthlyEstimate)} '
+                '${l.t('a month')}',
+            onTap: () =>
+                _push(context, store, const UdhaarRegistrationsScreen()),
+          ),
+        );
+      }
     }
     for (final u in store.pendingUsers) {
       rows.add(
         _AttentionRow(
-          tag: 'User',
+          tag: l.t('User'),
           tone: TagTone.neutral,
-          text: '${u.name} signed up',
+          text: l.t2('%s signed up', u.name),
           meta: u.email,
           onTap: () => _push(context, store, const UsersScreen()),
         ),
@@ -213,17 +254,18 @@ class MasterHome extends StatelessWidget {
     for (final t in store.payablesDue) {
       rows.add(
         _AttentionRow(
-          tag: 'Payable',
+          tag: l.t('To pay'),
           tone: TagTone.bad,
           text: '${t.party} · ${rs(t.amount)}',
-          meta: '${t.category} · booked ${fmtDate(t.date)}',
-          onTap: () => onGo(2, accountsFilter: AccountsFilter.payable),
+          meta: '${t.category} · ${fmtDate(t.date)}',
+          onTap: () =>
+              onGo('accounts', accountsFilter: AccountsFilter.payable),
         ),
       );
     }
 
     if (rows.isEmpty) {
-      return const [EmptyNote('Nothing waiting. The farm is up to date.')];
+      return [EmptyNote(l.t('Nothing waiting. The farm is up to date.'))];
     }
     return rows;
   }
@@ -232,41 +274,110 @@ class MasterHome extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              ChangeNotifierProvider.value(value: store, child: screen),
+          builder: (_) => MultiProvider(
+            providers: [
+              ChangeNotifierProvider<FarmStore>.value(value: store),
+              ChangeNotifierProvider<RoundData>.value(value: store),
+            ],
+            child: screen,
+          ),
         ),
       );
 }
 
-class _Kpi extends StatelessWidget {
-  const _Kpi({required this.label, required this.value, this.note, this.onTap});
+/// What the open period has earned, and the way out of it.
+class _PeriodCard extends StatelessWidget {
+  const _PeriodCard({required this.store});
 
-  final String label;
-  final String value;
-  final String? note;
-  final VoidCallback? onTap;
+  final FarmStore store;
 
   @override
-  Widget build(BuildContext context) => RegCard(
-    onTap: onTap,
-    padding: const EdgeInsets.all(13),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(height: 28, child: Kicker(label)),
-        const SizedBox(height: 4),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(value, style: T.num22),
-        ),
-        if (note != null) ...[
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final books = store.books;
+
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Kicker(l.t('Earned, not held'))),
+              Tag(monthName(store.month.id), tone: TagTone.accent),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            rs(books.profit),
+            style: T.num28.copyWith(
+              color: books.profit < 0 ? T.moneyOut : T.moneyIn,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(note!, style: T.meta.copyWith(fontSize: 11)),
+          Text(
+            '${l.t('Sales')} ${rs(books.sales)} − ${l.t('costs')} '
+            '${rs(books.costs)}',
+            style: T.meta,
+          ),
+          if (books.assetsBought > 0) ...[
+            const SizedBox(height: 2),
+            Text(
+              l.t2(
+                '%s of cattle & equipment bought is not counted here — the '
+                'farm still owns it.',
+                rs(books.assetsBought),
+              ),
+              style: T.meta,
+            ),
+          ],
+          if (books.profit < 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              l.t2(
+                'This period has spent more than it has sold. That is not '
+                'money lost — the farm still holds %s in cash. It is normal '
+                'while stocking up: feed is bought in one go and eaten over '
+                'months, while milk sells a little each day.',
+                rs(books.cash),
+              ),
+              style: T.meta.copyWith(color: T.accent700),
+            ),
+          ],
+          const SizedBox(height: 12),
+          RatioBar(
+            fraction: books.profitBar,
+            color: books.profit < 0 ? T.moneyOut : T.moneyIn,
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            label: l.t('Work out shares'),
+            icon: Icons.pie_chart_outline,
+            onPressed: store.partners.isEmpty
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChangeNotifierProvider.value(
+                        value: store,
+                        child: const CloseMonthScreen(),
+                      ),
+                    ),
+                  ),
+          ),
+          if (store.partners.isEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              l.t(
+                'Add co-founders before closing a period — there is nobody to '
+                'share the profit with yet.',
+              ),
+              style: T.meta,
+            ),
+          ],
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 /// The whole route the farm's money has taken, laid out so the closing figure
@@ -277,53 +388,80 @@ class _MoneyCard extends StatelessWidget {
   final MoneySummary money;
 
   @override
-  Widget build(BuildContext context) => RegCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Kicker('Where the money is'),
-        const SizedBox(height: 12),
-        _MoneyLine(label: 'Co-founders put in', value: money.capital),
-        _MoneyLine(
-          label: 'Cattle & equipment bought',
-          value: -money.assets,
-          note: 'the farm still owns these',
-        ),
-        _MoneyLine(
-          label: 'Running costs so far',
-          value: -money.runningCosts,
-          note: 'feed, salaries, bills',
-        ),
-        _MoneyLine(label: 'Sales so far', value: money.sales),
-        const Divider(height: 20),
-        _MoneyLine(label: 'Cash in hand', value: money.cash, strong: true),
-        if (money.receivable > 0)
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(l.t('Where the money is')),
+          const SizedBox(height: 12),
           _MoneyLine(
-            label: 'Still to collect',
-            value: money.receivable,
-            note: 'khaata not collected yet',
+            label: l.t('Co-founders put in'),
+            value: money.capital,
+            tone: T.moneyIn,
           ),
-        if (money.payable > 0)
           _MoneyLine(
-            label: 'Still to pay',
-            value: -money.payable,
-            note: 'bills not paid yet',
+            label: l.t('Cattle & equipment bought'),
+            value: -money.assets,
+            note: l.t('the farm still owns these'),
+            tone: T.moneyOut,
           ),
-      ],
-    ),
-  );
+          _MoneyLine(
+            label: l.t('Running costs so far'),
+            value: -money.runningCosts,
+            note: l.t('feed, salaries, bills'),
+            tone: T.moneyOut,
+          ),
+          _MoneyLine(
+            label: l.t('Sales so far'),
+            value: money.sales,
+            tone: T.moneyIn,
+          ),
+          const Divider(height: 20),
+          _MoneyLine(
+            label: l.t('Cash in hand'),
+            value: money.cash,
+            strong: true,
+            tone: T.text,
+          ),
+          if (money.withRider > 0)
+            _MoneyLine(
+              label: l.t('With the rider'),
+              value: money.withRider,
+              note: l.t('taken at doors, not handed in yet'),
+              tone: T.moneyGet,
+            ),
+          if (money.receivable > 0)
+            _MoneyLine(
+              label: l.t('Still to collect'),
+              value: money.receivable,
+              tone: T.moneyGet,
+            ),
+          if (money.payable > 0)
+            _MoneyLine(
+              label: l.t('Still to pay'),
+              value: -money.payable,
+              tone: T.moneyDue,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MoneyLine extends StatelessWidget {
   const _MoneyLine({
     required this.label,
     required this.value,
+    required this.tone,
     this.note,
     this.strong = false,
   });
 
   final String label;
   final num value;
+  final Color tone;
   final String? note;
   final bool strong;
 
@@ -346,7 +484,7 @@ class _MoneyLine extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           value < 0 ? '− ${rs(value.abs())}' : rs(value),
-          style: strong ? T.num22 : T.bodyMid,
+          style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
         ),
       ],
     ),
@@ -369,17 +507,15 @@ class _AttentionRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 11),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: T.divider, width: 1)),
-      ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 9),
+    child: RegCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       child: Row(
         children: [
-          SizedBox(width: 66, child: Tag(tag, tone: tone)),
-          const SizedBox(width: 8),
+          Tag(tag, tone: tone),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

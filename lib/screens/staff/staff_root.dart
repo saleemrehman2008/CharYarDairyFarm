@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../state/round_data.dart';
 import '../../state/staff_store.dart';
 import '../../widgets/app_shell.dart';
+import '../../state/session.dart';
+import '../notice_screen.dart';
 import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
 import 'staff_orders_screen.dart';
@@ -37,52 +40,79 @@ class _StaffTabs extends StatefulWidget {
 }
 
 class _StaffTabsState extends State<_StaffTabs> {
-  int _index = 0;
+  String _tab = 'round';
 
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<Session>();
     final store = context.watch<StaffStore>();
+    final l = L.of(context);
+    final f = session.features;
+
+    // The round is switched off at the farm — no orders, no khaata, nothing
+    // to load. Tell the rider that instead of showing him four empty tabs.
+    if (!f.rider) {
+      return NoticeScreen(
+        title: l.t('No round today'),
+        body: l.t(
+          'The farm has deliveries switched off at the moment, so there is '
+          'nothing to take out. This screen will fill up again as soon as the '
+          'master switches them back on.',
+        ),
+        secondaryLabel: l.t('Sign out'),
+        onSecondary: session.signOut,
+      );
+    }
 
     final tabs = <TabDef>[
+      if (f.khaata)
+        TabDef(
+          id: 'round',
+          label: l.t('Round'),
+          icon: Icons.local_shipping_outlined,
+          title: l.t('Daily round'),
+          badge: store.roundLeft,
+          body: const DeliveriesScreen(asTab: true),
+        ),
+      if (f.orders)
+        TabDef(
+          id: 'orders',
+          label: l.t('Orders'),
+          icon: Icons.receipt_long_outlined,
+          title: l.t('Orders to deliver'),
+          badge: store.openOrders.length,
+          body: const StaffOrdersScreen(),
+        ),
       TabDef(
-        label: 'Round',
-        icon: Icons.local_shipping_outlined,
-        title: 'Daily round',
-        badge: store.roundLeft,
-        body: const DeliveriesScreen(asTab: true),
-      ),
-      TabDef(
-        label: 'Orders',
-        icon: Icons.receipt_long_outlined,
-        title: 'Orders to deliver',
-        badge: store.openOrders.length,
-        body: const StaffOrdersScreen(),
-      ),
-      TabDef(
-        label: 'My day',
+        id: 'day',
+        label: l.t('My day'),
         icon: Icons.inventory_2_outlined,
-        title: 'My day',
+        title: l.t('My day'),
         body: const RiderDayScreen(),
       ),
-      TabDef(
-        label: 'Collect',
-        icon: Icons.payments_outlined,
-        title: 'Money to collect',
-        badge: store.unpaidBills.length,
-        body: const BillsScreen(asTab: true),
-      ),
+      if (f.khaata)
+        TabDef(
+          id: 'collect',
+          label: l.t('Collect'),
+          icon: Icons.payments_outlined,
+          title: l.t('Money to collect'),
+          badge: store.unpaidBills.length,
+          body: const BillsScreen(asTab: true),
+        ),
     ];
 
+    final index = tabIndexOf(tabs, _tab);
+
     return FarmScaffold(
-      title: tabs[_index].title,
+      title: tabs[index].title,
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: [for (final t in tabs) t.body],
       ),
       bottomBar: FarmTabBar(
         tabs: tabs,
-        index: _index,
-        onChanged: (i) => setState(() => _index = i),
+        index: index,
+        onChanged: (i) => setState(() => _tab = tabs[i].id),
       ),
     );
   }

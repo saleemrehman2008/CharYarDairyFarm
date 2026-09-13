@@ -187,6 +187,9 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<AppUser> get users => _users;
   FarmSettings get settings => _settings;
 
+  /// Which parts of the farm the master has switched on.
+  Features get features => _settings.features;
+
   Books get books => Books(
     monthId: month.id,
     openingCash: month.openingCash,
