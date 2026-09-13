@@ -267,8 +267,7 @@ class MasterHome extends StatelessWidget {
           tone: TagTone.bad,
           text: '${t.party} · ${rs(t.amount)}',
           meta: '${t.category} · ${fmtDate(t.date)}',
-          onTap: () =>
-              onGo('accounts', accountsFilter: AccountsFilter.payable),
+          onTap: () => onGo('accounts', accountsFilter: AccountsFilter.payable),
         ),
       );
     }

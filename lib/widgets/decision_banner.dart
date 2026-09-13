@@ -39,10 +39,7 @@ class DecisionBanner extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => ChangeNotifierProvider.value(
           value: store,
-          child: ShareDecisionScreen(
-            periodId: period.id,
-            partnerId: me.id,
-          ),
+          child: ShareDecisionScreen(periodId: period.id, partnerId: me.id),
         ),
       ),
     );
@@ -60,9 +57,7 @@ class DecisionBanner extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Kicker(
-                      l.t2('%s is settled', periodLabel(period)),
-                    ),
+                    child: Kicker(l.t2('%s is settled', periodLabel(period))),
                   ),
                   Tag(l.t('Waiting on you'), tone: TagTone.warn),
                 ],
@@ -100,9 +95,7 @@ class DecisionBanner extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Kicker(l.t2('%s share', periodLabel(period))),
-                ),
+                Expanded(child: Kicker(l.t2('%s share', periodLabel(period)))),
                 Tag(l.t('Decided'), tone: TagTone.good),
               ],
             ),
@@ -115,9 +108,7 @@ class DecisionBanner extends StatelessWidget {
             ),
             Row(
               children: [
-                Expanded(
-                  child: Text(l.t('Into investment'), style: T.body),
-                ),
+                Expanded(child: Text(l.t('Into investment'), style: T.body)),
                 Money(share.reinvest, incoming: true, settled: false),
               ],
             ),

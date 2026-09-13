@@ -59,7 +59,9 @@ class RegCard extends StatelessWidget {
                 // The stripe is the card's own edge, so it runs the full
                 // height however tall the row grows.
                 if (stripe != null) Container(width: 4, color: stripe),
-                Expanded(child: Padding(padding: padding, child: child)),
+                Expanded(
+                  child: Padding(padding: padding, child: child),
+                ),
               ],
             ),
           ),
@@ -545,10 +547,7 @@ class FarmLogo extends StatelessWidget {
         horizontal: width * 0.07,
         vertical: width * 0.06,
       ),
-      decoration: BoxDecoration(
-        color: T.accent900,
-        borderRadius: T.roundSm,
-      ),
+      decoration: BoxDecoration(color: T.accent900, borderRadius: T.roundSm),
       child: Image.asset('assets/logo.png', width: width, cacheWidth: cache),
     );
   }

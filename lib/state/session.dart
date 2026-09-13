@@ -139,13 +139,10 @@ class Session extends ChangeNotifier {
 
     // Settings never hold up sign-in: a farm whose settings cannot be read
     // still has an app, it just runs on what it last knew.
-    _settingsSub = Db.watchSettings().listen(
-      (v) {
-        _settings = v;
-        notifyListeners();
-      },
-      onError: (Object _) {},
-    );
+    _settingsSub = Db.watchSettings().listen((v) {
+      _settings = v;
+      notifyListeners();
+    }, onError: (Object _) {});
 
     _userSub = Db.watchUser(u.uid).listen(
       (appUser) {

@@ -83,8 +83,10 @@ void main() {
     });
 
     test('a period with no dates falls back to the month', () {
-      expect(periodLabel(period('2026-09', null, null, 'open')),
-          'September 2026');
+      expect(
+        periodLabel(period('2026-09', null, null, 'open')),
+        'September 2026',
+      );
     });
   });
 
@@ -132,7 +134,11 @@ void main() {
     });
 
     test('the master entering it is recorded as second hand', () {
-      final decided = fresh().decide(withdraw: 50000, by: 'master', byPhone: true);
+      final decided = fresh().decide(
+        withdraw: 50000,
+        by: 'master',
+        byPhone: true,
+      );
       expect(decided.byPhone, isTrue);
       expect(decided.decidedBy, 'master');
     });

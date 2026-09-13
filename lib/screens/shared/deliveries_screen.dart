@@ -242,11 +242,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     );
 
     if (widget.asTab) return body;
-    return FarmScaffold(
-      title: l.t('Daily round'),
-      showBack: true,
-      body: body,
-    );
+    return FarmScaffold(title: l.t('Daily round'), showBack: true, body: body);
   }
 
   /// "· 3 left", or nothing at all when the round is clear.
@@ -293,7 +289,7 @@ class _OrderRowState extends State<_OrderRow> {
       body:
           '#${o.number} · ${o.customerName}\n\n'
           '${l.t2('%s comes back out of the books, and the day goes back on '
-              'the round. The entry stays in the log marked deleted.', rs(o.amountOn(widget.dayKey)))}',
+          'the round. The entry stays in the log marked deleted.', rs(o.amountOn(widget.dayKey)))}',
       confirmLabel: l.t('Undo it'),
     );
     if (!ok || !mounted) return;
@@ -405,10 +401,7 @@ class _OrderRowState extends State<_OrderRow> {
                   Text(
                     o.isUdhaar
                         ? l.t('Nothing to collect')
-                        : l.t2(
-                            'Collect %s',
-                            rs(o.amountOn(widget.dayKey)),
-                          ),
+                        : l.t2('Collect %s', rs(o.amountOn(widget.dayKey))),
                     style: T.bodyMid.copyWith(
                       color: o.isUdhaar ? T.n700 : T.moneyGet,
                     ),
@@ -505,7 +498,10 @@ class _RoundRowState extends State<_RoundRow> {
     if (!clear && widget.account.rate <= 0) {
       toast(
         context,
-        l.t2('Set a rate for %s first, in Khaata sign-ups.', widget.account.name),
+        l.t2(
+          'Set a rate for %s first, in Khaata sign-ups.',
+          widget.account.name,
+        ),
       );
       return;
     }
@@ -632,9 +628,7 @@ class _RoundRowState extends State<_RoundRow> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: GhostButton(
-                      label: _delivered
-                          ? l.t('Update')
-                          : l.t('Mark delivered'),
+                      label: _delivered ? l.t('Update') : l.t('Mark delivered'),
                       icon: _delivered ? null : Icons.check,
                       compact: true,
                       onPressed: _busy ? null : () => _save(clear: false),

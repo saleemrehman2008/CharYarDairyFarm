@@ -233,9 +233,7 @@ class MonthRepo {
     for (final share in period.shares) {
       final ref = Db.partners.doc(share.partnerId);
       if (share.reinvest > 0) {
-        batch.update(ref, {
-          'reinvested': FieldValue.increment(share.reinvest),
-        });
+        batch.update(ref, {'reinvested': FieldValue.increment(share.reinvest)});
       }
       if (share.withdraw > 0) {
         batch.update(ref, {'withdrawn': FieldValue.increment(share.withdraw)});

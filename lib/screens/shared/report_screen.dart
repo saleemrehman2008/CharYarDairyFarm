@@ -98,11 +98,7 @@ class _ReportScreenState extends State<ReportScreen> {
           label: l.t('Net'),
           value: rs(net),
           gradient: T.washOf(net < 0 ? T.moneyOut : T.moneyIn),
-          note: l.t3(
-            '%s in, %s out',
-            rs(totalIn),
-            rs(totalOut),
-          ),
+          note: l.t3('%s in, %s out', rs(totalIn), rs(totalOut)),
           trailing: Tag(spanLabel),
         ),
         const SizedBox(height: T.gap),
@@ -112,10 +108,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
         Segmented<_View>(
           value: _view,
-          options: [
-            (_View.ring, l.t('Chart')),
-            (_View.list, l.t('Detail')),
-          ],
+          options: [(_View.ring, l.t('Chart')), (_View.list, l.t('Detail'))],
           onChanged: (v) => setState(() => _view = v),
         ),
         const SizedBox(height: T.pad),
@@ -235,8 +228,7 @@ class _ReportScreenState extends State<ReportScreen> {
       counts[key] = (counts[key] ?? 0) + 1;
     }
     final lines = [
-      for (final e in totals.entries)
-        _Line(e.key, e.value, counts[e.key] ?? 0),
+      for (final e in totals.entries) _Line(e.key, e.value, counts[e.key] ?? 0),
     ]..sort((a, b) => b.amount.compareTo(a.amount));
     return lines;
   }
@@ -334,9 +326,7 @@ class _Total extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 3),
     child: Row(
       children: [
-        Expanded(
-          child: Text(label, style: strong ? T.cardTitle : T.body),
-        ),
+        Expanded(child: Text(label, style: strong ? T.cardTitle : T.body)),
         Text(
           rs(value),
           style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
@@ -442,9 +432,7 @@ class _Ring extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               rs(net),
-              style: T.num26.copyWith(
-                color: net < 0 ? T.moneyOut : T.moneyIn,
-              ),
+              style: T.num26.copyWith(color: net < 0 ? T.moneyOut : T.moneyIn),
             ),
           ),
         ],

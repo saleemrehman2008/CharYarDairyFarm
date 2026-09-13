@@ -206,13 +206,10 @@ class FarmMonth {
   /// Everyone has said what they want. Until then the master cannot close.
   bool get allDecided => shares.isNotEmpty && shares.every((s) => s.decided);
 
-  List<MonthShare> get undecided =>
-      shares.where((s) => !s.decided).toList();
+  List<MonthShare> get undecided => shares.where((s) => !s.decided).toList();
 
-  num get totalWithdraw =>
-      shares.fold<num>(0, (a, s) => a + s.withdraw);
-  num get totalReinvest =>
-      shares.fold<num>(0, (a, s) => a + s.reinvest);
+  num get totalWithdraw => shares.fold<num>(0, (a, s) => a + s.withdraw);
+  num get totalReinvest => shares.fold<num>(0, (a, s) => a + s.reinvest);
 
   MonthShare? shareFor(String partnerId) {
     for (final s in shares) {

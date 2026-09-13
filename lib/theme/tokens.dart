@@ -154,10 +154,7 @@ abstract final class T {
   static LinearGradient washOf(Color c) => LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color.lerp(c, const Color(0xFF04101A), 0.62)!,
-      c,
-    ],
+    colors: [Color.lerp(c, const Color(0xFF04101A), 0.62)!, c],
   );
 
   // ---- Spacing ----

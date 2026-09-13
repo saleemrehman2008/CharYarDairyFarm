@@ -125,10 +125,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
         const SizedBox(height: T.pad),
 
-        _FilterBar(
-          filter: _filter,
-          onPick: (f) => setState(() => _filter = f),
-        ),
+        _FilterBar(filter: _filter, onPick: (f) => setState(() => _filter = f)),
         const SizedBox(height: 12),
 
         GhostButton(
@@ -382,10 +379,7 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? tone : Colors.white,
           borderRadius: BorderRadius.circular(T.pill),
-          border: Border.all(
-            color: selected ? tone : T.n300,
-            width: 1.3,
-          ),
+          border: Border.all(color: selected ? tone : T.n300, width: 1.3),
           boxShadow: selected
               ? [
                   BoxShadow(

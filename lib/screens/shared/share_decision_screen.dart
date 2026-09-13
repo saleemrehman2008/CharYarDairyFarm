@@ -183,8 +183,10 @@ class _ShareDecisionScreenState extends State<ShareDecisionScreen> {
                           rs(share.share),
                         )
                       : keep == 0
-                      ? l.t('Taking the whole share. Nothing goes to '
-                            'investment.')
+                      ? l.t(
+                          'Taking the whole share. Nothing goes to '
+                          'investment.',
+                        )
                       : l.t2(
                           '%s is added to your investment, so your share of '
                           'the next period goes up.',

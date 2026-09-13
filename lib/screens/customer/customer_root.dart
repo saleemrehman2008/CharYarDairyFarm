@@ -73,7 +73,9 @@ class _CustomerTabsState extends State<_CustomerTabs> {
           icon: Icons.shopping_basket_outlined,
           title: l.t('Checkout'),
           badge: cart.lineCount,
-          body: CheckoutScreen(onOrdered: () => setState(() => _tab = 'orders')),
+          body: CheckoutScreen(
+            onOrdered: () => setState(() => _tab = 'orders'),
+          ),
         ),
         TabDef(
           id: 'orders',

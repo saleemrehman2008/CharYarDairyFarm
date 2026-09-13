@@ -42,7 +42,8 @@ class Features {
 
   /// Whether the rider's side can be run at all. With nothing to deliver it
   /// cannot, and the switch is shown but not usable.
-  bool get riderPossible => _on.contains(Feature.orders) || _on.contains(Feature.khaata);
+  bool get riderPossible =>
+      _on.contains(Feature.orders) || _on.contains(Feature.khaata);
 
   bool has(Feature f) {
     if (f.alwaysOn) return true;

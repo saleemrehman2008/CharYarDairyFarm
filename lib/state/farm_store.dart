@@ -83,34 +83,58 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   /// Starts and stops the optional listeners to match what is switched on.
   void _followFeatures(Features f) {
-    _watch('orders', f.orders, () => Db.watchOrders().listen((v) {
-      _orders = v;
-      notifyListeners();
-    }));
+    _watch(
+      'orders',
+      f.orders,
+      () => Db.watchOrders().listen((v) {
+        _orders = v;
+        notifyListeners();
+      }),
+    );
 
-    _watch('khaata', f.khaata, () => Db.watchUdhaarAccounts().listen((v) {
-      _udhaar = v;
-      notifyListeners();
-    }));
-    _watch('bills', f.khaata, () => Db.watchBills().listen((v) {
-      _bills = v;
-      notifyListeners();
-    }));
-    _watch('unbilled', f.khaata, () => Db.watchUnbilledDeliveries().listen((v) {
-      _unbilled = v;
-      _raiseDueBills();
-      notifyListeners();
-    }));
+    _watch(
+      'khaata',
+      f.khaata,
+      () => Db.watchUdhaarAccounts().listen((v) {
+        _udhaar = v;
+        notifyListeners();
+      }),
+    );
+    _watch(
+      'bills',
+      f.khaata,
+      () => Db.watchBills().listen((v) {
+        _bills = v;
+        notifyListeners();
+      }),
+    );
+    _watch(
+      'unbilled',
+      f.khaata,
+      () => Db.watchUnbilledDeliveries().listen((v) {
+        _unbilled = v;
+        _raiseDueBills();
+        notifyListeners();
+      }),
+    );
 
-    _watch('cattle', f.cattle, () => Db.watchAnimals().listen((v) {
-      _animals = v;
-      notifyListeners();
-    }));
+    _watch(
+      'cattle',
+      f.cattle,
+      () => Db.watchAnimals().listen((v) {
+        _animals = v;
+        notifyListeners();
+      }),
+    );
 
-    _watch('riders', f.rider, () => Db.watchOpenRiderDays().listen((v) {
-      _riderDays = v;
-      notifyListeners();
-    }));
+    _watch(
+      'riders',
+      f.rider,
+      () => Db.watchOpenRiderDays().listen((v) {
+        _riderDays = v;
+        notifyListeners();
+      }),
+    );
 
     // Nothing switched off should leave a stale figure behind on a badge.
     if (!f.orders) _orders = const [];

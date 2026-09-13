@@ -26,9 +26,7 @@ class CloseMonthScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
     final sealed = store.sealedPeriod;
-    return sealed == null
-        ? const _SealStep()
-        : _DecisionsStep(period: sealed);
+    return sealed == null ? const _SealStep() : _DecisionsStep(period: sealed);
   }
 }
 
@@ -222,8 +220,10 @@ class _SealStepState extends State<_SealStep> {
             const SizedBox(height: 10),
             Text(
               profitToShare == 0
-                  ? l.t('There is nothing to share, so there is nothing to '
-                        'send. Settle once the period has made a profit.')
+                  ? l.t(
+                      'There is nothing to share, so there is nothing to '
+                      'send. Settle once the period has made a profit.',
+                    )
                   : l.t2(
                       'This period is at a loss of %s, so there is nothing to '
                       'share out. Check that every sale is entered — a big '
@@ -311,9 +311,7 @@ class _DecisionsStepState extends State<_DecisionsStep> {
                 ? null
                 : l.t2('Frozen %s. It will not change.', fmtStamp(p.sealedAt!)),
             trailing: Tag(
-              waiting == 0
-                  ? l.t('All in')
-                  : l.t2('%s waiting', waiting),
+              waiting == 0 ? l.t('All in') : l.t2('%s waiting', waiting),
               tone: waiting == 0 ? TagTone.good : TagTone.warn,
             ),
           ),
@@ -430,10 +428,7 @@ class _DecisionsStepState extends State<_DecisionsStep> {
 
     setState(() => _busy = true);
     try {
-      await MonthRepo.close(
-        actor: context.read<Session>().actor,
-        period: p,
-      );
+      await MonthRepo.close(actor: context.read<Session>().actor, period: p);
       if (!mounted) return;
       Navigator.pop(context);
       toast(context, l.t2('%s closed.', periodLabel(p)));
@@ -459,10 +454,7 @@ class _DecisionsStepState extends State<_DecisionsStep> {
 
     setState(() => _busy = true);
     try {
-      await MonthRepo.unseal(
-        actor: context.read<Session>().actor,
-        period: p,
-      );
+      await MonthRepo.unseal(actor: context.read<Session>().actor, period: p);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) toast(context, l.t2('Could not reopen it. %s', e));
@@ -527,9 +519,7 @@ class _ShareRow extends StatelessWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Expanded(
-                    child: Text(l.t('Into investment'), style: T.body),
-                  ),
+                  Expanded(child: Text(l.t('Into investment'), style: T.body)),
                   Money(share.reinvest, incoming: true, settled: true),
                 ],
               ),
@@ -557,11 +547,7 @@ class _ShareRow extends StatelessWidget {
 }
 
 class _Line extends StatelessWidget {
-  const _Line({
-    required this.label,
-    required this.value,
-    required this.tone,
-  });
+  const _Line({required this.label, required this.value, required this.tone});
 
   final String label;
   final String value;

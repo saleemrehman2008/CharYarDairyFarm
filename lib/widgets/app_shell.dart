@@ -331,7 +331,11 @@ class FarmTabBar extends StatelessWidget {
     decoration: const BoxDecoration(
       color: Colors.white,
       boxShadow: [
-        BoxShadow(color: Color(0x140B2438), blurRadius: 16, offset: Offset(0, -3)),
+        BoxShadow(
+          color: Color(0x140B2438),
+          blurRadius: 16,
+          offset: Offset(0, -3),
+        ),
       ],
     ),
     child: SafeArea(
@@ -364,7 +368,9 @@ class FarmTabBar extends StatelessWidget {
                                   color: i == index
                                       ? T.accent100
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(T.radiusXs),
+                                  borderRadius: BorderRadius.circular(
+                                    T.radiusXs,
+                                  ),
                                 ),
                                 child: Icon(
                                   tab.icon,
@@ -383,7 +389,9 @@ class FarmTabBar extends StatelessWidget {
                                     ),
                                     decoration: BoxDecoration(
                                       color: T.pending,
-                                      borderRadius: BorderRadius.circular(T.pill),
+                                      borderRadius: BorderRadius.circular(
+                                        T.pill,
+                                      ),
                                     ),
                                     child: Text(
                                       '${tab.badge}',
