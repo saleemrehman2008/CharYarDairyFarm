@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/delivery_repo.dart';
 import '../../services/order_repo.dart';
@@ -93,6 +94,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     int leftIn(String slot) =>
         stopsIn(slot).where((x) => !x.done(dayKey)).length;
 
+    final l = L.of(context);
     final waiting = store.awaitingApprovalOn(dayKey);
     final later = store.laterThan(dayKey);
 
@@ -111,7 +113,9 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                   ),
                   Expanded(
                     child: Text(
-                      _isToday ? 'Today · ${fmtDate(_day)}' : fmtDateFull(_day),
+                      _isToday
+                          ? '${l.t('Today')} · ${fmtDate(_day)}'
+                          : fmtDateFull(_day),
                       textAlign: TextAlign.center,
                       style: T.cardTitle,
                     ),
@@ -125,15 +129,15 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               ),
               const Divider(height: 16),
               Text(
-                '${marked.length} khaata houses done · ${qty(litres)} L · '
-                '${rs(amount)}',
+                '${l.t2('%s khaata houses done', marked.length)} · '
+                '${qty(litres)} L · ${rs(amount)}',
                 style: T.meta,
               ),
               if (toCollect > 0) ...[
                 const SizedBox(height: 6),
                 Text(
-                  '${rs(toCollect)} still to collect from orders',
-                  style: T.bodyMid.copyWith(color: T.accent800),
+                  l.t2('%s still to collect from orders', rs(toCollect)),
+                  style: T.bodyMid.copyWith(color: T.moneyGet),
                 ),
               ],
             ],
@@ -147,8 +151,8 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         Segmented<String>(
           value: _slot,
           options: [
-            ('morning', 'Morning ${_count(leftIn('morning'))}'),
-            ('evening', 'Evening ${_count(leftIn('evening'))}'),
+            ('morning', '${l.t('Morning')} ${_count(leftIn('morning'))}'),
+            ('evening', '${l.t('Evening')} ${_count(leftIn('evening'))}'),
           ],
           onChanged: (v) => setState(() => _slot = v),
         ),
@@ -158,14 +162,20 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             Expanded(
               child: Text(
                 left == 0
-                    ? 'This round is done.'
-                    : '$left still to go on the $_slot round.',
+                    ? l.t('This round is done.')
+                    : l.t3(
+                        '%s still to go on the %s round.',
+                        left,
+                        l.t(_slot == 'evening' ? 'evening' : 'morning'),
+                      ),
                 style: T.meta,
               ),
             ),
             if (left > 0 && all.length > left)
               GhostButton(
-                label: _onlyLeft ? 'Show all' : 'Only left ($left)',
+                label: _onlyLeft
+                    ? l.t('Show all')
+                    : l.t2('Only left (%s)', left),
                 compact: true,
                 onPressed: () => setState(() => _onlyLeft = !_onlyLeft),
               ),
@@ -185,19 +195,18 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               children: [
                 if (waiting.isNotEmpty)
                   Text(
-                    '${waiting.length} '
-                    '${waiting.length == 1 ? 'order is' : 'orders are'} '
-                    'waiting for a co-founder to approve. They appear here as '
-                    'soon as that happens.',
+                    l.t2(
+                      '%s orders are waiting for a co-founder to approve. '
+                      'They appear here as soon as that happens.',
+                      waiting.length,
+                    ),
                     style: T.meta.copyWith(color: T.accent800),
                   ),
                 if (waiting.isNotEmpty && later.isNotEmpty)
                   const SizedBox(height: 4),
                 if (later.isNotEmpty)
                   Text(
-                    '${later.length} '
-                    '${later.length == 1 ? 'order is' : 'orders are'} for '
-                    'later days.',
+                    l.t2('%s orders are for later days.', later.length),
                     style: T.meta,
                   ),
               ],
@@ -207,10 +216,12 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         const SizedBox(height: T.pad),
 
         if (stops.isEmpty)
-          const EmptyNote(
-            'Nothing on this round. Khaata customers appear here every day '
-            'once a co-founder approves them, and shop orders appear on the '
-            'days the customer asked for.',
+          EmptyNote(
+            l.t(
+              'Nothing on this round. Khaata customers appear here every day '
+              'once a co-founder approves them, and shop orders appear on the '
+              'days the customer asked for.',
+            ),
           )
         else
           for (final stop in stops)
@@ -231,7 +242,11 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     );
 
     if (widget.asTab) return body;
-    return FarmScaffold(title: 'Daily round', showBack: true, body: body);
+    return FarmScaffold(
+      title: l.t('Daily round'),
+      showBack: true,
+      body: body,
+    );
   }
 
   /// "· 3 left", or nothing at all when the round is clear.
@@ -271,15 +286,15 @@ class _OrderRowState extends State<_OrderRow> {
   /// Master only: this day was marked delivered by mistake.
   Future<void> _undo() async {
     final o = widget.order;
+    final l = L.read(context);
     final ok = await confirm(
       context,
-      title: 'Undo this delivery?',
+      title: l.t('Undo this delivery?'),
       body:
           '#${o.number} · ${o.customerName}\n\n'
-          '${rs(o.amountOn(widget.dayKey))} comes back out of the books, and '
-          'the day goes back on the round. The entry stays in the log marked '
-          'deleted.',
-      confirmLabel: 'Undo it',
+          '${l.t2('%s comes back out of the books, and the day goes back on '
+              'the round. The entry stays in the log marked deleted.', rs(o.amountOn(widget.dayKey)))}',
+      confirmLabel: l.t('Undo it'),
     );
     if (!ok || !mounted) return;
 
@@ -290,15 +305,16 @@ class _OrderRowState extends State<_OrderRow> {
         o,
         dayKey: widget.dayKey,
       );
-      if (mounted) toast(context, 'Undone');
+      if (mounted) toast(context, l.t('Undone'));
     } catch (e) {
-      if (mounted) toast(context, 'Could not undo it. $e');
+      if (mounted) toast(context, l.t2('Could not undo it. %s', e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _deliver() async {
+    final l = L.read(context);
     final o = widget.order;
     final settlement = o.isUdhaar
         ? const Settlement(payVia: PayVia.cash, handledBy: '')
@@ -321,9 +337,9 @@ class _OrderRowState extends State<_OrderRow> {
         payVia: settlement.payVia ?? PayVia.cash,
         handledBy: settlement.handledBy,
       );
-      if (mounted) toast(context, '#${o.number} delivered');
+      if (mounted) toast(context, l.t2('#%s delivered', o.number));
     } catch (e) {
-      if (mounted) toast(context, 'Could not save it. $e');
+      if (mounted) toast(context, l.t2('Could not save it. %s', e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -331,6 +347,7 @@ class _OrderRowState extends State<_OrderRow> {
 
   @override
   Widget build(BuildContext context) {
+    final l = L.of(context);
     final o = widget.order;
     final which = o.dayLabel(widget.dayKey);
     // Only the person actually at the door marks a delivery. A co-founder
@@ -360,10 +377,10 @@ class _OrderRowState extends State<_OrderRow> {
                 ),
                 Tag(
                   done
-                      ? 'Delivered'
+                      ? l.t('Delivered')
                       : o.isApproved
-                      ? 'Ready · #${o.number}'
-                      : 'Order #${o.number}',
+                      ? '${l.t('Ready')} · #${o.number}'
+                      : '${l.t('Order')} #${o.number}',
                   tone: done ? TagTone.good : TagTone.warn,
                 ),
               ],
@@ -387,16 +404,19 @@ class _OrderRowState extends State<_OrderRow> {
                 children: [
                   Text(
                     o.isUdhaar
-                        ? 'Nothing to collect'
-                        : 'Collect ${rs(o.amountOn(widget.dayKey))}',
+                        ? l.t('Nothing to collect')
+                        : l.t2(
+                            'Collect %s',
+                            rs(o.amountOn(widget.dayKey)),
+                          ),
                     style: T.bodyMid.copyWith(
-                      color: o.isUdhaar ? T.n700 : T.accent800,
+                      color: o.isUdhaar ? T.n700 : T.moneyGet,
                     ),
                   ),
                   Text(
                     o.isUdhaar
-                        ? 'Goes on their khaata — billed at month end'
-                        : o.pay.short,
+                        ? l.t('Goes on their khaata — billed at month end')
+                        : l.t(o.pay.short),
                     style: T.meta,
                   ),
                 ],
@@ -413,14 +433,14 @@ class _OrderRowState extends State<_OrderRow> {
                   Expanded(
                     child: Text(
                       o.isUdhaar
-                          ? 'On their khaata.'
-                          : '${rs(o.amountOn(widget.dayKey))} taken.',
-                      style: T.meta.copyWith(color: T.done),
+                          ? l.t('On their khaata.')
+                          : l.t2('%s taken.', rs(o.amountOn(widget.dayKey))),
+                      style: T.meta.copyWith(color: T.moneyIn),
                     ),
                   ),
                   if (canUndo)
                     GhostButton(
-                      label: 'Undo',
+                      label: l.t('Undo'),
                       compact: true,
                       danger: true,
                       onPressed: _busy ? null : _undo,
@@ -429,13 +449,13 @@ class _OrderRowState extends State<_OrderRow> {
               )
             else if (canMark)
               GhostButton(
-                label: 'Delivered',
+                label: l.t('Mark delivered'),
                 icon: Icons.check,
                 compact: true,
                 onPressed: _busy ? null : _deliver,
               )
             else
-              Text('The rider marks this delivered.', style: T.meta),
+              Text(l.t('The rider marks this delivered.'), style: T.meta),
           ],
         ),
       ),
@@ -474,9 +494,10 @@ class _RoundRowState extends State<_RoundRow> {
   bool get _delivered => widget.delivery != null;
 
   Future<void> _save({required bool clear}) async {
+    final l = L.read(context);
     final litres = clear ? 0 : (num.tryParse(_litres.text.trim()) ?? 0);
     if (!clear && litres <= 0) {
-      toast(context, 'How many litres?');
+      toast(context, l.t('How many litres?'));
       return;
     }
     // An account approved before rates existed has none, and the milk would be
@@ -484,7 +505,7 @@ class _RoundRowState extends State<_RoundRow> {
     if (!clear && widget.account.rate <= 0) {
       toast(
         context,
-        'Set ${widget.account.name}\'s rate first — Khaata registrations.',
+        l.t2('Set a rate for %s first, in Khaata sign-ups.', widget.account.name),
       );
       return;
     }
@@ -505,13 +526,14 @@ class _RoundRowState extends State<_RoundRow> {
       toast(
         context,
         clear
-            ? '${widget.account.name} cleared'
+            ? l.t2('%s cleared', widget.account.name)
             : lastDay
-            ? '${widget.account.name} · ${qty(litres)} L · bill raised'
+            ? '${widget.account.name} · ${qty(litres)} L · '
+                  '${l.t('bill raised')}'
             : '${widget.account.name} · ${qty(litres)} L',
       );
     } catch (e) {
-      if (mounted) toast(context, 'Could not save it. $e');
+      if (mounted) toast(context, l.t2('Could not save it. %s', e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -519,6 +541,7 @@ class _RoundRowState extends State<_RoundRow> {
 
   @override
   Widget build(BuildContext context) {
+    final l = L.of(context);
     final a = widget.account;
     final litres = num.tryParse(_litres.text.trim()) ?? 0;
     // Marking milk delivered is the rider's job. A co-founder tapping it by
@@ -545,28 +568,28 @@ class _RoundRowState extends State<_RoundRow> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Tag('Khaata', tone: TagTone.neutral),
+                Tag(l.t('Khaata'), tone: TagTone.neutral),
                 const SizedBox(width: 6),
                 if (_delivered)
-                  const Tag('Delivered', tone: TagTone.good)
+                  Tag(l.t('Delivered'), tone: TagTone.good)
                 else
-                  const Tag('Not yet', tone: TagTone.neutral),
+                  Tag(l.t('Not yet'), tone: TagTone.neutral),
               ],
             ),
             const SizedBox(height: 2),
             Text(
-              a.rate <= 0
-                  ? 'No rate set · usually ${qty(a.litresPerDay)} L · '
-                        'nothing to collect, billed at month end'
-                  : '${rs(a.rate)} / L · usually ${qty(a.litresPerDay)} L · '
-                        'nothing to collect, billed at month end',
+              '${a.rate <= 0 ? l.t('No rate set') : '${rs(a.rate)} / L'} · '
+              '${l.t2('usually %s L', qty(a.litresPerDay))} · '
+              '${l.t('nothing to collect, billed at month end')}',
               style: T.meta.copyWith(color: a.rate <= 0 ? T.alert : T.n700),
             ),
             if (a.rate <= 0) ...[
               const SizedBox(height: 4),
               Text(
-                'Set a rate in Khaata registrations before delivering, or this '
-                'milk is billed at nothing.',
+                l.t(
+                  'Set a rate in Khaata sign-ups before delivering, or this '
+                  'milk is billed at nothing.',
+                ),
                 style: T.meta.copyWith(color: T.alert),
               ),
             ],
@@ -578,7 +601,7 @@ class _RoundRowState extends State<_RoundRow> {
                   width: 92,
                   child: canMark
                       ? Field(
-                          label: 'Litres',
+                          label: l.t('Litres'),
                           controller: _litres,
                           keyboardType: TextInputType.number,
                           onChanged: (_) => setState(() {}),
@@ -586,7 +609,7 @@ class _RoundRowState extends State<_RoundRow> {
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Kicker('Litres'),
+                            Kicker(l.t('Litres')),
                             const SizedBox(height: 5),
                             Text(
                               qty(widget.delivery?.litres ?? a.litresPerDay),
@@ -609,7 +632,9 @@ class _RoundRowState extends State<_RoundRow> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: GhostButton(
-                      label: _delivered ? 'Update' : 'Delivered',
+                      label: _delivered
+                          ? l.t('Update')
+                          : l.t('Mark delivered'),
                       icon: _delivered ? null : Icons.check,
                       compact: true,
                       onPressed: _busy ? null : () => _save(clear: false),
@@ -623,7 +648,7 @@ class _RoundRowState extends State<_RoundRow> {
                 children: [
                   Expanded(
                     child: Text(
-                      'by ${widget.delivery!.deliveredByName}',
+                      l.t2('by %s', widget.delivery!.deliveredByName),
                       style: T.meta,
                     ),
                   ),

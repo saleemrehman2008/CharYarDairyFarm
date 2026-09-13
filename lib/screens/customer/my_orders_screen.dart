@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/order_repo.dart';
 import '../../state/customer_store.dart';
@@ -24,20 +25,21 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   /// co-founder has approved it the milk is being got ready, so that becomes a
   /// phone call rather than a button.
   Future<void> _cancel(FarmOrder order) async {
+    final l = L.read(context);
     final ok = await confirm(
       context,
-      title: 'Cancel order #${order.number}?',
-      body: '${order.itemsText}\n\nThe farm will not prepare it.',
-      confirmLabel: 'Cancel it',
+      title: l.t2('Cancel order #%s?', order.number),
+      body: '${order.itemsText}\n\n${l.t('The farm will not prepare it.')}',
+      confirmLabel: l.t('Cancel it'),
     );
     if (!ok || !mounted) return;
 
     setState(() => _busyId = order.id);
     try {
       await OrderRepo.cancel(context.read<Session>().actor, order);
-      if (mounted) toast(context, 'Order #${order.number} cancelled');
+      if (mounted) toast(context, l.t2('Order #%s cancelled', order.number));
     } catch (e) {
-      if (mounted) toast(context, 'Could not cancel it. $e');
+      if (mounted) toast(context, l.t2('Could not cancel it. %s', e));
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -47,6 +49,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = L.of(context);
     final all = context.watch<CustomerStore>().orders;
     final orders = _filter.apply(all);
 
@@ -54,20 +57,22 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       children: [
         Segmented<OrderFilter>(
           value: _filter,
-          options: [for (final f in OrderFilter.values) (f, f.label)],
+          options: [for (final f in OrderFilter.values) (f, l.t(f.label))],
           onChanged: (v) => setState(() => _filter = v),
         ),
         const SizedBox(height: T.pad),
         if (orders.isEmpty)
-          EmptyNote(switch (_filter) {
-            OrderFilter.pending =>
-              all.isEmpty
-                  ? 'No orders yet. Your first one will show up here.'
-                  : 'Nothing on its way right now.',
-            OrderFilter.completed => 'Nothing delivered yet.',
-            OrderFilter.all =>
-              'No orders yet. Your first one will show up here.',
-          })
+          EmptyNote(
+            l.t(switch (_filter) {
+              OrderFilter.pending =>
+                all.isEmpty
+                    ? 'No orders yet. Your first one will show up here.'
+                    : 'Nothing on its way right now.',
+              OrderFilter.completed => 'Nothing delivered yet.',
+              OrderFilter.all =>
+                'No orders yet. Your first one will show up here.',
+            }),
+          )
         else
           for (final o in orders)
             OrderCard(

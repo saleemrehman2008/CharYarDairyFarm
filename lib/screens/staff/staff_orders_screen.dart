@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../state/staff_store.dart';
 import '../../theme/tokens.dart';
@@ -25,6 +26,7 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = L.of(context);
     final store = context.watch<StaffStore>();
     final orders = _filter.apply(store.allOpenOrdersAndDone);
     final waiting = store.allOpenOrders.where((o) => !o.isApproved).length;
@@ -32,27 +34,32 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
     return PageBody(
       children: [
         Text(
-          'What is coming. Milk is marked delivered on the round, where the '
-          'day and the money are.',
+          l.t(
+            'What is coming. Milk is marked delivered on the round, where the '
+            'day and the money are.',
+          ),
           style: T.meta,
         ),
         const SizedBox(height: 10),
         Segmented<OrderFilter>(
           value: _filter,
-          options: [for (final f in OrderFilter.values) (f, f.label)],
+          options: [for (final f in OrderFilter.values) (f, l.t(f.label))],
           onChanged: (v) => setState(() => _filter = v),
         ),
         if (waiting > 0) ...[
           const SizedBox(height: 8),
           Text(
-            '$waiting ${waiting == 1 ? 'order is' : 'orders are'} waiting for '
-            'a co-founder to approve. They reach the round after that.',
+            l.t2(
+              '%s orders are waiting for a co-founder to approve. They reach '
+              'the round after that.',
+              waiting,
+            ),
             style: T.meta.copyWith(color: T.accent800),
           ),
         ],
         const SizedBox(height: T.pad),
         if (orders.isEmpty)
-          const EmptyNote('Nothing here.')
+          EmptyNote(l.t('Nothing here.'))
         else
           for (final o in orders)
             OrderCard(order: o, busy: _busyId == o.id, showAddress: true),

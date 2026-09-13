@@ -250,8 +250,8 @@ class _SealStepState extends State<_SealStep> {
       title: l.t2('Freeze %s?', periodLabel(store.month)),
       body: l.t3(
         '%s goes out to %s co-founders to decide on.\n\nFrom this moment the '
-        "period's figures cannot change, and every new entry — even one dated "
-        'today — belongs to the next period.',
+        'figures cannot change, and every new entry — even one dated today — '
+        'belongs to the next period.',
         rs(profitToShare),
         store.partners.length,
       ),
