@@ -220,6 +220,10 @@ const Map<String, String> romanUrdu = {
       'Abhi yahan kuch nahi likha. Shuru karne ke liye Add dabayen.',
   'All farm money in one place: milk & product sales, cattle, feed, bills, rent, food, salaries. Anything sold or bought on credit stays unpaid until you mark it paid.':
       'Farm ka saara paisa ek jagah: doodh aur cheezon ki farokht, maweshi, wanda, bill, kiraya, khana, tankhwah. Jo udhaar bika ya khareeda gaya wo baqaya rahega jab tak aap ada shuda na likhen.',
+  'Delete entry': 'Entry mitayen',
+  'farm asset · not a cost': 'farm ka maal · kharcha nahi',
+  'not received': 'mila nahi',
+  'not paid': 'diya nahi',
   'Sales this period': 'Is period ki farokht',
 
   // ---- The report ----

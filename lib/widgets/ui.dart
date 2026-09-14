@@ -53,15 +53,32 @@ class RegCard extends StatelessWidget {
             onTap: onTap,
             splashColor: T.accent100,
             highlightColor: T.accent100.withValues(alpha: 0.5),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            // The card's height comes from its content, and the stripe is
+            // then painted down the full height of it.
+            //
+            // A stretched Row would have been the obvious way to write this,
+            // and it is wrong: inside a scrolling list there is no height to
+            // stretch to, so the Row asks to be infinitely tall and the whole
+            // card — and everything after it in the list — silently fails to
+            // draw. A Stack takes its size from the child that is not
+            // positioned, which is the content, so there is nothing to
+            // stretch to and nothing to go wrong.
+            child: Stack(
               children: [
-                // The stripe is the card's own edge, so it runs the full
-                // height however tall the row grows.
-                if (stripe != null) Container(width: 4, color: stripe),
-                Expanded(
-                  child: Padding(padding: padding, child: child),
+                Padding(
+                  padding: stripe == null
+                      ? padding
+                      : padding + const EdgeInsets.only(left: 4),
+                  child: child,
                 ),
+                if (stripe != null)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 4,
+                    child: ColoredBox(color: stripe!),
+                  ),
               ],
             ),
           ),
@@ -230,14 +247,20 @@ class StatTile extends StatelessWidget {
 class ActionTile extends StatelessWidget {
   const ActionTile({
     super.key,
-    required this.icon,
+    this.icon,
+    this.drawn,
     required this.label,
     required this.tone,
     this.onTap,
     this.badge = 0,
-  });
+  }) : assert(icon != null || drawn != null, 'a tile needs something to show');
 
-  final IconData icon;
+  final IconData? icon;
+
+  /// A hand-drawn icon, for the few things Material has no glyph for — the
+  /// farm's own animals, chiefly.
+  final Widget? drawn;
+
   final String label;
   final Color tone;
   final VoidCallback? onTap;
@@ -267,11 +290,15 @@ class ActionTile extends StatelessWidget {
                     Container(
                       width: 40,
                       height: 40,
+                      // Centred, so the icon keeps its own size. Without this
+                      // the box hands the child tight constraints and a drawn
+                      // icon is stretched to fill the whole tile.
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: tone.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(T.radiusXs + 3),
                       ),
-                      child: Icon(icon, size: 21, color: tone),
+                      child: drawn ?? Icon(icon, size: 21, color: tone),
                     ),
                     if (badge > 0)
                       Positioned(

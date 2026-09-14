@@ -10,6 +10,7 @@ import '../../state/round_data.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/farm_icons.dart';
 import '../../widgets/ui.dart';
 import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
@@ -88,7 +89,7 @@ class MoreScreen extends StatelessWidget {
             if (f.cattle)
               _Row(
                 label: l.t('Cattle register'),
-                icon: Icons.pets_outlined,
+                drawn: const CattleIcon(size: 19, color: Color(0xFF6544B0)),
                 tone: const Color(0xFF6544B0),
                 badge: store.dueChecks.length,
                 onTap: () => _push(context, store, const CattleScreen()),
@@ -282,15 +283,17 @@ class _ExportRowState extends State<_ExportRow> {
 class _Row extends StatelessWidget {
   const _Row({
     required this.label,
-    required this.icon,
+    this.icon,
+    this.drawn,
     required this.tone,
     required this.onTap,
     this.badge = 0,
     this.note,
-  });
+  }) : assert(icon != null || drawn != null, 'a row needs something to show');
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? drawn;
   final Color tone;
   final VoidCallback onTap;
   final int badge;
@@ -308,11 +311,12 @@ class _Row extends StatelessWidget {
             Container(
               width: 32,
               height: 32,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tone.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(T.radiusXs),
               ),
-              child: Icon(icon, size: 18, color: tone),
+              child: drawn ?? Icon(icon, size: 18, color: tone),
             ),
             const SizedBox(width: 12),
             Expanded(

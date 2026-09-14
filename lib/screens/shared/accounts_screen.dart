@@ -420,92 +420,106 @@ class _LedgerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = L.of(context);
     final qtyLine = txn.qtyLine;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: T.divider, width: 1)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 46, child: Text(fmtDate(txn.date), style: T.meta)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  txn.party.isEmpty ? txn.category : txn.party,
-                  style: T.bodyMid,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  [
-                    txn.type.label,
-                    txn.category,
-                    ?qtyLine,
-                    if (txn.handOverLine.isNotEmpty) txn.handOverLine,
-                  ].join(' · '),
-                  style: T.meta,
-                  maxLines: 2,
-                ),
-                if (txn.note.isNotEmpty)
+    // Every entry wears the colour of what it is and whether the money has
+    // actually moved, down its own edge — so a page of them can be read down
+    // the left margin without reading a word of it.
+    final tone = T.money(incoming: txn.type.isIncoming, settled: txn.paid);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: RegCard(
+        stripe: tone,
+        padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 46, child: Text(fmtDate(txn.date), style: T.meta)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    txn.note,
-                    style: T.meta.copyWith(color: T.n500),
+                    txn.party.isEmpty ? txn.category : txn.party,
+                    style: T.bodyMid,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                if (txn.isCapitalAsset) ...[
-                  const SizedBox(height: 6),
-                  const Tag('farm asset · not a cost', tone: TagTone.accent),
-                ],
-                if (!txn.paid) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Tag('unpaid', tone: TagTone.bad),
-                      const SizedBox(width: 8),
-                      GhostButton(
-                        label: 'Mark paid',
-                        compact: true,
-                        onPressed: busy ? null : onMarkPaid,
-                      ),
-                    ],
+                  Text(
+                    [
+                      txn.type.label,
+                      txn.category,
+                      ?qtyLine,
+                      if (txn.handOverLine.isNotEmpty) txn.handOverLine,
+                    ].join(' · '),
+                    style: T.meta,
+                    maxLines: 2,
                   ),
+                  if (txn.note.isNotEmpty)
+                    Text(
+                      txn.note,
+                      style: T.meta.copyWith(color: T.n500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  if (txn.isCapitalAsset) ...[
+                    const SizedBox(height: 6),
+                    Tag(l.t('farm asset · not a cost'), tone: TagTone.accent),
+                  ],
+                  if (!txn.paid) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Tag(
+                          l.t(
+                            txn.type.isIncoming ? 'not received' : 'not paid',
+                          ),
+                          tone: txn.type.isIncoming
+                              ? TagTone.neutral
+                              : TagTone.warn,
+                        ),
+                        const SizedBox(width: 8),
+                        GhostButton(
+                          label: l.t('Mark paid'),
+                          compact: true,
+                          onPressed: busy ? null : onMarkPaid,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Deep when the money has moved, pale when it is still owed.
+                Text(
+                  signedRs(txn.amount, incoming: txn.type.isIncoming),
+                  style: T.bodyMid.copyWith(
+                    color: T.money(
+                      incoming: txn.type.isIncoming,
+                      settled: txn.paid,
+                    ),
+                    fontWeight: T.moneyWeight(txn.paid),
+                  ),
+                ),
+                if (isMaster)
+                  SizedBox(
+                    height: 30,
+                    child: IconButton(
+                      onPressed: busy ? null : onDelete,
+                      icon: const Icon(Icons.close, size: 15, color: T.n400),
+                      padding: EdgeInsets.zero,
+                      tooltip: l.t('Delete entry'),
+                    ),
+                  ),
               ],
             ),
-          ),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Deep when the money has moved, pale when it is still owed.
-              Text(
-                signedRs(txn.amount, incoming: txn.type.isIncoming),
-                style: T.bodyMid.copyWith(
-                  color: T.money(
-                    incoming: txn.type.isIncoming,
-                    settled: txn.paid,
-                  ),
-                  fontWeight: T.moneyWeight(txn.paid),
-                ),
-              ),
-              if (isMaster)
-                SizedBox(
-                  height: 30,
-                  child: IconButton(
-                    onPressed: busy ? null : onDelete,
-                    icon: const Icon(Icons.close, size: 15, color: T.n500),
-                    padding: EdgeInsets.zero,
-                    tooltip: 'Delete entry',
-                  ),
-                ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

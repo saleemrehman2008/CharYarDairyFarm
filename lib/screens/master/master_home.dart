@@ -10,6 +10,7 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/decision_banner.dart';
+import '../../widgets/farm_icons.dart';
 import '../../widgets/ui.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/bills_screen.dart';
@@ -178,7 +179,7 @@ class MasterHome extends StatelessWidget {
       ),
     if (f.cattle)
       ActionTile(
-        icon: Icons.pets_outlined,
+        drawn: const CattleIcon(size: 22, color: Color(0xFF6544B0)),
         label: l.t('Cattle'),
         tone: const Color(0xFF6544B0),
         badge: store.dueChecks.length,
