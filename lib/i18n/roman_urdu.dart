@@ -244,6 +244,41 @@ const Map<String, String> romanUrdu = {
   '%s of cattle and equipment was bought in this stretch. It is not counted as a cost above — the farm owns it.':
       'Is arse me %s ke maweshi aur saman khareede gaye. Upar kharche me shumar nahi — wo farm ki milkiyat hain.',
 
+  // ---- Google Sheet ----
+  'Google Sheet': 'Google Sheet',
+  'A second copy of the books, kept up to date by itself. Every change in the '
+          'app reaches the Sheet a few seconds later — there is nothing to '
+          'press.':
+      'Hisaab ki doosri naqal, jo khud ba khud update rehti hai. App me jo bhi '
+      'badle wo chand second me Sheet tak pohanch jata hai — kuch dabana '
+      'nahi parta.',
+  'not linked': 'juri nahi',
+  'needs permission': 'ijazat chahiye',
+  'live': 'live',
+  'Paste the sheet link': 'Sheet ka link yahan lagayen',
+  'Link this sheet': 'Ye sheet joren',
+  'Sheet linked.': 'Sheet jur gayi.',
+  'That does not look like a Google Sheet link.':
+      'Ye Google Sheet ka link nahi lag raha.',
+  'Allow the app to write to it': 'App ko likhne ki ijazat den',
+  'Allowed. The Sheet will keep up on its own now.':
+      'Ijazat mil gayi. Ab Sheet khud saath chalti rahegi.',
+  'Google did not allow it. %s': 'Google ne ijazat nahi di. %s',
+  'Nothing written to it yet.': 'Abhi is me kuch nahi likha gaya.',
+  'Last written %s': 'Aakhri bar likha %s',
+  'Write it now': 'Abhi likh den',
+  'Written to the Sheet.': 'Sheet me likh diya.',
+  'Could not write. %s': 'Likh nahi saka. %s',
+  'Use another sheet': 'Koi aur sheet',
+  'The Sheet needs to be shared so that anyone with the link can edit it. The '
+          'app writes its own tabs — Summary, Entries, Periods, Co-founders, '
+          'Khaata, Deliveries, Cattle — and rewrites them each time. Any other '
+          'tab you build is left alone.':
+      'Sheet aisi share honi chahiye ke jis ke paas link ho wo edit kar sake. '
+      'App apne tabs likhti hai — Summary, Entries, Periods, Co-founders, '
+      'Khaata, Deliveries, Cattle — aur har bar naye sire se. Jo tab aap '
+      'khud banayen us ko haath nahi lagati.',
+
   // ---- The running ledger ----
   'closed here': 'yahan band hua',
   'open now': 'abhi khula hai',

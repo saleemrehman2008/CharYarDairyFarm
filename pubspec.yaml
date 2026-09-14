@@ -30,6 +30,9 @@ dependencies:
   share_plus: ^13.3.0
   path_provider: ^2.1.6
 
+  # Writing the farm's books into the Google Sheet, straight from the phone.
+  http: ^1.6.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -100,6 +100,7 @@ class FarmSettings {
     required this.bankQr,
     required this.lastSyncAt,
     required this.syncOk,
+    required this.syncError,
     required this.features,
   });
 
@@ -129,6 +130,10 @@ class FarmSettings {
   final DateTime? lastSyncAt;
   final bool syncOk;
 
+  /// What went wrong the last time the Sheet was written, so the master can
+  /// see it without plugging the phone into anything.
+  final String syncError;
+
   /// Which parts of the farm are switched on. Master only.
   final Features features;
 
@@ -148,6 +153,7 @@ class FarmSettings {
     bankQr: '',
     lastSyncAt: null,
     syncOk: true,
+    syncError: '',
     features: Features.initial,
   );
 
@@ -169,6 +175,7 @@ class FarmSettings {
       bankQr: s(m['bankQr']),
       lastSyncAt: dt(m['lastSyncAt']),
       syncOk: m['syncOk'] == null ? true : b(m['syncOk']),
+      syncError: s(m['syncError']),
       features: Features.from(m['features']),
     );
   }

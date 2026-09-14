@@ -24,6 +24,10 @@ class AuthService {
     'GOOGLE_SERVER_CLIENT_ID',
   );
 
+  /// Makes sure the Google plugin is ready before anything asks it for a
+  /// token. Used by the Sheet mirror, which needs its own permission.
+  static Future<void> ensureGoogleReady() => _ensureInit();
+
   static Future<void> _ensureInit() async {
     if (_initialised) return;
     await GoogleSignIn.instance.initialize(

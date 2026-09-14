@@ -10,6 +10,7 @@ import '../services/bill_repo.dart';
 import '../services/db.dart';
 import '../services/log_service.dart';
 import '../services/month_repo.dart';
+import '../services/sheet_sync.dart';
 import 'round_data.dart';
 
 /// One subscription set for the whole farm side of the app.
@@ -486,8 +487,67 @@ class FarmStore extends ChangeNotifier implements RoundData {
     });
   }
 
+  // ---- The Google Sheet ----
+
+  /// Anything at all changed, so the Sheet is due a rewrite.
+  ///
+  /// Hooked to the one place every change already passes through, rather than
+  /// sprinkled through twenty listeners. The mirror itself waits for the
+  /// changes to stop before it writes, so calling this on every tick of every
+  /// stream costs a timer reset and nothing else.
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    if (_settings.sheetId.isEmpty) return;
+    SheetSync.nudge(sheetBooks);
+  }
+
+  /// The whole of what the Sheet shows.
+  ///
+  /// The ledger and the deliveries are read fresh rather than taken from the
+  /// store, because the store only holds the open period and the Sheet is
+  /// meant to be the farm's second copy of everything.
+  Future<SheetBooks> sheetBooks() async {
+    final ledger = await Db.transactions
+        .orderBy('date', descending: true)
+        .limit(2000)
+        .get();
+    final rounds = await Db.deliveries
+        .orderBy('date', descending: true)
+        .limit(2000)
+        .get();
+
+    final books = this.books;
+    return SheetBooks(
+      sheetId: _settings.sheetId,
+      lastSyncAt: _settings.lastSyncAt,
+      txns: ledger.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList(),
+      periods: _periods,
+      partners: _partners,
+      ratios: ratios,
+      khaata: _udhaar,
+      deliveries: rounds.docs.map(Delivery.fromDoc).toList(),
+      animals: _animals,
+      summary: [
+        ('Cash in hand', books.cash),
+        ('With the rider', books.withRider),
+        ('To receive', books.receivable),
+        ('To pay', books.payable),
+        ('Capital the co-founders put in', capitalIn),
+        ('Cattle & equipment owned', assetsOwned),
+        ('Sold since day one', lifetimeSales),
+        ('Spent since day one', lifetimeRunningCosts),
+        ('Made since day one', lifetimeProfit),
+        ('This period — sales', books.sales),
+        ('This period — running costs', books.costs),
+        ('This period — profit', books.profit),
+      ],
+    );
+  }
+
   @override
   void dispose() {
+    SheetSync.stop();
     for (final s in _subs) {
       s.cancel();
     }
