@@ -292,11 +292,14 @@ class _SheetCardState extends State<_SheetCard> {
     final store = context.read<FarmStore>();
     setState(() => _busy = true);
     try {
-      final ok = await SheetSync.push(await store.sheetBooks(), force: true);
+      final result = await SheetSync.push(
+        await store.sheetBooks(),
+        force: true,
+      );
       if (!mounted) return;
       toast(
         context,
-        ok
+        result == SyncResult.written
             ? l.t('Written to the Sheet.')
             : l.t2('Could not write. %s', SheetSync.lastError ?? ''),
       );

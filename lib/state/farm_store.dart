@@ -495,10 +495,23 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// sprinkled through twenty listeners. The mirror itself waits for the
   /// changes to stop before it writes, so calling this on every tick of every
   /// stream costs a timer reset and nothing else.
+  /// True once this app has written the Sheet at least once since it opened.
+  bool _caughtUp = false;
+
   @override
   void notifyListeners() {
     super.notifyListeners();
     if (_settings.sheetId.isEmpty) return;
+
+    // The first write after the app opens ignores the other phones' cooldown.
+    // Whatever happened while every partner's phone was shut — a rider's
+    // round, a customer's order — is in the books and not yet in the Sheet,
+    // and this is the moment to put that right.
+    if (!_caughtUp) {
+      _caughtUp = true;
+      SheetSync.catchUp(sheetBooks);
+      return;
+    }
     SheetSync.nudge(sheetBooks);
   }
 
@@ -508,13 +521,15 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// store, because the store only holds the open period and the Sheet is
   /// meant to be the farm's second copy of everything.
   Future<SheetBooks> sheetBooks() async {
+    // Capped only so that a runaway cannot write a million rows into a
+    // spreadsheet. At a few hundred entries a month this is years of books.
     final ledger = await Db.transactions
         .orderBy('date', descending: true)
-        .limit(2000)
+        .limit(20000)
         .get();
     final rounds = await Db.deliveries
         .orderBy('date', descending: true)
-        .limit(2000)
+        .limit(20000)
         .get();
 
     final books = this.books;

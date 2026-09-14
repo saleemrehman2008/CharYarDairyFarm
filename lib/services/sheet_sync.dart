@@ -11,6 +11,23 @@ import '../util/money.dart';
 import 'auth_service.dart';
 import 'db.dart';
 
+/// What came of trying to write the Sheet.
+enum SyncResult {
+  /// The Sheet now matches the app.
+  written,
+
+  /// Another phone had just written, or one write was already running. The
+  /// change is still only in the app, so this is tried again.
+  skipped,
+
+  /// It was attempted and did not work — no signal, or Google said no.
+  failed,
+
+  /// No sheet linked, or the permission has never been granted. Nothing to
+  /// retry: somebody has to do something first.
+  notReady,
+}
+
 /// The farm's books, mirrored into its Google Sheet as they change.
 ///
 /// Written from the phone with the partner's own Google account rather than
@@ -51,6 +68,7 @@ class SheetSync {
   static const _cooldown = Duration(seconds: 45);
 
   static Timer? _timer;
+  static Timer? _retry;
   static bool _writing = false;
   static String? _lastError;
 
@@ -72,31 +90,68 @@ class SheetSync {
   /// The books are gathered inside the timer rather than at the call, because
   /// a round of deliveries calls this a dozen times a second and gathering
   /// them means reading the ledger.
+  ///
+  /// A write that does not happen is tried again. Without that, a change made
+  /// inside another phone's cooldown — or while the signal was gone — would
+  /// never reach the Sheet at all, and the two would stay apart until somebody
+  /// happened to change something else.
   static void nudge(Future<SheetBooks> Function() read) {
     _timer?.cancel();
-    _timer = Timer(_settle, () async {
-      try {
-        await push(await read());
-      } catch (e) {
-        _lastError = '';
+    _timer = Timer(_settle, () => _attempt(read));
+  }
+
+  /// Writes now, whatever another phone has just done.
+  ///
+  /// Used when an app opens: whatever happened while every partner's phone was
+  /// shut — a rider's round, a customer's order — is in the books and not in
+  /// the Sheet, and the first partner to open the app puts that right.
+  static void catchUp(Future<SheetBooks> Function() read) {
+    _timer?.cancel();
+    _timer = Timer(
+      const Duration(seconds: 2),
+      () => _attempt(read, force: true),
+    );
+  }
+
+  static Future<void> _attempt(
+    Future<SheetBooks> Function() read, {
+    bool force = false,
+  }) async {
+    _retry?.cancel();
+    _retry = null;
+    try {
+      final result = await push(await read(), force: force);
+      // Skipped because another phone had just written, or the write failed.
+      // Either way the change is still only in the app, so come back to it
+      // rather than waiting for the farm to type something else.
+      if (result == SyncResult.skipped || result == SyncResult.failed) {
+        _retry = Timer(_cooldown, () => _attempt(read));
       }
-    });
+    } catch (e) {
+      _lastError = '$e';
+      _retry = Timer(_cooldown, () => _attempt(read));
+    }
   }
 
   static void stop() {
     _timer?.cancel();
+    _retry?.cancel();
     _timer = null;
+    _retry = null;
   }
 
-  /// Writes the books into the Sheet. Quiet about failure: a farm with no
-  /// signal still has its books, and the next change tries again.
-  static Future<bool> push(SheetBooks books, {bool force = false}) async {
-    if (_writing) return false;
-    if (books.sheetId.isEmpty) return false;
+  /// Writes the books into the Sheet.
+  ///
+  /// Says which of the four things happened, because the caller has to know
+  /// whether to come back to it: a skipped or failed write leaves the Sheet
+  /// behind the app, and that is the one state this is meant to prevent.
+  static Future<SyncResult> push(SheetBooks books, {bool force = false}) async {
+    if (books.sheetId.isEmpty) return SyncResult.notReady;
+    if (_writing) return SyncResult.skipped;
 
     if (!force && books.lastSyncAt != null) {
       final since = DateTime.now().difference(books.lastSyncAt!);
-      if (since < _cooldown) return false;
+      if (since < _cooldown) return SyncResult.skipped;
     }
 
     _writing = true;
@@ -105,7 +160,7 @@ class SheetSync {
       if (token == null) {
         _lastError = 'Not allowed to write to the sheet yet.';
         await _record(ok: false);
-        return false;
+        return SyncResult.notReady;
       }
 
       final tabs = books.tabs;
@@ -115,12 +170,12 @@ class SheetSync {
 
       _lastError = null;
       await _record(ok: true);
-      return true;
+      return SyncResult.written;
     } catch (e) {
       _lastError = '$e';
       debugPrint('Sheet sync failed: $e');
       await _record(ok: false);
-      return false;
+      return SyncResult.failed;
     } finally {
       _writing = false;
     }
