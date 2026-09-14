@@ -99,6 +99,19 @@ String nextPeriodId(String monthId, DateTime sealedOn) {
   return stem + String.fromCharCode(next);
 }
 
+/// The days a period actually covered, written out in full.
+///
+/// The name alone is not enough on the line that marks where a period ended:
+/// "September 2026" does not say whether that ran to the 30th or to the 14th,
+/// and that is exactly what somebody reading down the ledger wants to know.
+String periodDates(FarmMonth period) {
+  final from = period.from;
+  if (from == null) return '';
+  final to = period.to;
+  if (to == null) return fmtDateFull(from);
+  return '${fmtDateFull(from)} — ${fmtDateFull(to)}';
+}
+
 /// What to call a period on screen.
 ///
 /// A whole calendar month is just its name. Anything shorter is named by the

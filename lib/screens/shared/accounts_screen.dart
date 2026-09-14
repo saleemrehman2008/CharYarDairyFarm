@@ -203,24 +203,31 @@ class _AccountsScreenState extends State<AccountsScreen> {
       );
     }
 
+    // The days it covered, written out. "September 2026" does not say whether
+    // that was to the 30th or to the 14th.
+    final dates = periodDates(period);
+
     if (period.isOpen) {
       return PeriodDivider(
         label: periodLabel(period),
         state: l.t('open now'),
         tone: T.moneyIn,
+        note: dates.isEmpty ? null : l.t2('Started %s', dates),
       );
     }
 
     final shared = period.profitShared ?? 0;
+    final money = shared > 0
+        ? l.t2('%s shared between the co-founders', rs(shared))
+        : l.t('Nothing was shared out of this one.');
+
     return PeriodDivider(
       label: periodLabel(period),
       state: period.isSealed
           ? l.t('sealed — waiting on the co-founders')
           : l.t('closed here'),
       tone: period.isSealed ? T.moneyDue : T.accent700,
-      note: shared > 0
-          ? l.t2('%s shared between the co-founders', rs(shared))
-          : l.t('Nothing was shared out of this one.'),
+      note: dates.isEmpty ? money : '$dates\n$money',
     );
   }
 

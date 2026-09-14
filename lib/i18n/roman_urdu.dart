@@ -281,6 +281,7 @@ const Map<String, String> romanUrdu = {
 
   // ---- The running ledger ----
   'closed here': 'yahan band hua',
+  'Started %s': 'Shuru hua %s',
   'open now': 'abhi khula hai',
   'sealed — waiting on the co-founders': 'jam gaya — saathiyon ka intezaar',
   'earlier': 'is se pehle',
