@@ -244,6 +244,37 @@ const Map<String, String> romanUrdu = {
   '%s of cattle and equipment was bought in this stretch. It is not counted as a cost above — the farm owns it.':
       'Is arse me %s ke maweshi aur saman khareede gaye. Upar kharche me shumar nahi — wo farm ki milkiyat hain.',
 
+  // ---- The running ledger ----
+  'closed here': 'yahan band hua',
+  'open now': 'abhi khula hai',
+  'sealed — waiting on the co-founders': 'jam gaya — saathiyon ka intezaar',
+  'earlier': 'is se pehle',
+  '%s shared between the co-founders': '%s saathiyon me banta',
+  'Nothing was shared out of this one.': 'Is me se kuch nahi banta.',
+
+  // ---- Zero se ab tak ----
+  'Summary': 'Khulasa',
+  'Made since day one': 'Shuru se ab tak kamaya',
+  'All time': 'Shuru se',
+  '%s sold, %s spent on running the farm':
+      '%s ka bika, %s farm chalane per kharch hua',
+  'Put in': 'Daala gaya',
+  'by the co-founders': 'saathiyon ne',
+  'Sold': 'Bika',
+  'Spent': 'Kharch',
+  'Owns': 'Milkiyat',
+  'cattle & equipment': 'maweshi aur saman',
+  'Cash now': 'Abhi cash',
+  'Period by period': 'Har period ka hisaab',
+  'Newest first. The open one is still running.':
+      'Naya sab se upar. Jo khula hai wo abhi chal raha hai.',
+  'No period has been settled yet — this is the first one.':
+      'Abhi koi period band nahi hua — ye pehla hai.',
+  '%s went to the co-founders': '%s saathiyon ko gaya',
+  'open': 'khula',
+  'closed': 'band',
+  'waiting': 'intezaar',
+
   // ---- Day by day, and the capital ----
   'Day by day': 'Roz ba roz',
   'Week by week': 'Hafta ba hafta',

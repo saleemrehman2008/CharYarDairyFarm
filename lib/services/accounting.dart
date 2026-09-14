@@ -17,6 +17,9 @@ class Books {
            .where((t) => t.isCapitalAsset)
            .fold<num>(0, (a, t) => a + t.amount),
        receipts = _sum(monthTxns, TxnType.receipt),
+       loosePayments = monthTxns
+           .where((t) => t.isLoosePayment)
+           .fold<num>(0, (a, t) => a + t.amount),
        payments = _sum(monthTxns, TxnType.payment),
        paidSales = _sum(monthTxns, TxnType.sale, cashAtEntryOnly: true),
        paidPurchases = _sum(monthTxns, TxnType.purchase, cashAtEntryOnly: true),
@@ -66,6 +69,10 @@ class Books {
   final num receipts;
   final num payments;
 
+  /// Payments that settle nothing — rent or a bill paid without the cost ever
+  /// having been booked. Real money out, so it belongs in [costs].
+  final num loosePayments;
+
   /// Only the entries whose money moved as they were written. An entry booked
   /// on credit is left out here even once it is settled, because its cash is
   /// counted on the settlement row instead — possibly in a later month.
@@ -82,7 +89,7 @@ class Books {
 
   /// What it cost to run the farm this month — feed, salaries, bills, vet.
   /// Cattle and equipment are deliberately left out; see [assetsBought].
-  num get costs => purchases + expenses - assetsBought;
+  num get costs => purchases + expenses - assetsBought + loosePayments;
 
   /// Profit for the open month, on an accrual basis. Neither the partners'
   /// capital nor the cattle they bought with it is income or cost, so neither

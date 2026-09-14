@@ -249,7 +249,7 @@ class MonthRepo {
           'monthId': bookingId,
           'type': TxnType.payment.name,
           'party': share.name,
-          'category': 'Other payment',
+          'category': profitShareCategory,
           'amount': share.withdraw,
           'paid': true,
           'paidAt': Timestamp.fromDate(now),

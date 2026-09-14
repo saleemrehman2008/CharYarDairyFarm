@@ -262,12 +262,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               onChanged: (v) => setState(() => _payVia = v),
             ),
             const SizedBox(height: T.gap),
-            Field(
+            WhoField(
               label: _type.isIncoming ? 'Received by' : 'Paid by',
               controller: _handledBy,
               hint: _type.isIncoming
                   ? 'Who took the money'
                   : 'Who handed it over',
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 5),
             Text(

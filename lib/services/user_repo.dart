@@ -149,19 +149,42 @@ class UserRepo {
   static Future<void> _ensurePartner(Actor actor, {String email = ''}) async {
     var id = actor.uid;
     try {
-      // A record made under the old scheme has a random id. Keep using it
-      // rather than opening a second one beside it.
-      final older = await Db.partners
+      // A record already claimed by this account — including one made under
+      // the old scheme, which has a random id. Keep using it rather than
+      // opening a second one beside it.
+      final mine = await Db.partners
           .where('userId', isEqualTo: actor.uid)
           .limit(1)
           .get();
-      final fresh = older.docs.isEmpty;
-      if (!fresh) id = older.docs.first.id;
+
+      // Failing that, a record the master opened for this person before they
+      // ever signed in, waiting under their email. Claim it, so the capital
+      // they already put in stays theirs instead of a second record starting
+      // at zero beside it.
+      var claiming = false;
+      if (mine.docs.isEmpty && email.isNotEmpty) {
+        final waiting = await Db.partners
+            .where('email', isEqualTo: email.trim().toLowerCase())
+            .limit(5)
+            .get();
+        for (final doc in waiting.docs) {
+          if (s(doc.data()['userId']).isEmpty) {
+            id = doc.id;
+            claiming = true;
+            break;
+          }
+        }
+      }
+
+      final fresh = mine.docs.isEmpty && !claiming;
+      if (mine.docs.isNotEmpty) id = mine.docs.first.id;
 
       await Db.partners.doc(id).set({
         'userId': actor.uid,
         'name': actor.name,
-        if (email.isNotEmpty) 'email': email,
+        // Lower case, because this is what a record waiting for its owner is
+        // matched on and Google does not promise the case it hands back.
+        if (email.isNotEmpty) 'email': email.trim().toLowerCase(),
         if (fresh) ...{
           'invested': 0,
           'reinvested': 0,

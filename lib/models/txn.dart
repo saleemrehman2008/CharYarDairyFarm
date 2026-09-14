@@ -72,15 +72,20 @@ enum TxnType {
       'Other expense',
     ],
     TxnType.receipt => const ['Khaata receipt', 'Advance', 'Other receipt'],
-    TxnType.payment => const [
-      'Supplier payment',
-      'Rent',
-      'Utilities (bijli, gas, pani)',
-      'Salaries',
-      'Other payment',
-    ],
+    // Deliberately short. A payment settles something the books already
+    // know about; it is not the place to record what the money was for. Rent,
+    // salaries and bills used to be offered here as well as under Expense,
+    // and picking the wrong one put the money out of the farm's cash without
+    // ever counting it as a cost — so the profit never moved.
+    TxnType.payment => const ['Supplier payment', 'Other payment'],
   };
 }
+
+/// The category a profit share is booked under when a period closes.
+///
+/// Named rather than typed out, because the books have to be able to tell it
+/// from an ordinary payment: it is the one payment that is not a cost.
+const profitShareCategory = 'Profit share';
 
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
@@ -210,9 +215,25 @@ class Txn {
       (type == TxnType.purchase || type == TxnType.expense) &&
       assetCategories.contains(category);
 
+  /// A co-founder's share of the profit, paid out when a period closed.
+  ///
+  /// Money leaving the farm, but not a cost of running it — it is the farm's
+  /// earnings going to the people who own them.
+  bool get isProfitShare => category == profitShareCategory;
+
+  /// A payment that settles nothing.
+  ///
+  /// Money went out and no purchase or expense anywhere accounts for it, so
+  /// this row is the only record that the farm spent it. Counted as a cost —
+  /// otherwise the rupees leave the cash and the profit never notices.
+  bool get isLoosePayment =>
+      type == TxnType.payment && !settlesAnotherEntry && !isProfitShare;
+
   /// Feed, salaries, bills — the cost of running the farm this month.
   bool get isRunningCost =>
-      (type == TxnType.purchase || type == TxnType.expense) && !isCapitalAsset;
+      ((type == TxnType.purchase || type == TxnType.expense) &&
+          !isCapitalAsset) ||
+      isLoosePayment;
 
   /// Unpaid sales are receivables; unpaid purchases and expenses are payables.
   bool get isReceivable => !paid && type == TxnType.sale;

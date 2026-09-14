@@ -66,206 +66,189 @@ class _AccountsScreenState extends State<AccountsScreen> {
   late AccountsFilter _filter = widget.initialFilter;
   String? _busyId;
 
-  /// Null means the month the farm is currently booking into.
-  String? _viewing;
-
   @override
   void didUpdateWidget(AccountsScreen old) {
     super.didUpdateWidget(old);
-    // A KPI card on Home can jump straight to a preset filter.
+    // A tile on Home can jump straight to a preset filter.
     if (old.initialFilter != widget.initialFilter) {
       setState(() => _filter = widget.initialFilter);
     }
   }
 
+  /// The whole ledger as one running account, newest first.
+  ///
+  /// It used to be shown a period at a time, behind a row of month chips.
+  /// That was wrong in the way that matters: the moment a period was settled
+  /// its entire ledger left the screen — and a period that was sealed but not
+  /// yet closed had no chip at all, so it could not be reached from anywhere.
+  /// The farm's books are read as one account. Where a period ended is drawn
+  /// as a line through the list.
   @override
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
-    // A month that has been closed since this screen was opened.
-    final closed = store.closedMonths;
-    final viewingId = _viewing;
-    final past = viewingId == null
-        ? null
-        : closed.where((m) => m.id == viewingId).firstOrNull;
-
-    if (viewingId != null && past == null) {
-      // The month vanished — fall back to the open one rather than a blank.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _viewing = null);
-      });
-    }
-
-    return past == null ? _openMonth(store) : _closedMonth(store, past);
-  }
-
-  /// The month the farm is booking into: live figures, and everything can be
-  /// added to and settled.
-  Widget _openMonth(FarmStore store) {
     final isMaster = context.watch<Session>().role == Role.master;
     final l = L.of(context);
     final books = store.books;
-    final rows = _rows(store.monthTxns, store);
-
-    return PageBody(
-      children: [
-        _MonthPicker(
-          months: store.closedMonths,
-          openMonthId: store.month.id,
-          selected: null,
-          onPick: (id) => setState(() => _viewing = id),
-        ),
-        const SizedBox(height: T.pad),
-
-        HeroCard(
-          label: l.t(_filter.heading),
-          value: rs(_filter.totalFrom(books)),
-          gradient: T.washOf(_filter.tone),
-          note: l.t2('%s entries', rows.length),
-          trailing: Tag(periodLabel(store.month, short: true)),
-        ),
-        const SizedBox(height: T.pad),
-
-        _FilterBar(filter: _filter, onPick: (f) => setState(() => _filter = f)),
-        const SizedBox(height: 12),
-
-        GhostButton(
-          label: l.t('Add an entry'),
-          icon: Icons.add,
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChangeNotifierProvider.value(
-                value: store,
-                child: const NewEntryScreen(),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        Text(
-          l.t(
-            'All farm money in one place: milk & product sales, cattle, feed, '
-            'bills, rent, food, salaries. Anything sold or bought on credit '
-            'stays unpaid until you mark it paid.',
-          ),
-          style: T.meta,
-        ),
-        const SizedBox(height: 14),
-
-        if (rows.isEmpty)
-          EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
-        else
-          for (final t in rows)
-            _LedgerRow(
-              txn: t,
-              isMaster: isMaster,
-              busy: _busyId == t.id,
-              onMarkPaid: () => _markPaid(t),
-              onDelete: () => _delete(t),
-            ),
-      ],
-    );
-  }
-
-  /// A month already closed: its figures are the ones recorded at the close, so
-  /// they read the same today as they did then. Entries can still be settled —
-  /// last month's udhaar is often collected this month — but nothing new is
-  /// added here, because a new entry belongs to the open month.
-  Widget _closedMonth(FarmStore store, FarmMonth month) {
-    final isMaster = context.watch<Session>().role == Role.master;
 
     return StreamBuilder<List<Txn>>(
-      stream: Db.watchMonthTxns(month.id),
-      builder: (context, snap) {
-        final all = snap.data;
-        final rows = all == null ? const <Txn>[] : _rows(all, store);
+      stream: Db.watchLedger(),
+      builder: (context, ledger) {
+        return StreamBuilder<List<FarmMonth>>(
+          stream: Db.watchPeriods(),
+          builder: (context, periodSnap) {
+            final all = ledger.data;
+            final periods = periodSnap.data ?? const <FarmMonth>[];
+            final rows = all == null ? const <Txn>[] : _rows(all, store);
 
-        return PageBody(
-          children: [
-            _MonthPicker(
-              months: store.closedMonths,
-              openMonthId: store.month.id,
-              selected: month.id,
-              onPick: (id) => setState(() => _viewing = id),
-            ),
-            const SizedBox(height: T.pad),
-
-            RegCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Kicker(monthName(month.id))),
-                      const Tag('Closed', tone: TagTone.good),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _ClosedLine(label: 'Sales', value: month.sales),
-                  _ClosedLine(
-                    label: 'Running costs',
-                    value:
-                        (month.purchases ?? 0) +
-                        (month.expenses ?? 0) -
-                        (month.assets ?? 0),
-                  ),
-                  if ((month.assets ?? 0) > 0)
-                    _ClosedLine(
-                      label: 'Cattle & equipment bought',
-                      value: month.assets,
-                    ),
-                  const Divider(height: 16),
-                  _ClosedLine(
-                    label: 'Profit shared',
-                    value: month.profit,
-                    strong: true,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${month.arLabel} · closed '
-                    '${month.closedAt == null ? '' : fmtDateFull(month.closedAt!)}',
-                    style: T.meta,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: T.pad),
-
-            _FilterBar(
-              filter: _filter,
-              onPick: (f) => setState(() => _filter = f),
-            ),
-            const SizedBox(height: 14),
-
-            if (all == null)
-              const EmptyNote('Loading…')
-            else if (rows.isEmpty)
-              const EmptyNote('Nothing booked in this month.')
-            else
-              for (final t in rows)
-                _LedgerRow(
-                  txn: t,
-                  isMaster: isMaster,
-                  busy: _busyId == t.id,
-                  onMarkPaid: () => _markPaid(t),
-                  onDelete: () => _delete(t),
+            return PageBody(
+              children: [
+                HeroCard(
+                  label: l.t(_filter.heading),
+                  value: rs(_total(books, rows)),
+                  gradient: T.washOf(_filter.tone),
+                  note: all == null
+                      ? l.t('Loading…')
+                      : l.t2('%s entries', rows.length),
+                  trailing: Tag(periodLabel(store.month, short: true)),
                 ),
-          ],
+                const SizedBox(height: T.pad),
+
+                _FilterBar(
+                  filter: _filter,
+                  onPick: (f) => setState(() => _filter = f),
+                ),
+                const SizedBox(height: 12),
+
+                GhostButton(
+                  label: l.t('Add an entry'),
+                  icon: Icons.add,
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChangeNotifierProvider.value(
+                        value: store,
+                        child: const NewEntryScreen(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Text(
+                  l.t(
+                    'All farm money in one place: milk & product sales, '
+                    'cattle, feed, bills, rent, food, salaries. Anything sold '
+                    'or bought on credit stays unpaid until you mark it paid.',
+                  ),
+                  style: T.meta,
+                ),
+                const SizedBox(height: 14),
+
+                if (all == null)
+                  EmptyNote(l.t('Loading…'))
+                else if (rows.isEmpty)
+                  EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
+                else
+                  ..._withDividers(rows, periods, l, isMaster),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  /// Receivable and payable are balances, not month figures, so they always
-  /// come from what is still outstanding today rather than from the month.
+  /// The rows, with a line drawn wherever the period changes.
+  ///
+  /// Grouped by the period each entry was booked into rather than by its date,
+  /// because those two part company on purpose: an entry made the evening a
+  /// period was sealed carries that evening's date and belongs to the period
+  /// that opened, and the line has to fall where the books say it does.
+  List<Widget> _withDividers(
+    List<Txn> rows,
+    List<FarmMonth> periods,
+    L l,
+    bool isMaster,
+  ) {
+    final out = <Widget>[];
+    String? current;
+
+    for (final txn in rows) {
+      if (txn.monthId != current) {
+        current = txn.monthId;
+        final period = periods.where((p) => p.id == current).firstOrNull;
+        out.add(_divider(period, current, l));
+      }
+      out.add(
+        _LedgerRow(
+          txn: txn,
+          isMaster: isMaster,
+          busy: _busyId == txn.id,
+          onMarkPaid: () => _markPaid(txn),
+          onDelete: () => _delete(txn),
+        ),
+      );
+    }
+    return out;
+  }
+
+  Widget _divider(FarmMonth? period, String id, L l) {
+    if (period == null) {
+      // A period document the farm never wrote, from before periods were
+      // recorded. Name it from the id and say nothing else about it.
+      return PeriodDivider(
+        label: monthName(id),
+        state: l.t('earlier'),
+        tone: T.n600,
+      );
+    }
+
+    if (period.isOpen) {
+      return PeriodDivider(
+        label: periodLabel(period),
+        state: l.t('open now'),
+        tone: T.moneyIn,
+      );
+    }
+
+    final shared = period.profitShared ?? 0;
+    return PeriodDivider(
+      label: periodLabel(period),
+      state: period.isSealed
+          ? l.t('sealed — waiting on the co-founders')
+          : l.t('closed here'),
+      tone: period.isSealed ? T.moneyDue : T.accent700,
+      note: shared > 0
+          ? l.t2('%s shared between the co-founders', rs(shared))
+          : l.t('Nothing was shared out of this one.'),
+    );
+  }
+
+  /// The one figure above the list, matching whatever the filter is showing.
+  num _total(Books books, List<Txn> rows) => switch (_filter) {
+    // Balances, which belong to the farm rather than to a period.
+    AccountsFilter.all => books.cash,
+    AccountsFilter.receivable => books.receivable,
+    AccountsFilter.payable => books.payable,
+    // Totals of what is actually on screen.
+    _ => rows.fold<num>(0, (a, t) => a + t.amount),
+  };
+
   List<Txn> _rows(List<Txn> monthTxns, FarmStore store) => switch (_filter) {
     AccountsFilter.all => monthTxns,
     AccountsFilter.sales =>
       monthTxns.where((t) => t.type == TxnType.sale).toList(),
+    // Loose payments are in here too: money that went out with no cost
+    // booked against it anywhere else is a cost, and hiding it from this
+    // list is how the farm lost track of a rent payment.
     AccountsFilter.expenses =>
       monthTxns
-          .where((t) => t.type == TxnType.purchase || t.type == TxnType.expense)
+          .where(
+            (t) =>
+                t.type == TxnType.purchase ||
+                t.type == TxnType.expense ||
+                t.isLoosePayment,
+          )
           .toList(),
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
@@ -523,105 +506,4 @@ class _LedgerRow extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Chips for the open month and every month already closed, newest first.
-class _MonthPicker extends StatelessWidget {
-  const _MonthPicker({
-    required this.months,
-    required this.openMonthId,
-    required this.selected,
-    required this.onPick,
-  });
-
-  final List<FarmMonth> months;
-  final String openMonthId;
-
-  /// Null while the open month is showing.
-  final String? selected;
-  final ValueChanged<String?> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    if (months.isEmpty) return const SizedBox.shrink();
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _Chip(
-            label: '${monthShort(openMonthId)} · open',
-            selected: selected == null,
-            onTap: () => onPick(null),
-          ),
-          for (final m in months)
-            _Chip(
-              label: monthShort(m.id),
-              selected: selected == m.id,
-              onTap: () => onPick(m.id),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 6),
-    child: InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 34,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: selected ? T.accent : Colors.transparent,
-          border: T.hair,
-        ),
-        child: Text(
-          label,
-          style: T.bodyMid.copyWith(
-            fontSize: 12,
-            color: selected ? T.accent100 : T.n700,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-/// One figure from a closed month's record.
-class _ClosedLine extends StatelessWidget {
-  const _ClosedLine({
-    required this.label,
-    required this.value,
-    this.strong = false,
-  });
-
-  final String label;
-  final num? value;
-  final bool strong;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      children: [
-        Expanded(child: Text(label, style: strong ? T.cardTitle : T.body)),
-        Text(rs(value ?? 0), style: strong ? T.num22 : T.bodyMid),
-      ],
-    ),
-  );
 }

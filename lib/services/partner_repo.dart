@@ -66,15 +66,24 @@ class PartnerRepo {
     );
   }
 
+  /// Master only. Opens a capital record for somebody who has not signed in
+  /// yet.
+  ///
+  /// A co-founder can put money in months before they ever open the app, and
+  /// the books have to be able to say so. Give the record their email and
+  /// their own sign-in will claim it — name, share and capital all intact —
+  /// instead of starting a second one beside it.
   static Future<String> create(
     Actor actor, {
     required String name,
+    String email = '',
     String userId = '',
     num invested = 0,
   }) async {
     final doc = await Db.partners.add({
       'userId': userId,
       'name': name,
+      'email': email.trim().toLowerCase(),
       'invested': invested,
       'reinvested': 0,
       'withdrawn': 0,

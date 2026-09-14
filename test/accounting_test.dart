@@ -154,7 +154,8 @@ void main() {
       creditEntry(type: TxnType.purchase, amount: 3000, settled: false),
       entry(type: TxnType.expense, amount: 5000),
       entry(type: TxnType.receipt, amount: 1000),
-      entry(type: TxnType.payment, amount: 500),
+      // Settles something already booked, so it moves cash and nothing else.
+      entry(type: TxnType.payment, amount: 500, settlesTxnId: 'txn3'),
     ];
     final unpaid = monthTxns.where((t) => !t.paid).toList();
 
@@ -170,6 +171,56 @@ void main() {
       expect(books.sales, 70000);
       expect(books.costs, 20000);
       expect(books.profit, 50000);
+    });
+
+    test('a payment that settles something is not a second cost', () {
+      // The purchase it settles was counted when it was booked. Counting the
+      // payment as well would charge the farm twice for one bag of feed.
+      expect(books.loosePayments, 0);
+      expect(books.costs, 20000);
+    });
+
+    test('a payment that settles nothing is the only record of the money', () {
+      // Rent paid straight out, with no expense booked against it. The rupees
+      // have left the farm and this row is all there is to say so, so it is a
+      // cost — otherwise the cash falls and the profit never notices.
+      final withRent = Books(
+        monthId: '2026-09',
+        openingCash: 10000,
+        capital: 400000,
+        monthTxns: [
+          ...monthTxns,
+          entry(type: TxnType.payment, amount: 25000, category: 'Rent'),
+        ],
+        unpaidTxns: unpaid,
+      );
+
+      expect(withRent.loosePayments, 25000);
+      expect(withRent.costs, 45000);
+      expect(withRent.profit, 25000);
+    });
+
+    test("a co-founder's share is money out, but not a cost", () {
+      // It is the farm's earnings going to the people who own them, not the
+      // price of running the place.
+      final afterClose = Books(
+        monthId: '2026-09',
+        openingCash: 10000,
+        capital: 400000,
+        monthTxns: [
+          ...monthTxns,
+          entry(
+            type: TxnType.payment,
+            amount: 50000,
+            category: profitShareCategory,
+          ),
+        ],
+        unpaidTxns: unpaid,
+      );
+
+      expect(afterClose.loosePayments, 0);
+      expect(afterClose.costs, 20000);
+      expect(afterClose.profit, 50000);
     });
 
     test('capital the partners put in is money the farm can spend', () {

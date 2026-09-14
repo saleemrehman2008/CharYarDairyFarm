@@ -158,10 +158,20 @@ service cloud.firestore {
       // Their own sign-in refreshes the name and email on their own record —
       // which is how two accounts belonging to the same person are told apart
       // on screen. Every figure in the record stays the master's alone.
+      //
+      // It may also claim a record the master opened for them before they had
+      // ever signed in: unclaimed, and carrying their own email. That is the
+      // whole test — a record with somebody else's email, or one already
+      // claimed, cannot be taken.
       allow update: if isMaster()
         || (isPartner()
             && resource.data.userId == request.auth.uid
-            && changedKeys().hasOnly(['name', 'email']));
+            && changedKeys().hasOnly(['name', 'email']))
+        || (isPartner()
+            && resource.data.get('userId', '') == ''
+            && resource.data.get('email', '') == me().email
+            && request.resource.data.userId == request.auth.uid
+            && changedKeys().hasOnly(['userId', 'name', 'email']));
 
       allow delete: if isMaster();
     }

@@ -26,6 +26,7 @@ class ReportScreen extends StatefulWidget {
 }
 
 enum _Span {
+  summary('Summary'),
   thisPeriod('This period'),
   lastThree('Last 3 months'),
   thisYear('This year'),
@@ -37,6 +38,7 @@ enum _Span {
 
   /// The earliest date this span takes in. Null means no limit.
   DateTime? get from => switch (this) {
+    _Span.summary => null,
     _Span.thisPeriod => null,
     _Span.lastThree => DateTime.now().subtract(const Duration(days: 92)),
     _Span.thisYear => DateTime(DateTime.now().year),
@@ -47,7 +49,7 @@ enum _Span {
 enum _View { ring, list }
 
 class _ReportScreenState extends State<ReportScreen> {
-  _Span _span = _Span.thisPeriod;
+  _Span _span = _Span.summary;
   _View _view = _View.ring;
 
   @override
@@ -58,7 +60,22 @@ class _ReportScreenState extends State<ReportScreen> {
     return FarmScaffold(
       title: l.t('Report'),
       showBack: true,
-      body: _span == _Span.thisPeriod
+      body: _span == _Span.summary
+          ? PageBody(
+              children: [
+                _SinceDayOne(store: store),
+                const SizedBox(height: 20),
+                _SpanPicker(
+                  span: _span,
+                  onPick: (sp) => setState(() => _span = sp),
+                ),
+                const SizedBox(height: T.gap),
+                _PeriodByPeriod(store: store),
+                const SizedBox(height: 20),
+                _InvestmentCard(partners: store.partners, ratios: store.ratios),
+              ],
+            )
+          : _span == _Span.thisPeriod
           ? _body(context, l, store, store.monthTxns, periodLabel(store.month))
           : StreamBuilder<List<Txn>>(
               stream: Db.watchTxnsSince(_span.from),
@@ -803,4 +820,249 @@ class _InvestmentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The farm from the day it started: what went in, what it sold, what it
+/// spent, what is left.
+///
+/// Six figures, in the order the question is usually asked. Every one of them
+/// counts every period — including a period that is sealed and still waiting
+/// on the co-founders, whose trading happened whatever is being decided about
+/// the profit.
+class _SinceDayOne extends StatelessWidget {
+  const _SinceDayOne({required this.store});
+
+  final FarmStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final money = store.money;
+    final profit = store.lifetimeProfit;
+
+    return Column(
+      children: [
+        HeroCard(
+          label: l.t('Made since day one'),
+          value: rs(profit),
+          gradient: T.washOf(profit < 0 ? T.moneyOut : T.moneyIn),
+          note: l.t3(
+            '%s sold, %s spent on running the farm',
+            rs(store.lifetimeSales),
+            rs(store.lifetimeRunningCosts),
+          ),
+          trailing: Tag(l.t('All time')),
+        ),
+        const SizedBox(height: T.gap),
+        Row(
+          children: [
+            Expanded(
+              child: StatTile(
+                label: l.t('Put in'),
+                value: rs(money.capital),
+                tone: T.accent700,
+                note: l.t('by the co-founders'),
+              ),
+            ),
+            const SizedBox(width: T.gap),
+            Expanded(
+              child: StatTile(
+                label: l.t('Sold'),
+                value: rs(store.lifetimeSales),
+                tone: T.moneyIn,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: T.gap),
+        Row(
+          children: [
+            Expanded(
+              child: StatTile(
+                label: l.t('Spent'),
+                value: rs(store.lifetimeRunningCosts),
+                tone: T.moneyOut,
+                note: l.t('feed, salaries, bills'),
+              ),
+            ),
+            const SizedBox(width: T.gap),
+            Expanded(
+              child: StatTile(
+                label: l.t('Owns'),
+                value: rs(money.assets),
+                tone: const Color(0xFF6544B0),
+                note: l.t('cattle & equipment'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: T.gap),
+        Row(
+          children: [
+            Expanded(
+              child: StatTile(
+                label: l.t('Cash now'),
+                value: rs(money.cash),
+                tone: T.moneyIn,
+              ),
+            ),
+            const SizedBox(width: T.gap),
+            Expanded(
+              child: StatTile(
+                label: l.t('To receive'),
+                value: rs(money.receivable),
+                tone: T.moneyGet,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Every period the farm has settled, one line each — the month-by-month
+/// answer to "how did we do".
+class _PeriodByPeriod extends StatelessWidget {
+  const _PeriodByPeriod({required this.store});
+
+  final FarmStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final settled = store.settledPeriods;
+    final open = store.month;
+    final books = store.books;
+
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(l.t('Period by period')),
+          const SizedBox(height: 4),
+          Text(
+            l.t('Newest first. The open one is still running.'),
+            style: T.meta,
+          ),
+          const SizedBox(height: 12),
+
+          _PeriodLine(
+            label: periodLabel(open),
+            state: l.t('open'),
+            sales: books.sales,
+            costs: books.costs,
+            profit: books.profit,
+            shared: null,
+          ),
+
+          for (final p in settled) ...[
+            const Divider(height: 18),
+            _PeriodLine(
+              label: periodLabel(p),
+              state: p.isSealed ? l.t('waiting') : l.t('closed'),
+              sales: p.sales ?? 0,
+              costs: (p.purchases ?? 0) + (p.expenses ?? 0) - (p.assets ?? 0),
+              profit: p.profit ?? 0,
+              shared: p.isClosed ? (p.profitShared ?? 0) : null,
+            ),
+          ],
+
+          if (settled.isEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              l.t('No period has been settled yet — this is the first one.'),
+              style: T.meta,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PeriodLine extends StatelessWidget {
+  const _PeriodLine({
+    required this.label,
+    required this.state,
+    required this.sales,
+    required this.costs,
+    required this.profit,
+    required this.shared,
+  });
+
+  final String label;
+  final String state;
+  final num sales;
+  final num costs;
+  final num profit;
+
+  /// What was actually handed to the co-founders. Null while the period is
+  /// still running or still being decided.
+  final num? shared;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: T.cardTitle,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Tag(
+              state,
+              tone: state == l.t('closed') ? TagTone.good : TagTone.warn,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _Cell(label: l.t('Sold'), value: sales, tone: T.moneyIn),
+            _Cell(label: l.t('Spent'), value: costs, tone: T.moneyOut),
+            _Cell(
+              label: l.t('Profit'),
+              value: profit,
+              tone: profit < 0 ? T.moneyOut : T.moneyIn,
+            ),
+          ],
+        ),
+        if (shared != null && shared! > 0) ...[
+          const SizedBox(height: 4),
+          Text(l.t2('%s went to the co-founders', rs(shared!)), style: T.meta),
+        ],
+      ],
+    );
+  }
+}
+
+class _Cell extends StatelessWidget {
+  const _Cell({required this.label, required this.value, required this.tone});
+
+  final String label;
+  final num value;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: T.kicker.copyWith(fontSize: 10)),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(rs(value), style: T.bodyMid.copyWith(color: tone)),
+        ),
+      ],
+    ),
+  );
 }

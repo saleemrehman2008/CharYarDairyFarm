@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../models/models.dart';
+import '../state/session.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
 
@@ -948,6 +950,215 @@ class SwitchRow extends StatelessWidget {
   }
 }
 
+/// Who handled the money — picked from the farm's own people rather than
+/// typed out every time.
+///
+/// The names come from `settings/farm`, which the master's app keeps in step
+/// as co-founders are added and removed, and which every role can read — so a
+/// rider's phone offers the same list without being able to see the users
+/// collection. Somebody not on it can still be typed in: money is sometimes
+/// handed to a labourer or a neighbour, and the entry has to be able to say so.
+class WhoField extends StatefulWidget {
+  const WhoField({
+    super.key,
+    required this.label,
+    required this.controller,
+    required this.hint,
+    this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  State<WhoField> createState() => _WhoFieldState();
+}
+
+class _WhoFieldState extends State<WhoField> {
+  /// True once "Someone else" has been chosen, or a name was typed that is not
+  /// on the list.
+  bool _typing = false;
+
+  void _pick(String name) {
+    widget.controller.text = name;
+    setState(() => _typing = false);
+    widget.onChanged?.call(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final people = context.watch<Session>().settings.founders;
+    final chosen = widget.controller.text.trim();
+    final onList = people.any((p) => p.name == chosen);
+
+    if (people.isEmpty) {
+      return Field(
+        label: widget.label,
+        controller: widget.controller,
+        hint: widget.hint,
+        onChanged: widget.onChanged,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Kicker(widget.label),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            for (final person in people)
+              _WhoChip(
+                label: person.name,
+                selected: !_typing && person.name == chosen,
+                onTap: () => _pick(person.name),
+              ),
+            _WhoChip(
+              label: 'Someone else',
+              selected: _typing || (chosen.isNotEmpty && !onList),
+              onTap: () => setState(() => _typing = true),
+            ),
+          ],
+        ),
+        if (_typing || (chosen.isNotEmpty && !onList)) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: widget.controller,
+            autofocus: _typing,
+            textCapitalization: TextCapitalization.words,
+            style: T.body,
+            decoration: InputDecoration(hintText: widget.hint),
+            onChanged: (v) {
+              setState(() {});
+              widget.onChanged?.call(v);
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WhoChip extends StatelessWidget {
+  const _WhoChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(T.pill),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? T.accent : Colors.white,
+          borderRadius: BorderRadius.circular(T.pill),
+          border: Border.all(color: selected ? T.accent : T.n300, width: 1.3),
+        ),
+        child: Text(
+          label,
+          style: T.bodyMid.copyWith(
+            fontSize: 13,
+            color: selected ? Colors.white : T.n700,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// The line drawn through a running list where one period of trading ended.
+///
+/// The books are read as one continuous account, newest at the top, so this is
+/// what tells you where September stopped and October began — and what
+/// September came to. Everything above the line belongs to the period after
+/// it; everything below belongs to the period it names.
+class PeriodDivider extends StatelessWidget {
+  const PeriodDivider({
+    super.key,
+    required this.label,
+    required this.state,
+    this.note,
+    this.tone,
+  });
+
+  /// What the period is called: "September 2026", "1–14 Sep 2026".
+  final String label;
+
+  /// "closed here", "open now", "waiting on the co-founders".
+  final String state;
+
+  /// What it came to, when it came to anything.
+  final String? note;
+
+  final Color? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = tone ?? T.accent700;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: Divider(color: colour.withValues(alpha: 0.35))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colour.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(T.pill),
+                    border: Border.all(color: colour.withValues(alpha: 0.35)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: T.bodyMid.copyWith(
+                          color: colour,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        state,
+                        style: T.meta.copyWith(color: colour, fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: colour.withValues(alpha: 0.35))),
+            ],
+          ),
+          if (note != null) ...[
+            const SizedBox(height: 6),
+            Text(note!, style: T.meta, textAlign: TextAlign.center),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.text, {super.key, this.trailing});
 
@@ -1054,7 +1265,7 @@ Future<Settlement?> askSettlement(
               onChanged: (v) => setSheetState(() => via = v),
             ),
             const SizedBox(height: T.gap),
-            Field(
+            WhoField(
               label: incoming ? 'Received by' : 'Paid by',
               controller: who,
               hint: incoming ? 'Who took the money' : 'Who handed it over',

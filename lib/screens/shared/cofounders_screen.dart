@@ -45,10 +45,15 @@ class CofoundersScreen extends StatelessWidget {
         ),
         const SizedBox(height: T.pad),
 
+        if (isMaster) ...[
+          const _AddPartnerCard(),
+          const SizedBox(height: T.pad),
+        ],
+
         if (partners.isEmpty)
           const EmptyNote(
-            'No co-founders yet. Give a signed-in account the Co-founder role '
-            'from Users, then add their investment here.',
+            'No co-founders yet. Add one above — they do not have to have '
+            'signed in.',
           )
         else
           for (final (i, p) in partners.indexed)
@@ -334,4 +339,130 @@ class _Stat extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Opens a capital record for somebody who has not signed in yet.
+///
+/// A co-founder can put money into the farm months before they ever open the
+/// app — and until now there was no way to say so, because a record only came
+/// into being when its owner signed in. Give it their email and their own
+/// sign-in will claim this record rather than starting a second one beside it.
+class _AddPartnerCard extends StatefulWidget {
+  const _AddPartnerCard();
+
+  @override
+  State<_AddPartnerCard> createState() => _AddPartnerCardState();
+}
+
+class _AddPartnerCardState extends State<_AddPartnerCard> {
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _amount = TextEditingController();
+  bool _busy = false;
+  bool _open = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      toast(context, 'What is their name?');
+      return;
+    }
+    final email = _email.text.trim();
+    if (email.isNotEmpty && !email.contains('@')) {
+      toast(context, 'That email does not look right.');
+      return;
+    }
+
+    final invested = num.tryParse(_amount.text.trim()) ?? 0;
+    setState(() => _busy = true);
+    try {
+      await PartnerRepo.create(
+        context.read<Session>().actor,
+        name: name,
+        email: email,
+        invested: invested,
+      );
+      if (!mounted) return;
+      _name.clear();
+      _email.clear();
+      _amount.clear();
+      setState(() => _open = false);
+      toast(context, '$name added');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not add them. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_open) {
+      return GhostButton(
+        label: 'Add a co-founder',
+        icon: Icons.person_add_alt,
+        onPressed: () => setState(() => _open = true),
+      );
+    }
+
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Add a co-founder', style: T.cardTitle),
+          const SizedBox(height: 4),
+          Text(
+            'They do not have to have signed in. Put their email on it and '
+            'their first sign-in will pick up this record — name, capital and '
+            'share all intact.',
+            style: T.meta,
+          ),
+          const SizedBox(height: T.gap),
+          Field(label: 'Name', controller: _name, hint: 'As everyone says it'),
+          const SizedBox(height: T.gap),
+          Field(
+            label: 'Email (the one they will sign in with)',
+            controller: _email,
+            hint: 'someone@gmail.com',
+            keyboardType: TextInputType.emailAddress,
+            textCapitalization: TextCapitalization.none,
+          ),
+          const SizedBox(height: T.gap),
+          Field(
+            label: 'Capital they have put in (Rs)',
+            controller: _amount,
+            keyboardType: TextInputType.number,
+            hint: '0',
+          ),
+          const SizedBox(height: T.pad),
+          Row(
+            children: [
+              Expanded(
+                child: GhostButton(
+                  label: 'Cancel',
+                  onPressed: _busy ? null : () => setState(() => _open = false),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: PrimaryButton(
+                  label: 'Add',
+                  busy: _busy,
+                  onPressed: _add,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

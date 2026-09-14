@@ -93,6 +93,32 @@ class Db {
               ..sort((a, b) => b.date.compareTo(a.date)),
       );
 
+  /// Every period the farm has had — open, sealed and closed — newest first.
+  ///
+  /// The whole ledger is read as one list, so the app needs to know where each
+  /// period began and ended in order to draw the line between them.
+  static Stream<List<FarmMonth>> watchPeriods() => months.snapshots().map(
+    (q) =>
+        q.docs.map(FarmMonth.fromDoc).toList()
+          ..sort((a, b) => b.id.compareTo(a.id)),
+  );
+
+  /// The whole ledger, newest first.
+  ///
+  /// Not one period at a time: a farm's books are read as a running account,
+  /// and chopping them at each settling-up hid every entry of the period that
+  /// had just been closed. Where one period ends and the next begins is drawn
+  /// as a line through the list instead.
+  ///
+  /// Capped, because this grows for as long as the farm does. Five hundred
+  /// entries is well over a year for a farm this size; past that the oldest
+  /// are reached through the Sheet or the export.
+  static Stream<List<Txn>> watchLedger({int limit = 500}) => transactions
+      .orderBy('date', descending: true)
+      .limit(limit)
+      .snapshots()
+      .map((q) => q.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList());
+
   /// The ledger from a date onwards, for a report that spans more than one
   /// period. Pass null for the lot.
   ///

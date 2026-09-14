@@ -35,12 +35,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _assetTxns = v;
         notifyListeners();
       }),
-      Db.watchClosedMonths().listen((v) {
-        _closedMonths = v;
-        notifyListeners();
-      }),
-      Db.watchSealedMonths().listen((v) {
-        _sealed = v.isEmpty ? null : v.first;
+      // One listener for every period, rather than one for closed and another
+      // for sealed. A sealed period used to fall between the two, which is how
+      // a whole month's figures went missing from the all-time totals.
+      Db.watchPeriods().listen((v) {
+        _periods = v;
         notifyListeners();
       }),
       Db.watchPartners().listen((v) {
@@ -168,8 +167,9 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _monthTxns = const [];
   List<Txn> _unpaidTxns = const [];
   List<Txn> _assetTxns = const [];
-  List<FarmMonth> _closedMonths = const [];
-  FarmMonth? _sealed;
+
+  /// Every period, newest first.
+  List<FarmMonth> _periods = const [];
   List<Partner> _partners = const [];
   List<Product> _products = const [];
   List<FarmOrder> _orders = const [];
@@ -252,11 +252,28 @@ class FarmStore extends ChangeNotifier implements RoundData {
   String get monthId => month.id;
 
   /// Months already closed, newest first — the ledger can be looked back at.
-  List<FarmMonth> get closedMonths => _closedMonths;
+  /// Periods that have been settled — closed, or sealed and waiting. Newest
+  /// first.
+  ///
+  /// Both count towards the farm's all-time figures: a sealed period's trading
+  /// happened, whatever is still being decided about the profit.
+  List<FarmMonth> get settledPeriods =>
+      _periods.where((m) => m.isFrozen).toList();
+
+  List<FarmMonth> get closedMonths =>
+      _periods.where((m) => m.isClosed).toList();
+
+  /// Every period including the open one, newest first.
+  List<FarmMonth> get periods => _periods;
 
   /// The period waiting on the co-founders: frozen figures, decisions coming
   /// in. Null when there is none, which is most of the time.
-  FarmMonth? get sealedPeriod => _sealed;
+  FarmMonth? get sealedPeriod {
+    for (final m in _periods) {
+      if (m.isSealed) return m;
+    }
+    return null;
+  }
 
   List<AppUser> get users => _users;
   FarmSettings get settings => _settings;
@@ -315,14 +332,17 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// months keep their own totals, so this costs a dozen documents a year
   /// rather than re-reading the whole ledger every time the app opens.
   num get lifetimeSales =>
-      _closedMonths.fold<num>(0, (a, m) => a + (m.sales ?? 0)) + books.sales;
+      settledPeriods.fold<num>(0, (a, m) => a + (m.sales ?? 0)) + books.sales;
 
   num get lifetimeRunningCosts =>
-      _closedMonths.fold<num>(
+      settledPeriods.fold<num>(
         0,
         (a, m) => a + (m.purchases ?? 0) + (m.expenses ?? 0) - (m.assets ?? 0),
       ) +
       books.costs;
+
+  /// What the farm has made since the day it started.
+  num get lifetimeProfit => lifetimeSales - lifetimeRunningCosts;
 
   /// The whole route the farm's money has taken, for the Home breakdown.
   MoneySummary get money => MoneySummary(
