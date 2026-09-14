@@ -289,6 +289,13 @@ class SheetBooks {
 
   static String _n(num? v) => v == null ? '' : v.toString();
 
+  /// Every tab, every time — even the empty ones.
+  ///
+  /// They used to be left out when the farm had nothing in them, which read
+  /// as tidy and was wrong: a tab is only emptied if it is in this list, so
+  /// the day the last animal was removed its tab stopped being rewritten and
+  /// kept showing the animals that were no longer there. An empty tab with a
+  /// header row on it is honest; a stale one is not.
   Map<String, List<List<String>>> get tabs => {
     'Summary': [
       ['What', 'Rupees'],
@@ -381,75 +388,72 @@ class SheetBooks {
         ],
     ],
 
-    if (khaata.isNotEmpty)
-      'Khaata': [
-        [
-          'Customer',
-          'Mobile',
-          'Litres a day',
-          'Round',
-          'Rate',
-          'Balance',
-          'State',
-        ],
-        for (final k in khaata)
-          [
-            k.name,
-            k.mobile,
-            _n(k.litresPerDay),
-            k.slot,
-            _n(k.rate),
-            _n(k.balance),
-            k.status.label,
-          ],
+    'Khaata': [
+      [
+        'Customer',
+        'Mobile',
+        'Litres a day',
+        'Round',
+        'Rate',
+        'Balance',
+        'State',
       ],
+      for (final k in khaata)
+        [
+          k.name,
+          k.mobile,
+          _n(k.litresPerDay),
+          k.slot,
+          _n(k.rate),
+          _n(k.balance),
+          k.status.label,
+        ],
+    ],
 
-    if (deliveries.isNotEmpty)
-      'Deliveries': [
-        [
-          'Date',
-          'Customer',
-          'Litres',
-          'Rate',
-          'Amount',
-          'Round',
-          'Marked by',
-          'Billed',
-        ],
-        for (final d in deliveries)
-          [
-            _date(d.date),
-            d.customerName,
-            _n(d.litres),
-            _n(d.rate),
-            _n(d.amount),
-            d.slot,
-            d.deliveredByName,
-            d.billed ? 'Yes' : 'No',
-          ],
+    'Deliveries': [
+      [
+        'Date',
+        'Customer',
+        'Litres',
+        'Rate',
+        'Amount',
+        'Round',
+        'Marked by',
+        'Billed',
       ],
+      for (final d in deliveries)
+        [
+          _date(d.date),
+          d.customerName,
+          _n(d.litres),
+          _n(d.rate),
+          _n(d.amount),
+          d.slot,
+          d.deliveredByName,
+          d.billed ? 'Yes' : 'No',
+        ],
+    ],
 
-    if (animals.isNotEmpty)
-      'Cattle': [
-        [
-          'Tag',
-          'Name',
-          'Kind',
-          'State',
-          'Litres a day',
-          'Bought for',
-          'Bought on',
-        ],
-        for (final a in animals)
-          [
-            a.tag,
-            a.name,
-            a.species.label,
-            a.status.name,
-            _n(a.dailyLitres),
-            _n(a.price),
-            a.boughtOn == null ? '' : _date(a.boughtOn!),
-          ],
+    'Cattle': [
+      [
+        'Tag',
+        'Name',
+        'Kind',
+        'State',
+        'Litres a day',
+        'Bought for',
+        'Bought on',
       ],
+      for (final a in animals)
+        [
+          a.tag,
+          a.name,
+          a.species.label,
+          a.status.name,
+          _n(a.dailyLitres),
+          _n(a.price),
+          a.boughtOn == null ? '' : _date(a.boughtOn!),
+        ],
+    ],
   };
 }
