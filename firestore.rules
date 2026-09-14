@@ -155,7 +155,15 @@ service cloud.firestore {
             && request.resource.data.reinvested == 0
             && request.resource.data.withdrawn == 0);
 
-      allow update, delete: if isMaster();
+      // Their own sign-in refreshes the name and email on their own record —
+      // which is how two accounts belonging to the same person are told apart
+      // on screen. Every figure in the record stays the master's alone.
+      allow update: if isMaster()
+        || (isPartner()
+            && resource.data.userId == request.auth.uid
+            && changedKeys().hasOnly(['name', 'email']));
+
+      allow delete: if isMaster();
     }
 
     // ---- Products (the shop catalogue) ----

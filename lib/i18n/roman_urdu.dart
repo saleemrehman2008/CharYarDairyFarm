@@ -244,6 +244,20 @@ const Map<String, String> romanUrdu = {
   '%s of cattle and equipment was bought in this stretch. It is not counted as a cost above — the farm owns it.':
       'Is arse me %s ke maweshi aur saman khareede gaye. Upar kharche me shumar nahi — wo farm ki milkiyat hain.',
 
+  // ---- Day by day, and the capital ----
+  'Day by day': 'Roz ba roz',
+  'Week by week': 'Hafta ba hafta',
+  'In': 'Aaya',
+  'Out': 'Gaya',
+  'Best day: %s, %s': 'Sab se achha din: %s, %s',
+  'Best week: the one from %s, %s': 'Sab se achha hafta: %s se, %s',
+  'What the co-founders have in': 'Saathiyon ka lagaya hua',
+  'No co-founders yet.': 'Abhi koi saathi nahi.',
+  'put in from their own pocket': 'apni jeb se daala',
+  'incl. %s left in from profit': 'is me %s munafe ka chhora hua',
+  'Total capital': 'Kul sarmaya',
+  'Taken out so far': 'Ab tak nikala',
+
   // ---- Settling the period ----
   'Settle %s': '%s ka hisaab',
   'Freeze %s?': '%s ko jama den?',
@@ -274,6 +288,38 @@ const Map<String, String> romanUrdu = {
       'Baantne ko kuch nahi, is liye bhejne ko bhi kuch nahi. Period munafa de le, phir hisaab karen.',
   'This period is at a loss of %s, so there is nothing to share out. Check that every sale is entered — a big one-off buy like cattle will show as a loss in the period you pay for it.':
       'Is period me %s ka ghaata hai, is liye baantne ko kuch nahi. Dekh len ke har farokht likhi gayi hai — maweshi jaisi bari khareed us period me ghaata dikhati hai jis me paisa diya jata hai.',
+
+  'End this period': 'Ye period khatam karen',
+  'End it': 'Khatam karen',
+  'Settling before the month ends': 'Maheena khatam hone se pehle hisaab',
+  'You can settle up on any day you like — the period simply ends here and the next one starts. Khaata is not touched: customers are still billed at the end of their own month, and nobody gets an extra bill because of this.':
+      'Aap jis din chahen hisaab kar sakte hain — period yahan khatam aur agla shuru. Khaata is se nahi chherta: customers ko un ke apne maheene ke aakhir me hi bill jayega, aur is wajah se kisi ko extra bill nahi milega.',
+  'Nothing to share this time. The period still ends here and the next one opens.':
+      'Is dafa baantne ko kuch nahi. Period phir bhi yahan khatam hoga aur agla khul jayega.',
+  'This period is %s down, so there is nothing to share out — and nothing '
+          'comes off anybody\'s capital either. The shortfall is already in the '
+          'cash the next period starts with.\n\nBefore you end it, check every '
+          'sale is entered. A big one-off buy like cattle shows as a loss in '
+          'the period you pay for it, even though the farm still has the '
+          'animal.':
+      'Is period me %s ka ghaata hai, is liye baantne ko kuch nahi — aur kisi '
+      'ke sarmaye se bhi kuch nahi kata. Ye kami pehle hi us cash me '
+      'shamil hai jis se agla period shuru hoga.\n\nKhatam karne se pehle '
+      'dekh len ke har farokht likhi gayi hai. Maweshi jaisi bari khareed '
+      'us period me ghaata dikhati hai jis me paisa diya jata hai, chahe '
+      'jaanwar farm hi ke paas ho.',
+  'There is nothing to share, so nobody is asked to decide.\n\nFrom this '
+          'moment the figures cannot change, and every new entry — even one '
+          'dated today — belongs to the next period.':
+      'Baantne ko kuch nahi, is liye kisi se faisla nahi poocha jayega.\n\nIs '
+      'lamhe ke baad figures nahi badal sakte, aur har nayi entry — chahe '
+      'aaj ki tareekh ki ho — agle period ki hai.',
+  'Nothing to hand out': 'Baantne ko kuch nahi',
+  'Nothing to share': 'Kuch nahi baantna',
+  'This period made no profit, so nobody is being asked to decide anything. Close it and the next period carries on from here.':
+      'Is period me munafa nahi hua, is liye kisi se kuch nahi poocha ja raha. Band kar den, agla period yahan se chalta rahega.',
+  'Nothing is paid out. The period is finished and filed.':
+      'Koi adaigi nahi hogi. Period khatam ho kar record me chala jayega.',
 
   // ---- The decisions ----
   '%s — decisions': '%s — faisle',

@@ -203,8 +203,21 @@ class FarmMonth {
   /// Sealed or closed: no new entry may be booked into it.
   bool get isFrozen => !isOpen;
 
+  /// A period that made nothing has nothing to hand out.
+  ///
+  /// It still has to close — the books have to roll forward, and a farm that
+  /// spent more than it sold this month is an ordinary thing, not a reason to
+  /// jam the app shut. Nobody is asked to decide about nothing.
+  ///
+  /// Read from the slices themselves rather than from the profit figure, so
+  /// it is true of what was actually sent out and not of what was calculated
+  /// on the way there.
+  bool get nothingToShare =>
+      shares.isEmpty || shares.every((s) => s.share <= 0);
+
   /// Everyone has said what they want. Until then the master cannot close.
-  bool get allDecided => shares.isNotEmpty && shares.every((s) => s.decided);
+  bool get allDecided =>
+      nothingToShare || (shares.isNotEmpty && shares.every((s) => s.decided));
 
   List<MonthShare> get undecided => shares.where((s) => !s.decided).toList();
 

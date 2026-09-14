@@ -107,13 +107,18 @@ class MonthRepo {
     final profitToShare = books.profitToShare(arIncluded: arIncluded);
     final ratios = ratiosOf(partners);
 
+    // A period at a loss shares out nothing. The loss is already in the cash
+    // the next period opens with, so it needs no handing round: it is not
+    // taken off anybody's capital, and nobody is asked to decide about a
+    // negative number.
+    final toShare = profitToShare > 0 ? profitToShare : 0;
     final shares = [
       for (final p in partners)
         MonthShare(
           partnerId: p.id,
           name: p.name,
           ratio: ratios[p.id] ?? 0,
-          share: ((ratios[p.id] ?? 0) * profitToShare).round(),
+          share: ((ratios[p.id] ?? 0) * toShare).round(),
           choice: 'reinvest',
         ),
     ];

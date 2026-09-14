@@ -42,7 +42,9 @@ class UserRepo {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if (listed == Role.investor) await _ensurePartner(actor);
+      if (listed == Role.investor) {
+        await _ensurePartner(actor, email: user.email ?? '');
+      }
       await Log.write(
         actor,
         LogKind.user,
@@ -97,7 +99,7 @@ class UserRepo {
     // so they need a partner record or they would be left out of the ratios.
     final finalRole = upgrade ? listed.name : role;
     if (finalRole == 'master' || finalRole == 'investor') {
-      await _ensurePartner(actor);
+      await _ensurePartner(actor, email: user.email ?? '');
     }
 
     await Log.write(
@@ -133,38 +135,54 @@ class UserRepo {
     }
   }
 
-  /// Gives a co-founder an empty capital record to hold their investment, and
-  /// links it from their user document.
-  static Future<void> _ensurePartner(Actor actor) async {
+  /// Gives this account its capital record, and never a second one.
+  ///
+  /// The record is filed under the account's own id. That is the whole
+  /// safeguard: signing in twice, or on two phones at once, or with the
+  /// cached copy of the partners list out of date, all land on the same
+  /// document. The old way looked the record up by a query first and created
+  /// one when the query came back empty — and a query that came back empty
+  /// for any reason at all quietly made a duplicate.
+  ///
+  /// Written with merge, so an existing record keeps every figure in it and
+  /// only gains what is missing.
+  static Future<void> _ensurePartner(Actor actor, {String email = ''}) async {
+    var id = actor.uid;
     try {
-      // The link is written back onto the user document either way, because
-      // the security rules read it from there to tell whose share a
-      // co-founder is allowed to decide about. A partner the master added by
-      // hand would otherwise have a record with nothing pointing at it.
-      final existing = await Db.partners
+      // A record made under the old scheme has a random id. Keep using it
+      // rather than opening a second one beside it.
+      final older = await Db.partners
           .where('userId', isEqualTo: actor.uid)
           .limit(1)
           .get();
-      if (existing.docs.isNotEmpty) {
-        await Db.users.doc(actor.uid).set({
-          'partnerId': existing.docs.first.id,
-        }, SetOptions(merge: true));
-        return;
-      }
+      final fresh = older.docs.isEmpty;
+      if (!fresh) id = older.docs.first.id;
 
-      final partner = await Db.partners.add({
+      await Db.partners.doc(id).set({
         'userId': actor.uid,
         'name': actor.name,
-        'invested': 0,
-        'reinvested': 0,
-        'withdrawn': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      await Db.users.doc(actor.uid).set({
-        'partnerId': partner.id,
+        if (email.isNotEmpty) 'email': email,
+        if (fresh) ...{
+          'invested': 0,
+          'reinvested': 0,
+          'withdrawn': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        },
       }, SetOptions(merge: true));
     } catch (_) {
       // The master can still add the partner by hand from Co-founders.
+    }
+
+    // Kept out of the try above on purpose. The rules read this pointer to
+    // tell whose share this person may decide about, so it matters more than
+    // the refresh does — and it must still be written on the day the refresh
+    // is refused.
+    try {
+      await Db.users.doc(actor.uid).set({
+        'partnerId': id,
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Offline. The next sign-in writes it.
     }
   }
 

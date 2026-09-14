@@ -28,6 +28,44 @@ class PartnerRepo {
     );
   }
 
+  /// Master only. Removes a capital record that no money has ever passed
+  /// through.
+  ///
+  /// For the duplicates: one person holding two accounts on the farm ends up
+  /// with two records under the same name, and an older bug could leave a
+  /// third. A record with nothing in it can go without anything being lost —
+  /// no capital, no withdrawal, and no closed period's figures resting on it.
+  /// A record with money in it is never deletable, whatever it is called.
+  static Future<void> remove(Actor actor, Partner partner) async {
+    if (!partner.isEmpty) {
+      throw StateError(
+        'That record holds money. Only an empty one can be removed.',
+      );
+    }
+    await Db.partners.doc(partner.id).delete();
+
+    // The user document points at this record so the rules can tell whose
+    // share that person may decide about. Leave it pointing at nothing.
+    if (partner.userId.isNotEmpty) {
+      try {
+        await Db.users.doc(partner.userId).set({
+          'partnerId': FieldValue.delete(),
+        }, SetOptions(merge: true));
+      } catch (_) {
+        // The record is gone either way; a stale pointer resolves to nothing.
+      }
+    }
+
+    await Log.write(
+      actor,
+      LogKind.investment,
+      'removed the empty co-founder record for ${partner.name}'
+      '${partner.email.isEmpty ? '' : ' (${partner.email})'}',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
+
   static Future<String> create(
     Actor actor, {
     required String name,

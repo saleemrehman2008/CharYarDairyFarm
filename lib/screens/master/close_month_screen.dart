@@ -157,7 +157,11 @@ class _SealStepState extends State<_SealStep> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      rs(((ratios[p.id] ?? 0) * profitToShare).round()),
+                      rs(
+                        profitToShare > 0
+                            ? ((ratios[p.id] ?? 0) * profitToShare).round()
+                            : 0,
+                      ),
                       style: T.num22,
                     ),
                   ],
@@ -173,15 +177,17 @@ class _SealStepState extends State<_SealStep> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l.t('Settling in the middle of the month'),
+                    l.t('Settling before the month ends'),
                     style: T.cardTitle.copyWith(color: T.moneyDue),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     l.t(
-                      'Khaata carries on exactly as it is — customers are '
-                      'billed at the end of their month, not now, and nobody '
-                      'gets an extra bill because of this.',
+                      'You can settle up on any day you like — the period '
+                      'simply ends here and the next one starts. Khaata is '
+                      'not touched: customers are still billed at the end of '
+                      'their own month, and nobody gets an extra bill because '
+                      'of this.',
                     ),
                     style: T.body,
                   ),
@@ -201,10 +207,12 @@ class _SealStepState extends State<_SealStep> {
           const SizedBox(height: 14),
 
           PrimaryButton(
-            label: l.t('Send to co-founders'),
-            icon: Icons.send_outlined,
+            label: profitToShare > 0
+                ? l.t('Send to co-founders')
+                : l.t('End this period'),
+            icon: profitToShare > 0 ? Icons.send_outlined : Icons.lock_outline,
             busy: _busy,
-            onPressed: partners.isEmpty || profitToShare <= 0 ? null : _seal,
+            onPressed: partners.isEmpty ? null : _seal,
           ),
           const SizedBox(height: 10),
           Text(
@@ -221,17 +229,20 @@ class _SealStepState extends State<_SealStep> {
             Text(
               profitToShare == 0
                   ? l.t(
-                      'There is nothing to share, so there is nothing to '
-                      'send. Settle once the period has made a profit.',
+                      'Nothing to share this time. The period still ends here '
+                      'and the next one opens.',
                     )
                   : l.t2(
-                      'This period is at a loss of %s, so there is nothing to '
-                      'share out. Check that every sale is entered — a big '
-                      'one-off buy like cattle will show as a loss in the '
-                      'period you pay for it.',
+                      'This period is %s down, so there is nothing to share '
+                      'out — and nothing comes off anybody\'s capital either. '
+                      'The shortfall is already in the cash the next period '
+                      'starts with.\n\nBefore you end it, check every sale is '
+                      'entered. A big one-off buy like cattle shows as a loss '
+                      'in the period you pay for it, even though the farm '
+                      'still has the animal.',
                       rs(profitToShare.abs()),
                     ),
-              style: T.meta.copyWith(color: T.alert),
+              style: T.meta.copyWith(color: T.moneyDue),
             ),
           ],
         ],
@@ -248,14 +259,20 @@ class _SealStepState extends State<_SealStep> {
     final ok = await confirm(
       context,
       title: l.t2('Freeze %s?', periodLabel(store.month)),
-      body: l.t3(
-        '%s goes out to %s co-founders to decide on.\n\nFrom this moment the '
-        'figures cannot change, and every new entry — even one dated today — '
-        'belongs to the next period.',
-        rs(profitToShare),
-        store.partners.length,
-      ),
-      confirmLabel: l.t('Send'),
+      body: profitToShare > 0
+          ? l.t3(
+              '%s goes out to %s co-founders to decide on.\n\nFrom this '
+              'moment the figures cannot change, and every new entry — even '
+              'one dated today — belongs to the next period.',
+              rs(profitToShare),
+              store.partners.length,
+            )
+          : l.t(
+              'There is nothing to share, so nobody is asked to decide.\n\n'
+              'From this moment the figures cannot change, and every new '
+              'entry — even one dated today — belongs to the next period.',
+            ),
+      confirmLabel: profitToShare > 0 ? l.t('Send') : l.t('End it'),
     );
     if (!ok || !mounted) return;
 
@@ -311,8 +328,16 @@ class _DecisionsStepState extends State<_DecisionsStep> {
                 ? null
                 : l.t2('Frozen %s. It will not change.', fmtStamp(p.sealedAt!)),
             trailing: Tag(
-              waiting == 0 ? l.t('All in') : l.t2('%s waiting', waiting),
-              tone: waiting == 0 ? TagTone.good : TagTone.warn,
+              p.nothingToShare
+                  ? l.t('Nothing to share')
+                  : waiting == 0
+                  ? l.t('All in')
+                  : l.t2('%s waiting', waiting),
+              tone: p.nothingToShare
+                  ? TagTone.neutral
+                  : waiting == 0
+                  ? TagTone.good
+                  : TagTone.warn,
             ),
           ),
           const SizedBox(height: T.gap),
@@ -338,25 +363,53 @@ class _DecisionsStepState extends State<_DecisionsStep> {
           ),
           const SizedBox(height: 20),
 
-          SectionTitle(l.t('What each of them wants')),
-          const SizedBox(height: 8),
-          for (final share in p.shares)
-            _ShareRow(
-              period: p,
-              share: share,
-              onEnter: () => _open(context, store, p, share),
-            ),
+          if (p.nothingToShare)
+            RegCard(
+              wash: T.moneyDueWash,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.t('Nothing to hand out'),
+                    style: T.cardTitle.copyWith(color: T.moneyDue),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l.t(
+                      'This period made no profit, so nobody is being asked to '
+                      'decide anything. Close it and the next period carries '
+                      'on from here.',
+                    ),
+                    style: T.body,
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            SectionTitle(l.t('What each of them wants')),
+            const SizedBox(height: 8),
+            for (final share in p.shares)
+              _ShareRow(
+                period: p,
+                share: share,
+                onEnter: () => _open(context, store, p, share),
+              ),
+          ],
 
           const SizedBox(height: 14),
           PrimaryButton(
-            label: l.t('Approve all & close the period'),
+            label: p.nothingToShare
+                ? l.t('Close the period')
+                : l.t('Approve all & close the period'),
             icon: Icons.lock_outline,
             busy: _busy,
             onPressed: p.allDecided ? () => _close(p) : null,
           ),
           const SizedBox(height: 10),
           Text(
-            p.allDecided
+            p.nothingToShare
+                ? l.t('Nothing is paid out. The period is finished and filed.')
+                : p.allDecided
                 ? l.t(
                     'Every share is posted, the withdrawals are entered as '
                     'payments, and the investments go up. This cannot be '

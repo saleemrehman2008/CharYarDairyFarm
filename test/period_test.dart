@@ -165,6 +165,95 @@ void main() {
     });
   });
 
+  group('a period that made nothing still closes', () {
+    // A farm that spent more than it sold this month is an ordinary thing.
+    // The books have to roll forward whatever the figure says, so a loss must
+    // not be able to jam the settling-up shut.
+    FarmMonth atLoss() => FarmMonth(
+      id: '2026-09',
+      status: 'sealed',
+      openingCash: 0,
+      profitShared: -377960,
+      shares: const [
+        MonthShare(
+          partnerId: 'p1',
+          name: 'Saleem Rehman',
+          ratio: 0.24,
+          share: 0,
+          choice: 'reinvest',
+        ),
+        MonthShare(
+          partnerId: 'p2',
+          name: 'Ghulam Ali',
+          ratio: 0.48,
+          share: 0,
+          choice: 'reinvest',
+        ),
+      ],
+    );
+
+    test('has nothing to hand out', () {
+      expect(atLoss().nothingToShare, isTrue);
+      expect(atLoss().totalWithdraw, 0);
+      expect(atLoss().totalReinvest, 0);
+    });
+
+    test('does not wait on anybody to decide', () {
+      expect(atLoss().allDecided, isTrue);
+    });
+
+    test('a period with real shares still waits', () {
+      final real = FarmMonth(
+        id: '2026-09',
+        status: 'sealed',
+        openingCash: 0,
+        profitShared: 500000,
+        shares: const [
+          MonthShare(
+            partnerId: 'p1',
+            name: 'Saleem Rehman',
+            ratio: 0.24,
+            share: 120000,
+            choice: 'reinvest',
+          ),
+        ],
+      );
+      expect(real.nothingToShare, isFalse);
+      expect(real.allDecided, isFalse);
+    });
+
+    test('a farm with no co-founders yet has nothing to wait for', () {
+      final none = FarmMonth(id: '2026-09', status: 'sealed', openingCash: 0);
+      expect(none.nothingToShare, isTrue);
+      expect(none.allDecided, isTrue);
+    });
+  });
+
+  group('a capital record', () {
+    Partner record({num invested = 0, num reinvested = 0, num withdrawn = 0}) =>
+        Partner(
+          id: 'p1',
+          userId: 'u1',
+          name: 'Saleem Rehman',
+          email: 'saleem@example.com',
+          invested: invested,
+          reinvested: reinvested,
+          withdrawn: withdrawn,
+          createdAt: DateTime(2026),
+        );
+
+    test('with nothing in it can be cleared away', () {
+      // Which is how the duplicates a second sign-in left behind are removed.
+      expect(record().isEmpty, isTrue);
+    });
+
+    test('with money in it never can', () {
+      expect(record(invested: 1000000).isEmpty, isFalse);
+      expect(record(reinvested: 50000).isEmpty, isFalse);
+      expect(record(withdrawn: 50000).isEmpty, isFalse);
+    });
+  });
+
   group('a period read back from the database', () {
     test('a sealed one is frozen against new entries', () {
       expect(

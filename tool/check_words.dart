@@ -15,6 +15,9 @@ import 'dart:io';
 final _call = RegExp(r"""\bl\.t[23]?\(\s*((?:'(?:[^'\\]|\\.)*'\s*)+)""");
 final _literal = RegExp(r"'(?:[^'\\]|\\.)*'");
 
+/// A key in the table: one or more adjacent literals, then a colon.
+final _key = RegExp(r"""((?:'(?:[^'\\]|\\.)*'\s*)+):""");
+
 void main() {
   final asked = <String, String>{}; // phrase -> where it was first seen
 
@@ -34,11 +37,23 @@ void main() {
     }
   }
 
+  // The table's keys are read the same way its call sites are: a long phrase
+  // is wrapped across several lines in both places, and Dart joins the pieces.
+  // Comparing the raw source instead would report a translation as missing
+  // purely because the line happened to wrap.
   final table = File('lib/i18n/roman_urdu.dart').readAsStringSync();
+  final translated = <String>{};
+  for (final entry in _key.allMatches(table)) {
+    translated.add(
+      _literal
+          .allMatches(entry.group(1)!)
+          .map((m) => m.group(0)!)
+          .map((s) => s.substring(1, s.length - 1))
+          .join(),
+    );
+  }
 
-  // Compared as source, not as runtime strings: both sides are written the
-  // same way in Dart, escapes and all, so this needs no unescaping to be right.
-  final missing = asked.keys.where((p) => !table.contains("'$p':")).toList()
+  final missing = asked.keys.where((p) => !translated.contains(p)).toList()
     ..sort();
 
   stdout.writeln('${asked.length} phrases asked for');

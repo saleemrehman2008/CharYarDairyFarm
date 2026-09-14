@@ -58,6 +58,7 @@ class CofoundersScreen extends StatelessWidget {
               ratio: ratios[p.id] ?? 0,
               isYou: p.userId == session.user?.uid,
               canAddInvestment: isMaster,
+              canRemove: isMaster,
             ),
 
         const SizedBox(height: 12),
@@ -133,6 +134,7 @@ class _PartnerCard extends StatefulWidget {
     required this.ratio,
     required this.isYou,
     required this.canAddInvestment,
+    required this.canRemove,
   });
 
   final Partner partner;
@@ -140,6 +142,9 @@ class _PartnerCard extends StatefulWidget {
   final double ratio;
   final bool isYou;
   final bool canAddInvestment;
+
+  /// The master may clear away a record with nothing in it.
+  final bool canRemove;
 
   @override
   State<_PartnerCard> createState() => _PartnerCardState();
@@ -193,10 +198,24 @@ class _PartnerCardState extends State<_PartnerCard> {
                 Container(width: 10, height: 10, color: widget.color),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    p.name,
-                    style: T.cardTitle,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p.name,
+                        style: T.cardTitle,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      // One person can hold two accounts on the farm and both
+                      // carry the same name from Google. The email is the only
+                      // thing here that tells them apart.
+                      if (p.email.isNotEmpty)
+                        Text(
+                          p.email,
+                          style: T.meta.copyWith(fontSize: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
                 if (widget.isYou) ...[
@@ -239,10 +258,58 @@ class _PartnerCardState extends State<_PartnerCard> {
                 ],
               ),
             ],
+
+            // A record no money has ever passed through can be removed. This
+            // is what clears the duplicates a second account leaves behind.
+            // A record with capital in it has no such button at all.
+            if (widget.canRemove && p.isEmpty) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Nothing has ever gone through this record.',
+                      style: T.meta,
+                    ),
+                  ),
+                  GhostButton(
+                    label: 'Remove',
+                    icon: Icons.delete_outline,
+                    compact: true,
+                    danger: true,
+                    onPressed: _busy ? null : _remove,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _remove() async {
+    final p = widget.partner;
+    final ok = await confirm(
+      context,
+      title: 'Remove this record?',
+      body:
+          '${p.name}${p.email.isEmpty ? '' : '\n${p.email}'}\n\n'
+          'No capital, nothing reinvested, nothing withdrawn — so there is '
+          'nothing to lose. The share ratios are worked out again without it.',
+      confirmLabel: 'Remove',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await PartnerRepo.remove(context.read<Session>().actor, p);
+      if (mounted) toast(context, '${p.name} removed');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not remove it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 
