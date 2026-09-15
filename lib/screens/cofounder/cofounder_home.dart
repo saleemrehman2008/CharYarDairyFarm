@@ -14,6 +14,7 @@ import '../../widgets/day_chart.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
 import '../../widgets/ui.dart';
+import '../master/activity_log_screen.dart';
 import '../master/cattle_screen.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/my_account_screen.dart';
@@ -168,6 +169,15 @@ class CofounderHome extends StatelessWidget {
                 tone: const Color(0xFF6544B0),
                 onTap: () => _push(context, store, const CattleScreen()),
               ),
+            // Not tucked away under the master. If a figure looks wrong, the
+            // co-founder who thinks so can go and read what was done,
+            // without having to ask the person they are asking about.
+            ActionTile(
+              icon: Icons.history,
+              label: l.t('Who did what'),
+              tone: const Color(0xFFB0562F),
+              onTap: () => _push(context, store, const ActivityLogScreen()),
+            ),
             ActionTile(
               icon: Icons.person_outline,
               label: l.t('My account'),

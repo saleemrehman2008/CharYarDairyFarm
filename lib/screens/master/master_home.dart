@@ -9,6 +9,7 @@ import '../../state/round_data.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/balance_check.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
 import '../../widgets/ui.dart';
@@ -418,9 +419,9 @@ class _MoneyCard extends StatelessWidget {
             tone: T.moneyIn,
           ),
           _MoneyLine(
-            label: l.t('Cattle & equipment bought'),
+            label: l.t('Cattle & equipment owned'),
             value: -money.assets,
-            note: l.t('the farm still owns these'),
+            note: l.t('money that turned into animals, not money spent'),
             tone: T.moneyOut,
           ),
           _MoneyLine(
@@ -470,6 +471,8 @@ class _MoneyCard extends StatelessWidget {
               value: -money.payable,
               tone: T.moneyDue,
             ),
+          const SizedBox(height: 12),
+          BalanceCheck(money: money),
         ],
       ),
     );

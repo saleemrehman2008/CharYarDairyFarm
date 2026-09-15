@@ -365,6 +365,15 @@ const Map<String, String> romanUrdu = {
   'Receivables kept': 'Baqaya shamil',
   'Uncollected receivables': 'Jo wasool nahi hua',
   'Paid out to co-founders': 'Founders ko diya',
+  'Every rupee is accounted for.': 'Har rupay ka hisaab poora hai.',
+  '%s is not accounted for. An entry is probably missing, or one has been '
+          'typed twice.':
+      '%s ka hisaab poora nahi. Ya to koi entry reh gayi hai, ya koi do bar '
+      'lag gayi hai.',
+  'Who did what': 'Kis ne kya kiya',
+  'Cattle & equipment owned': 'Maweshi aur saaman jo farm ka hai',
+  'money that turned into animals, not money spent':
+      'paisa jo jaanwar ban gaya, kharch nahi hua',
   'their share of the profit': 'unka munafe ka hissa',
   '%s rolled from last time is back in this figure — it was held back then, '
           'so it is shared now.':

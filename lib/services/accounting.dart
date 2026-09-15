@@ -23,7 +23,18 @@ class Books {
        payments = _sum(monthTxns, TxnType.payment),
        paidSales = _sum(monthTxns, TxnType.sale, cashAtEntryOnly: true),
        paidPurchases = _sum(monthTxns, TxnType.purchase, cashAtEntryOnly: true),
-       paidExpenses = _sum(monthTxns, TxnType.expense, cashAtEntryOnly: true),
+       // Write-offs are deliberately not in here. An animal coming off the
+       // books is a cost, but no rupee moves on the day it is written — the
+       // money went when she was bought — so the cash must not see it.
+       paidExpenses = monthTxns
+           .where(
+             (t) =>
+                 t.type == TxnType.expense && t.paidOnCreate && !t.isWriteOff,
+           )
+           .fold<num>(0, (a, t) => a + t.amount),
+       writeOffs = monthTxns
+           .where((t) => t.isWriteOff)
+           .fold<num>(0, (a, t) => a + t.amount),
        receivable = unpaidTxns
            .where((t) => t.isReceivable)
            .fold<num>(0, (a, t) => a + t.amount),
@@ -72,6 +83,13 @@ class Books {
   /// Payments that settle nothing — rent or a bill paid without the cost ever
   /// having been booked. Real money out, so it belongs in [costs].
   final num loosePayments;
+
+  /// Animals that left the farm this period, at what they cost.
+  ///
+  /// A cost of the period they left in — a buffalo that dies is money the
+  /// farm has genuinely lost, and one that is sold has to give up what she
+  /// cost before the sale price counts as earnings. Not cash either way.
+  final num writeOffs;
 
   /// Only the entries whose money moved as they were written. An entry booked
   /// on credit is left out here even once it is settled, because its cash is

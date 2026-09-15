@@ -1,4 +1,6 @@
+import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/theme/tokens.dart';
+import 'package:char_yar_dairy_farm/widgets/balance_check.dart';
 import 'package:char_yar_dairy_farm/widgets/day_chart.dart';
 import 'package:char_yar_dairy_farm/widgets/farm_icons.dart';
 import 'package:char_yar_dairy_farm/widgets/ui.dart';
@@ -24,6 +26,35 @@ void main() {
           home: Scaffold(body: ListView(children: children)),
         ),
       );
+
+  group('the books-balance check', () {
+    MoneySummary summary({required num cash, num paidOut = 0}) => MoneySummary(
+      capital: 2000000,
+      assets: 1400000,
+      runningCosts: 400000,
+      sales: 500000,
+      cash: cash,
+      receivable: 0,
+      payable: 0,
+      paidOut: paidOut,
+    );
+
+    testWidgets('says so plainly when everything ties up', (tester) async {
+      await inAList(tester, [BalanceCheck(money: summary(cash: 700000))]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Every rupee is accounted for.'), findsOneWidget);
+    });
+
+    testWidgets('names the gap rather than hiding it', (tester) async {
+      // 50,000 short of what the four lines above it come to.
+      await inAList(tester, [BalanceCheck(money: summary(cash: 650000))]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('50,000'), findsOneWidget);
+      expect(find.text('Every rupee is accounted for.'), findsNothing);
+    });
+  });
 
   group('a card survives a page with no bottom to it', () {
     testWidgets('a plain card draws its content', (tester) async {

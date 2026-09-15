@@ -87,6 +87,16 @@ enum TxnType {
 /// from an ordinary payment: it is the one payment that is not a cost.
 const profitShareCategory = 'Profit share';
 
+/// What an animal that has left the farm is taken off the books at.
+///
+/// Posted by the app when a buffalo is sold, dies or is slaughtered, never
+/// typed by hand — which is why it is not in the Expense list. The amount is
+/// what she cost, because that is what the farm is giving up.
+///
+/// No money moves on this row. The rupees left the box the day she was
+/// bought; this is the farm admitting it no longer has what it bought.
+const writeOffCategory = 'Cattle write-off';
+
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
 
@@ -232,6 +242,13 @@ class Txn {
   /// Money leaving the farm, but not a cost of running it — it is the farm's
   /// earnings going to the people who own them.
   bool get isProfitShare => category == profitShareCategory;
+
+  /// An animal taken off the books — sold, died or slaughtered.
+  ///
+  /// A cost, because the farm has given up something it owned, and the profit
+  /// has to know. Not cash: nothing moves on the day it is written.
+  bool get isWriteOff =>
+      type == TxnType.expense && category == writeOffCategory;
 
   /// A payment that settles nothing.
   ///

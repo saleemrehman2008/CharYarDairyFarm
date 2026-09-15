@@ -10,6 +10,7 @@ import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
 import '../../widgets/ui.dart';
 
@@ -672,6 +673,9 @@ class _SinceDayOne extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: T.gap),
+        // Put where every co-founder can reach it, not only the master.
+        BalanceCheck(money: money),
       ],
     );
   }

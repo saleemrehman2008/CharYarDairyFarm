@@ -397,8 +397,12 @@ service cloud.firestore {
     // ---- Activity log ----
     // Anyone signed in appends (their own sign-in is the first line); only the
     // master reads it, and nothing is ever edited.
+    // Four friends in business together. Every one of them can read what
+    // was done and who did it — a record only one of them can see is not a
+    // record, it is that one person's word. Nobody, master included, can
+    // change or remove a line once it is written.
     match /logs/{id} {
-      allow read: if isMaster();
+      allow read: if isPartner();
       allow create: if signedIn();
       allow update, delete: if false;
     }

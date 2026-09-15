@@ -385,8 +385,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Reinvested profit is left out: it never left the farm in the first place.
   num get capitalIn => _partners.fold<num>(0, (a, p) => a + p.invested);
 
-  /// Everything the farm owns — cattle and equipment, across every month.
-  num get assetsOwned => _assetTxns.fold<num>(0, (a, t) => a + t.amount);
+  /// Everything the farm owns — cattle and equipment, across every month,
+  /// less whatever has been sold, died or been slaughtered since.
+  num get assetsOwned => _assetTxns.fold<num>(
+    0,
+    (a, t) => t.isWriteOff ? a - t.amount : a + t.amount,
+  );
 
   /// Profit the co-founders have taken out of the farm, across every close.
   ///

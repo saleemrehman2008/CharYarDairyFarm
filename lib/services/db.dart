@@ -152,13 +152,21 @@ class Db {
 
   /// Everything the farm owns, across every month — a handful of rows, since
   /// cattle and equipment are bought rarely.
+  /// Everything the farm owns, across every month, and everything it has
+  /// stopped owning — a handful of rows, since cattle and equipment are
+  /// bought rarely and leave more rarely still.
+  ///
+  /// Both in one stream because they answer one question. An animal bought
+  /// and then sold is not something the farm owns, and a card that says what
+  /// the farm owns has to be reading both halves or it will keep counting a
+  /// buffalo that is no longer in the shed.
   static Stream<List<Txn>> watchAssetTxns() => transactions
-      .where('category', whereIn: assetCategories.toList())
+      .where('category', whereIn: [...assetCategories, writeOffCategory])
       .snapshots()
       .map(
         (q) => q.docs
             .map(Txn.fromDoc)
-            .where((t) => !t.isDeleted && t.isCapitalAsset)
+            .where((t) => !t.isDeleted && (t.isCapitalAsset || t.isWriteOff))
             .toList(),
       );
 

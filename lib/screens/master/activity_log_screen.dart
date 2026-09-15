@@ -7,7 +7,13 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
 
-/// Master only. Newest first, loading more as the list is pulled down.
+/// Everything anybody has done on the farm, newest first, loading more as
+/// the list is pulled down.
+///
+/// Open to every co-founder, not just the master. Four friends are putting
+/// their savings in together, and a record only one of them can see is not a
+/// record — it is that one person's word. Append-only: not even the master
+/// can change a line once it is written.
 class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
 

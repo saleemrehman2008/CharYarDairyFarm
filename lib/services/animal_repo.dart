@@ -217,6 +217,31 @@ class AnimalRepo {
       );
     }
 
+    // Off the books at what she cost. A sale of Rs 200,000 on a buffalo
+    // bought for Rs 150,000 earned the farm Rs 50,000, not Rs 200,000 — the
+    // rest is the co-founders' own money coming back, and sharing that out
+    // as profit would be paying them with their own capital. A death earns
+    // nothing and this is the whole of it: a real loss, in the period it
+    // happened.
+    //
+    // Nothing is written for an animal born here. She cost nothing to come
+    // by, so there is nothing to give up.
+    if (animal.price > 0) {
+      await TxnRepo.add(
+        actor: actor,
+        monthId: MonthRepo.bookingId,
+        type: TxnType.expense,
+        party: animal.label,
+        category: writeOffCategory,
+        amount: animal.price,
+        paid: true,
+        note:
+            '${animal.species.label} ${animal.tag} — '
+            '${status.label.toLowerCase()}, off the books at what she cost',
+        date: date,
+      );
+    }
+
     await Db.animals.doc(animal.id).update({
       'status': status.name,
       'dailyLitres': 0,
@@ -251,10 +276,28 @@ class AnimalRepo {
   }
 
   /// Puts an animal back on the farm — for when a status was picked in error.
+  ///
+  /// The write-off goes with her: she is back in the shed, so the farm owns
+  /// her again and the cost of losing her was never real. A sale row, if
+  /// there was one, is left alone — money did change hands, and only the
+  /// master can say it did not.
   static Future<void> reinstate(Actor actor, Animal animal) async {
     await Db.animals.doc(animal.id).update({
       'status': AnimalStatus.onFarm.name,
     });
+
+    try {
+      final written = await Db.transactions
+          .where('category', isEqualTo: writeOffCategory)
+          .where('party', isEqualTo: animal.label)
+          .get();
+      for (final doc in written.docs) {
+        if (Txn.fromDoc(doc).isDeleted) continue;
+        await doc.reference.update({'deletedAt': FieldValue.serverTimestamp()});
+      }
+    } catch (_) {
+      // Worst case the write-off stays and the master deletes it by hand.
+    }
     await Log.write(
       actor,
       LogKind.cattle,
