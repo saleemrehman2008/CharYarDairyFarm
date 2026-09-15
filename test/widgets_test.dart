@@ -24,6 +24,12 @@ void main() {
   Future<void> inAList(WidgetTester tester, List<Widget> children) =>
       tester.pumpWidget(
         MaterialApp(
+          // No ripple. Material's default splash is drawn by a shader that
+          // ships with the engine but is not there in a headless test run, so
+          // tapping anything threw where it matters least: these tests are
+          // about what a card lays out and what a button does, not about the
+          // animation on the way.
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
           home: Scaffold(body: ListView(children: children)),
         ),
       );
