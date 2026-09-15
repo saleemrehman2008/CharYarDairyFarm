@@ -78,6 +78,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   String? _busyId;
 
+  /// Settling a week of milk in one go.
+  ///
+  /// The round sells on credit twice a day, so a customer who pays on Friday
+  /// is paying off a dozen entries at once. Ticking them off one at a time,
+  /// each with its own "how did the money come" sheet, is not something
+  /// anybody would do twice — so the whole lot is picked first and asked
+  /// about once. Which ones are settled is still recorded one by one, because
+  /// he may hand over enough for nine of them and not the other three.
+  bool _selecting = false;
+  final _picked = <String>{};
+  bool _settling = false;
+
   @override
   void didUpdateWidget(AccountsScreen old) {
     super.didUpdateWidget(old);
@@ -179,6 +191,21 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     party: _party!,
                     ledger: everything,
                     advanceHeld: store.advanceHeldFor(_party!),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Whatever is unpaid in front of you, settled together.
+                if (rows.any((t) => !t.paid)) ...[
+                  _SettleBar(
+                    unpaid: rows.where((t) => !t.paid).toList(),
+                    picked: _picked,
+                    selecting: _selecting,
+                    busy: _settling,
+                    onStart: () => setState(() => _selecting = true),
+                    onCancel: _stopSelecting,
+                    onAll: () => _pickAll(rows),
+                    onSettle: () => _settleMany(rows),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -292,6 +319,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
           busy: _busyId == txn.id,
           onMarkPaid: () => _markPaid(txn),
           onDelete: () => _delete(txn),
+          selecting: _selecting,
+          selected: _picked.contains(txn.id),
+          onToggle: _canPick(txn) ? () => _toggle(txn) : null,
         ),
       );
     }
@@ -378,6 +408,99 @@ class _AccountsScreenState extends State<AccountsScreen> {
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
   };
+
+  // ---- settling several at once ----
+
+  /// Anything still outstanding can be ticked. What has already been settled
+  /// stays on screen, greyed, because the week's account has to read as the
+  /// week's account.
+  bool _canPick(Txn txn) => !txn.paid;
+
+  void _toggle(Txn txn) => setState(() {
+    if (!_picked.remove(txn.id)) _picked.add(txn.id);
+  });
+
+  void _pickAll(List<Txn> rows) => setState(() {
+    final unpaid = rows.where((t) => !t.paid).toList();
+    final all = unpaid.every((t) => _picked.contains(t.id));
+    _picked.clear();
+    if (!all) _picked.addAll(unpaid.map((t) => t.id));
+  });
+
+  void _stopSelecting() => setState(() {
+    _selecting = false;
+    _picked.clear();
+  });
+
+  /// Settle everything that is ticked, after asking once how the money moved.
+  Future<void> _settleMany(List<Txn> rows) async {
+    final chosen = rows.where((t) => _picked.contains(t.id)).toList();
+    if (chosen.isEmpty) return;
+    final l = L.read(context);
+
+    // One direction at a time, so "who took the money" is asked of the right
+    // people. In practice a week of milk is all one way; this only bites when
+    // somebody ticks a bill and a sale together.
+    final incoming = chosen.where((t) => t.type.isIncoming).toList();
+    final outgoing = chosen.where((t) => !t.type.isIncoming).toList();
+    if (incoming.isNotEmpty && outgoing.isNotEmpty) {
+      toast(
+        context,
+        l.t('Money coming in and money going out have to be settled apart.'),
+      );
+      return;
+    }
+
+    final total = chosen.fold<num>(0, (a, t) => a + t.amount);
+    final parties = chosen.map((t) => t.party).toSet();
+    final settled = await askSettlement(
+      context,
+      incoming: chosen.first.type.isIncoming,
+      party: parties.length == 1
+          ? parties.first
+          : l.t2('%s entries', chosen.length),
+      amount: total,
+    );
+    if (settled == null || !mounted) return;
+
+    setState(() => _settling = true);
+    final actor = context.read<Session>().actor;
+    var done = 0;
+    Object? trouble;
+
+    for (final txn in chosen) {
+      try {
+        await TxnRepo.markPaid(
+          actor,
+          txn,
+          payVia: settled.payVia ?? PayVia.cash,
+          handledBy: settled.handledBy,
+        );
+        done++;
+      } catch (e) {
+        // Keep going. Nine of twelve settled is nine the farm no longer has
+        // to chase, and stopping at the first failure would leave the rest
+        // looking unpaid when they could have been done.
+        trouble ??= e;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _settling = false;
+      _selecting = false;
+      _picked.clear();
+    });
+
+    if (trouble == null) {
+      toast(context, l.t3('%s settled · %s', done, rs(total)));
+    } else {
+      toast(
+        context,
+        '${l.t3('%s of %s went through', done, chosen.length)}. $trouble',
+      );
+    }
+  }
 
   Future<void> _markPaid(Txn txn) async {
     // Ask how the money moved before booking it — a month later nobody will
@@ -509,6 +632,137 @@ class _FilterChip extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Settling a stack of credit entries together.
+///
+/// Closed, it says what is outstanding in front of you and offers to settle
+/// it. Open, it counts what has been ticked and what that comes to, so the
+/// figure being handed over is on screen while it is being counted out in the
+/// yard.
+class _SettleBar extends StatelessWidget {
+  const _SettleBar({
+    required this.unpaid,
+    required this.picked,
+    required this.selecting,
+    required this.busy,
+    required this.onStart,
+    required this.onCancel,
+    required this.onAll,
+    required this.onSettle,
+  });
+
+  final List<Txn> unpaid;
+  final Set<String> picked;
+  final bool selecting;
+  final bool busy;
+  final VoidCallback onStart;
+  final VoidCallback onCancel;
+  final VoidCallback onAll;
+  final VoidCallback onSettle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final owed = unpaid.fold<num>(0, (a, t) => a + t.amount);
+    final chosen = unpaid.where((t) => picked.contains(t.id)).toList();
+    final chosenTotal = chosen.fold<num>(0, (a, t) => a + t.amount);
+    final allPicked = chosen.length == unpaid.length && unpaid.isNotEmpty;
+
+    if (!selecting) {
+      return RegCard(
+        stripe: T.moneyGet,
+        padding: const EdgeInsets.fromLTRB(13, 12, 12, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.t2('%s not settled yet', unpaid.length),
+                    style: T.bodyMid,
+                  ),
+                  Text(rs(owed), style: T.num22.copyWith(color: T.moneyGet)),
+                ],
+              ),
+            ),
+            GhostButton(
+              label: l.t('Settle several'),
+              icon: Icons.checklist,
+              compact: true,
+              onPressed: onStart,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RegCard(
+      stripe: T.moneyIn,
+      padding: const EdgeInsets.fromLTRB(13, 12, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      chosen.isEmpty
+                          ? l.t('Tick what they are paying for')
+                          : l.t2('%s ticked', chosen.length),
+                      style: T.bodyMid,
+                    ),
+                    Text(
+                      rs(chosenTotal),
+                      style: T.num22.copyWith(
+                        color: chosen.isEmpty ? T.n400 : T.moneyIn,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GhostButton(
+                label: allPicked ? l.t('Clear') : l.t('All of them'),
+                compact: true,
+                onPressed: busy ? null : onAll,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  label: busy
+                      ? l.t('Settling…')
+                      : l.t2('Mark %s paid', chosen.length),
+                  onPressed: busy || chosen.isEmpty ? null : onSettle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              GhostButton(
+                label: l.t('Cancel'),
+                compact: true,
+                onPressed: busy ? null : onCancel,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l.t(
+              'Asked once how the money came, then each entry is settled on '
+              'its own — so a part payment marks only what it covers.',
+            ),
+            style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// One person's whole account with the farm, on one card.
@@ -695,6 +949,9 @@ class _LedgerRow extends StatelessWidget {
     required this.busy,
     required this.onMarkPaid,
     required this.onDelete,
+    this.selecting = false,
+    this.selected = false,
+    this.onToggle,
   });
 
   final Txn txn;
@@ -702,6 +959,14 @@ class _LedgerRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onMarkPaid;
   final VoidCallback onDelete;
+
+  /// Picking several entries to settle in one go.
+  final bool selecting;
+  final bool selected;
+
+  /// Null when this entry cannot join the selection — it is already settled,
+  /// or the money runs the other way from what is already picked.
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -716,81 +981,94 @@ class _LedgerRow extends StatelessWidget {
     // the left margin without reading a word of it.
     final tone = T.money(incoming: txn.type.isIncoming, settled: txn.paid);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: RegCard(
-        stripe: tone,
-        padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 46, child: Text(fmtDate(txn.date), style: T.meta)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+    final card = RegCard(
+      stripe: tone,
+      padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (selecting)
+            SizedBox(
+              width: 34,
+              child: Checkbox(
+                value: selected,
+                // A settled entry, or one running the other way, is shown
+                // greyed rather than hidden: the week's account reads as the
+                // week's account, and only what can be settled can be ticked.
+                onChanged: onToggle == null ? null : (_) => onToggle!(),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          SizedBox(width: 46, child: Text(fmtDate(txn.date), style: T.meta)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  txn.party.isEmpty ? txn.category : txn.party,
+                  style: T.bodyMid,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  [
+                    txn.type.label,
+                    txn.category,
+                    ?qtyLine,
+                    if (txn.handOverLine.isNotEmpty) txn.handOverLine,
+                  ].join(' · '),
+                  style: T.meta,
+                  maxLines: 2,
+                ),
+                // When the money actually moved, on an entry that was
+                // booked on credit and settled later. One entry, two dates:
+                // the row is not written twice, it is the same row with the
+                // day it was paid added to it.
+                if (settledLater != null)
                   Text(
-                    txn.party.isEmpty ? txn.category : txn.party,
-                    style: T.bodyMid,
+                    txn.type.isIncoming
+                        ? l.t2('Received %s', fmtDate(settledLater))
+                        : l.t2('Paid %s', fmtDate(settledLater)),
+                    style: T.meta.copyWith(
+                      color: T.money(
+                        incoming: txn.type.isIncoming,
+                        settled: true,
+                      ),
+                    ),
+                  ),
+                // Who typed it in, which is not always who handled the
+                // money.
+                if (txn.createdByName.isNotEmpty)
+                  Text(
+                    l.t2('Entered by %s', txn.createdByName),
+                    style: T.meta.copyWith(color: T.n500),
+                  ),
+                if (txn.note.isNotEmpty)
+                  Text(
+                    txn.note,
+                    style: T.meta.copyWith(color: T.n500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    [
-                      txn.type.label,
-                      txn.category,
-                      ?qtyLine,
-                      if (txn.handOverLine.isNotEmpty) txn.handOverLine,
-                    ].join(' · '),
-                    style: T.meta,
-                    maxLines: 2,
-                  ),
-                  // When the money actually moved, on an entry that was
-                  // booked on credit and settled later. One entry, two dates:
-                  // the row is not written twice, it is the same row with the
-                  // day it was paid added to it.
-                  if (settledLater != null)
-                    Text(
-                      txn.type.isIncoming
-                          ? l.t2('Received %s', fmtDate(settledLater))
-                          : l.t2('Paid %s', fmtDate(settledLater)),
-                      style: T.meta.copyWith(
-                        color: T.money(
-                          incoming: txn.type.isIncoming,
-                          settled: true,
-                        ),
+                if (txn.isCapitalAsset) ...[
+                  const SizedBox(height: 6),
+                  Tag(l.t('farm asset · not a cost'), tone: TagTone.accent),
+                ],
+                if (!txn.paid) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Tag(
+                        l.t(txn.type.isIncoming ? 'not received' : 'not paid'),
+                        tone: txn.type.isIncoming
+                            ? TagTone.neutral
+                            : TagTone.warn,
                       ),
-                    ),
-                  // Who typed it in, which is not always who handled the
-                  // money.
-                  if (txn.createdByName.isNotEmpty)
-                    Text(
-                      l.t2('Entered by %s', txn.createdByName),
-                      style: T.meta.copyWith(color: T.n500),
-                    ),
-                  if (txn.note.isNotEmpty)
-                    Text(
-                      txn.note,
-                      style: T.meta.copyWith(color: T.n500),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  if (txn.isCapitalAsset) ...[
-                    const SizedBox(height: 6),
-                    Tag(l.t('farm asset · not a cost'), tone: TagTone.accent),
-                  ],
-                  if (!txn.paid) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Tag(
-                          l.t(
-                            txn.type.isIncoming ? 'not received' : 'not paid',
-                          ),
-                          tone: txn.type.isIncoming
-                              ? TagTone.neutral
-                              : TagTone.warn,
-                        ),
+                      // While several are being picked, the one-at-a-time
+                      // button would be a second way of doing the same
+                      // thing, half a second before the other one.
+                      if (!selecting) ...[
                         const SizedBox(width: 8),
                         GhostButton(
                           label: l.t('Mark paid'),
@@ -798,41 +1076,55 @@ class _LedgerRow extends StatelessWidget {
                           onPressed: busy ? null : onMarkPaid,
                         ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Deep when the money has moved, pale when it is still owed.
-                Text(
-                  signedRs(txn.amount, incoming: txn.type.isIncoming),
-                  style: T.bodyMid.copyWith(
-                    color: T.money(
-                      incoming: txn.type.isIncoming,
-                      settled: txn.paid,
-                    ),
-                    fontWeight: T.moneyWeight(txn.paid),
-                  ),
-                ),
-                if (isMaster)
-                  SizedBox(
-                    height: 30,
-                    child: IconButton(
-                      onPressed: busy ? null : onDelete,
-                      icon: const Icon(Icons.close, size: 15, color: T.n400),
-                      padding: EdgeInsets.zero,
-                      tooltip: l.t('Delete entry'),
-                    ),
-                  ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Deep when the money has moved, pale when it is still owed.
+              Text(
+                signedRs(txn.amount, incoming: txn.type.isIncoming),
+                style: T.bodyMid.copyWith(
+                  color: T.money(
+                    incoming: txn.type.isIncoming,
+                    settled: txn.paid,
+                  ),
+                  fontWeight: T.moneyWeight(txn.paid),
+                ),
+              ),
+              if (isMaster && !selecting)
+                SizedBox(
+                  height: 30,
+                  child: IconButton(
+                    onPressed: busy ? null : onDelete,
+                    icon: const Icon(Icons.close, size: 15, color: T.n400),
+                    padding: EdgeInsets.zero,
+                    tooltip: l.t('Delete entry'),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      // The whole card is the tick box while several are being picked. Ticking
+      // fourteen days of milk one small square at a time, on a phone, in a
+      // yard, is not something anybody would do twice.
+      child: selecting && onToggle != null
+          ? InkWell(
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(T.radius),
+              child: card,
+            )
+          : card,
     );
   }
 }

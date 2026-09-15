@@ -373,6 +373,25 @@ const Map<String, String> romanUrdu = {
   'It belongs to them, not the farm. It goes back when they stop.':
       'Ye un ka paisa hai, farm ka nahi. Jab wo chhoren ge, wapas jayega.',
 
+  // ---- Settling a week of credit in one go ----
+  '%s not settled yet': '%s abhi baqi hain',
+  'Settle several': 'Ek sath hisaab',
+  'Tick what they are paying for': 'Jis ka paisa de rahe hain, nishan lagayen',
+  '%s ticked': '%s per nishan',
+  'All of them': 'Sab per',
+  'Clear': 'Nishan hatayen',
+  'Mark %s paid': '%s ko paid karen',
+  'Settling…': 'Hisaab ho raha hai…',
+  '%s settled · %s': '%s ka hisaab ho gaya · %s',
+  '%s of %s went through': '%s me se %s ho gaye',
+  'Money coming in and money going out have to be settled apart.':
+      'Jo paisa aa raha hai aur jo ja raha hai, dono ka hisaab alag karna hoga.',
+  'Asked once how the money came, then each entry is settled on its own — so '
+          'a part payment marks only what it covers.':
+      'Paisa kaise aaya, ye ek hi bar poocha jayega, phir har entry apni jagah '
+      'paid hogi — is liye thora paisa den to sirf utni hi entries per '
+      'nishan lagega.',
+
   // ---- Looking up one name or one kind of entry ----
   'Anyone': 'Koi bhi',
   'Anything': 'Kuch bhi',
