@@ -548,6 +548,140 @@ void main() {
     });
   });
 
+  // Kashif takes 80 litres a day on a standing order. He leaves an advance
+  // with the farm, takes milk for a fortnight, and on the sixteenth day pays
+  // that fortnight's bill. The advance is not touched by any of it — it sits
+  // there until one side ends the contract and the farm hands it back.
+  group('a standing order with an advance', () {
+    final advance = _e(
+      type: TxnType.receipt,
+      amount: 50000,
+      category: advanceCategory,
+      party: 'Kashif',
+      monthId: '2026-10',
+      day: 1,
+    );
+    // Fifteen days of milk, billed as one entry and left unpaid.
+    final fortnight = _e(
+      type: TxnType.sale,
+      amount: 180000,
+      category: 'Milk',
+      party: 'Kashif',
+      paid: false,
+      monthId: '2026-10',
+      day: 15,
+    );
+    final settled = _e(
+      type: TxnType.receipt,
+      amount: 180000,
+      category: 'Khaata receipt',
+      party: 'Kashif',
+      settles: fortnight.id,
+      monthId: '2026-10',
+      day: 16,
+    );
+
+    num heldAfter(List<Txn> rows) => rows
+        .where((t) => t.party == 'Kashif')
+        .fold<num>(
+          0,
+          (a, t) => t.isAdvanceIn
+              ? a + t.amount
+              : t.isAdvanceOut
+              ? a - t.amount
+              : a,
+        );
+
+    test('the advance is cash, and nothing else at all', () {
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [advance],
+        unpaidTxns: const [],
+      );
+      expect(b.cash, 50000, reason: 'it is in the box');
+      expect(b.sales, 0);
+      expect(b.otherIncome, 0, reason: 'not the farm to earn');
+      expect(b.profit, 0, reason: 'and not a rupee of it is shared out');
+    });
+
+    test('the fortnight of milk is income, the advance still is not', () {
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [advance, fortnight, settled],
+        unpaidTxns: const [],
+      );
+      expect(b.sales, 180000);
+      expect(b.profit, 180000, reason: 'the milk, once');
+      expect(b.cash, 230000, reason: '180,000 earned and 50,000 held');
+      expect(heldAfter([advance, fortnight, settled]), 50000);
+    });
+
+    test('the books balance while the advance is held', () {
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [advance, fortnight, settled],
+        unpaidTxns: const [],
+      );
+      final m = MoneySummary(
+        capital: 0,
+        assets: 0,
+        runningCosts: 0,
+        sales: 180000,
+        cash: b.cash,
+        receivable: 0,
+        payable: 0,
+        advancesHeld: 50000,
+      );
+      expect(m.expected, 180000, reason: 'what the farm actually made');
+      expect(m.farmMoney, 180000, reason: 'the 50,000 belongs to Kashif');
+      expect(m.reconciles, isTrue);
+    });
+
+    test('handing it back takes the cash and leaves the profit alone', () {
+      final returned = _e(
+        type: TxnType.payment,
+        amount: 50000,
+        category: advanceReturnCategory,
+        party: 'Kashif',
+        monthId: '2026-10',
+        day: 28,
+      );
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [advance, fortnight, settled, returned],
+        unpaidTxns: const [],
+      );
+      expect(b.cash, 180000, reason: 'his money has gone back');
+      expect(b.costs, 0, reason: 'giving it back cost the farm nothing');
+      expect(b.profit, 180000, reason: 'the milk, still just the milk');
+      expect(heldAfter([advance, fortnight, settled, returned]), 0);
+    });
+
+    test('the advance is never shared out as profit', () {
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [advance],
+        unpaidTxns: const [],
+      );
+      final shares = shareOut(
+        partners: founders,
+        profitToShare: b.profit > 0 ? b.profit : 0,
+        choices: const {},
+      );
+      expect(shares.every((s) => s.share == 0), isTrue);
+    });
+  });
+
   group('the awkward months', () {
     test('a month that lost money shares nothing, and still closes', () {
       final bad = Books(

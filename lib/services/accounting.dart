@@ -195,6 +195,7 @@ class MoneySummary {
     this.withRider = 0,
     this.paidOut = 0,
     this.otherIncome = 0,
+    this.advancesHeld = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -211,6 +212,13 @@ class MoneySummary {
 
   /// Money in with no sale booked against it, all time.
   final num otherIncome;
+
+  /// Advances customers have left with the farm and not had back.
+  ///
+  /// In the cash, but not the farm's. It comes off what the farm is worth
+  /// the same way an unpaid bill does — both are money the farm is holding
+  /// and owes to somebody else.
+  final num advancesHeld;
 
   /// Cash actually in hand right now.
   final num cash;
@@ -234,7 +242,7 @@ class MoneySummary {
 
   /// What the farm is actually worth in money: cash, what a rider is carrying,
   /// and what is still to come in, less what it still owes.
-  num get farmMoney => cash + withRider + receivable - payable;
+  num get farmMoney => cash + withRider + receivable - payable - advancesHeld;
 
   /// The same figure read down the waterfall — every rupee that came in, less
   /// every rupee that went out or turned into an animal. It should equal

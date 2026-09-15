@@ -187,6 +187,22 @@ class Db {
             .toList(),
       );
 
+  /// Every advance taken in against a standing order, and every one handed
+  /// back — a handful of rows, one per contract.
+  ///
+  /// Kept across all time rather than per period, because what the farm is
+  /// holding does not reset when the books are settled. A customer who left
+  /// an advance in September is still owed it in March.
+  static Stream<List<Txn>> watchAdvanceTxns() => transactions
+      .where('category', whereIn: [advanceCategory, advanceReturnCategory])
+      .snapshots()
+      .map(
+        (q) => q.docs
+            .map(Txn.fromDoc)
+            .where((t) => !t.isDeleted && (t.isAdvanceIn || t.isAdvanceOut))
+            .toList(),
+      );
+
   static Stream<List<FarmOrder>> watchOrders() => orders
       .orderBy('createdAt', descending: true)
       .limit(200)

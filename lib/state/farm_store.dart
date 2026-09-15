@@ -40,6 +40,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _shareTxns = v;
         notifyListeners();
       }),
+      Db.watchAdvanceTxns().listen((v) {
+        _advanceTxns = v;
+        notifyListeners();
+      }),
       // One listener for every period, rather than one for closed and another
       // for sealed. A sealed period used to fall between the two, which is how
       // a whole month's figures went missing from the all-time totals.
@@ -173,6 +177,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _unpaidTxns = const [];
   List<Txn> _assetTxns = const [];
   List<Txn> _shareTxns = const [];
+  List<Txn> _advanceTxns = const [];
 
   /// Every period, newest first.
   List<FarmMonth> _periods = const [];
@@ -392,6 +397,21 @@ class FarmStore extends ChangeNotifier implements RoundData {
     (a, t) => t.isWriteOff ? a - t.amount : a + t.amount,
   );
 
+  /// Advances the farm is holding right now, across every customer.
+  ///
+  /// Somebody else's money, sitting in the farm's cash. It is not income, it
+  /// is not profit, and it has to come off what the farm is worth — the day
+  /// a contract ends it goes back out again.
+  num get advancesHeld => _advanceTxns.fold<num>(
+    0,
+    (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount,
+  );
+
+  /// What one customer has left with the farm, and not had back.
+  num advanceHeldFor(String party) => _advanceTxns
+      .where((t) => t.party == party)
+      .fold<num>(0, (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount);
+
   /// Profit the co-founders have taken out of the farm, across every close.
   ///
   /// Not a running cost — it is the farm's own earnings going to the people
@@ -448,6 +468,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     payable: books.payable,
     withRider: cashWithRiders,
     paidOut: paidToFounders,
+    advancesHeld: advancesHeld,
   );
 
   Partner? partnerFor(String uid) {
@@ -644,6 +665,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
         ('Capital the co-founders put in', capitalIn),
         ('Cattle & equipment owned', assetsOwned),
         ('Paid out to co-founders', paidToFounders),
+        ('Advances held for customers', advancesHeld),
         ('Sold since day one', lifetimeSales),
         ('Other money in since day one', lifetimeOtherIncome),
         ('Spent since day one', lifetimeRunningCosts),

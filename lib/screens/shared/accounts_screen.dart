@@ -11,6 +11,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/pick_sheet.dart';
 import '../../widgets/ui.dart';
 import 'new_entry_screen.dart';
 
@@ -64,6 +65,17 @@ class AccountsScreen extends StatefulWidget {
 
 class _AccountsScreenState extends State<AccountsScreen> {
   late AccountsFilter _filter = widget.initialFilter;
+
+  /// Narrowed to one name, or one kind of entry, or both. Null is everybody
+  /// and everything.
+  ///
+  /// Kept apart from the tab and applied on top of it, because together they
+  /// answer the question the farm actually asks: pick Kashif on the "To
+  /// receive" tab and you have what Kashif still owes. Picking a name does not
+  /// move you off the tab you were reading.
+  String? _party;
+  String? _category;
+
   String? _busyId;
 
   @override
@@ -98,7 +110,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
           builder: (context, periodSnap) {
             final all = ledger.data;
             final periods = periodSnap.data ?? const <FarmMonth>[];
-            final rows = all == null ? const <Txn>[] : _rows(all, store);
+            final everything = all ?? const <Txn>[];
+            final rows = _narrow(_rows(everything, store));
+            // The names and kinds actually in the books, rather than a fixed
+            // list: a customer who has never traded is not worth offering.
+            final parties = _distinct(everything, (t) => t.party);
+            final categories = _distinct(everything, (t) => t.category);
 
             return PageBody(
               children: [
@@ -117,7 +134,54 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   filter: _filter,
                   onPick: (f) => setState(() => _filter = f),
                 ),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Flexible(
+                      child: PickPill(
+                        icon: Icons.person_outline,
+                        label: _party ?? l.t('Anyone'),
+                        chosen: _party != null,
+                        onClear: () => setState(() => _party = null),
+                        onTap: () => _pick(
+                          title: l.t('Whose entries?'),
+                          options: parties,
+                          allLabel: l.t('Everybody'),
+                          current: _party,
+                          onPicked: (v) => setState(() => _party = v),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: PickPill(
+                        icon: Icons.sell_outlined,
+                        label: _category ?? l.t('Anything'),
+                        chosen: _category != null,
+                        onClear: () => setState(() => _category = null),
+                        onTap: () => _pick(
+                          title: l.t('Which kind of entry?'),
+                          options: categories,
+                          allLabel: l.t('Everything'),
+                          current: _category,
+                          onPicked: (v) => setState(() => _category = v),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
+
+                // One customer's whole account, the moment a name is picked.
+                if (_party != null) ...[
+                  _PartyCard(
+                    party: _party!,
+                    ledger: everything,
+                    advanceHeld: store.advanceHeldFor(_party!),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 GhostButton(
                   label: l.t('Add an entry'),
@@ -148,14 +212,56 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   EmptyNote(l.t('Loading…'))
                 else if (rows.isEmpty)
                   EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
-                else
+                else ...[
                   ..._withDividers(rows, periods, l, isMaster),
+                  const SizedBox(height: 4),
+                  _TotalStrip(
+                    count: rows.length,
+                    total: rows.fold<num>(0, (a, t) => a + t.amount),
+                    tone: _filter.tone,
+                  ),
+                ],
               ],
             );
           },
         );
       },
     );
+  }
+
+  /// The tab's rows, narrowed to one name, one kind, or both.
+  List<Txn> _narrow(List<Txn> rows) => rows
+      .where((t) => _party == null || t.party == _party)
+      .where((t) => _category == null || t.category == _category)
+      .toList();
+
+  /// Every distinct value in the ledger, alphabetically, blanks left out — an
+  /// entry with no name against it offers nothing to pick.
+  static List<String> _distinct(List<Txn> rows, String Function(Txn) of) {
+    final seen = <String>{};
+    for (final t in rows) {
+      final v = of(t).trim();
+      if (v.isNotEmpty) seen.add(v);
+    }
+    return seen.toList()..sort();
+  }
+
+  Future<void> _pick({
+    required String title,
+    required List<String> options,
+    required String allLabel,
+    required String? current,
+    required ValueChanged<String?> onPicked,
+  }) async {
+    final picked = await pickOne(
+      context,
+      title: title,
+      options: options,
+      allLabel: allLabel,
+      current: current,
+    );
+    // A null is a cancel. A Picked carrying null is "all of them".
+    if (picked != null) onPicked(picked.value);
   }
 
   /// The rows, with a line drawn wherever the period changes.
@@ -232,14 +338,22 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   /// The one figure above the list, matching whatever the filter is showing.
-  num _total(Books books, List<Txn> rows) => switch (_filter) {
-    // Balances, which belong to the farm rather than to a period.
-    AccountsFilter.all => books.cash,
-    AccountsFilter.receivable => books.receivable,
-    AccountsFilter.payable => books.payable,
-    // Totals of what is actually on screen.
-    _ => rows.fold<num>(0, (a, t) => a + t.amount),
-  };
+  num _total(Books books, List<Txn> rows) {
+    // Narrowed to one name or one kind, the farm's own balances answer
+    // nothing — what is on screen does. Only the unnarrowed view shows the
+    // balance the rest of the app shows.
+    if (_party != null || _category != null) {
+      return rows.fold<num>(0, (a, t) => a + t.amount);
+    }
+    return switch (_filter) {
+      // Balances, which belong to the farm rather than to a period.
+      AccountsFilter.all => books.cash,
+      AccountsFilter.receivable => books.receivable,
+      AccountsFilter.payable => books.payable,
+      // Totals of what is actually on screen.
+      _ => rows.fold<num>(0, (a, t) => a + t.amount),
+    };
+  }
 
   List<Txn> _rows(List<Txn> monthTxns, FarmStore store) => switch (_filter) {
     AccountsFilter.all => monthTxns,
@@ -395,6 +509,183 @@ class _FilterChip extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// One person's whole account with the farm, on one card.
+///
+/// The question a dairy gets asked at the door is never "what were the sales
+/// this month" — it is "what does Kashif owe me". So picking a name answers
+/// exactly that, out of the whole ledger rather than the open period: what the
+/// farm sold him since the day he started, what he has handed over, and what
+/// is left between them. An advance he left is shown apart from all of it,
+/// because it settles nothing — it is his money, being kept.
+class _PartyCard extends StatelessWidget {
+  const _PartyCard({
+    required this.party,
+    required this.ledger,
+    required this.advanceHeld,
+  });
+
+  final String party;
+  final List<Txn> ledger;
+
+  /// What this person has left with the farm and not had back.
+  final num advanceHeld;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final mine = ledger.where((t) => t.party == party).toList();
+
+    num sum(bool Function(Txn) test) =>
+        mine.where(test).fold<num>(0, (a, t) => a + t.amount);
+
+    final sold = sum((t) => t.type == TxnType.sale);
+    // What was bought off them, not what was handed over. The payment that
+    // settles a bill is the same money as the bill, and counting both would
+    // say the farm bought twice as much off them as it did.
+    final bought = sum(
+      (t) => t.type == TxnType.purchase || t.type == TxnType.expense,
+    );
+    final owesUs = sum((t) => t.isReceivable);
+    final weOwe = sum((t) => t.isPayable);
+
+    return RegCard(
+      stripe: owesUs > 0 ? T.moneyGet : T.accent600,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  party,
+                  style: T.cardTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Tag(l.t2('%s entries', mine.length)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (sold > 0)
+            _PartyLine(
+              label: l.t('Sold to them, all time'),
+              value: sold,
+              tone: T.moneyIn,
+            ),
+          if (bought > 0)
+            _PartyLine(
+              label: l.t('Bought from them, all time'),
+              value: bought,
+              tone: T.moneyOut,
+            ),
+          if (owesUs > 0)
+            _PartyLine(
+              label: l.t('They still owe'),
+              value: owesUs,
+              tone: T.moneyGet,
+              strong: true,
+            ),
+          if (weOwe > 0)
+            _PartyLine(
+              label: l.t('The farm still owes them'),
+              value: weOwe,
+              tone: T.moneyDue,
+              strong: true,
+            ),
+          if (owesUs == 0 && weOwe == 0)
+            Text(l.t('Nothing outstanding either way.'), style: T.meta),
+          if (advanceHeld > 0) ...[
+            const Divider(height: 18),
+            _PartyLine(
+              label: l.t('Advance the farm is holding'),
+              value: advanceHeld,
+              tone: T.moneyDue,
+              strong: true,
+            ),
+            Text(
+              l.t(
+                'It belongs to them, not the farm. It goes back when they '
+                'stop.',
+              ),
+              style: T.meta,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PartyLine extends StatelessWidget {
+  const _PartyLine({
+    required this.label,
+    required this.value,
+    required this.tone,
+    this.strong = false,
+  });
+
+  final String label;
+  final num value;
+  final Color tone;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      children: [
+        Expanded(child: Text(label, style: strong ? T.bodyMid : T.body)),
+        Text(
+          rs(value),
+          style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
+        ),
+      ],
+    ),
+  );
+}
+
+/// How many entries are on screen and what they come to.
+///
+/// At the foot of the list rather than only at the head of it, because that is
+/// where you are when you have finished reading it — and because a total you
+/// have to scroll back up for is a total you will add up yourself instead.
+class _TotalStrip extends StatelessWidget {
+  const _TotalStrip({
+    required this.count,
+    required this.total,
+    required this.tone,
+  });
+
+  final int count;
+  final num total;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(T.radiusSm),
+        border: Border.all(color: tone.withValues(alpha: 0.28), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              l.t2('%s entries', count),
+              style: T.bodyMid.copyWith(color: tone),
+            ),
+          ),
+          Text(rs(total), style: T.num22.copyWith(color: tone)),
+        ],
+      ),
+    );
+  }
 }
 
 class _LedgerRow extends StatelessWidget {

@@ -1,6 +1,7 @@
 import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/theme/tokens.dart';
 import 'package:char_yar_dairy_farm/widgets/balance_check.dart';
+import 'package:char_yar_dairy_farm/widgets/pick_sheet.dart';
 import 'package:char_yar_dairy_farm/widgets/day_chart.dart';
 import 'package:char_yar_dairy_farm/widgets/farm_icons.dart';
 import 'package:char_yar_dairy_farm/widgets/ui.dart';
@@ -26,6 +27,40 @@ void main() {
           home: Scaffold(body: ListView(children: children)),
         ),
       );
+
+  group('the name and kind pills', () {
+    testWidgets('reads as a word when nothing is picked', (tester) async {
+      await inAList(tester, [
+        PickPill(
+          icon: Icons.person_outline,
+          label: 'Anyone',
+          onTap: () {},
+          onClear: () {},
+        ),
+      ]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Anyone'), findsOneWidget);
+    });
+
+    testWidgets('shows the choice and a way out of it', (tester) async {
+      var cleared = false;
+      await inAList(tester, [
+        PickPill(
+          icon: Icons.person_outline,
+          label: 'Kashif',
+          chosen: true,
+          onTap: () {},
+          onClear: () => cleared = true,
+        ),
+      ]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Kashif'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.close));
+      expect(cleared, isTrue);
+    });
+  });
 
   group('the books-balance check', () {
     MoneySummary summary({required num cash, num paidOut = 0}) => MoneySummary(

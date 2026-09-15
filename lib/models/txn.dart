@@ -77,7 +77,11 @@ enum TxnType {
     // salaries and bills used to be offered here as well as under Expense,
     // and picking the wrong one put the money out of the farm's cash without
     // ever counting it as a cost — so the profit never moved.
-    TxnType.payment => const ['Supplier payment', 'Other payment'],
+    TxnType.payment => const [
+      'Supplier payment',
+      advanceReturnCategory,
+      'Other payment',
+    ],
   };
 }
 
@@ -96,6 +100,23 @@ const profitShareCategory = 'Profit share';
 /// No money moves on this row. The rupees left the box the day she was
 /// bought; this is the farm admitting it no longer has what it bought.
 const writeOffCategory = 'Cattle write-off';
+
+/// Money a customer leaves with the farm to hold, against a standing
+/// order.
+///
+/// Not a payment for anything, and never the farm's earnings. A contract
+/// for 80 litres a day starts with the customer handing over an advance;
+/// a fortnight later they pay that fortnight's milk bill on top, and the
+/// advance is untouched. It sits there until one side ends the contract
+/// and the farm hands it back.
+///
+/// So it raises the cash and nothing else: not the sales, not the profit,
+/// and not one rupee of what the co-founders share out. The farm is
+/// holding somebody else's money.
+const advanceCategory = 'Advance';
+
+/// Handing that money back when the contract ends.
+const advanceReturnCategory = 'Advance returned';
 
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
@@ -256,7 +277,20 @@ class Txn {
   /// this row is the only record that the farm spent it. Counted as a cost —
   /// otherwise the rupees leave the cash and the profit never notices.
   bool get isLoosePayment =>
-      type == TxnType.payment && !settlesAnotherEntry && !isProfitShare;
+      type == TxnType.payment &&
+      !settlesAnotherEntry &&
+      !isProfitShare &&
+      !isAdvanceOut;
+
+  /// An advance taken in against a standing order. Cash in, and nothing
+  /// else: the farm is holding this money, not earning it.
+  bool get isAdvanceIn =>
+      type == TxnType.receipt && category == advanceCategory;
+
+  /// That advance handed back when the contract ends. Cash out, and
+  /// nothing else: it was never the farm's to spend.
+  bool get isAdvanceOut =>
+      type == TxnType.payment && category == advanceReturnCategory;
 
   /// A receipt that settles nothing — the other side of [isLoosePayment].
   ///
@@ -265,7 +299,8 @@ class Txn {
   /// reason its opposite is counted as a cost: otherwise the rupees land in
   /// the cash and the profit never notices, and the books stop adding up by
   /// exactly that much.
-  bool get isLooseReceipt => type == TxnType.receipt && !settlesAnotherEntry;
+  bool get isLooseReceipt =>
+      type == TxnType.receipt && !settlesAnotherEntry && !isAdvanceIn;
 
   /// Feed, salaries, bills — the cost of running the farm this month.
   bool get isRunningCost =>

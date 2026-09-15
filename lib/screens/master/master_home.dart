@@ -480,6 +480,18 @@ class _MoneyCard extends StatelessWidget {
               value: -money.payable,
               tone: T.moneyDue,
             ),
+          // In the box, but not the farm's. It goes back when a contract
+          // ends, so it is never counted as anything the farm has made.
+          if (money.advancesHeld > 0)
+            _MoneyLine(
+              label: l.t('Advances held'),
+              value: -money.advancesHeld,
+              note: l.t(
+                'money that belongs to customers, and goes back when a '
+                'contract ends',
+              ),
+              tone: T.moneyDue,
+            ),
           const SizedBox(height: 12),
           BalanceCheck(money: money),
         ],

@@ -364,6 +364,27 @@ const Map<String, String> romanUrdu = {
   'Receivables': 'Baqaya',
   'Receivables kept': 'Baqaya shamil',
   'Uncollected receivables': 'Jo wasool nahi hua',
+
+  // ---- Advances the farm is holding ----
+  'Advances held': 'Advance jo rakha hua hai',
+  'money that belongs to customers, and goes back when a contract ends':
+      'ye customer ka paisa hai, contract khatam hone per wapas jata hai',
+  'Advance the farm is holding': 'Advance jo farm ke paas para hai',
+  'It belongs to them, not the farm. It goes back when they stop.':
+      'Ye un ka paisa hai, farm ka nahi. Jab wo chhoren ge, wapas jayega.',
+
+  // ---- Looking up one name or one kind of entry ----
+  'Anyone': 'Koi bhi',
+  'Anything': 'Kuch bhi',
+  'Everybody': 'Sab log',
+  'Whose entries?': 'Kis ki entries?',
+  'Which kind of entry?': 'Kis qism ki entry?',
+  'Nothing by that name.': 'Is naam se kuch nahi mila.',
+  'Sold to them, all time': 'Un ko becha, shuru se ab tak',
+  'Bought from them, all time': 'Un se khareeda, shuru se ab tak',
+  'They still owe': 'Un ke zimme baqi hai',
+  'The farm still owes them': 'Farm ke zimme baqi hai',
+  'Nothing outstanding either way.': 'Dono taraf kuch baqi nahi.',
   'Paid out to co-founders': 'Founders ko diya',
   'Other money in': 'Doosri aamdani',
   'receipts with no sale booked against them':
