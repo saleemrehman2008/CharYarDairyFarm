@@ -20,6 +20,9 @@ class Books {
        loosePayments = monthTxns
            .where((t) => t.isLoosePayment)
            .fold<num>(0, (a, t) => a + t.amount),
+       otherIncome = monthTxns
+           .where((t) => t.isLooseReceipt)
+           .fold<num>(0, (a, t) => a + t.amount),
        payments = _sum(monthTxns, TxnType.payment),
        paidSales = _sum(monthTxns, TxnType.sale, cashAtEntryOnly: true),
        paidPurchases = _sum(monthTxns, TxnType.purchase, cashAtEntryOnly: true),
@@ -84,6 +87,13 @@ class Books {
   /// having been booked. Real money out, so it belongs in [costs].
   final num loosePayments;
 
+  /// Receipts that settle nothing — money in with no sale booked against it.
+  ///
+  /// The mirror of [loosePayments], and counted the same way round: real
+  /// money in, so the profit has to see it. Not folded into [sales], because
+  /// nothing was sold and the sales figure has to stay the sales figure.
+  final num otherIncome;
+
   /// Animals that left the farm this period, at what they cost.
   ///
   /// A cost of the period they left in — a buffalo that dies is money the
@@ -112,7 +122,7 @@ class Books {
   /// Profit for the open month, on an accrual basis. Neither the partners'
   /// capital nor the cattle they bought with it is income or cost, so neither
   /// touches this figure.
-  num get profit => sales - costs;
+  num get profit => sales + otherIncome - costs;
 
   /// Everything the farm has trading with, including what the partners put in.
   num get cash => capital + operatingCash - withRider;
@@ -184,6 +194,7 @@ class MoneySummary {
     required this.payable,
     this.withRider = 0,
     this.paidOut = 0,
+    this.otherIncome = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -197,6 +208,9 @@ class MoneySummary {
 
   /// Everything sold, all time, collected or not.
   final num sales;
+
+  /// Money in with no sale booked against it, all time.
+  final num otherIncome;
 
   /// Cash actually in hand right now.
   final num cash;
@@ -225,7 +239,8 @@ class MoneySummary {
   /// The same figure read down the waterfall — every rupee that came in, less
   /// every rupee that went out or turned into an animal. It should equal
   /// [farmMoney]; when it does not, an entry is missing or counted twice.
-  num get expected => capital - assets - runningCosts + sales - paidOut;
+  num get expected =>
+      capital - assets - runningCosts + sales + otherIncome - paidOut;
 
   bool get reconciles => (expected - farmMoney).abs() < 1;
 }

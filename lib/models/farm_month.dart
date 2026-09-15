@@ -153,6 +153,7 @@ class FarmMonth {
     this.profit,
     this.profitShared,
     this.sales,
+    this.otherIncome,
     this.purchases,
     this.expenses,
     this.receivables,
@@ -187,6 +188,10 @@ class FarmMonth {
   final num? profit;
   final num? profitShared;
   final num? sales;
+
+  /// Money in with no sale against it. Counted in [profit] like any other
+  /// income, and kept so the all-time costs can be read back correctly.
+  final num? otherIncome;
   final num? purchases;
   final num? expenses;
   final num? receivables;
@@ -256,6 +261,7 @@ class FarmMonth {
       profit: m['profit'] == null ? null : n(m['profit']),
       profitShared: m['profitShared'] == null ? null : n(m['profitShared']),
       sales: m['sales'] == null ? null : n(m['sales']),
+      otherIncome: m['otherIncome'] == null ? null : n(m['otherIncome']),
       purchases: m['purchases'] == null ? null : n(m['purchases']),
       expenses: m['expenses'] == null ? null : n(m['expenses']),
       receivables: m['receivables'] == null ? null : n(m['receivables']),

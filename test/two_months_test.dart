@@ -611,6 +611,70 @@ void main() {
       expect(back.profit, sep.profit + 150000);
     });
 
+    test('money in with no sale against it still counts, and balances', () {
+      // Somebody pays the farm 20,000 and no sale anywhere says why — the
+      // other side of rent handed over with no bill. Without counting it,
+      // the cash rises, the profit does not, and the books are 20,000 out.
+      final loose = _e(
+        type: TxnType.receipt,
+        amount: 20000,
+        category: 'Other receipt',
+        party: 'Dung buyer',
+        monthId: '2026-10',
+      );
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [loose],
+        unpaidTxns: const [],
+      );
+      expect(b.otherIncome, 20000);
+      expect(b.profit, 20000);
+      expect(b.cash, 20000);
+      expect(b.sales, 0, reason: 'nothing was sold, and sales says so');
+
+      final m = MoneySummary(
+        capital: 0,
+        assets: 0,
+        runningCosts: 0,
+        sales: 0,
+        otherIncome: 20000,
+        cash: b.cash,
+        receivable: 0,
+        payable: 0,
+      );
+      expect(m.reconciles, isTrue);
+    });
+
+    test('a receipt that settles a sale is not income all over again', () {
+      final sale = _e(
+        type: TxnType.sale,
+        amount: 20000,
+        category: 'Milk',
+        paid: false,
+        monthId: '2026-10',
+      );
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: [
+          sale,
+          _e(
+            type: TxnType.receipt,
+            amount: 20000,
+            category: 'Khaata receipt',
+            settles: sale.id,
+            monthId: '2026-10',
+          ),
+        ],
+        unpaidTxns: const [],
+      );
+      expect(b.otherIncome, 0, reason: 'it settles the sale above it');
+      expect(b.profit, 20000, reason: 'the sale, once');
+    });
+
     test('a buffalo sold for less than she cost shows the loss', () {
       // Bought at 150,000, sold in a hurry for 100,000.
       final b = Books(

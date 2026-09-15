@@ -435,6 +435,15 @@ class _MoneyCard extends StatelessWidget {
             value: money.sales,
             tone: T.moneyIn,
           ),
+          // Money in that no sale accounts for. The other side of a rent
+          // paid straight out, and counted the same way round.
+          if (money.otherIncome > 0)
+            _MoneyLine(
+              label: l.t('Other money in'),
+              value: money.otherIncome,
+              note: l.t('receipts with no sale booked against them'),
+              tone: T.moneyIn,
+            ),
           // Not a cost, but the cash is gone all the same. Without this line
           // the four above it stop adding up to the figure below, from the
           // first time anybody takes their share out.

@@ -365,6 +365,9 @@ const Map<String, String> romanUrdu = {
   'Receivables kept': 'Baqaya shamil',
   'Uncollected receivables': 'Jo wasool nahi hua',
   'Paid out to co-founders': 'Founders ko diya',
+  'Other money in': 'Doosri aamdani',
+  'receipts with no sale booked against them':
+      'jo paisa aaya lekin us ki koi sale nahi lagi',
   'Every rupee is accounted for.': 'Har rupay ka hisaab poora hai.',
   '%s is not accounted for. An entry is probably missing, or one has been '
           'typed twice.':

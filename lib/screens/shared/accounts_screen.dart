@@ -243,8 +243,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   List<Txn> _rows(List<Txn> monthTxns, FarmStore store) => switch (_filter) {
     AccountsFilter.all => monthTxns,
+    // Loose receipts are in here for the same reason loose payments are in
+    // the list below: money came in and nothing else on the books says so.
     AccountsFilter.sales =>
-      monthTxns.where((t) => t.type == TxnType.sale).toList(),
+      monthTxns
+          .where((t) => t.type == TxnType.sale || t.isLooseReceipt)
+          .toList(),
     // Loose payments are in here too: money that went out with no cost
     // booked against it anywhere else is a cost, and hiding it from this
     // list is how the farm lost track of a rent payment.

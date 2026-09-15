@@ -138,6 +138,7 @@ class MonthRepo {
       'sealedByName': actor.name,
       'arIncluded': arIncluded,
       'sales': books.sales,
+      'otherIncome': books.otherIncome,
       'purchases': books.purchases,
       'expenses': books.expenses,
       'receivables': books.receivable,

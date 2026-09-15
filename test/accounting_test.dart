@@ -170,7 +170,26 @@ void main() {
     test('profit counts unpaid entries too', () {
       expect(books.sales, 70000);
       expect(books.costs, 20000);
-      expect(books.profit, 50000);
+      // 70,000 sold and 1,000 taken in against no sale at all, less
+      // 20,000 of running costs.
+      expect(books.otherIncome, 1000);
+      expect(books.profit, 51000);
+    });
+
+    test('a receipt that settles nothing is the only record of it', () {
+      // The mirror of rent paid straight out: money came in and no sale
+      // anywhere says so, so this row is all there is. Counted as income,
+      // or the cash rises and the profit never notices.
+      final without = Books(
+        monthId: '2026-09',
+        openingCash: 10000,
+        capital: 400000,
+        monthTxns: monthTxns.where((t) => t.type != TxnType.receipt).toList(),
+        unpaidTxns: unpaid,
+      );
+      expect(without.otherIncome, 0);
+      expect(books.profit - without.profit, 1000);
+      expect(books.cash - without.cash, 1000, reason: 'and the cash too');
     });
 
     test('a payment that settles something is not a second cost', () {
@@ -197,7 +216,7 @@ void main() {
 
       expect(withRent.loosePayments, 25000);
       expect(withRent.costs, 45000);
-      expect(withRent.profit, 25000);
+      expect(withRent.profit, 26000);
     });
 
     test("a co-founder's share is money out, but not a cost", () {
@@ -220,7 +239,7 @@ void main() {
 
       expect(afterClose.loosePayments, 0);
       expect(afterClose.costs, 20000);
-      expect(afterClose.profit, 50000);
+      expect(afterClose.profit, 51000);
     });
 
     test('capital the partners put in is money the farm can spend', () {
@@ -232,7 +251,7 @@ void main() {
     });
 
     test('profit is not touched by capital', () {
-      expect(books.profit, 50000);
+      expect(books.profit, 51000);
     });
 
     test('receivables and payables split by entry type', () {
@@ -241,8 +260,8 @@ void main() {
     });
 
     test('rolling receivables takes them out of the shareable profit', () {
-      expect(books.profitToShare(arIncluded: true), 50000);
-      expect(books.profitToShare(arIncluded: false), 30000);
+      expect(books.profitToShare(arIncluded: true), 51000);
+      expect(books.profitToShare(arIncluded: false), 31000);
     });
 
     test('an empty month is all zeroes, not a crash', () {

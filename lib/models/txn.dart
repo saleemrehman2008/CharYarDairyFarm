@@ -258,6 +258,15 @@ class Txn {
   bool get isLoosePayment =>
       type == TxnType.payment && !settlesAnotherEntry && !isProfitShare;
 
+  /// A receipt that settles nothing — the other side of [isLoosePayment].
+  ///
+  /// Money came in and no sale anywhere accounts for it, so this row is the
+  /// only record that the farm earned it. Counted as income, for the same
+  /// reason its opposite is counted as a cost: otherwise the rupees land in
+  /// the cash and the profit never notices, and the books stop adding up by
+  /// exactly that much.
+  bool get isLooseReceipt => type == TxnType.receipt && !settlesAnotherEntry;
+
   /// Feed, salaries, bills — the cost of running the farm this month.
   bool get isRunningCost =>
       ((type == TxnType.purchase || type == TxnType.expense) &&

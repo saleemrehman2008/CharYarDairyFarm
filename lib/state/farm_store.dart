@@ -418,9 +418,20 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   static num _costsOf(FarmMonth m) {
     final sales = m.sales, profit = m.profit;
-    if (sales != null && profit != null) return sales - profit;
+    if (sales != null && profit != null) {
+      return sales + (m.otherIncome ?? 0) - profit;
+    }
     return (m.purchases ?? 0) + (m.expenses ?? 0) - (m.assets ?? 0);
   }
+
+  /// Money that came in with no sale booked against it, since day one.
+  ///
+  /// Kept apart from [lifetimeSales] because nothing was sold — but it is
+  /// income all the same, and the breakdown has to show it or the books stop
+  /// adding up by exactly that much.
+  num get lifetimeOtherIncome =>
+      settledPeriods.fold<num>(0, (a, m) => a + (m.otherIncome ?? 0)) +
+      books.otherIncome;
 
   /// What the farm has made since the day it started.
   num get lifetimeProfit => lifetimeSales - lifetimeRunningCosts;
@@ -431,6 +442,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     assets: assetsOwned,
     runningCosts: lifetimeRunningCosts,
     sales: lifetimeSales,
+    otherIncome: lifetimeOtherIncome,
     cash: books.cash,
     receivable: books.receivable,
     payable: books.payable,
@@ -633,6 +645,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
         ('Cattle & equipment owned', assetsOwned),
         ('Paid out to co-founders', paidToFounders),
         ('Sold since day one', lifetimeSales),
+        ('Other money in since day one', lifetimeOtherIncome),
         ('Spent since day one', lifetimeRunningCosts),
         ('Made since day one', lifetimeProfit),
         ('This period — sales', books.sales),
