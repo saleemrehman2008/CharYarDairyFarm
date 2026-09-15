@@ -156,6 +156,7 @@ class FarmMonth {
     this.purchases,
     this.expenses,
     this.receivables,
+    this.carriedReceivable,
     this.assets,
     this.shares = const [],
   });
@@ -189,6 +190,11 @@ class FarmMonth {
   final num? purchases;
   final num? expenses;
   final num? receivables;
+
+  /// Receivables this period held back from the sharing because the master
+  /// chose to roll them. The next period adds them back in, so money booked on
+  /// credit is shared when it is collected rather than never.
+  final num? carriedReceivable;
 
   /// Cattle and equipment bought in the period — held out of the running
   /// costs when the all-time figures are added up.
@@ -253,6 +259,9 @@ class FarmMonth {
       purchases: m['purchases'] == null ? null : n(m['purchases']),
       expenses: m['expenses'] == null ? null : n(m['expenses']),
       receivables: m['receivables'] == null ? null : n(m['receivables']),
+      carriedReceivable: m['carriedReceivable'] == null
+          ? null
+          : n(m['carriedReceivable']),
       assets: m['assets'] == null ? null : n(m['assets']),
       shares: _readShares(m),
     );

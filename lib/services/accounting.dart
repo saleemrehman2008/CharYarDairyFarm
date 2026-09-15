@@ -117,9 +117,20 @@ class Books {
   double get profitBar =>
       sales <= 0 ? 0 : (profit / sales).clamp(0, 1).toDouble();
 
-  /// What a month close would share out.
-  num profitToShare({required bool arIncluded}) =>
-      arIncluded ? profit : profit - receivable;
+  /// What a period close would share out.
+  ///
+  /// With [arIncluded] the profit is shared as it was earned: a sale made on
+  /// credit belongs to the period it was made in, whether the money has
+  /// arrived or not, and the receipt that settles it later is not income a
+  /// second time.
+  ///
+  /// Without it, only cash is shared. That needs [carriedReceivable] — what
+  /// the period before held back — added in, or the money is taken off on the
+  /// way out and never put back on the way in, and a credit sale ends up
+  /// shared by nobody, ever. With it the two cancel period by period and every
+  /// rupee is shared exactly once.
+  num profitToShare({required bool arIncluded, num carriedReceivable = 0}) =>
+      arIncluded ? profit : profit - receivable + carriedReceivable;
 
   static num _sum(
     List<Txn> txns,

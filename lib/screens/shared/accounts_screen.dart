@@ -412,6 +412,10 @@ class _LedgerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final qtyLine = txn.qtyLine;
+    // The day the money came, on an entry that was booked on credit. Null
+    // when it was paid as it was written — there is nothing extra to say
+    // then, the one date on the left is both.
+    final settledLater = txn.paid && !txn.paidOnCreate ? txn.paidAt : null;
     // Every entry wears the colour of what it is and whether the money has
     // actually moved, down its own edge — so a page of them can be read down
     // the left margin without reading a word of it.
@@ -446,6 +450,22 @@ class _LedgerRow extends StatelessWidget {
                     style: T.meta,
                     maxLines: 2,
                   ),
+                  // When the money actually moved, on an entry that was
+                  // booked on credit and settled later. One entry, two dates:
+                  // the row is not written twice, it is the same row with the
+                  // day it was paid added to it.
+                  if (settledLater != null)
+                    Text(
+                      txn.type.isIncoming
+                          ? l.t2('Received %s', fmtDate(settledLater))
+                          : l.t2('Paid %s', fmtDate(settledLater)),
+                      style: T.meta.copyWith(
+                        color: T.money(
+                          incoming: txn.type.isIncoming,
+                          settled: true,
+                        ),
+                      ),
+                    ),
                   // Who typed it in, which is not always who handled the
                   // money.
                   if (txn.createdByName.isNotEmpty)

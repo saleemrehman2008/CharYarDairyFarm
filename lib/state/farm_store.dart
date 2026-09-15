@@ -267,6 +267,19 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Every period including the open one, newest first.
   List<FarmMonth> get periods => _periods;
 
+  /// What the last settled period held back from its sharing.
+  ///
+  /// Only ever more than zero when the master chose to roll the receivables
+  /// rather than share them on paper. It goes back into the next period's
+  /// shareable profit, so money booked on credit is shared when it arrives
+  /// instead of falling down the gap between two periods.
+  num get carriedReceivable {
+    for (final m in _periods) {
+      if (m.isFrozen) return m.carriedReceivable ?? 0;
+    }
+    return 0;
+  }
+
   /// The period waiting on the co-founders: frozen figures, decisions coming
   /// in. Null when there is none, which is most of the time.
   FarmMonth? get sealedPeriod {
@@ -376,12 +389,21 @@ class FarmStore extends ChangeNotifier implements RoundData {
   num get lifetimeSales =>
       settledPeriods.fold<num>(0, (a, m) => a + (m.sales ?? 0)) + books.sales;
 
+  /// What it has cost to run the farm since day one — feed, salaries, bills,
+  /// rent — with cattle and equipment left out.
+  ///
+  /// Read back out of each period's own frozen figures as sales minus profit,
+  /// which is what its costs were by definition. Adding the stored purchases
+  /// and expenses instead would quietly drop a rent paid straight out as a
+  /// payment, and the all-time profit would jump the moment a period closed.
   num get lifetimeRunningCosts =>
-      settledPeriods.fold<num>(
-        0,
-        (a, m) => a + (m.purchases ?? 0) + (m.expenses ?? 0) - (m.assets ?? 0),
-      ) +
-      books.costs;
+      settledPeriods.fold<num>(0, (a, m) => a + _costsOf(m)) + books.costs;
+
+  static num _costsOf(FarmMonth m) {
+    final sales = m.sales, profit = m.profit;
+    if (sales != null && profit != null) return sales - profit;
+    return (m.purchases ?? 0) + (m.expenses ?? 0) - (m.assets ?? 0);
+  }
 
   /// What the farm has made since the day it started.
   num get lifetimeProfit => lifetimeSales - lifetimeRunningCosts;

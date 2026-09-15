@@ -100,11 +100,15 @@ class MonthRepo {
     required Books books,
     required List<Partner> partners,
     required bool arIncluded,
+    num carriedReceivable = 0,
   }) async {
     if (period.isFrozen) return;
 
     final now = DateTime.now();
-    final profitToShare = books.profitToShare(arIncluded: arIncluded);
+    final profitToShare = books.profitToShare(
+      arIncluded: arIncluded,
+      carriedReceivable: carriedReceivable,
+    );
     final ratios = ratiosOf(partners);
 
     // A period at a loss shares out nothing. The loss is already in the cash
@@ -137,6 +141,10 @@ class MonthRepo {
       'purchases': books.purchases,
       'expenses': books.expenses,
       'receivables': books.receivable,
+      // What this period held back from the sharing, so the next one can add
+      // it in when the money actually comes. Zero when the profit was shared
+      // as it was earned.
+      'carriedReceivable': arIncluded ? 0 : books.receivable,
       // Kept so the all-time running-cost figure can leave cattle out without
       // re-reading the whole ledger.
       'assets': books.assetsBought,

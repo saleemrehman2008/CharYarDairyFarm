@@ -50,7 +50,10 @@ class _SealStepState extends State<_SealStep> {
     final books = store.books;
     final partners = store.partners;
     final ratios = store.ratios;
-    final profitToShare = books.profitToShare(arIncluded: _arIncluded);
+    final profitToShare = books.profitToShare(
+      arIncluded: _arIncluded,
+      carriedReceivable: store.carriedReceivable,
+    );
     final today = DateTime.now();
     final midMonth = !isLastDayOfMonth(today);
 
@@ -130,6 +133,18 @@ class _SealStepState extends State<_SealStep> {
                   selected: !_arIncluded,
                   onTap: () => setState(() => _arIncluded = false),
                 ),
+                if (!_arIncluded && store.carriedReceivable > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      l.t2(
+                        '%s rolled from last time is back in this figure — it '
+                        'was held back then, so it is shared now.',
+                        rs(store.carriedReceivable),
+                      ),
+                      style: T.meta,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -254,7 +269,10 @@ class _SealStepState extends State<_SealStep> {
     final store = context.read<FarmStore>();
     final l = L.read(context);
     final books = store.books;
-    final profitToShare = books.profitToShare(arIncluded: _arIncluded);
+    final profitToShare = books.profitToShare(
+      arIncluded: _arIncluded,
+      carriedReceivable: store.carriedReceivable,
+    );
 
     final ok = await confirm(
       context,
@@ -284,6 +302,7 @@ class _SealStepState extends State<_SealStep> {
         books: books,
         partners: store.partners,
         arIncluded: _arIncluded,
+        carriedReceivable: store.carriedReceivable,
       );
       if (!mounted) return;
       toast(context, l.t('Sent. Waiting on the co-founders.'));
