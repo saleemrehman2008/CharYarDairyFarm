@@ -27,12 +27,27 @@ class L {
   ///
   /// Watches the session, so the whole app re-reads itself the moment the
   /// switch is flipped — no restart, no sign out.
-  static L of(BuildContext context) =>
-      L(context.watch<Session>().user?.lang ?? Lang.en);
+  ///
+  /// A widget drawn with no session above it — in a test, or a route pushed
+  /// outside the app's shell — reads in English rather than throwing. A
+  /// missing translation is a nuisance; a screen that will not draw because
+  /// nobody is signed in is a fault.
+  static L of(BuildContext context) {
+    try {
+      return L(context.watch<Session>().user?.lang ?? Lang.en);
+    } on ProviderNotFoundException {
+      return english;
+    }
+  }
 
   /// The same, without subscribing — for code outside the build method.
-  static L read(BuildContext context) =>
-      L(context.read<Session>().user?.lang ?? Lang.en);
+  static L read(BuildContext context) {
+    try {
+      return L(context.read<Session>().user?.lang ?? Lang.en);
+    } on ProviderNotFoundException {
+      return english;
+    }
+  }
 
   String t(String english) =>
       lang == Lang.en ? english : (romanUrdu[english] ?? english);

@@ -244,6 +244,35 @@ const Map<String, String> romanUrdu = {
   '%s of cattle and equipment was bought in this stretch. It is not counted as a cost above — the farm owns it.':
       'Is arse me %s ke maweshi aur saman khareede gaye. Upar kharche me shumar nahi — wo farm ki milkiyat hain.',
 
+  // ---- A co-founder's own page ----
+  'Your share · %s': 'Aap ka hissa · %s',
+  'of %s made in %s so far': '%s me se, jo %s me ab tak kamaya',
+  'Your capital': 'Aap ka sarmaya',
+  'put in from your pocket': 'apni jeb se daala',
+  'incl. %s left in': 'is me %s chhora hua',
+  'Farm balance': 'Farm ka balance',
+  'cash in hand': 'haath me cash',
+  '%s with the rider': '%s rider ke paas',
+  'Margin': 'Munafe ki shirakat',
+  'of %s sold': '%s ki farokht me se',
+  'Milk out': 'Doodh gaya',
+  'A DAY': 'ROZANA',
+  'THIS PERIOD': 'IS PERIOD ME',
+  'Across %s days of selling. Counted from the milk that was sold.':
+      '%s din ki farokht per. Jo doodh bika usi se ginaa gaya hai.',
+  'Look at': 'Dekhen',
+  'Awaiting approval': 'Manzoori ka intezaar',
+  'Nothing needs your approval right now.':
+      'Abhi aap ki manzoori kisi cheez ko nahi chahiye.',
+  'Open the Approvals tab to act on these.':
+      'Manzoori wala tab kholen aur faisla karen.',
+  'Your profit history': 'Aap ke munafe ka record',
+  'No capital recorded for you yet.': 'Abhi aap ka koi sarmaya likha nahi.',
+  'No period has been closed yet.': 'Abhi koi period band nahi hua.',
+  'Taken out': 'Nikala',
+  'Left in as investment': 'Investment ke tor per chhora',
+  'Entered by %s': 'Entry %s ne ki',
+
   // ---- Google Sheet ----
   'Google Sheet': 'Google Sheet',
   'A second copy of the books, kept up to date by itself. Every change in the '

@@ -10,6 +10,7 @@ import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/day_chart.dart';
 import '../../widgets/ui.dart';
 
 /// Where the farm's money came from and where it went, over a stretch of time.
@@ -142,9 +143,9 @@ class _ReportScreenState extends State<ReportScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _Key(colour: T.moneyIn, label: l.t('Money in')),
+                    ChartKey(colour: T.moneyIn, label: l.t('Money in')),
                     const SizedBox(width: 18),
-                    _Key(colour: T.moneyOut, label: l.t('Money out')),
+                    ChartKey(colour: T.moneyOut, label: l.t('Money out')),
                   ],
                 ),
                 const Divider(height: 24),
@@ -165,7 +166,7 @@ class _ReportScreenState extends State<ReportScreen> {
             ),
           ),
           const SizedBox(height: T.gap),
-          _DailyCard(days: _byDay(live)),
+          DayChart(days: dayTotals(live)),
           if (assets > 0) ...[
             const SizedBox(height: T.gap),
             RegCard(
@@ -236,67 +237,6 @@ class _ReportScreenState extends State<ReportScreen> {
         ],
       ],
     );
-  }
-
-  /// What came in and what went out on each day, oldest first.
-  ///
-  /// Days with nothing on them are kept, because a gap in the middle of a
-  /// month is itself worth seeing — it usually means somebody forgot to write
-  /// the day down.
-  List<_Day> _byDay(List<Txn> txns) {
-    if (txns.isEmpty) return const [];
-
-    final income = <String, num>{};
-    final spend = <String, num>{};
-    DateTime? first, last;
-
-    for (final t in txns) {
-      if (t.type.isSettlement) continue; // the money is on its own entry
-      final key = dayKeyOf(t.date);
-      if (t.type.isIncoming) {
-        income[key] = (income[key] ?? 0) + t.amount;
-      } else {
-        spend[key] = (spend[key] ?? 0) + t.amount;
-      }
-      final day = DateTime(t.date.year, t.date.month, t.date.day);
-      if (first == null || day.isBefore(first)) first = day;
-      if (last == null || day.isAfter(last)) last = day;
-    }
-    if (first == null || last == null) return const [];
-
-    // Long spans are read by the week rather than the day — thirty-one bars
-    // fit on a phone, three hundred do not.
-    final span = last.difference(first).inDays;
-    if (span > 62) return _byWeek(income, spend, first, last);
-
-    final days = <_Day>[];
-    for (var d = first; !d.isAfter(last); d = d.add(const Duration(days: 1))) {
-      final key = dayKeyOf(d);
-      days.add(_Day(d, income[key] ?? 0, spend[key] ?? 0, byWeek: false));
-    }
-    return days;
-  }
-
-  List<_Day> _byWeek(
-    Map<String, num> income,
-    Map<String, num> spend,
-    DateTime first,
-    DateTime last,
-  ) {
-    // Start on the Monday of the first week, so every column is a whole week.
-    var start = first.subtract(Duration(days: first.weekday - 1));
-    final weeks = <_Day>[];
-    while (!start.isAfter(last)) {
-      num inSum = 0, outSum = 0;
-      for (var i = 0; i < 7; i++) {
-        final key = dayKeyOf(start.add(Duration(days: i)));
-        inSum += income[key] ?? 0;
-        outSum += spend[key] ?? 0;
-      }
-      weeks.add(_Day(start, inSum, outSum, byWeek: true));
-      start = start.add(const Duration(days: 7));
-    }
-    return weeks;
   }
 
   /// Every category with something in it, biggest first.
@@ -416,30 +356,6 @@ class _Total extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-class _Key extends StatelessWidget {
-  const _Key({required this.colour, required this.label});
-
-  final Color colour;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 11,
-        height: 11,
-        decoration: BoxDecoration(
-          color: colour,
-          borderRadius: BorderRadius.circular(3),
-        ),
-      ),
-      const SizedBox(width: 7),
-      Text(label, style: T.meta.copyWith(fontSize: 12.5)),
-    ],
   );
 }
 
@@ -573,166 +489,6 @@ class _RingPainter extends CustomPainter {
   @override
   bool shouldRepaint(_RingPainter old) =>
       old.income != income || old.spend != spend;
-}
-
-/// One column of the day-by-day chart: what came in and what went out.
-class _Day {
-  const _Day(this.date, this.income, this.spend, {required this.byWeek});
-
-  final DateTime date;
-  final num income;
-  final num spend;
-
-  /// True when the span was long enough that each column is a whole week.
-  final bool byWeek;
-
-  num get most => income > spend ? income : spend;
-}
-
-/// Sales against costs, one column a day — the shape of the month.
-///
-/// Two bars a column rather than one net bar, because a day that sold sixty
-/// thousand and spent fifty-five is a different day from one that did neither,
-/// and a net bar draws them the same.
-class _DailyCard extends StatelessWidget {
-  const _DailyCard({required this.days});
-
-  final List<_Day> days;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = L.of(context);
-    if (days.isEmpty) {
-      return RegCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Kicker(l.t('Day by day')),
-            const SizedBox(height: 8),
-            Text(l.t('Nothing booked in this stretch yet.'), style: T.meta),
-          ],
-        ),
-      );
-    }
-
-    final peak = days.fold<num>(0, (a, d) => d.most > a ? d.most : a);
-    final byWeek = days.first.byWeek;
-    final best = days.reduce((a, b) => b.income > a.income ? b : a);
-
-    return RegCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Kicker(l.t(byWeek ? 'Week by week' : 'Day by day')),
-              ),
-              _Key(colour: T.moneyIn, label: l.t('In')),
-              const SizedBox(width: 12),
-              _Key(colour: T.moneyOut, label: l.t('Out')),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Scrolls sideways rather than squeezing a month into a phone's
-          // width, and opens at the most recent, which is what gets looked at.
-          SizedBox(
-            height: 150,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              child: Row(
-                textDirection: TextDirection.rtl,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (final day in days.reversed)
-                    _DayColumn(day: day, peak: peak),
-                ],
-              ),
-            ),
-          ),
-          const Divider(height: 22),
-
-          if (best.income > 0)
-            Text(
-              byWeek
-                  ? l.t3(
-                      'Best week: the one from %s, %s',
-                      fmtDate(best.date),
-                      rs(best.income),
-                    )
-                  : l.t3(
-                      'Best day: %s, %s',
-                      fmtDate(best.date),
-                      rs(best.income),
-                    ),
-              style: T.meta,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DayColumn extends StatelessWidget {
-  const _DayColumn({required this.day, required this.peak});
-
-  final _Day day;
-  final num peak;
-
-  static const _tall = 110.0;
-
-  double _height(num value) => peak <= 0
-      ? 0
-      : (value / peak * _tall).clamp(value > 0 ? 3.0 : 0.0, _tall);
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message:
-        '${fmtDate(day.date)}\n${rs(day.income)} in · ${rs(day.spend)} out',
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: _tall,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _Bar(height: _height(day.income), colour: T.moneyIn),
-                const SizedBox(width: 3),
-                _Bar(height: _height(day.spend), colour: T.moneyOut),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            day.byWeek ? fmtDate(day.date) : '${day.date.day}',
-            style: T.meta.copyWith(fontSize: 10),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _Bar extends StatelessWidget {
-  const _Bar({required this.height, required this.colour});
-
-  final double height;
-  final Color colour;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 9,
-    height: height < 2 ? 2 : height,
-    decoration: BoxDecoration(
-      color: height <= 0 ? T.n200 : colour,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-    ),
-  );
 }
 
 /// What the co-founders have put into the farm, and what that makes their

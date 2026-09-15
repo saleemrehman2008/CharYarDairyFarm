@@ -256,6 +256,7 @@ class MonthRepo {
           'note':
               'Profit share – ${share.name} · ${periodLabel(period, short: true)}',
           'createdBy': actor.uid,
+          'createdByName': actor.name,
           'createdAt': FieldValue.serverTimestamp(),
         });
       }

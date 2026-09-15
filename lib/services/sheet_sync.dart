@@ -372,6 +372,7 @@ class SheetBooks {
         'Paid',
         'How',
         'Handled by',
+        'Entered by',
         'Note',
       ],
       for (final t in txns)
@@ -389,6 +390,7 @@ class SheetBooks {
           t.paid ? 'Yes' : 'No',
           t.paid ? t.payVia.label : '',
           t.handledBy,
+          t.createdByName,
           t.note,
         ],
     ],

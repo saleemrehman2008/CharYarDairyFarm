@@ -146,6 +146,7 @@ class Txn {
     this.payVia = PayVia.cash,
     this.handledBy = '',
     required this.createdBy,
+    this.createdByName = '',
     required this.createdAt,
     this.deletedAt,
   });
@@ -205,6 +206,17 @@ class Txn {
   }
 
   final String createdBy;
+
+  /// Who typed this in.
+  ///
+  /// Not the same person as [handledBy], and the difference is the point: the
+  /// rider takes the money at the door and a co-founder enters it that
+  /// evening. A month later, an entry nobody can be asked about is an entry
+  /// nobody can check.
+  ///
+  /// Empty on anything written before the name was kept.
+  final String createdByName;
+
   final DateTime createdAt;
   final DateTime? deletedAt;
 
@@ -286,6 +298,7 @@ class Txn {
       payVia: PayVia.parse(m['payVia']),
       handledBy: s(m['handledBy']),
       createdBy: s(m['createdBy']),
+      createdByName: s(m['createdByName']),
       createdAt: createdAt,
       deletedAt: dt(m['deletedAt']),
     );

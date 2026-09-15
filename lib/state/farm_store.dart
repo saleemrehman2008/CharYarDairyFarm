@@ -318,6 +318,47 @@ class FarmStore extends ChangeNotifier implements RoundData {
         (a, d) => a + (d.milkUnaccounted > 0 ? d.milkUnaccounted : 0),
       );
 
+  // ---- Milk ----
+
+  /// Litres of milk the farm has put out this period.
+  ///
+  /// Taken from the milk that was sold rather than from what the herd is
+  /// recorded as giving. The farm books two or three milk sales a day, so this
+  /// is the figure that exists and is kept up; the per-animal yield in the
+  /// cattle register is a separate thing the farm has not started keeping yet.
+  ///
+  /// Khaata milk is counted from the deliveries, because a khaata delivery is
+  /// not a sale — it becomes one only when the bill is paid, which can be a
+  /// month later. Leaving it out would make the farm look like it was putting
+  /// out half the milk it actually does.
+  num get milkLitres {
+    var litres = _monthTxns
+        .where(
+          (t) =>
+              !t.isDeleted &&
+              t.type == TxnType.sale &&
+              t.category == 'Milk' &&
+              (t.unit == null || t.unit == 'L'),
+        )
+        .fold<num>(0, (a, t) => a + (t.qty ?? 0));
+
+    if (features.khaata) {
+      litres += _deliveries.fold<num>(0, (a, d) => a + d.litres);
+    }
+    return litres;
+  }
+
+  /// How many days the open period has been running, counting today.
+  int get periodDays {
+    final from =
+        month.from ?? DateTime(DateTime.now().year, DateTime.now().month);
+    final days = DateTime.now().difference(from).inDays + 1;
+    return days < 1 ? 1 : days;
+  }
+
+  /// Litres a day on average, across the days the period has run.
+  num get milkPerDay => milkLitres / periodDays;
+
   Map<String, double> get ratios => ratiosOf(_partners);
 
   num get totalCapital => _partners.fold<num>(0, (a, p) => a + p.capital);

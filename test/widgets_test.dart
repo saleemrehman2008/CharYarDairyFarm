@@ -1,4 +1,5 @@
 import 'package:char_yar_dairy_farm/theme/tokens.dart';
+import 'package:char_yar_dairy_farm/widgets/day_chart.dart';
 import 'package:char_yar_dairy_farm/widgets/farm_icons.dart';
 import 'package:char_yar_dairy_farm/widgets/ui.dart';
 import 'package:flutter/material.dart';
@@ -166,6 +167,29 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(CattleIcon), findsOneWidget);
       expect(tester.getSize(find.byType(CattleIcon)), const Size(22, 22));
+    });
+
+    testWidgets('the day chart draws inside a page', (tester) async {
+      // Bars are sized against the tallest day, so an unbounded page is where
+      // this would go wrong — the same way the cards once did.
+      await inAList(tester, [
+        DayChart(
+          days: [
+            DayTotals(DateTime(2026, 9, 12), 16000, 4000, byWeek: false),
+            DayTotals(DateTime(2026, 9, 13), 0, 0, byWeek: false),
+            DayTotals(DateTime(2026, 9, 14), 22000, 40000, byWeek: false),
+          ],
+        ),
+      ]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('14'), findsOneWidget);
+    });
+
+    testWidgets('a day chart with nothing in it still draws', (tester) async {
+      await inAList(tester, const [DayChart(days: [])]);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('money is written in the colour of its state', (tester) async {

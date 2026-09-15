@@ -446,6 +446,13 @@ class _LedgerRow extends StatelessWidget {
                     style: T.meta,
                     maxLines: 2,
                   ),
+                  // Who typed it in, which is not always who handled the
+                  // money.
+                  if (txn.createdByName.isNotEmpty)
+                    Text(
+                      l.t2('Entered by %s', txn.createdByName),
+                      style: T.meta.copyWith(color: T.n500),
+                    ),
                   if (txn.note.isNotEmpty)
                     Text(
                       txn.note,

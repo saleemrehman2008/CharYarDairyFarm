@@ -55,6 +55,7 @@ class TxnRepo {
       'payVia': payVia.name,
       'handledBy': handledBy,
       'createdBy': actor.uid,
+      'createdByName': actor.name,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
