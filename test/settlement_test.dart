@@ -57,10 +57,10 @@ void main() {
     // September: 70 cash and 30 on credit. October: 50 cash, and Ahmed pays
     // the 30 he owed.
     final credit = _txn(type: TxnType.sale, amount: 30, paid: false);
-    final sep = _books([
-      _txn(type: TxnType.sale, amount: 70),
-      credit,
-    ], unpaid: [credit]);
+    final sep = _books(
+      [_txn(type: TxnType.sale, amount: 70), credit],
+      unpaid: [credit],
+    );
     final oct = _books([
       _txn(type: TxnType.sale, amount: 50, monthId: '2026-10'),
       _txn(
@@ -89,29 +89,31 @@ void main() {
       expect(shared, sep.sales + oct.sales, reason: 'nothing lost, none twice');
     });
 
-    test('rolling it holds it back in September and pays it out in October',
-        () {
-      // Held back: only the 70 that was actually collected is shared.
-      final first = sep.profitToShare(arIncluded: false);
-      expect(first, 70);
+    test(
+      'rolling it holds it back in September and pays it out in October',
+      () {
+        // Held back: only the 70 that was actually collected is shared.
+        final first = sep.profitToShare(arIncluded: false);
+        expect(first, 70);
 
-      // And what was held back comes into the next period, or it would be
-      // shared by nobody, ever.
-      final second = oct.profitToShare(
-        arIncluded: false,
-        carriedReceivable: sep.receivable,
-      );
-      expect(second, 80);
-      expect(first + second, 150);
-    });
+        // And what was held back comes into the next period, or it would be
+        // shared by nobody, ever.
+        final second = oct.profitToShare(
+          arIncluded: false,
+          carriedReceivable: sep.receivable,
+        );
+        expect(second, 80);
+        expect(first + second, 150);
+      },
+    );
   });
 
   group('a bill settled after the period closed', () {
     final bill = _txn(type: TxnType.purchase, amount: 20, paid: false);
-    final sep = _books([
-      _txn(type: TxnType.sale, amount: 70),
-      bill,
-    ], unpaid: [bill]);
+    final sep = _books(
+      [_txn(type: TxnType.sale, amount: 70), bill],
+      unpaid: [bill],
+    );
     final oct = _books([
       _txn(
         type: TxnType.payment,
@@ -148,13 +150,13 @@ void main() {
     test("a co-founder's profit share is money out but not a cost", () {
       final p = _books([
         _txn(type: TxnType.sale, amount: 100),
-        _txn(
-          type: TxnType.payment,
-          amount: 40,
-          category: profitShareCategory,
-        ),
+        _txn(type: TxnType.payment, amount: 40, category: profitShareCategory),
       ]);
-      expect(p.profit, 100, reason: 'paying the owners is not running the farm');
+      expect(
+        p.profit,
+        100,
+        reason: 'paying the owners is not running the farm',
+      );
       expect(p.costs, 0);
       expect(p.operatingCash, 60);
     });

@@ -365,9 +365,9 @@ const Map<String, String> romanUrdu = {
   'Receivables kept': 'Baqaya shamil',
   'Uncollected receivables': 'Jo wasool nahi hua',
   '%s rolled from last time is back in this figure — it was held back then, '
-      'so it is shared now.':
+          'so it is shared now.':
       'Pichli bar ka %s is me wapas shamil hai — us waqt rok liya tha, ab '
-          'baant diya ja raha hai.',
+      'baant diya ja raha hai.',
   'Received %s': '%s ko mila',
   'Paid %s': '%s ko diya',
   "Count as this period's income (share on paper)":
