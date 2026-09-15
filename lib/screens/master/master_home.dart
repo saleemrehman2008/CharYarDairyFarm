@@ -434,6 +434,16 @@ class _MoneyCard extends StatelessWidget {
             value: money.sales,
             tone: T.moneyIn,
           ),
+          // Not a cost, but the cash is gone all the same. Without this line
+          // the four above it stop adding up to the figure below, from the
+          // first time anybody takes their share out.
+          if (money.paidOut > 0)
+            _MoneyLine(
+              label: l.t('Paid out to co-founders'),
+              value: -money.paidOut,
+              note: l.t('their share of the profit'),
+              tone: T.moneyOut,
+            ),
           const Divider(height: 20),
           _MoneyLine(
             label: l.t('Cash in hand'),

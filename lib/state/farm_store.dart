@@ -36,6 +36,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _assetTxns = v;
         notifyListeners();
       }),
+      Db.watchProfitShareTxns().listen((v) {
+        _shareTxns = v;
+        notifyListeners();
+      }),
       // One listener for every period, rather than one for closed and another
       // for sealed. A sealed period used to fall between the two, which is how
       // a whole month's figures went missing from the all-time totals.
@@ -168,6 +172,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _monthTxns = const [];
   List<Txn> _unpaidTxns = const [];
   List<Txn> _assetTxns = const [];
+  List<Txn> _shareTxns = const [];
 
   /// Every period, newest first.
   List<FarmMonth> _periods = const [];
@@ -383,6 +388,14 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Everything the farm owns — cattle and equipment, across every month.
   num get assetsOwned => _assetTxns.fold<num>(0, (a, t) => a + t.amount);
 
+  /// Profit the co-founders have taken out of the farm, across every close.
+  ///
+  /// Not a running cost — it is the farm's own earnings going to the people
+  /// who own them — but it is real money gone, so the breakdown of where the
+  /// money went has to show it. Without this line the breakdown reads high by
+  /// exactly what was withdrawn, from the first close onwards.
+  num get paidToFounders => _shareTxns.fold<num>(0, (a, t) => a + t.amount);
+
   /// All-time figures, read from the closed months plus the open one. Closed
   /// months keep their own totals, so this costs a dozen documents a year
   /// rather than re-reading the whole ledger every time the app opens.
@@ -418,6 +431,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     receivable: books.receivable,
     payable: books.payable,
     withRider: cashWithRiders,
+    paidOut: paidToFounders,
   );
 
   Partner? partnerFor(String uid) {
@@ -613,6 +627,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
         ('To pay', books.payable),
         ('Capital the co-founders put in', capitalIn),
         ('Cattle & equipment owned', assetsOwned),
+        ('Paid out to co-founders', paidToFounders),
         ('Sold since day one', lifetimeSales),
         ('Spent since day one', lifetimeRunningCosts),
         ('Made since day one', lifetimeProfit),

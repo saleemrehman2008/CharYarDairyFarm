@@ -162,6 +162,23 @@ class Db {
             .toList(),
       );
 
+  /// Every profit share the farm has actually handed over, across every
+  /// period — four rows a close, so this is cheap to keep open.
+  ///
+  /// Read from the payment rows rather than from what each period decided,
+  /// because these rows are what moved the cash. A card that says where the
+  /// money went has to be reading the same thing the balance read, or the two
+  /// drift apart and neither can be trusted.
+  static Stream<List<Txn>> watchProfitShareTxns() => transactions
+      .where('category', isEqualTo: profitShareCategory)
+      .snapshots()
+      .map(
+        (q) => q.docs
+            .map(Txn.fromDoc)
+            .where((t) => !t.isDeleted && t.type == TxnType.payment)
+            .toList(),
+      );
+
   static Stream<List<FarmOrder>> watchOrders() => orders
       .orderBy('createdAt', descending: true)
       .limit(200)

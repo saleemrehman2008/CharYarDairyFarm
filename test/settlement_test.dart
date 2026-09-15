@@ -138,6 +138,105 @@ void main() {
     });
   });
 
+  // Four co-founders put Rs 20,00,000 in between them, bought the herd and a
+  // chiller out of it, ran the place for a month and sold the milk. The
+  // breakdown on the home page has to add up at every point along that road —
+  // before the first close, and after somebody takes their share out.
+  group('where the money is, read down the waterfall', () {
+    final cows = _txn(
+      type: TxnType.purchase,
+      amount: 1500000,
+      category: 'Cattle purchase',
+    );
+    final chiller = _txn(
+      type: TxnType.purchase,
+      amount: 100000,
+      category: 'Equipment',
+    );
+    final feed = _txn(
+      type: TxnType.purchase,
+      amount: 80000,
+      category: 'Fodder / feed',
+    );
+    final feedOwed = _txn(
+      type: TxnType.purchase,
+      amount: 50000,
+      category: 'Fodder / feed',
+      paid: false,
+    );
+    final salaries = _txn(
+      type: TxnType.expense,
+      amount: 60000,
+      category: 'Salaries',
+    );
+    final rent = _txn(type: TxnType.expense, amount: 40000, category: 'Rent');
+    final milk = _txn(type: TxnType.sale, amount: 300000);
+    final milkOwed = _txn(type: TxnType.sale, amount: 100000, paid: false);
+
+    final ledger = [
+      cows,
+      chiller,
+      feed,
+      feedOwed,
+      salaries,
+      rent,
+      milk,
+      milkOwed,
+    ];
+    final owed = ledger.where((t) => !t.paid).toList();
+    final books = _books(ledger, unpaid: owed, capital: 2000000);
+
+    MoneySummary summaryOf(Books b, {num paidOut = 0}) => MoneySummary(
+      capital: 2000000,
+      assets: 1600000,
+      runningCosts: 230000,
+      sales: 400000,
+      cash: b.cash,
+      receivable: b.receivable,
+      payable: b.payable,
+      paidOut: paidOut,
+    );
+
+    test('what the founders put in is never profit', () {
+      expect(books.assetsBought, 1600000, reason: 'the herd and the chiller');
+      expect(books.costs, 230000, reason: 'feed, salaries and rent only');
+      expect(books.profit, 170000);
+      expect(books.profit, books.sales - books.costs);
+    });
+
+    test('it adds up before anybody has been paid', () {
+      final m = summaryOf(books);
+      expect(m.expected, 570000);
+      expect(m.farmMoney, m.expected);
+      expect(m.reconciles, isTrue);
+    });
+
+    test('it still adds up after a co-founder takes their share out', () {
+      final paid = _txn(
+        type: TxnType.payment,
+        amount: 100000,
+        category: profitShareCategory,
+        monthId: '2026-10',
+      );
+      final after = Books(
+        monthId: '2026-10',
+        openingCash: books.operatingCash,
+        capital: 2000000,
+        monthTxns: [paid],
+        unpaidTxns: owed,
+      );
+      expect(after.cash, 420000, reason: 'the money has left the farm');
+
+      // Without the line for it the breakdown reads 100,000 high.
+      expect(summaryOf(after).reconciles, isFalse);
+
+      final m = summaryOf(after, paidOut: 100000);
+      expect(m.expected, 470000);
+      expect(m.farmMoney, 470000);
+      expect(m.reconciles, isTrue);
+    });
+  });
+
   group('payments that are not settlements', () {
     test('rent paid straight out is a cost, not a free rupee', () {
       final p = _books([

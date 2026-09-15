@@ -165,6 +165,7 @@ class MoneySummary {
     required this.receivable,
     required this.payable,
     this.withRider = 0,
+    this.paidOut = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -190,13 +191,23 @@ class MoneySummary {
   /// rider, which is why it sits beside [receivable] rather than in [cash].
   final num withRider;
 
-  /// Cash, what a rider is carrying, and what is still to come in — the money
-  /// the farm can count on.
-  num get farmMoney => cash + withRider + receivable;
+  /// Profit the co-founders have taken out, all time.
+  ///
+  /// Not a running cost — the farm's earnings going to the people who own them
+  /// is not the price of running the place — but the cash is gone, so the
+  /// route the money took has to show it leaving. Leave it out and the
+  /// waterfall reads high by exactly what was withdrawn, from the first close
+  /// onwards.
+  final num paidOut;
 
-  /// The same figure read down the waterfall. It should equal [farmMoney];
-  /// when it does not, an entry is missing or double counted.
-  num get expected => capital - assets - runningCosts + sales;
+  /// What the farm is actually worth in money: cash, what a rider is carrying,
+  /// and what is still to come in, less what it still owes.
+  num get farmMoney => cash + withRider + receivable - payable;
+
+  /// The same figure read down the waterfall — every rupee that came in, less
+  /// every rupee that went out or turned into an animal. It should equal
+  /// [farmMoney]; when it does not, an entry is missing or counted twice.
+  num get expected => capital - assets - runningCosts + sales - paidOut;
 
   bool get reconciles => (expected - farmMoney).abs() < 1;
 }
