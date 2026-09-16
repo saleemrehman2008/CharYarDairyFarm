@@ -1019,19 +1019,25 @@ class _WhoFieldState extends State<WhoField> {
 
   @override
   Widget build(BuildContext context) {
-    final people = context.watch<Session>().settings.founders;
+    final session = context.watch<Session>();
     _defaultToMe();
+
+    // The farm's people, and failing that the one person who is certainly
+    // here — whoever is holding the phone.
+    //
+    // The list is published by the master's app, so on a co-founder's phone it
+    // can be empty for a while, and this used to fall back to a bare box to
+    // type a name into. That is the one thing worth avoiding: a name typed out
+    // by hand is a name that gets spelled two ways by the second month, and
+    // then no total under it ever adds up again.
+    final me = session.actor;
+    final published = session.settings.founders;
+    final people = published.isNotEmpty
+        ? published
+        : [FarmPerson(uid: me.uid, name: me.name)];
+
     final chosen = widget.controller.text.trim();
     final onList = people.any((p) => p.name == chosen);
-
-    if (people.isEmpty) {
-      return Field(
-        label: widget.label,
-        controller: widget.controller,
-        hint: widget.hint,
-        onChanged: widget.onChanged,
-      );
-    }
 
     // At rest: the name that is already in, and a way to say it was not them.
     if (!_open && chosen.isNotEmpty) {

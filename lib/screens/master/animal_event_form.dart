@@ -274,7 +274,7 @@ class _AnimalEventFormScreenState extends State<AnimalEventFormScreen> {
                       onChanged: (v) => setState(() => _payVia = v),
                     ),
                     const SizedBox(height: T.gap),
-                    Field(
+                    WhoField(
                       label: 'Paid by',
                       controller: _handledBy,
                       hint: 'Who handed over the money',

@@ -313,7 +313,11 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                         onChanged: (v) => setState(() => _payVia = v),
                       ),
                       const SizedBox(height: T.gap),
-                      Field(
+                      // The same picker as everywhere else money changes
+                      // hands. A name typed out by hand is a name that will
+                      // be spelled two ways by the second month, and then no
+                      // total under it ever adds up again.
+                      WhoField(
                         label: 'Paid by',
                         controller: _handledBy,
                         hint: 'Who handed over the money',

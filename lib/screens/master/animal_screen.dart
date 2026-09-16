@@ -369,9 +369,10 @@ class _ActionsState extends State<_Actions> {
                   onChanged: (v) => setDialogState(() => via = v),
                 ),
                 const SizedBox(height: T.gap),
-                Field(
+                WhoField(
                   label: 'Received by',
                   controller: who,
+                  hint: 'Who took the money',
                   onChanged: (_) => setDialogState(() {}),
                 ),
                 const SizedBox(height: 4),
