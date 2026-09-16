@@ -35,6 +35,19 @@ List<String> strings(Object? v) => v is List
     ? v.map((e) => '$e').where((e) => e.isNotEmpty).toList()
     : const [];
 
+/// Two names for the same person, reduced to one thing to file them under.
+///
+/// `Ali`, `ali`, `ALI` and `ALi` are one man; `Ali Khan` and `Ali Ahmed` are
+/// two. So case is folded away and runs of spaces are squeezed to one, and
+/// nothing else is touched — a letter that differs is a person who differs,
+/// and the app has no business deciding otherwise.
+///
+/// Everything that groups by a party has to go through this. Miss one place
+/// and a customer's account quietly splits in half, with neither half adding
+/// up to what he owes.
+String partyKey(String name) =>
+    name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
 /// How many days this date's month has — 28, 29, 30 or 31. Day zero of next
 /// month is the last day of this one.
 int daysInMonth(DateTime date) => DateTime(date.year, date.month + 1, 0).day;

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/models.dart';
 import '../util/money.dart';
+import 'allocation.dart';
 import 'db.dart';
 import 'month_repo.dart';
 import 'log_service.dart';
@@ -113,23 +114,21 @@ class TxnRepo {
     String handledBy = '',
   }) async {
     final now = DateTime.now();
-    final owing = entries.where((t) => t.outstanding > 0).toList()
-      ..sort((a, b) {
-        final byDate = a.date.compareTo(b.date);
-        return byDate != 0 ? byDate : a.createdAt.compareTo(b.createdAt);
-      });
-    if (owing.isEmpty || amount <= 0) return 0;
+    // Where the money goes is worked out apart from the writing of it, so the
+    // rule can be tested on its own — see `allocation.dart`.
+    final landings = allocate(entries, amount);
+    if (landings.isEmpty) return 0;
 
-    var purse = amount;
+    var taken = 0 as num;
     var finished = 0;
 
-    for (final txn in owing) {
-      if (purse <= 0) break;
-      final take = purse < txn.outstanding ? purse : txn.outstanding;
-      purse -= take;
+    for (final landing in landings) {
+      final txn = landing.entry;
+      final take = landing.take;
+      taken += take;
 
-      final nowPaid = txn.paidSoFar + take;
-      final settledInFull = nowPaid >= txn.amount;
+      final nowPaid = landing.paidAfter;
+      final settledInFull = landing.finishes;
       if (settledInFull) finished++;
 
       await Db.transactions.doc(txn.id).update({
@@ -180,16 +179,16 @@ class TxnRepo {
       }
     }
 
-    final taken = amount - purse;
     await Log.write(
       actor,
       LogKind.transaction,
-      owing.length == 1
-          ? 'took ${rs(taken)} from "${owing.first.party}"'
-          : 'took ${rs(taken)} from "${owing.first.party}" against '
-                '${owing.length} entries, settling $finished of them',
+      landings.length == 1
+          ? 'took ${rs(taken)} from "${landings.first.entry.party}"'
+          : 'took ${rs(taken)} from "${landings.first.entry.party}" '
+                'against ${landings.length} entries, settling $finished of '
+                'them',
       refType: 'transaction',
-      refId: owing.first.id,
+      refId: landings.first.entry.id,
     );
     return finished;
   }

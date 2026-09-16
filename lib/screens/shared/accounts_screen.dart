@@ -135,7 +135,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
         final rows = _narrow(_rows(everything, store));
         // The names and kinds actually in the books, rather than a fixed
         // list: a customer who has never traded is not worth offering.
-        final parties = _distinct(everything, (t) => t.party);
+        // One row per person, under the spelling the farm uses most — not
+        // one row per way anybody has ever typed it.
+        final parties = [for (final p in store.partyBook) p.name];
         final categories = _distinct(everything, (t) => t.category);
 
         return PageBody(
@@ -251,6 +253,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 const SizedBox(height: 12),
                 _SettleBar(
                   picked: _ticked(rows),
+                  incoming: _ticked(rows).first.type.isIncoming,
                   taking: _taking,
                   busy: _settling,
                   onAll: () => _pickAll(rows),
@@ -269,7 +272,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   /// The tab's rows, narrowed to one name, one kind, or both.
   List<Txn> _narrow(List<Txn> rows) => rows
-      .where((t) => _party == null || t.party == _party)
+      .where((t) => _party == null || partyKey(t.party) == partyKey(_party!))
       .where((t) => _category == null || t.category == _category)
       .toList();
 
@@ -673,6 +676,7 @@ class _FilterChip extends StatelessWidget {
 class _SettleBar extends StatelessWidget {
   const _SettleBar({
     required this.picked,
+    required this.incoming,
     required this.taking,
     required this.busy,
     required this.allPicked,
@@ -683,6 +687,14 @@ class _SettleBar extends StatelessWidget {
   });
 
   final List<Txn> picked;
+
+  /// Money coming in, or money going out.
+  ///
+  /// The same ticking and the same splitting either way — a supplier paid half
+  /// his bill is the mirror of a customer who paid half of his — but the words
+  /// have to follow the direction, or half of them are a lie.
+  final bool incoming;
+
   final TextEditingController taking;
   final bool busy;
   final bool allPicked;
@@ -707,7 +719,7 @@ class _SettleBar extends StatelessWidget {
     final over = owed - amount;
 
     return RegCard(
-      stripe: T.moneyIn,
+      stripe: incoming ? T.moneyIn : T.moneyOut,
       padding: const EdgeInsets.fromLTRB(14, 13, 13, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -733,8 +745,8 @@ class _SettleBar extends StatelessWidget {
                       ),
                     _Figure(
                       value: rs(owed),
-                      label: l.t('owed'),
-                      tone: T.moneyIn,
+                      label: incoming ? l.t('owed') : l.t('to pay'),
+                      tone: incoming ? T.moneyIn : T.moneyOut,
                     ),
                   ],
                 ),
@@ -764,7 +776,9 @@ class _SettleBar extends StatelessWidget {
 
           const Divider(height: 20),
           Field(
-            label: l.t('How much is being handed over'),
+            label: incoming
+                ? l.t('How much is being handed over')
+                : l.t('How much is being paid'),
             controller: taking,
             hint: l.t2('Leave it empty for all of it — %s', rs(owed)),
             keyboardType: TextInputType.number,
@@ -781,9 +795,15 @@ class _SettleBar extends StatelessWidget {
               ),
               child: Text(
                 l.t2(
-                  '%s will still be owed. The oldest entries are settled '
-                  'first; whatever is left over stops part way through one, '
-                  'and that is the one the next payment fills.',
+                  incoming
+                      ? '%s will still be owed. The oldest entries are '
+                            'settled first; whatever is left over stops part '
+                            'way through one, and that is the one the next '
+                            'payment fills.'
+                      : '%s will still be owing to them. The oldest bills are '
+                            'paid first; whatever is left over stops part way '
+                            'through one, and that is the one the next payment '
+                            'finishes.',
                   rs(over),
                 ),
                 style: T.meta.copyWith(color: T.moneyDue),
@@ -792,7 +812,11 @@ class _SettleBar extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           PrimaryButton(
-            label: busy ? l.t('Taking it in…') : l.t2('Take in %s', rs(amount)),
+            label: busy
+                ? (incoming ? l.t('Taking it in…') : l.t('Paying…'))
+                : (incoming
+                      ? l.t2('Take in %s', rs(amount))
+                      : l.t2('Pay %s', rs(amount))),
             onPressed: busy || amount <= 0 ? null : onSettle,
           ),
         ],
@@ -843,7 +867,11 @@ class _PartyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    final mine = ledger.where((t) => t.party == party).toList();
+    // Every spelling of the name, because Ali and ali are one man and his
+    // account has to add up to what he actually owes.
+    final mine = ledger
+        .where((t) => partyKey(t.party) == partyKey(party))
+        .toList();
 
     num sum(bool Function(Txn) test) =>
         mine.where(test).fold<num>(0, (a, t) => a + t.amount);

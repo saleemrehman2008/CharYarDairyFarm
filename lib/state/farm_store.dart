@@ -463,7 +463,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     for (final t in _ledger) {
       final name = t.party.trim();
       if (name.isEmpty) continue;
-      final k = name.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final k = partyKey(name);
       final tally = byKey.putIfAbsent(k, _PartyTally.new);
       tally.count++;
       tally.spellings[name] = (tally.spellings[name] ?? 0) + 1;
@@ -497,7 +497,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   /// What one customer has left with the farm, and not had back.
   num advanceHeldFor(String party) => _advanceTxns
-      .where((t) => t.party == party)
+      .where((t) => partyKey(t.party) == partyKey(party))
       .fold<num>(0, (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount);
 
   /// Profit the co-founders have taken out of the farm, across every close.

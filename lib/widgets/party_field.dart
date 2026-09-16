@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../i18n/words.dart';
+import '../models/models.dart';
 import '../state/farm_store.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
@@ -61,10 +62,6 @@ class _PartyFieldState extends State<PartyField> {
     if (mounted) setState(() {});
   }
 
-  /// Case and stray spaces are not differences worth keeping people apart on.
-  static String _key(String s) =>
-      s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
-
   void _pick(String name) {
     widget.controller
       ..text = name
@@ -78,7 +75,7 @@ class _PartyFieldState extends State<PartyField> {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final typed = widget.controller.text;
-    final needle = _key(typed);
+    final needle = partyKey(typed);
     final known = context.watch<FarmStore>().partyBook;
 
     final hits = needle.isEmpty
@@ -86,11 +83,11 @@ class _PartyFieldState extends State<PartyField> {
         : known
               .where(
                 (p) =>
-                    _key(p.name).startsWith(needle) ||
-                    _key(p.name).contains(' $needle'),
+                    partyKey(p.name).startsWith(needle) ||
+                    partyKey(p.name).contains(' $needle'),
               )
               .toList();
-    final exact = known.any((p) => _key(p.name) == needle);
+    final exact = known.any((p) => partyKey(p.name) == needle);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -383,6 +383,16 @@ const Map<String, String> romanUrdu = {
   'Leave it empty for all of it — %s': 'Poora lena ho to khali chhor den — %s',
   'Take in %s': '%s wasool karen',
   'Taking it in…': 'Wasool ho raha hai…',
+  'to pay': 'dena hai',
+  'How much is being paid': 'Kitna paisa diya ja raha hai',
+  'Pay %s': '%s ada karen',
+  'Paying…': 'Ada ho raha hai…',
+  '%s will still be owing to them. The oldest bills are paid first; whatever '
+          'is left over stops part way through one, and that is the one the next '
+          'payment finishes.':
+      '%s abhi un ka baqi rahega. Sab se purane bill pehle ada honge; jo '
+      'bachega wo aakhri wale per adhoora reh jayega, aur agli bar wohi '
+      'poora hoga.',
   '%s settled, %s still owed': '%s ka hisaab hua, %s abhi baqi',
   'Could not take it in. %s': 'Wasool nahi ho saka. %s',
   '%s will still be owed. The oldest entries are settled first; whatever is '
