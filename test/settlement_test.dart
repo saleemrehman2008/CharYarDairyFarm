@@ -237,6 +237,67 @@ void main() {
     });
   });
 
+  // The categories a person can pick from on the entry form, and the ones
+  // the app posts itself. The difference matters: a row the app posts is
+  // tied to the entry it settles, and the same row typed by hand is tied to
+  // nothing — so the books read it as money earned all over again.
+  group('what may be typed by hand', () {
+    test('a collection is not offered as something to type', () {
+      expect(
+        TxnType.receipt.categories,
+        isNot(contains(khaataReceiptCategory)),
+        reason: 'money in against an entry is taken in from the ledger',
+      );
+      expect(TxnType.receipt.categories, contains(advanceCategory));
+      expect(TxnType.receipt.categories, contains('Other receipt'));
+    });
+
+    test('and neither is anything else the app posts on its own', () {
+      expect(TxnType.expense.categories, isNot(contains(writeOffCategory)));
+      expect(TxnType.payment.categories, isNot(contains(profitShareCategory)));
+    });
+
+    test('which is what it would have cost to leave it there', () {
+      // Kashif took 8,000 of milk on credit, so the farm has already earned
+      // 8,000 and is owed 8,000.
+      final sale = _txn(type: TxnType.sale, amount: 8000, paid: false);
+
+      // The app's own way: a receipt tied to that sale. Cash comes in, the
+      // sale is settled, and the profit does not move.
+      final properly = _books(
+        [
+          sale,
+          _txn(
+            type: TxnType.receipt,
+            amount: 8000,
+            category: khaataReceiptCategory,
+            settles: sale.id,
+          ),
+        ],
+        unpaid: [sale],
+      );
+      expect(properly.profit, 8000);
+      expect(properly.otherIncome, 0);
+
+      // The same row typed by hand, tied to nothing: the books have no way
+      // to know it is Kashif's milk money, so they count it as earned — and
+      // the same 8,000 is in the profit twice.
+      final byHand = _books(
+        [
+          sale,
+          _txn(
+            type: TxnType.receipt,
+            amount: 8000,
+            category: khaataReceiptCategory,
+          ),
+        ],
+        unpaid: [sale],
+      );
+      expect(byHand.profit, 16000);
+      expect(byHand.otherIncome, 8000);
+    });
+  });
+
   group('payments that are not settlements', () {
     test('rent paid straight out is a cost, not a free rupee', () {
       final p = _books([

@@ -133,6 +133,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
         final everything = store.ledger;
         final loading = !store.ready;
         final rows = _narrow(_rows(everything, store));
+        // Split where the work is. Anything still owing goes above the
+        // settle bar; anything finished with goes below it.
+        final open = rows.where((t) => t.outstanding > 0).toList();
+        final done = rows.where((t) => t.outstanding <= 0).toList();
         // The names and kinds actually in the books, rather than a fixed
         // list: a customer who has never traded is not worth offering.
         // One row per person, under the spelling the farm uses most — not
@@ -217,8 +221,66 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
+            if (loading && everything.isEmpty)
+              EmptyNote(l.t('Loading…'))
+            else if (rows.isEmpty)
+              EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
+            else ...[
+              // What is still outstanding, and the button that settles it,
+              // before any of the history.
+              //
+              // The other way round is how it was, and it does not survive
+              // contact with a farm: six months in, the thing you came here
+              // to do is a thousand rows below the thing you already know.
+              // What is settled is a record — it is read occasionally and
+              // acted on never — so it goes underneath, however long it gets.
+              if (open.isNotEmpty) ...[
+                SectionTitle(
+                  _owedTab ? l.t(_filter.heading) : l.t('Still open'),
+                ),
+                const SizedBox(height: 6),
+                ..._withDividers(open, periods, l, isMaster),
+                const SizedBox(height: 4),
+                _TotalStrip(
+                  count: open.length,
+                  total: open.fold<num>(0, (a, t) => a + t.outstanding),
+                  tone: _filter.tone,
+                ),
+                if (_ticked(rows).isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _SettleBar(
+                    picked: _ticked(rows),
+                    incoming: _ticked(rows).first.type.isIncoming,
+                    taking: _taking,
+                    busy: _settling,
+                    onAll: () => _pickAll(rows),
+                    allPicked: _allPicked(rows),
+                    onClear: _clearPicked,
+                    onSettle: () => _settleMany(rows),
+                    onAmountChanged: () => setState(() {}),
+                  ),
+                ],
+                const SizedBox(height: 20),
+              ],
+
+              if (done.isNotEmpty) ...[
+                SectionTitle(
+                  open.isEmpty ? l.t('Everything here') : l.t('Done with'),
+                ),
+                const SizedBox(height: 6),
+                ..._withDividers(done, periods, l, isMaster),
+                const SizedBox(height: 4),
+                _TotalStrip(
+                  count: done.length,
+                  total: done.fold<num>(0, (a, t) => a + t.amount),
+                  tone: T.n600,
+                ),
+              ],
+            ],
+
+            const SizedBox(height: 16),
             Text(
               l.t(
                 'All farm money in one place: milk & product sales, '
@@ -227,43 +289,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
               ),
               style: T.meta,
             ),
-            const SizedBox(height: 14),
-
-            if (loading && everything.isEmpty)
-              EmptyNote(l.t('Loading…'))
-            else if (rows.isEmpty)
-              EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
-            else ...[
-              ..._withDividers(rows, periods, l, isMaster),
-              const SizedBox(height: 4),
-              _TotalStrip(
-                count: rows.length,
-                // On the two tabs about what is owed, the total is what
-                // is still owed — an entry half settled counts half.
-                total: rows.fold<num>(
-                  0,
-                  (a, t) => a + (_owedTab ? t.outstanding : t.amount),
-                ),
-                tone: _filter.tone,
-              ),
-              // What has been ticked, and the one button that settles it.
-              // Below the list, because that is where you are standing
-              // when you have finished reading it.
-              if (_ticked(rows).isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _SettleBar(
-                  picked: _ticked(rows),
-                  incoming: _ticked(rows).first.type.isIncoming,
-                  taking: _taking,
-                  busy: _settling,
-                  onAll: () => _pickAll(rows),
-                  allPicked: _allPicked(rows),
-                  onClear: _clearPicked,
-                  onSettle: () => _settleMany(rows),
-                  onAmountChanged: () => setState(() {}),
-                ),
-              ],
-            ],
           ],
         );
       },

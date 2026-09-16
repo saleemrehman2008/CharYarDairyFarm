@@ -250,7 +250,7 @@ class BillRepo {
       type: TxnType.receipt,
       party: bill.customerName,
       customerId: bill.customerId,
-      category: 'Khaata receipt',
+      category: khaataReceiptCategory,
       amount: amount,
       paid: true,
       note:

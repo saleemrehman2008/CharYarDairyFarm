@@ -147,7 +147,7 @@ class TxnRepo {
         monthId: MonthRepo.bookingId,
         type: isSale ? TxnType.receipt : TxnType.payment,
         party: txn.party,
-        category: isSale ? 'Khaata receipt' : _paymentCategory(txn),
+        category: isSale ? khaataReceiptCategory : _paymentCategory(txn),
         amount: take,
         paid: true,
         note: settledInFull

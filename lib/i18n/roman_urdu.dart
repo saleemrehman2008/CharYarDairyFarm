@@ -373,6 +373,11 @@ const Map<String, String> romanUrdu = {
   'It belongs to them, not the farm. It goes back when they stop.':
       'Ye un ka paisa hai, farm ka nahi. Jab wo chhoren ge, wapas jayega.',
 
+  // ---- The two halves of the ledger ----
+  'Still open': 'Abhi baqi hain',
+  'Done with': 'Ho chuki hain',
+  'Everything here': 'Yahan ki sab entries',
+
   // ---- Part payments, and the name off the books ----
   '%s in, %s still to come': '%s mila, %s abhi baqi',
   'part paid': 'thora mila',

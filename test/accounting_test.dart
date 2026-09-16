@@ -153,7 +153,10 @@ void main() {
       entry(type: TxnType.purchase, amount: 12000),
       creditEntry(type: TxnType.purchase, amount: 3000, settled: false),
       entry(type: TxnType.expense, amount: 5000),
-      entry(type: TxnType.receipt, amount: 1000),
+      // Money in with no sale against it. Spelled out rather than left to the
+      // first category in the list, which is an advance — somebody else's
+      // money, and never income.
+      entry(type: TxnType.receipt, amount: 1000, category: 'Other receipt'),
       // Settles something already booked, so it moves cash and nothing else.
       entry(type: TxnType.payment, amount: 500, settlesTxnId: 'txn3'),
     ];

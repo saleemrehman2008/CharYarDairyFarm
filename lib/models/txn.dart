@@ -71,7 +71,16 @@ enum TxnType {
       'Fodder / feed',
       'Other expense',
     ],
-    TxnType.receipt => const ['Khaata receipt', 'Advance', 'Other receipt'],
+    // "Khaata receipt" is deliberately not offered. The app posts it itself
+    // when an entry is settled, tied to the entry it settles — and one typed
+    // by hand is tied to nothing, so the books read it as fresh income while
+    // the original sale sits there still unpaid. The same eight thousand,
+    // counted twice, with the balance check none the wiser because the cash
+    // and the income both went up together.
+    //
+    // Money coming in against something already booked is taken in from the
+    // ledger: pick the name, tick what they are paying for, take it in.
+    TxnType.receipt => const [advanceCategory, 'Other receipt'],
     // Deliberately short. A payment settles something the books already
     // know about; it is not the place to record what the money was for. Rent,
     // salaries and bills used to be offered here as well as under Expense,
@@ -114,6 +123,13 @@ const writeOffCategory = 'Cattle write-off';
 /// and not one rupee of what the co-founders share out. The farm is
 /// holding somebody else's money.
 const advanceCategory = 'Advance';
+
+/// What the app books money in against an entry as.
+///
+/// Posted by the app alone, never typed: a collection is always against
+/// something, and one that names nothing is money the books would read as
+/// earned all over again.
+const khaataReceiptCategory = 'Khaata receipt';
 
 /// Handing that money back when the contract ends.
 const advanceReturnCategory = 'Advance returned';
