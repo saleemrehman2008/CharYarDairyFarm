@@ -86,9 +86,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// anybody would do twice — so the whole lot is picked first and asked
   /// about once. Which ones are settled is still recorded one by one, because
   /// he may hand over enough for nine of them and not the other three.
-  bool _selecting = false;
   final _picked = <String>{};
   bool _settling = false;
+
+  /// How much the customer is actually handing over, once it is not simply
+  /// all of it. Empty until somebody types in the box.
+  final _taking = TextEditingController();
+
+  @override
+  void dispose() {
+    _taking.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(AccountsScreen old) {
@@ -114,143 +123,145 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final l = L.of(context);
     final books = store.books;
 
-    return StreamBuilder<List<Txn>>(
-      stream: Db.watchLedger(),
-      builder: (context, ledger) {
-        return StreamBuilder<List<FarmMonth>>(
-          stream: Db.watchPeriods(),
-          builder: (context, periodSnap) {
-            final all = ledger.data;
-            final periods = periodSnap.data ?? const <FarmMonth>[];
-            final everything = all ?? const <Txn>[];
-            final rows = _narrow(_rows(everything, store));
-            // The names and kinds actually in the books, rather than a fixed
-            // list: a customer who has never traded is not worth offering.
-            final parties = _distinct(everything, (t) => t.party);
-            final categories = _distinct(everything, (t) => t.category);
+    // One ledger, held by the store and read by everything that wants it.
+    // Opening a second listener on the same query here only meant the same
+    // rows arriving twice.
+    return StreamBuilder<List<FarmMonth>>(
+      stream: Db.watchPeriods(),
+      builder: (context, periodSnap) {
+        final periods = periodSnap.data ?? const <FarmMonth>[];
+        final everything = store.ledger;
+        final loading = !store.ready;
+        final rows = _narrow(_rows(everything, store));
+        // The names and kinds actually in the books, rather than a fixed
+        // list: a customer who has never traded is not worth offering.
+        final parties = _distinct(everything, (t) => t.party);
+        final categories = _distinct(everything, (t) => t.category);
 
-            return PageBody(
+        return PageBody(
+          children: [
+            HeroCard(
+              label: l.t(_filter.heading),
+              value: rs(_total(books, rows)),
+              gradient: T.washOf(_filter.tone),
+              note: loading ? l.t('Loading…') : l.t2('%s entries', rows.length),
+              trailing: Tag(periodLabel(store.month, short: true)),
+            ),
+            const SizedBox(height: T.pad),
+
+            _FilterBar(
+              filter: _filter,
+              onPick: (f) => setState(() => _filter = f),
+            ),
+            const SizedBox(height: 10),
+
+            Row(
               children: [
-                HeroCard(
-                  label: l.t(_filter.heading),
-                  value: rs(_total(books, rows)),
-                  gradient: T.washOf(_filter.tone),
-                  note: all == null
-                      ? l.t('Loading…')
-                      : l.t2('%s entries', rows.length),
-                  trailing: Tag(periodLabel(store.month, short: true)),
-                ),
-                const SizedBox(height: T.pad),
-
-                _FilterBar(
-                  filter: _filter,
-                  onPick: (f) => setState(() => _filter = f),
-                ),
-                const SizedBox(height: 10),
-
-                Row(
-                  children: [
-                    Flexible(
-                      child: PickPill(
-                        icon: Icons.person_outline,
-                        label: _party ?? l.t('Anyone'),
-                        chosen: _party != null,
-                        onClear: () => setState(() => _party = null),
-                        onTap: () => _pick(
-                          title: l.t('Whose entries?'),
-                          options: parties,
-                          allLabel: l.t('Everybody'),
-                          current: _party,
-                          onPicked: (v) => setState(() => _party = v),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: PickPill(
-                        icon: Icons.sell_outlined,
-                        label: _category ?? l.t('Anything'),
-                        chosen: _category != null,
-                        onClear: () => setState(() => _category = null),
-                        onTap: () => _pick(
-                          title: l.t('Which kind of entry?'),
-                          options: categories,
-                          allLabel: l.t('Everything'),
-                          current: _category,
-                          onPicked: (v) => setState(() => _category = v),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // One customer's whole account, the moment a name is picked.
-                if (_party != null) ...[
-                  _PartyCard(
-                    party: _party!,
-                    ledger: everything,
-                    advanceHeld: store.advanceHeldFor(_party!),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // Whatever is unpaid in front of you, settled together.
-                if (rows.any((t) => !t.paid)) ...[
-                  _SettleBar(
-                    unpaid: rows.where((t) => !t.paid).toList(),
-                    picked: _picked,
-                    selecting: _selecting,
-                    busy: _settling,
-                    onStart: () => setState(() => _selecting = true),
-                    onCancel: _stopSelecting,
-                    onAll: () => _pickAll(rows),
-                    onSettle: () => _settleMany(rows),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                GhostButton(
-                  label: l.t('Add an entry'),
-                  icon: Icons.add,
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChangeNotifierProvider.value(
-                        value: store,
-                        child: const NewEntryScreen(),
-                      ),
+                Flexible(
+                  child: PickPill(
+                    icon: Icons.person_outline,
+                    label: _party ?? l.t('Anyone'),
+                    chosen: _party != null,
+                    onClear: () => setState(() => _party = null),
+                    onTap: () => _pick(
+                      title: l.t('Whose entries?'),
+                      options: parties,
+                      allLabel: l.t('Everybody'),
+                      current: _party,
+                      onPicked: (v) => setState(() => _party = v),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                Text(
-                  l.t(
-                    'All farm money in one place: milk & product sales, '
-                    'cattle, feed, bills, rent, food, salaries. Anything sold '
-                    'or bought on credit stays unpaid until you mark it paid.',
+                const SizedBox(width: 8),
+                Flexible(
+                  child: PickPill(
+                    icon: Icons.sell_outlined,
+                    label: _category ?? l.t('Anything'),
+                    chosen: _category != null,
+                    onClear: () => setState(() => _category = null),
+                    onTap: () => _pick(
+                      title: l.t('Which kind of entry?'),
+                      options: categories,
+                      allLabel: l.t('Everything'),
+                      current: _category,
+                      onPicked: (v) => setState(() => _category = v),
+                    ),
                   ),
-                  style: T.meta,
                 ),
-                const SizedBox(height: 14),
-
-                if (all == null)
-                  EmptyNote(l.t('Loading…'))
-                else if (rows.isEmpty)
-                  EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
-                else ...[
-                  ..._withDividers(rows, periods, l, isMaster),
-                  const SizedBox(height: 4),
-                  _TotalStrip(
-                    count: rows.length,
-                    total: rows.fold<num>(0, (a, t) => a + t.amount),
-                    tone: _filter.tone,
-                  ),
-                ],
               ],
-            );
-          },
+            ),
+            const SizedBox(height: 12),
+
+            // One customer's whole account, the moment a name is picked.
+            if (_party != null) ...[
+              _PartyCard(
+                party: _party!,
+                ledger: everything,
+                advanceHeld: store.advanceHeldFor(_party!),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            GhostButton(
+              label: l.t('Add an entry'),
+              icon: Icons.add,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChangeNotifierProvider.value(
+                    value: store,
+                    child: const NewEntryScreen(),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Text(
+              l.t(
+                'All farm money in one place: milk & product sales, '
+                'cattle, feed, bills, rent, food, salaries. Anything sold '
+                'or bought on credit stays unpaid until you mark it paid.',
+              ),
+              style: T.meta,
+            ),
+            const SizedBox(height: 14),
+
+            if (loading && everything.isEmpty)
+              EmptyNote(l.t('Loading…'))
+            else if (rows.isEmpty)
+              EmptyNote(l.t('Nothing booked here yet. Tap Add to start.'))
+            else ...[
+              ..._withDividers(rows, periods, l, isMaster),
+              const SizedBox(height: 4),
+              _TotalStrip(
+                count: rows.length,
+                // On the two tabs about what is owed, the total is what
+                // is still owed — an entry half settled counts half.
+                total: rows.fold<num>(
+                  0,
+                  (a, t) => a + (_owedTab ? t.outstanding : t.amount),
+                ),
+                tone: _filter.tone,
+              ),
+              // What has been ticked, and the one button that settles it.
+              // Below the list, because that is where you are standing
+              // when you have finished reading it.
+              if (_ticked(rows).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _SettleBar(
+                  picked: _ticked(rows),
+                  taking: _taking,
+                  busy: _settling,
+                  onAll: () => _pickAll(rows),
+                  allPicked: _allPicked(rows),
+                  onClear: _clearPicked,
+                  onSettle: () => _settleMany(rows),
+                  onAmountChanged: () => setState(() {}),
+                ),
+              ],
+            ],
+          ],
         );
       },
     );
@@ -319,7 +330,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           busy: _busyId == txn.id,
           onMarkPaid: () => _markPaid(txn),
           onDelete: () => _delete(txn),
-          selecting: _selecting,
+          selecting: _canTick,
           selected: _picked.contains(txn.id),
           onToggle: _canPick(txn) ? () => _toggle(txn) : null,
         ),
@@ -409,32 +420,53 @@ class _AccountsScreenState extends State<AccountsScreen> {
     AccountsFilter.payable => store.payablesDue,
   };
 
-  // ---- settling several at once ----
+  // ---- settling a stack of credit entries together ----
 
-  /// Anything still outstanding can be ticked. What has already been settled
-  /// stays on screen, greyed, because the week's account has to read as the
-  /// week's account.
-  bool _canPick(Txn txn) => !txn.paid;
+  /// Ticking is only offered once a name is picked.
+  ///
+  /// One customer's money cannot be spread across another customer's entries,
+  /// and a list of everybody at once would invite exactly that. Pick Kashif
+  /// and the tick boxes appear on what Kashif still owes.
+  bool get _canTick => _party != null;
+
+  /// The two tabs that are about what is still owed rather than what was
+  /// booked.
+  bool get _owedTab =>
+      _filter == AccountsFilter.receivable || _filter == AccountsFilter.payable;
+
+  /// Anything still outstanding can be ticked, part settled included. What is
+  /// finished stays on screen, faded, because the week has to read as the week.
+  bool _canPick(Txn txn) => _canTick && txn.outstanding > 0;
+
+  List<Txn> _ticked(List<Txn> rows) =>
+      rows.where((t) => _picked.contains(t.id) && t.outstanding > 0).toList();
+
+  bool _allPicked(List<Txn> rows) {
+    final owing = rows.where((t) => t.outstanding > 0).toList();
+    return owing.isNotEmpty && owing.every((t) => _picked.contains(t.id));
+  }
 
   void _toggle(Txn txn) => setState(() {
     if (!_picked.remove(txn.id)) _picked.add(txn.id);
+    _taking.clear();
   });
 
   void _pickAll(List<Txn> rows) => setState(() {
-    final unpaid = rows.where((t) => !t.paid).toList();
-    final all = unpaid.every((t) => _picked.contains(t.id));
+    final owing = rows.where((t) => t.outstanding > 0).toList();
+    final all = _allPicked(rows);
     _picked.clear();
-    if (!all) _picked.addAll(unpaid.map((t) => t.id));
+    if (!all) _picked.addAll(owing.map((t) => t.id));
+    _taking.clear();
   });
 
-  void _stopSelecting() => setState(() {
-    _selecting = false;
+  void _clearPicked() => setState(() {
     _picked.clear();
+    _taking.clear();
   });
 
-  /// Settle everything that is ticked, after asking once how the money moved.
+  /// Take one lump of money against everything that is ticked.
   Future<void> _settleMany(List<Txn> rows) async {
-    final chosen = rows.where((t) => _picked.contains(t.id)).toList();
+    final chosen = _ticked(rows);
     if (chosen.isEmpty) return;
     final l = L.read(context);
 
@@ -451,54 +483,48 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    final total = chosen.fold<num>(0, (a, t) => a + t.amount);
-    final parties = chosen.map((t) => t.party).toSet();
+    final owed = chosen.fold<num>(0, (a, t) => a + t.outstanding);
+    final typed = num.tryParse(_taking.text.trim());
+    // Empty box means all of it, which is what usually happens. A figure
+    // larger than what is owed is a slip, not an overpayment to hold.
+    final taking = typed == null ? owed : typed.clamp(0, owed);
+    if (taking <= 0) return;
+
     final settled = await askSettlement(
       context,
       incoming: chosen.first.type.isIncoming,
-      party: parties.length == 1
-          ? parties.first
-          : l.t2('%s entries', chosen.length),
-      amount: total,
+      party: chosen.first.party,
+      amount: taking,
     );
     if (settled == null || !mounted) return;
 
     setState(() => _settling = true);
-    final actor = context.read<Session>().actor;
-    var done = 0;
-    Object? trouble;
-
-    for (final txn in chosen) {
-      try {
-        await TxnRepo.markPaid(
-          actor,
-          txn,
-          payVia: settled.payVia ?? PayVia.cash,
-          handledBy: settled.handledBy,
-        );
-        done++;
-      } catch (e) {
-        // Keep going. Nine of twelve settled is nine the farm no longer has
-        // to chase, and stopping at the first failure would leave the rest
-        // looking unpaid when they could have been done.
-        trouble ??= e;
-      }
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _settling = false;
-      _selecting = false;
-      _picked.clear();
-    });
-
-    if (trouble == null) {
-      toast(context, l.t3('%s settled · %s', done, rs(total)));
-    } else {
+    try {
+      final finished = await TxnRepo.settle(
+        context.read<Session>().actor,
+        chosen,
+        amount: taking,
+        payVia: settled.payVia ?? PayVia.cash,
+        handledBy: settled.handledBy,
+      );
+      if (!mounted) return;
+      final over = owed - taking;
       toast(
         context,
-        '${l.t3('%s of %s went through', done, chosen.length)}. $trouble',
+        over > 0
+            ? l.t3('%s settled, %s still owed', finished, rs(over))
+            : l.t3('%s settled · %s', finished, rs(taking)),
       );
+    } catch (e) {
+      if (mounted) toast(context, l.t2('Could not take it in. %s', e));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _settling = false;
+          _picked.clear();
+          _taking.clear();
+        });
+      }
     }
   }
 
@@ -634,93 +660,81 @@ class _FilterChip extends StatelessWidget {
   );
 }
 
-/// Settling a stack of credit entries together.
+/// What has been ticked, and the one button that takes the money in.
 ///
-/// Closed, it says what is outstanding in front of you and offers to settle
-/// it. Open, it counts what has been ticked and what that comes to, so the
-/// figure being handed over is on screen while it is being counted out in the
-/// yard.
+/// Three figures, because three is what somebody standing in a yard with a
+/// handful of notes actually needs: how many days, how much milk, how much
+/// money — and the money written out as well as in digits, the way it would be
+/// said out loud while it is counted.
+///
+/// The amount box starts empty, meaning all of it, which is what usually
+/// happens. Type a smaller figure and the bar says what will still be owed
+/// afterwards, before anything is settled.
 class _SettleBar extends StatelessWidget {
   const _SettleBar({
-    required this.unpaid,
     required this.picked,
-    required this.selecting,
+    required this.taking,
     required this.busy,
-    required this.onStart,
-    required this.onCancel,
+    required this.allPicked,
     required this.onAll,
+    required this.onClear,
     required this.onSettle,
+    required this.onAmountChanged,
   });
 
-  final List<Txn> unpaid;
-  final Set<String> picked;
-  final bool selecting;
+  final List<Txn> picked;
+  final TextEditingController taking;
   final bool busy;
-  final VoidCallback onStart;
-  final VoidCallback onCancel;
+  final bool allPicked;
   final VoidCallback onAll;
+  final VoidCallback onClear;
   final VoidCallback onSettle;
+  final VoidCallback onAmountChanged;
 
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    final owed = unpaid.fold<num>(0, (a, t) => a + t.amount);
-    final chosen = unpaid.where((t) => picked.contains(t.id)).toList();
-    final chosenTotal = chosen.fold<num>(0, (a, t) => a + t.amount);
-    final allPicked = chosen.length == unpaid.length && unpaid.isNotEmpty;
+    final owed = picked.fold<num>(0, (a, t) => a + t.outstanding);
 
-    if (!selecting) {
-      return RegCard(
-        stripe: T.moneyGet,
-        padding: const EdgeInsets.fromLTRB(13, 12, 12, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.t2('%s not settled yet', unpaid.length),
-                    style: T.bodyMid,
-                  ),
-                  Text(rs(owed), style: T.num22.copyWith(color: T.moneyGet)),
-                ],
-              ),
-            ),
-            GhostButton(
-              label: l.t('Settle several'),
-              icon: Icons.checklist,
-              compact: true,
-              onPressed: onStart,
-            ),
-          ],
-        ),
-      );
-    }
+    // Only where litres mean something. Rent and vet bills have no litres, and
+    // a "0 L" under them would be a figure pretending to be information.
+    final litres = picked
+        .where((t) => t.unit == 'L' && t.qty != null)
+        .fold<num>(0, (a, t) => a + t.qty!);
+
+    final typed = num.tryParse(taking.text.trim());
+    final amount = typed == null ? owed : typed.clamp(0, owed);
+    final over = owed - amount;
 
     return RegCard(
       stripe: T.moneyIn,
-      padding: const EdgeInsets.fromLTRB(13, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 13, 13, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Wrap(
+                  spacing: 18,
+                  runSpacing: 8,
                   children: [
-                    Text(
-                      chosen.isEmpty
-                          ? l.t('Tick what they are paying for')
-                          : l.t2('%s ticked', chosen.length),
-                      style: T.bodyMid,
+                    _Figure(
+                      value: '${picked.length}',
+                      label: l.t('ticked'),
+                      tone: T.accent700,
                     ),
-                    Text(
-                      rs(chosenTotal),
-                      style: T.num22.copyWith(
-                        color: chosen.isEmpty ? T.n400 : T.moneyIn,
+                    if (litres > 0)
+                      _Figure(
+                        value: '${qty(litres)} L',
+                        label: l.t('milk'),
+                        tone: T.accent700,
                       ),
+                    _Figure(
+                      value: rs(owed),
+                      label: l.t('owed'),
+                      tone: T.moneyIn,
                     ),
                   ],
                 ),
@@ -728,41 +742,81 @@ class _SettleBar extends StatelessWidget {
               GhostButton(
                 label: allPicked ? l.t('Clear') : l.t('All of them'),
                 compact: true,
-                onPressed: busy ? null : onAll,
+                onPressed: busy ? null : (allPicked ? onClear : onAll),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: PrimaryButton(
-                  label: busy
-                      ? l.t('Settling…')
-                      : l.t2('Mark %s paid', chosen.length),
-                  onPressed: busy || chosen.isEmpty ? null : onSettle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              GhostButton(
-                label: l.t('Cancel'),
-                compact: true,
-                onPressed: busy ? null : onCancel,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            l.t(
-              'Asked once how the money came, then each entry is settled on '
-              'its own — so a part payment marks only what it covers.',
+          const SizedBox(height: 8),
+          // The figure said out loud, which is how it is checked against the
+          // notes in somebody's hand.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: T.n100,
+              borderRadius: BorderRadius.circular(T.radiusXs),
             ),
-            style: T.meta,
+            child: Text(
+              rsInWords(owed),
+              style: T.bodyMid.copyWith(fontSize: 12.5, color: T.n700),
+            ),
+          ),
+
+          const Divider(height: 20),
+          Field(
+            label: l.t('How much is being handed over'),
+            controller: taking,
+            hint: l.t2('Leave it empty for all of it — %s', rs(owed)),
+            keyboardType: TextInputType.number,
+            onChanged: (_) => onAmountChanged(),
+          ),
+          if (over > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              decoration: BoxDecoration(
+                color: T.moneyDueWash,
+                borderRadius: BorderRadius.circular(T.radiusXs),
+                border: Border.all(color: T.moneyDue.withValues(alpha: 0.5)),
+              ),
+              child: Text(
+                l.t2(
+                  '%s will still be owed. The oldest entries are settled '
+                  'first; whatever is left over stops part way through one, '
+                  'and that is the one the next payment fills.',
+                  rs(over),
+                ),
+                style: T.meta.copyWith(color: T.moneyDue),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          PrimaryButton(
+            label: busy ? l.t('Taking it in…') : l.t2('Take in %s', rs(amount)),
+            onPressed: busy || amount <= 0 ? null : onSettle,
           ),
         ],
       ),
     );
   }
+}
+
+class _Figure extends StatelessWidget {
+  const _Figure({required this.value, required this.label, required this.tone});
+
+  final String value;
+  final String label;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(value, style: T.num22.copyWith(color: tone)),
+      Text(label, style: T.meta),
+    ],
+  );
 }
 
 /// One person's whole account with the farm, on one card.
@@ -979,7 +1033,12 @@ class _LedgerRow extends StatelessWidget {
     // Every entry wears the colour of what it is and whether the money has
     // actually moved, down its own edge — so a page of them can be read down
     // the left margin without reading a word of it.
-    final tone = T.money(incoming: txn.type.isIncoming, settled: txn.paid);
+    // Part settled gets its own colour, because it is a third state and
+    // reading it as either of the other two would be wrong: some of that
+    // money has come and some of it has not.
+    final tone = txn.partlyPaid
+        ? T.moneyDue
+        : T.money(incoming: txn.type.isIncoming, settled: txn.paid);
 
     final card = RegCard(
       stripe: tone,
@@ -1055,17 +1114,37 @@ class _LedgerRow extends StatelessWidget {
                   const SizedBox(height: 6),
                   Tag(l.t('farm asset · not a cost'), tone: TagTone.accent),
                 ],
+                // Part of it has come and the rest has not. Both figures on
+                // the row, so nobody has to work out the difference.
+                if (txn.partlyPaid)
+                  Text(
+                    l.t3(
+                      '%s in, %s still to come',
+                      rs(txn.paidSoFar),
+                      rs(txn.outstanding),
+                    ),
+                    style: T.meta.copyWith(
+                      color: T.moneyDue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 if (!txn.paid) ...[
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Tag(
-                        l.t(txn.type.isIncoming ? 'not received' : 'not paid'),
-                        tone: txn.type.isIncoming
-                            ? TagTone.neutral
-                            : TagTone.warn,
+                        l.t(
+                          txn.partlyPaid
+                              ? 'part paid'
+                              : txn.type.isIncoming
+                              ? 'not received'
+                              : 'not paid',
+                        ),
+                        tone: txn.partlyPaid || !txn.type.isIncoming
+                            ? TagTone.warn
+                            : TagTone.neutral,
                       ),
-                      // While several are being picked, the one-at-a-time
+                      // While entries are being ticked, the one-at-a-time
                       // button would be a second way of doing the same
                       // thing, half a second before the other one.
                       if (!selecting) ...[

@@ -44,6 +44,9 @@ class TxnRepo {
       if (!type.isSettlement && rate != null) 'rate': rate,
       'amount': amount,
       'paid': settled,
+      // Nothing has been taken against a credit entry yet; the whole of a
+      // settled one moved as it was written.
+      'paidSoFar': settled ? amount : 0,
       if (settled) 'paidAt': Timestamp.fromDate(now),
       'note': note,
       'orderId': ?orderId,
@@ -70,63 +73,125 @@ class TxnRepo {
     return doc.id;
   }
 
-  /// Marking an entry paid settles it and posts the matching cash row: a
-  /// receipt against a sale, a payment against a purchase or expense.
+  /// Settles one entry in full — the button on a single row.
   static Future<void> markPaid(
     Actor actor,
     Txn txn, {
     PayVia payVia = PayVia.cash,
     String handledBy = '',
+  }) => settle(
+    actor,
+    [txn],
+    amount: txn.outstanding,
+    payVia: payVia,
+    handledBy: handledBy,
+  );
+
+  /// Takes one lump of money against a stack of entries, oldest first.
+  ///
+  /// This is what actually happens on a milk round: sold on credit twice a
+  /// day, paid in one handful on a Friday, and the handful rarely lands on an
+  /// entry boundary. A customer hands over 100,000 against 120,000 of milk and
+  /// the odd 20,000 has to live somewhere — so the money fills each entry in
+  /// turn and stops part way through the last one it reaches.
+  ///
+  /// Oldest first, which is the only order that needs no explaining: the
+  /// entry left part settled is then the oldest one still owing, so the next
+  /// payment picks up exactly where this one stopped.
+  ///
+  /// Each entry gets its own receipt or payment row, for the part of the money
+  /// that landed on it. One lump against twelve entries is twelve rows, not
+  /// one — because in a month's time the question is never "what did he pay on
+  /// Friday", it is "which days has he paid for".
+  ///
+  /// Returns how many entries this finished off.
+  static Future<int> settle(
+    Actor actor,
+    List<Txn> entries, {
+    required num amount,
+    PayVia payVia = PayVia.cash,
+    String handledBy = '',
   }) async {
-    if (txn.paid) return;
     final now = DateTime.now();
+    final owing = entries.where((t) => t.outstanding > 0).toList()
+      ..sort((a, b) {
+        final byDate = a.date.compareTo(b.date);
+        return byDate != 0 ? byDate : a.createdAt.compareTo(b.createdAt);
+      });
+    if (owing.isEmpty || amount <= 0) return 0;
 
-    await Db.transactions.doc(txn.id).update({
-      'paid': true,
-      'paidAt': Timestamp.fromDate(now),
-      'payVia': payVia.name,
-      'handledBy': handledBy,
-    });
+    var purse = amount;
+    var finished = 0;
 
-    final isSale = txn.type == TxnType.sale;
-    await add(
-      actor: actor,
-      monthId: MonthRepo.bookingId,
-      type: isSale ? TxnType.receipt : TxnType.payment,
-      party: txn.party,
-      category: isSale ? 'Khaata receipt' : _paymentCategory(txn),
-      amount: txn.amount,
-      paid: true,
-      note: 'Settles ${txn.type.label.toLowerCase()} of ${fmtDate(txn.date)}',
-      customerId: txn.customerId,
-      // The entry above flipping to paid is what moved the cash. Tagging this
-      // row keeps it in the ledger and the Sheet without the balance counting
-      // the same rupees twice.
-      settlesTxnId: txn.id,
-      payVia: payVia,
-      handledBy: handledBy,
-      date: now,
-    );
+    for (final txn in owing) {
+      if (purse <= 0) break;
+      final take = purse < txn.outstanding ? purse : txn.outstanding;
+      purse -= take;
 
-    // An udhaar customer's balance drops by whatever they just settled.
-    final customerId = txn.customerId;
-    if (isSale && customerId != null && customerId.isNotEmpty) {
-      try {
-        await Db.udhaarAccounts.doc(customerId).update({
-          'balance': FieldValue.increment(-txn.amount),
-        });
-      } catch (_) {
-        // No udhaar account for this party — nothing to reduce.
+      final nowPaid = txn.paidSoFar + take;
+      final settledInFull = nowPaid >= txn.amount;
+      if (settledInFull) finished++;
+
+      await Db.transactions.doc(txn.id).update({
+        'paidSoFar': nowPaid,
+        // The flag still says "nothing more to collect", which is what the
+        // unpaid query asks. A part-settled entry is still outstanding.
+        'paid': settledInFull,
+        if (settledInFull) 'paidAt': Timestamp.fromDate(now),
+        'payVia': payVia.name,
+        'handledBy': handledBy,
+      });
+
+      final isSale = txn.type == TxnType.sale;
+      await add(
+        actor: actor,
+        monthId: MonthRepo.bookingId,
+        type: isSale ? TxnType.receipt : TxnType.payment,
+        party: txn.party,
+        category: isSale ? 'Khaata receipt' : _paymentCategory(txn),
+        amount: take,
+        paid: true,
+        note: settledInFull
+            ? 'Settles ${txn.type.label.toLowerCase()} of '
+                  '${fmtDate(txn.date)}'
+            : 'Part of ${txn.type.label.toLowerCase()} of '
+                  '${fmtDate(txn.date)} — ${rs(txn.amount - nowPaid)} still '
+                  'to come',
+        customerId: txn.customerId,
+        // The entry above carrying what it has taken is what moved the cash.
+        // Tagging this row keeps it in the ledger and the Sheet without the
+        // balance counting the same rupees twice.
+        settlesTxnId: txn.id,
+        payVia: payVia,
+        handledBy: handledBy,
+        date: now,
+      );
+
+      // An udhaar customer's balance drops by whatever just landed on it.
+      final customerId = txn.customerId;
+      if (isSale && customerId != null && customerId.isNotEmpty) {
+        try {
+          await Db.udhaarAccounts.doc(customerId).update({
+            'balance': FieldValue.increment(-take),
+          });
+        } catch (_) {
+          // No udhaar account for this party — nothing to reduce.
+        }
       }
     }
 
+    final taken = amount - purse;
     await Log.write(
       actor,
       LogKind.transaction,
-      'marked "${txn.party}" ${rs(txn.amount)} paid',
+      owing.length == 1
+          ? 'took ${rs(taken)} from "${owing.first.party}"'
+          : 'took ${rs(taken)} from "${owing.first.party}" against '
+                '${owing.length} entries, settling $finished of them',
       refType: 'transaction',
-      refId: txn.id,
+      refId: owing.first.id,
     );
+    return finished;
   }
 
   /// Master only. Soft delete keeps the row in the Sheet marked `deleted`.

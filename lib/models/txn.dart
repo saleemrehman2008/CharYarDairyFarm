@@ -169,6 +169,7 @@ class Txn {
     this.rate,
     required this.amount,
     required this.paid,
+    num? paidSoFar,
     this.paidAt,
     required this.note,
     this.orderId,
@@ -180,7 +181,9 @@ class Txn {
     this.createdByName = '',
     required this.createdAt,
     this.deletedAt,
-  });
+    // An entry written before part payments were kept says only whether it
+    // was settled, so read it that way: all of it, or none of it.
+  }) : paidSoFar = paidSoFar ?? (paid ? amount : 0);
 
   final String id;
   final DateTime date;
@@ -194,6 +197,28 @@ class Txn {
   final num? rate;
   final num amount;
   final bool paid;
+
+  /// How much of [amount] has actually been taken against this entry.
+  ///
+  /// A milk round sells on credit twice a day and gets paid in one lump on a
+  /// Friday, and the lump rarely lands on an entry boundary: a customer hands
+  /// over 100,000 against 120,000 of milk, and one entry ends up half settled.
+  /// Before this, an entry was paid or it was not, so the odd 20,000 had
+  /// nowhere to live and the farm carried it in its head.
+  ///
+  /// Entries written before this is read back from the old flag: settled means
+  /// all of it, unsettled means none.
+  final num paidSoFar;
+
+  /// What is still owed on this entry. Zero once it is fully settled.
+  num get outstanding {
+    final left = amount - paidSoFar;
+    return left > 0 ? left : 0;
+  }
+
+  /// Something has been taken against it, but not all of it.
+  bool get partlyPaid => paidSoFar > 0 && outstanding > 0;
+
   final DateTime? paidAt;
   final String note;
   final String? orderId;
@@ -349,6 +374,7 @@ class Txn {
       rate: m['rate'] == null ? null : n(m['rate']),
       amount: n(m['amount']),
       paid: paid,
+      paidSoFar: m['paidSoFar'] == null ? null : n(m['paidSoFar']),
       paidAt: paidAt,
       note: s(m['note']),
       orderId: m['orderId'] == null ? null : s(m['orderId']),

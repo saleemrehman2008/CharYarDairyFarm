@@ -13,6 +13,46 @@ import '../services/month_repo.dart';
 import '../services/sheet_sync.dart';
 import 'round_data.dart';
 
+/// One name off the books, and what the farm knows about it.
+class PartySummary {
+  const PartySummary({
+    required this.name,
+    required this.entries,
+    required this.owed,
+  });
+
+  /// The spelling the farm has used most, which is the one to file under.
+  final String name;
+
+  /// How many entries carry this name. Ordering by this puts the customer
+  /// written down twice a day above the one written down twice a year.
+  final int entries;
+
+  /// What they still owe. Shown beside the name, because it is what tells two
+  /// similar names apart faster than anything else can.
+  final num owed;
+}
+
+class _PartyTally {
+  int count = 0;
+  num owed = 0;
+
+  /// Every way this name has been written, and how often.
+  final Map<String, int> spellings = {};
+
+  String get commonest {
+    var best = '';
+    var most = -1;
+    spellings.forEach((spelling, times) {
+      if (times > most) {
+        best = spelling;
+        most = times;
+      }
+    });
+    return best;
+  }
+}
+
 /// One subscription set for the whole farm side of the app.
 ///
 /// Home, Accounts, Orders, Co-founders and Close month all read the same
@@ -42,6 +82,14 @@ class FarmStore extends ChangeNotifier implements RoundData {
       }),
       Db.watchAdvanceTxns().listen((v) {
         _advanceTxns = v;
+        notifyListeners();
+      }),
+      // The whole running account. Held here rather than opened again by
+      // every screen that wants it: Accounts reads it, and so does the name
+      // suggestion on a new entry, which needs every customer the farm has
+      // ever traded with and not just the ones who still owe.
+      Db.watchLedger().listen((v) {
+        _ledger = v;
         notifyListeners();
       }),
       // One listener for every period, rather than one for closed and another
@@ -178,6 +226,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _assetTxns = const [];
   List<Txn> _shareTxns = const [];
   List<Txn> _advanceTxns = const [];
+  List<Txn> _ledger = const [];
 
   /// Every period, newest first.
   List<FarmMonth> _periods = const [];
@@ -202,6 +251,9 @@ class FarmStore extends ChangeNotifier implements RoundData {
   bool get ready => _month != null;
 
   List<Txn> get monthTxns => _monthTxns;
+
+  /// The whole running account, newest first.
+  List<Txn> get ledger => _ledger;
   List<Txn> get unpaidTxns => _unpaidTxns;
   List<Partner> get partners => _partners;
 
@@ -396,6 +448,42 @@ class FarmStore extends ChangeNotifier implements RoundData {
     0,
     (a, t) => t.isWriteOff ? a - t.amount : a + t.amount,
   );
+
+  /// Every name the books already carry, busiest first.
+  ///
+  /// Read off the ledger rather than kept as a list of its own, because a
+  /// second list is a second thing to fall out of step: a customer exists here
+  /// the moment somebody trades with them, and can never be missing from it.
+  ///
+  /// Case and stray spaces are folded together, and the spelling that comes
+  /// back is whichever one the farm has used most — so `kashif` typed in a
+  /// hurry offers `Kashif`, and the account stays in one piece.
+  List<PartySummary> get partyBook {
+    final byKey = <String, _PartyTally>{};
+    for (final t in _ledger) {
+      final name = t.party.trim();
+      if (name.isEmpty) continue;
+      final k = name.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final tally = byKey.putIfAbsent(k, _PartyTally.new);
+      tally.count++;
+      tally.spellings[name] = (tally.spellings[name] ?? 0) + 1;
+      if (t.isReceivable) tally.owed += t.outstanding;
+    }
+
+    final out =
+        [
+          for (final tally in byKey.values)
+            PartySummary(
+              name: tally.commonest,
+              entries: tally.count,
+              owed: tally.owed,
+            ),
+        ]..sort((a, b) {
+          final byUse = b.entries.compareTo(a.entries);
+          return byUse != 0 ? byUse : a.name.compareTo(b.name);
+        });
+    return out;
+  }
 
   /// Advances the farm is holding right now, across every customer.
   ///

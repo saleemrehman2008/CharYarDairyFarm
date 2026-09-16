@@ -38,12 +38,15 @@ class Books {
        writeOffs = monthTxns
            .where((t) => t.isWriteOff)
            .fold<num>(0, (a, t) => a + t.amount),
+       // What is still owed, not what was booked. An entry half settled is
+       // half a receivable; counting the whole of it would have the farm
+       // chasing money it has already taken.
        receivable = unpaidTxns
            .where((t) => t.isReceivable)
-           .fold<num>(0, (a, t) => a + t.amount),
+           .fold<num>(0, (a, t) => a + t.outstanding),
        payable = unpaidTxns
            .where((t) => t.isPayable)
-           .fold<num>(0, (a, t) => a + t.amount);
+           .fold<num>(0, (a, t) => a + t.outstanding);
 
   final String monthId;
 

@@ -32,6 +32,142 @@ String signedRs(num value, {required bool incoming}) =>
 String qty(num value) =>
     value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(2);
 
+/// Nought to ninety-nine, the way it is said out loud. Urdu has its own word
+/// for every one of them — none of it is built out of tens and units — so
+/// there is no shorter way to hold this than to list it.
+const _spoken = [
+  'sifar',
+  'ek',
+  'do',
+  'teen',
+  'chaar',
+  'paanch',
+  'chhe',
+  'saat',
+  'aath',
+  'nau',
+  'das',
+  'gyarah',
+  'barah',
+  'terah',
+  'chaudah',
+  'pandrah',
+  'solah',
+  'satrah',
+  'atharah',
+  'unnees',
+  'bees',
+  'ikkees',
+  'bais',
+  'teis',
+  'chaubees',
+  'pachees',
+  'chhabees',
+  'sattais',
+  'atthais',
+  'untees',
+  'tees',
+  'ikattees',
+  'battees',
+  'taintees',
+  'chauntees',
+  'paintees',
+  'chhattees',
+  'saintees',
+  'adhtees',
+  'untaalees',
+  'chalees',
+  'iktalees',
+  'bayalees',
+  'tentalees',
+  'chawalees',
+  'paintalees',
+  'chhiyalees',
+  'saintalees',
+  'adhtalees',
+  'unchaas',
+  'pachaas',
+  'ikyawan',
+  'bawan',
+  'tirpan',
+  'chauwan',
+  'pachpan',
+  'chhappan',
+  'sattawan',
+  'atthawan',
+  'unsath',
+  'saath',
+  'iksath',
+  'basath',
+  'tirsath',
+  'chausath',
+  'painsath',
+  'chhiyasath',
+  'sarsath',
+  'arsath',
+  'unhattar',
+  'sattar',
+  'ikhattar',
+  'bahattar',
+  'tihattar',
+  'chauhattar',
+  'pachhattar',
+  'chhihattar',
+  'sathattar',
+  'athhattar',
+  'unasi',
+  'assi',
+  'ikyasi',
+  'bayasi',
+  'tirasi',
+  'chaurasi',
+  'pachasi',
+  'chhiyasi',
+  'satasi',
+  'athasi',
+  'nawasi',
+  'nawway',
+  'ikyanway',
+  'banway',
+  'tiranway',
+  'chauranway',
+  'pachanway',
+  'chhiyanway',
+  'satanway',
+  'athanway',
+  'ninyanway',
+];
+
+/// An amount written out the way it would be said, or put on a receipt:
+/// `Rs 1,20,000` reads back as "Ek lakh bees hazaar rupay".
+///
+/// Crore, lakh, hazaar, sau — the Pakistani scale, not the western one, so a
+/// hundred thousand is a lakh and not "one hundred thousand". Money is counted
+/// out loud here before it is written down, and a figure the farm can say is a
+/// figure it can check.
+String rsInWords(num value) {
+  var left = value.abs().round();
+  if (left == 0) return 'sifar rupay';
+
+  final parts = <String>[];
+  void take(int size, String name) {
+    final count = left ~/ size;
+    if (count == 0) return;
+    parts.add('${_spoken[count]} $name');
+    left -= count * size;
+  }
+
+  take(10000000, 'crore');
+  take(100000, 'lakh');
+  take(1000, 'hazaar');
+  take(100, 'sau');
+  if (left > 0) parts.add(_spoken[left]);
+
+  final said = '${parts.join(' ')} rupay';
+  final sentence = said[0].toUpperCase() + said.substring(1);
+  return value < 0 ? 'Manfi $said' : sentence;
+}
+
 final _dayMonth = DateFormat('d MMM');
 final _dayMonthYear = DateFormat('d MMM yyyy');
 final _monthName = DateFormat('MMMM yyyy');

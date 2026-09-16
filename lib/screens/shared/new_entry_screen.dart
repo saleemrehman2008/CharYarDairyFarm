@@ -9,6 +9,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/party_field.dart';
 import '../../widgets/ui.dart';
 
 /// One form for every kind of money that moves.
@@ -156,12 +157,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           ),
           const SizedBox(height: T.pad),
 
-          Field(
+          // Names come off the books as they are typed, so one customer
+          // never ends up written two ways and split across two accounts.
+          PartyField(
             label: _type == TxnType.sale ? 'Customer / party' : 'Party',
             controller: _party,
             hint: _type == TxnType.sale
                 ? 'Who bought it'
                 : 'Who you paid or bought from',
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: T.gap),
 

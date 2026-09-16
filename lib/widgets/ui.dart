@@ -791,6 +791,7 @@ class Field extends StatelessWidget {
     this.prefix,
     this.onChanged,
     this.textCapitalization = TextCapitalization.sentences,
+    this.focusNode,
   });
 
   final String label;
@@ -802,6 +803,10 @@ class Field extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final TextCapitalization textCapitalization;
 
+  /// Passed in when the caller needs to know whether the field has the
+  /// keyboard — a suggestion list below it only belongs there while it does.
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -810,6 +815,7 @@ class Field extends StatelessWidget {
       const SizedBox(height: 5),
       TextField(
         controller: controller,
+        focusNode: focusNode,
         keyboardType: keyboardType,
         maxLines: maxLines,
         minLines: maxLines,
@@ -977,19 +983,44 @@ class WhoField extends StatefulWidget {
 }
 
 class _WhoFieldState extends State<WhoField> {
+  /// Open only when somebody has said this was not them.
+  ///
+  /// Shut by default, because nine times in ten the person holding the phone
+  /// is the person who handled the money, and a row of names to pick from
+  /// every single time is four taps a day spent confirming what the app
+  /// already knew.
+  bool _open = false;
+
   /// True once "Someone else" has been chosen, or a name was typed that is not
   /// on the list.
   bool _typing = false;
 
+  /// Whoever is signed in, filled in the moment the field is built.
+  void _defaultToMe() {
+    if (widget.controller.text.trim().isNotEmpty) return;
+    final me = context.read<Session>().actor.name;
+    if (me.isEmpty) return;
+    // Straight onto the controller rather than through setState: this runs
+    // during build, and the form only needs to know the value is there.
+    widget.controller.text = me;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onChanged?.call(me);
+    });
+  }
+
   void _pick(String name) {
     widget.controller.text = name;
-    setState(() => _typing = false);
+    setState(() {
+      _typing = false;
+      _open = false;
+    });
     widget.onChanged?.call(name);
   }
 
   @override
   Widget build(BuildContext context) {
     final people = context.watch<Session>().settings.founders;
+    _defaultToMe();
     final chosen = widget.controller.text.trim();
     final onList = people.any((p) => p.name == chosen);
 
@@ -999,6 +1030,43 @@ class _WhoFieldState extends State<WhoField> {
         controller: widget.controller,
         hint: widget.hint,
         onChanged: widget.onChanged,
+      );
+    }
+
+    // At rest: the name that is already in, and a way to say it was not them.
+    if (!_open && chosen.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(widget.label),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.fromLTRB(11, 9, 6, 9),
+            decoration: BoxDecoration(
+              color: T.doneWash,
+              borderRadius: BorderRadius.circular(T.radiusXs),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.person_outline, size: 17, color: T.done),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    chosen,
+                    style: T.bodyMid.copyWith(color: T.done),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GhostButton(
+                  label: 'Change',
+                  compact: true,
+                  onPressed: () => setState(() => _open = true),
+                ),
+              ],
+            ),
+          ),
+        ],
       );
     }
 

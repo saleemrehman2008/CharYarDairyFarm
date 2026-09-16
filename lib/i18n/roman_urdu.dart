@@ -373,6 +373,29 @@ const Map<String, String> romanUrdu = {
   'It belongs to them, not the farm. It goes back when they stop.':
       'Ye un ka paisa hai, farm ka nahi. Jab wo chhoren ge, wapas jayega.',
 
+  // ---- Part payments, and the name off the books ----
+  '%s in, %s still to come': '%s mila, %s abhi baqi',
+  'part paid': 'thora mila',
+  'ticked': 'nishan',
+  'milk': 'doodh',
+  'owed': 'baqi',
+  'How much is being handed over': 'Kitna paisa mil raha hai',
+  'Leave it empty for all of it — %s': 'Poora lena ho to khali chhor den — %s',
+  'Take in %s': '%s wasool karen',
+  'Taking it in…': 'Wasool ho raha hai…',
+  '%s settled, %s still owed': '%s ka hisaab hua, %s abhi baqi',
+  'Could not take it in. %s': 'Wasool nahi ho saka. %s',
+  '%s will still be owed. The oldest entries are settled first; whatever is '
+          'left over stops part way through one, and that is the one the next '
+          'payment fills.':
+      '%s abhi baqi rahega. Sab se purani entries pehle poori hongi; jo bachega '
+      'wo aakhri wali per adhoora reh jayega, aur agli bar wohi pehle '
+      'bharegi.',
+  'New name — "%s"': 'Naya naam — "%s"',
+  'Not written down before': 'Pehle kabhi nahi likha gaya',
+  '%s owed': '%s baqi',
+  'Change': 'Badlen',
+
   // ---- Settling a week of credit in one go ----
   '%s not settled yet': '%s abhi baqi hain',
   'Settle several': 'Ek sath hisaab',
