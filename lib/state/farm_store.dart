@@ -723,27 +723,27 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// store, because the store only holds the open period and the Sheet is
   /// meant to be the farm's second copy of everything.
   Future<SheetBooks> sheetBooks() async {
-    // Capped only so that a runaway cannot write a million rows into a
-    // spreadsheet. At a few hundred entries a month this is years of books.
-    final ledger = await Db.transactions
-        .orderBy('date', descending: true)
-        .limit(20000)
-        .get();
-    final rounds = await Db.deliveries
-        .orderBy('date', descending: true)
-        .limit(20000)
-        .get();
+    // Everything, however many years of it there are. Read in pages, because
+    // one query hands back ten thousand rows at most — see [Db.everything].
+    final ledger = await Db.everything(
+      Db.transactions.orderBy('date', descending: true),
+      Txn.fromDoc,
+    );
+    final rounds = await Db.everything(
+      Db.deliveries.orderBy('date', descending: true),
+      Delivery.fromDoc,
+    );
 
     final books = this.books;
     return SheetBooks(
       sheetId: _settings.sheetId,
       lastSyncAt: _settings.lastSyncAt,
-      txns: ledger.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList(),
+      txns: ledger.where((t) => !t.isDeleted).toList(),
       periods: _periods,
       partners: _partners,
       ratios: ratios,
       khaata: _udhaar,
-      deliveries: rounds.docs.map(Delivery.fromDoc).toList(),
+      deliveries: rounds,
       animals: _animals,
       summary: [
         ('Cash in hand', books.cash),

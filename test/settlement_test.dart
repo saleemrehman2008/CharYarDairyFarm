@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/db.dart';
 
 /// What happens to an entry that is booked in one period and settled in the
 /// next — the case the farm hits every time a khaata customer pays late, and
@@ -241,6 +242,23 @@ void main() {
   // the app posts itself. The difference matters: a row the app posts is
   // tied to the entry it settles, and the same row typed by hand is tied to
   // nothing — so the books read it as money earned all over again.
+  group('how much the Sheet reads at a time', () {
+    test('never more in one go than Firestore will hand back', () {
+      // Firestore's own ceiling, not a number chosen for this farm. Ask for
+      // one more and the query does not return fewer rows, it returns
+      // nothing: INVALID_ARGUMENT, and the Sheet silently stops being
+      // written. This was set to twenty thousand to be generous, and the
+      // farm's second copy of the books sat three days behind while the
+      // settings screen showed a stale warning about something else.
+      //
+      // This is the size of a mouthful, not of the meal: the Sheet reads
+      // page after page until there are none left, so there is no ceiling
+      // on how much of the farm's history it holds.
+      expect(Db.pageSize, lessThanOrEqualTo(10000));
+      expect(Db.pageSize, greaterThan(0));
+    });
+  });
+
   group('what may be typed by hand', () {
     test('a collection is not offered as something to type', () {
       expect(

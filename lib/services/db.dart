@@ -203,6 +203,39 @@ class Db {
             .toList(),
       );
 
+  /// The most rows one Firestore query will hand back.
+  ///
+  /// Not a choice — ask for one more and the query does not return fewer
+  /// rows, it returns nothing at all, with INVALID_ARGUMENT. Which is exactly
+  /// what happened when the Sheet's read was set to twenty thousand to be
+  /// generous: it stopped writing that day and said so nowhere anybody looked.
+  static const pageSize = 10000;
+
+  /// Everything a query matches, however much that is.
+  ///
+  /// Reads it a page at a time and carries on from the last row of each, so
+  /// the ten thousand is the size of a mouthful rather than the size of the
+  /// meal. The Google Sheet is meant to be the farm's second copy of
+  /// everything, and a second copy that quietly stops at some number is worse
+  /// than no second copy at all — nobody would know which years were in it.
+  static Future<List<T>> everything<T>(
+    Query<Map<String, dynamic>> query,
+    T Function(QueryDocumentSnapshot<Map<String, dynamic>>) read,
+  ) async {
+    final out = <T>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? last;
+
+    while (true) {
+      var page = query.limit(pageSize);
+      if (last != null) page = page.startAfterDocument(last);
+      final got = await page.get();
+      out.addAll(got.docs.map(read));
+      // A short page is the last page.
+      if (got.docs.length < pageSize) return out;
+      last = got.docs.last;
+    }
+  }
+
   static Stream<List<FarmOrder>> watchOrders() => orders
       .orderBy('createdAt', descending: true)
       .limit(200)
