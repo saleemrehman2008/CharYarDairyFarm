@@ -121,11 +121,20 @@ class SheetSync {
     _retry = null;
     try {
       final result = await push(await read(), force: force);
-      // Skipped because another phone had just written, or the write failed.
-      // Either way the change is still only in the app, so come back to it
-      // rather than waiting for the farm to type something else.
-      if (result == SyncResult.skipped || result == SyncResult.failed) {
-        _retry = Timer(_cooldown, () => _attempt(read));
+      // Anything but a write leaves the change in the app and not in the
+      // Sheet, so come back to it rather than waiting for the farm to type
+      // something else.
+      //
+      // `notReady` is in here for a reason that cost three days of a stale
+      // Sheet. On a cold start the Google plugin has not restored the account
+      // yet, so the permission check comes back empty and this gives up — and
+      // because the catch-up only runs once per launch, nothing tried again.
+      // The screen meanwhile asked the same question a few seconds later, got
+      // a token, and quite correctly hid the button offering to fix it. The
+      // farm was left looking at a permission error it did not have, on a
+      // Sheet that would not move.
+      if (result != SyncResult.written) {
+        _retry = Timer(_cooldown, () => _attempt(read, force: force));
       }
     } catch (e) {
       _lastError = '$e';
@@ -158,8 +167,13 @@ class SheetSync {
     try {
       final token = await _token(prompt: false);
       if (token == null) {
+        // Not recorded as a failure. On a cold start this is usually the
+        // Google plugin not being awake yet rather than a permission the farm
+        // has not given, and writing it down puts a red line on the settings
+        // screen that stays there long after it stopped being true — next to
+        // a button that has correctly disappeared, because by the time the
+        // screen asked, the answer was yes.
         _lastError = 'Not allowed to write to the sheet yet.';
-        await _record(ok: false);
         return SyncResult.notReady;
       }
 
