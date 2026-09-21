@@ -89,7 +89,7 @@ class _StatementScreenState extends State<StatementScreen> {
           // thing the camera points at when a picture is asked for.
           RepaintBoundary(
             key: _paper,
-            child: _Paper(
+            child: StatementSheet(
               statement: statement,
               farmName: l.t('Char Yar Dairy Farm'),
               forWhom: _party ?? l.t('The whole farm'),
@@ -259,8 +259,12 @@ class _StatementScreenState extends State<StatementScreen> {
 }
 
 /// The page itself — head, the days, and the figures at the foot.
-class _Paper extends StatelessWidget {
-  const _Paper({
+///
+/// Public so a test can pump it on a 360-wide phone and check that nothing
+/// has fallen off the right-hand edge. It has done, twice.
+class StatementSheet extends StatelessWidget {
+  const StatementSheet({
+    super.key,
     required this.statement,
     required this.farmName,
     required this.forWhom,
@@ -419,129 +423,132 @@ class _Paper extends StatelessWidget {
   }
 }
 
+/// The seven columns, on a phone.
+///
+/// They were laid out as a grid five hundred and eighty pixels wide inside a
+/// sideways scroll, which is fine on paper and not fine on a phone: the last
+/// three columns sat off the right-hand edge, so the page never showed the
+/// credit or the balance — and a picture of it was cut off at the same place,
+/// because a photograph of a scrolling box only catches what is on screen.
+/// The whole point of the page is the figure down the right.
+///
+/// So nothing scrolls sideways any more. The date and the three money
+/// columns keep their own width, and everything wordy — who it was, what it
+/// was, who wrote it — shares what is left and wraps. The A4 version keeps
+/// the true grid, because a sheet of paper is wide enough for it.
 class _Table extends StatelessWidget {
   const _Table({required this.statement});
 
   final Statement statement;
 
+  /// Wide enough for a lakh with its commas, and not a pixel more.
+  static const _money = 56.0;
+  static const _balance = 64.0;
+  static const _date = 42.0;
+
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 520),
-        child: Column(
-          children: [
-            Container(
-              color: T.n100,
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              child: Row(
-                children: [
-                  _H(l.t('Date'), 52),
-                  _H(l.t('Name'), 84),
-                  _H(l.t('Detail'), 150),
-                  _H(l.t('Entered by'), 78),
-                  _H(l.t('Debit'), 68, right: true),
-                  _H(l.t('Credit'), 68, right: true),
-                  _H(l.t('Balance'), 78, right: true),
-                ],
-              ),
-            ),
-            for (final line in statement.lines)
-              Container(
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: T.n200)),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 9,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _C(fmtDate(line.date), 52),
-                    _C(line.party, 84, strong: true),
-                    _C(line.detail, 150, faint: true),
-                    _C(line.enteredBy, 78, faint: true),
-                    _C(
-                      line.debit > 0 ? groupPk(line.debit) : '',
-                      68,
-                      right: true,
-                      colour: T.moneyOut,
-                    ),
-                    _C(
-                      line.credit > 0 ? groupPk(line.credit) : '',
-                      68,
-                      right: true,
-                      colour: T.moneyIn,
-                    ),
-                    _C(
-                      groupPk(line.balance),
-                      78,
-                      right: true,
-                      strong: true,
-                      colour: line.balance < 0 ? T.moneyDue : T.accent800,
-                    ),
-                  ],
-                ),
-              ),
-          ],
+    return Column(
+      children: [
+        Container(
+          color: T.n100,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              const SizedBox(width: _date, child: _H('Date')),
+              Expanded(child: _H(l.t('Particulars'))),
+              SizedBox(width: _money, child: _H(l.t('Debit'), right: true)),
+              SizedBox(width: _money, child: _H(l.t('Credit'), right: true)),
+              SizedBox(width: _balance, child: _H(l.t('Balance'), right: true)),
+            ],
+          ),
         ),
-      ),
+        for (final line in statement.lines)
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: T.n200)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: _date,
+                  child: Text(
+                    fmtDate(line.date),
+                    style: T.body.copyWith(fontSize: 11),
+                  ),
+                ),
+                // Who, what, and whose hand wrote it — one under the other,
+                // because on a phone these are the three that can afford to
+                // wrap and the money is the one that cannot.
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(line.party, style: T.bodyMid.copyWith(fontSize: 12)),
+                      Text(line.detail, style: T.meta.copyWith(fontSize: 10.5)),
+                      if (line.enteredBy.isNotEmpty)
+                        Text(
+                          line.enteredBy,
+                          style: T.meta.copyWith(fontSize: 10, color: T.n500),
+                        ),
+                    ],
+                  ),
+                ),
+                _Money(line.debit, _money, T.moneyOut),
+                _Money(line.credit, _money, T.moneyIn),
+                SizedBox(
+                  width: _balance,
+                  child: Text(
+                    groupPk(line.balance),
+                    textAlign: TextAlign.right,
+                    style: T.bodyMid.copyWith(
+                      fontSize: 11.5,
+                      color: line.balance < 0 ? T.moneyDue : T.accent800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _H extends StatelessWidget {
-  const _H(this.text, this.width, {this.right = false});
+class _Money extends StatelessWidget {
+  const _Money(this.value, this.width, this.tone);
 
-  final String text;
+  final num value;
   final double width;
-  final bool right;
+  final Color tone;
 
   @override
   Widget build(BuildContext context) => SizedBox(
     width: width,
     child: Text(
-      text.toUpperCase(),
-      textAlign: right ? TextAlign.right : TextAlign.left,
-      style: T.kicker,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      value > 0 ? groupPk(value) : '',
+      textAlign: TextAlign.right,
+      style: T.body.copyWith(fontSize: 11.5, color: tone),
     ),
   );
 }
 
-class _C extends StatelessWidget {
-  const _C(
-    this.text,
-    this.width, {
-    this.right = false,
-    this.strong = false,
-    this.faint = false,
-    this.colour,
-  });
+class _H extends StatelessWidget {
+  const _H(this.text, {this.right = false});
 
   final String text;
-  final double width;
   final bool right;
-  final bool strong;
-  final bool faint;
-  final Color? colour;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: width,
-    child: Text(
-      text,
-      textAlign: right ? TextAlign.right : TextAlign.left,
-      style: (faint ? T.meta : (strong ? T.bodyMid : T.body)).copyWith(
-        fontSize: faint ? 11 : 12.5,
-        color: colour,
-      ),
-      maxLines: 2,
-    ),
+  Widget build(BuildContext context) => Text(
+    text.toUpperCase(),
+    textAlign: right ? TextAlign.right : TextAlign.left,
+    style: T.kicker,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
   );
 }
 

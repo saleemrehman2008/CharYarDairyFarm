@@ -737,6 +737,8 @@ const Map<String, String> romanUrdu = {
   'No round today': 'Aaj koi round nahi',
   'The farm has deliveries switched off at the moment, so there is nothing to take out. This screen will fill up again as soon as the master switches them back on.':
       'Farm ne filhal delivery band ki hui hai, is liye le jane ko kuch nahi. Master ke dobara chalu karte hi ye safha phir bhar jayega.',
+  'Particulars': 'Tafseel',
+
   // ---- Writing a category out ----
   'Something else — write it out': 'Koi aur cheez — khud likhen',
   'What is it for?': 'Ye kis cheez ke liye hai?',
