@@ -536,15 +536,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// and expenses instead would quietly drop a rent paid straight out as a
   /// payment, and the all-time profit would jump the moment a period closed.
   num get lifetimeRunningCosts =>
-      settledPeriods.fold<num>(0, (a, m) => a + _costsOf(m)) + books.costs;
-
-  static num _costsOf(FarmMonth m) {
-    final sales = m.sales, profit = m.profit;
-    if (sales != null && profit != null) {
-      return sales + (m.otherIncome ?? 0) - profit;
-    }
-    return (m.purchases ?? 0) + (m.expenses ?? 0) - (m.assets ?? 0);
-  }
+      settledPeriods.fold<num>(0, (a, m) => a + m.runningCosts) + books.costs;
 
   /// Money that came in with no sale booked against it, since day one.
   ///
@@ -556,7 +548,15 @@ class FarmStore extends ChangeNotifier implements RoundData {
       books.otherIncome;
 
   /// What the farm has made since the day it started.
-  num get lifetimeProfit => lifetimeSales - lifetimeRunningCosts;
+  ///
+  /// Other income belongs in here and was missing from it. Each period's own
+  /// profit counts it — [Books.profit] is sales plus other income less costs —
+  /// so leaving it out of the all-time figure did not just lose it, it took it
+  /// off twice over: the costs are read back as sales plus other income less
+  /// profit, so the other income was inside the costs as well. A hundred
+  /// rupees of scrap sold made the farm look a hundred rupees worse off.
+  num get lifetimeProfit =>
+      lifetimeSales + lifetimeOtherIncome - lifetimeRunningCosts;
 
   /// The whole route the farm's money has taken, for the Home breakdown.
   MoneySummary get money => MoneySummary(

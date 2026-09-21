@@ -466,6 +466,25 @@ class _ActionsState extends State<_Actions> {
                       AnimalFormScreen(mother: a, bornOn: DateTime.now()),
                     ),
             ),
+            // A milch buffalo is usually sold with her calf beside her. The
+            // calf has to go on the register — she is the farm's, and one day
+            // she will be milking or sold — but she was not born here, and
+            // putting her in as a birth writes something into her mother's
+            // history that did not happen.
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'A calf came with her',
+              icon: Icons.pets_outlined,
+              onPressed: _busy
+                  ? null
+                  : () => _push(
+                      AnimalFormScreen(
+                        mother: a,
+                        bornOn: a.boughtOn ?? DateTime.now(),
+                        cameWith: true,
+                      ),
+                    ),
+            ),
           ],
           if (a.status.isHere) ...[
             const SizedBox(height: T.gap),

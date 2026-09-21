@@ -245,7 +245,18 @@ class _ReportScreenState extends State<ReportScreen> {
     final totals = <String, num>{};
     final counts = <String, int>{};
     for (final t in txns) {
-      if (t.type.isSettlement) continue; // the money is on its own entry
+      // A receipt against a sale, or a payment against a bill, is the same
+      // money as the entry it settles — counting both would say the farm
+      // sold twice as much as it did.
+      //
+      // But a receipt tied to nothing is money in that nothing else records,
+      // and a payment tied to nothing is money out that nothing else records.
+      // Skipping every settlement dropped both, so this report disagreed with
+      // the profit on the home screen by exactly those two — which is the one
+      // thing four partners must never be shown.
+      if (t.type.isSettlement && !t.isLooseReceipt && !t.isLoosePayment) {
+        continue;
+      }
       if (t.type.isIncoming != incoming) continue;
       final key = t.category.isEmpty ? t.type.label : t.category;
       totals[key] = (totals[key] ?? 0) + t.amount;
@@ -722,7 +733,10 @@ class _PeriodByPeriod extends StatelessWidget {
               label: periodLabel(p),
               state: p.isSealed ? l.t('waiting') : l.t('closed'),
               sales: p.sales ?? 0,
-              costs: (p.purchases ?? 0) + (p.expenses ?? 0) - (p.assets ?? 0),
+              // Not purchases plus expenses less assets: that drops a rent
+              // paid straight out as a payment, and then the three figures on
+              // this one line do not add up to each other.
+              costs: p.runningCosts,
               profit: p.profit ?? 0,
               shared: p.isClosed ? (p.profitShared ?? 0) : null,
             ),

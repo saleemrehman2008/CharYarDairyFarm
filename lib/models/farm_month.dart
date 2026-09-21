@@ -214,6 +214,22 @@ class FarmMonth {
   /// Sealed or closed: no new entry may be booked into it.
   bool get isFrozen => !isOpen;
 
+  /// What it cost to run the farm in this period, from the figures frozen at
+  /// the seal.
+  ///
+  /// Sales plus other income less profit, because that is what the costs were
+  /// by definition — the three were written down together and the fourth
+  /// follows from them. Adding the stored purchases and expenses instead
+  /// quietly drops a rent that went out as a plain payment, and then the
+  /// figures on one line stop adding up to each other.
+  ///
+  /// The fallback is for a period sealed before profit was stored.
+  num get runningCosts {
+    final s = sales, p = profit;
+    if (s != null && p != null) return s + (otherIncome ?? 0) - p;
+    return (purchases ?? 0) + (expenses ?? 0) - (assets ?? 0);
+  }
+
   /// A period that made nothing has nothing to hand out.
   ///
   /// It still has to close — the books have to roll forward, and a farm that

@@ -427,6 +427,68 @@ class AnimalRepo {
     return calf;
   }
 
+  /// A calf that came with a buffalo the farm bought, rather than one born
+  /// here.
+  ///
+  /// Almost the same thing on paper and not the same thing at all in the
+  /// register. Writing it down as a birth puts a calving on the mother's
+  /// record on the day she arrived, which never happened — and her record is
+  /// the thing four partners will be reading a year from now to work out what
+  /// she has been worth.
+  ///
+  /// She costs nothing of her own. The price was paid for the pair and the
+  /// whole of it already sits on the mother, so booking anything here would
+  /// be the same money on the books twice. It comes right by itself: the day
+  /// the mother goes, the whole price comes off, and whatever the calf then
+  /// fetches is all earnings — over the two of them the farm is out exactly
+  /// what it paid and in exactly what it got.
+  static Future<Animal> recordCameWith(
+    Actor actor,
+    Animal mother, {
+    required Species species,
+    required Sex sex,
+    required File photo,
+    required DateTime date,
+    String name = '',
+    String what = '',
+  }) async {
+    final calf = await add(
+      actor,
+      species: species,
+      sex: sex,
+      photo: photo,
+      name: name,
+      bornOn: date,
+      mother: mother,
+      note: what,
+    );
+
+    await _writeEvent(
+      actor,
+      animalId: mother.id,
+      animalTag: mother.tag,
+      kind: EventKind.note,
+      date: date,
+      what: what.isEmpty
+          ? 'Came with a calf — ${calf.tag} (${sex.label.toLowerCase()}), '
+                'no separate price'
+          : what,
+      cost: 0,
+      calfId: calf.id,
+      calfTag: calf.tag,
+    );
+
+    await Log.write(
+      actor,
+      LogKind.cattle,
+      '${calf.tag} registered — came with ${mother.tag}',
+      refType: 'animal',
+      refId: mother.id,
+    );
+
+    return calf;
+  }
+
   // ---- internals ----
 
   static Future<void> _writeEvent(

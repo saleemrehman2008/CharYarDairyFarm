@@ -19,11 +19,22 @@ import '../../widgets/ui.dart';
 /// looks like every other black buffalo; the picture is what makes the
 /// register worth anything a year from now.
 class AnimalFormScreen extends StatefulWidget {
-  const AnimalFormScreen({super.key, this.mother, this.bornOn});
+  const AnimalFormScreen({
+    super.key,
+    this.mother,
+    this.bornOn,
+    this.cameWith = false,
+  });
 
   /// Set when this is a calf being registered from its mother's page.
   final Animal? mother;
   final DateTime? bornOn;
+
+  /// The calf arrived with her rather than being born here — bought as a
+  /// pair, which is how a milch buffalo is usually sold. Nothing about the
+  /// money changes; what changes is that her record does not claim a birth
+  /// that never happened.
+  final bool cameWith;
 
   @override
   State<AnimalFormScreen> createState() => _AnimalFormScreenState();
@@ -104,7 +115,9 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
     setState(() => _busy = true);
     try {
       final animal = _isCalf
-          ? await AnimalRepo.recordBirth(
+          ? await (widget.cameWith
+                ? AnimalRepo.recordCameWith
+                : AnimalRepo.recordBirth)(
               actor,
               widget.mother!,
               species: _species,
@@ -151,8 +164,13 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
         children: [
           if (_isCalf)
             Text(
-              'Out of ${widget.mother!.label}. The birth goes on her record '
-              'and the calf gets a tag of its own.',
+              widget.cameWith
+                  ? 'Came with ${widget.mother!.label} when she was bought. '
+                        'The price was paid for the pair and it is already on '
+                        'her, so this one costs nothing of its own — and her '
+                        'record will not say she calved here.'
+                  : 'Out of ${widget.mother!.label}. The birth goes on her '
+                        'record and the calf gets a tag of its own.',
               style: T.meta,
             )
           else
