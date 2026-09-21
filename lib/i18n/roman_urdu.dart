@@ -373,6 +373,53 @@ const Map<String, String> romanUrdu = {
   'It belongs to them, not the farm. It goes back when they stop.':
       'Ye un ka paisa hai, farm ka nahi. Jab wo chhoren ge, wapas jayega.',
 
+  // ---- The statement ----
+  //
+  // Debit, credit and balance stay in English on purpose. Every bank in
+  // Pakistan prints them that way, so a customer handed this page has read
+  // these three words a hundred times before.
+  'Statement': 'Statement',
+  'Statement of account': 'Khaate ka statement',
+  'Cash book': 'Rozcha',
+  'Char Yar Dairy Farm': 'Char Yar Dairy Farm',
+  'Whose statement?': 'Kis ka statement?',
+  'The whole farm': 'Poora farm',
+  'All dates': 'Saare din',
+  '%s days': '%s din',
+  'Which days': 'Kaun se din',
+  'Last 30 days': 'Pichhle 30 din',
+  '3 months': '3 maheene',
+  'A year': 'Ek saal',
+  'Pick the days': 'Din chunen',
+  'Everything, from the start': 'Shuru se ab tak',
+  'Issued': 'Banaya gaya',
+  'Account': 'Khaata',
+  'Opening': 'Shuru ka baqaya',
+  'Date': 'Tareekh',
+  'Name': 'Naam',
+  'Entered by': 'Entry ki',
+  'Debit': 'Debit',
+  'Credit': 'Credit',
+  'Total debit': 'Kul debit',
+  'Total credit': 'Kul credit',
+  'Balance owed': 'Baqaya',
+  'The farm owes': 'Farm ko dena hai',
+  'Nothing in these days.': 'In dinon me kuch nahi.',
+  'Send as PDF': 'PDF bhejen',
+  'Send as picture': 'Tasveer bhejen',
+  'Could not make the PDF. %s': 'PDF nahi ban saki. %s',
+  'Could not make the picture. %s': 'Tasveer nahi ban saki. %s',
+  'Advance': 'Advance',
+  'entries': 'entries',
+  'One person’s account. Milk they took puts the balance up whether it is '
+          'paid for or not; money they hand over brings it down.':
+      'Ek bande ka khaata. Jo doodh gaya wo baqaya barhata hai, paisa aaya ho '
+      'ya nahi; jo paisa wo den wo baqaya ghatata hai.',
+  'The farm’s cash book. Only what actually moved money is in it, so it opens '
+          'at what the co-founders put in and closes at what is in the box today.':
+      'Farm ka rozcha. Sirf wo cheezen jin me paisa asal me hila, is liye ye '
+      'sarmaye se shuru hota hai aur aaj ke cash per khatam.',
+
   // ---- The two halves of the ledger ----
   'Still open': 'Abhi baqi hain',
   'Done with': 'Ho chuki hain',

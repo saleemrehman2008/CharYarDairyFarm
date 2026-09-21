@@ -19,6 +19,7 @@ import '../master/cattle_screen.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/my_account_screen.dart';
 import '../shared/report_screen.dart';
+import '../shared/statement_screen.dart';
 
 /// A co-founder's own page: their money first, then the farm's.
 ///
@@ -155,6 +156,12 @@ class CofounderHome extends StatelessWidget {
               label: l.t('Report'),
               tone: T.moneyIn,
               onTap: () => _push(context, store, const ReportScreen()),
+            ),
+            ActionTile(
+              icon: Icons.receipt_long_outlined,
+              label: l.t('Statement'),
+              tone: T.accent700,
+              onTap: () => _push(context, store, const StatementScreen()),
             ),
             ActionTile(
               icon: Icons.account_balance_wallet_outlined,

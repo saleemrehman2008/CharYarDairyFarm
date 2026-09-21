@@ -33,6 +33,12 @@ dependencies:
   # Writing the farm's books into the Google Sheet, straight from the phone.
   http: ^1.6.0
 
+  # A statement anybody can be handed: real text on a real page, not a
+  # photograph of a screen. The printing package is deliberately not here —
+  # the file is made and then shared like any other, which is what a phone
+  # does with it anyway.
+  pdf: ^3.11.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,0 +1,603 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../i18n/words.dart';
+import '../../services/statement.dart';
+import '../../services/statement_paper.dart';
+import '../../state/farm_store.dart';
+import '../../theme/tokens.dart';
+import '../../util/money.dart';
+import '../../widgets/app_shell.dart';
+import '../../widgets/pick_sheet.dart';
+import '../../widgets/ui.dart';
+
+/// The books as a statement — the shape everybody already knows how to read.
+///
+/// A dairy is asked one question more than any other: what do I owe you. The
+/// answer to that is not a dashboard, it is a page of days with a running
+/// figure down the right, and it has to be something the customer can be sent.
+///
+/// Which statement this is follows the name at the top. Pick somebody and it
+/// is their account; leave it on everybody and it is the farm's cash book. The
+/// difference is real and not cosmetic — see [buildStatement].
+class StatementScreen extends StatefulWidget {
+  const StatementScreen({super.key});
+
+  @override
+  State<StatementScreen> createState() => _StatementScreenState();
+}
+
+class _StatementScreenState extends State<StatementScreen> {
+  String? _party;
+  DateTimeRange? _range;
+
+  /// Shut to begin with. The whole account is what is wanted nine times out of
+  /// ten, and a date box open on arrival is a question nobody asked.
+  bool _datesOpen = false;
+
+  /// What the picture is painted from, so what gets sent is what was on the
+  /// screen rather than a second drawing of it.
+  final _paper = GlobalKey();
+  bool _busy = false;
+
+  String _periodLine(L l) => _range == null
+      ? l.t('Everything, from the start')
+      : '${fmtDateFull(_range!.start)} — ${fmtDateFull(_range!.end)}';
+
+  Future<void> _pickDates() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: _range,
+      helpText: L.read(context).t('Which days'),
+    );
+    if (picked != null && mounted) setState(() => _range = picked);
+  }
+
+  void _lastDays(int days) {
+    final now = DateTime.now();
+    setState(() {
+      _range = DateTimeRange(
+        start: now.subtract(Duration(days: days)),
+        end: now,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<FarmStore>();
+    final l = L.of(context);
+
+    final statement = buildStatement(
+      rows: store.ledger,
+      party: _party,
+      from: _range?.start,
+      to: _range?.end,
+      capital: store.capitalIn,
+    );
+    final advance = _party == null ? 0 : store.advanceHeldFor(_party!);
+
+    return FarmScaffold(
+      title: l.t('Statement'),
+      showBack: true,
+      body: PageBody(
+        children: [
+          // Everything that goes on the page, in one box — which is also the
+          // thing the camera points at when a picture is asked for.
+          RepaintBoundary(
+            key: _paper,
+            child: _Paper(
+              statement: statement,
+              farmName: l.t('Char Yar Dairy Farm'),
+              forWhom: _party ?? l.t('The whole farm'),
+              period: _periodLine(l),
+              advanceHeld: advance,
+            ),
+          ),
+          const SizedBox(height: T.pad),
+
+          Row(
+            children: [
+              Flexible(
+                child: PickPill(
+                  icon: Icons.person_outline,
+                  label: _party ?? l.t('Everybody'),
+                  chosen: _party != null,
+                  onClear: () => setState(() => _party = null),
+                  onTap: _pickParty,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: PickPill(
+                  icon: Icons.calendar_today_outlined,
+                  label: _range == null
+                      ? l.t('All dates')
+                      : l.t2('%s days', _range!.duration.inDays + 1),
+                  chosen: _range != null,
+                  onClear: () => setState(() {
+                    _range = null;
+                    _datesOpen = false;
+                  }),
+                  onTap: () => setState(() => _datesOpen = !_datesOpen),
+                ),
+              ),
+            ],
+          ),
+
+          if (_datesOpen) ...[
+            const SizedBox(height: 10),
+            RegCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Kicker(l.t('Which days')),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      _Quick(
+                        label: l.t('Last 30 days'),
+                        onTap: () => _lastDays(30),
+                      ),
+                      _Quick(
+                        label: l.t('3 months'),
+                        onTap: () => _lastDays(90),
+                      ),
+                      _Quick(label: l.t('A year'), onTap: () => _lastDays(365)),
+                      _Quick(
+                        label: l.t('Pick the days'),
+                        icon: Icons.date_range,
+                        onTap: _pickDates,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  label: l.t('Send as PDF'),
+                  icon: Icons.picture_as_pdf_outlined,
+                  busy: _busy,
+                  onPressed: statement.isEmpty ? null : _sendPdf,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: GhostButton(
+                  label: l.t('Send as picture'),
+                  icon: Icons.image_outlined,
+                  onPressed: _busy || statement.isEmpty ? null : _sendImage,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            statement.forOneParty
+                ? l.t(
+                    'One person’s account. Milk they took puts the '
+                    'balance up whether it is paid for or not; money they '
+                    'hand over brings it down.',
+                  )
+                : l.t(
+                    'The farm’s cash book. Only what actually moved '
+                    'money is in it, so it opens at what the co-founders put '
+                    'in and closes at what is in the box today.',
+                  ),
+            style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickParty() async {
+    final store = context.read<FarmStore>();
+    final l = L.read(context);
+    final picked = await pickOne(
+      context,
+      title: l.t('Whose statement?'),
+      options: [for (final p in store.partyBook) p.name],
+      allLabel: l.t('The whole farm'),
+      current: _party,
+    );
+    if (picked != null && mounted) setState(() => _party = picked.value);
+  }
+
+  Future<void> _sendPdf() async {
+    final store = context.read<FarmStore>();
+    final l = L.read(context);
+    setState(() => _busy = true);
+    try {
+      await StatementPaper.sharePdf(
+        statement: buildStatement(
+          rows: store.ledger,
+          party: _party,
+          from: _range?.start,
+          to: _range?.end,
+          capital: store.capitalIn,
+        ),
+        farmName: l.t('Char Yar Dairy Farm'),
+        forWhom: _party ?? l.t('The whole farm'),
+        period: _periodLine(l),
+        advanceHeld: _party == null ? 0 : store.advanceHeldFor(_party!),
+      );
+    } catch (e) {
+      if (mounted) toast(context, l.t2('Could not make the PDF. %s', e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _sendImage() async {
+    final l = L.read(context);
+    setState(() => _busy = true);
+    try {
+      await StatementPaper.shareImage(
+        boundary: _paper,
+        farmName: l.t('Char Yar Dairy Farm'),
+        forWhom: _party ?? l.t('The whole farm'),
+        period: _periodLine(l),
+      );
+    } catch (e) {
+      if (mounted) toast(context, l.t2('Could not make the picture. %s', e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+/// The page itself — head, the days, and the figures at the foot.
+class _Paper extends StatelessWidget {
+  const _Paper({
+    required this.statement,
+    required this.farmName,
+    required this.forWhom,
+    required this.period,
+    required this.advanceHeld,
+  });
+
+  final Statement statement;
+  final String farmName;
+  final String forWhom;
+  final String period;
+  final num advanceHeld;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: T.round,
+        boxShadow: T.shadow,
+      ),
+      child: ClipRRect(
+        borderRadius: T.round,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Head
+            Container(
+              color: T.accent800,
+              padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(T.radiusXs),
+                    child: Image.asset(
+                      'assets/mark.png',
+                      width: 38,
+                      height: 38,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          farmName,
+                          style: T.cardTitle.copyWith(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          statement.forOneParty
+                              ? l.t('Statement of account')
+                              : l.t('Cash book'),
+                          style: T.meta.copyWith(color: T.accent300),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        l.t('Issued').toUpperCase(),
+                        style: T.kicker.copyWith(color: T.accent300),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        fmtDateFull(DateTime.now()),
+                        style: T.bodyMid.copyWith(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Who, when, and where the balance started
+            Container(
+              color: T.n100,
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _Fact(label: l.t('Account'), value: forWhom),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: _Fact(label: l.t('Period'), value: period),
+                  ),
+                  _Fact(
+                    label: l.t('Opening'),
+                    value: rs(statement.opening),
+                    right: true,
+                  ),
+                ],
+              ),
+            ),
+
+            if (statement.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: EmptyNote(l.t('Nothing in these days.')),
+              )
+            else
+              _Table(statement: statement),
+
+            // The foot
+            Container(
+              color: T.accent100,
+              padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+              child: Column(
+                children: [
+                  _FootLine(
+                    label: l.t('Total debit'),
+                    value: rs(statement.debits),
+                    tone: T.moneyOut,
+                  ),
+                  _FootLine(
+                    label: l.t('Total credit'),
+                    value: rs(statement.credits),
+                    tone: T.moneyIn,
+                  ),
+                  const Divider(height: 14, color: T.accent300),
+                  _FootLine(
+                    label: statement.forOneParty
+                        ? l.t('Balance owed')
+                        : l.t('Cash in hand'),
+                    value: rs(statement.closing),
+                    tone: T.accent800,
+                    big: true,
+                  ),
+                  if (advanceHeld > 0)
+                    _FootLine(
+                      label: l.t('Advance'),
+                      value: rs(advanceHeld),
+                      tone: T.moneyDue,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Table extends StatelessWidget {
+  const _Table({required this.statement});
+
+  final Statement statement;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 520),
+        child: Column(
+          children: [
+            Container(
+              color: T.n100,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              child: Row(
+                children: [
+                  _H(l.t('Date'), 52),
+                  _H(l.t('Name'), 84),
+                  _H(l.t('Detail'), 150),
+                  _H(l.t('Entered by'), 78),
+                  _H(l.t('Debit'), 68, right: true),
+                  _H(l.t('Credit'), 68, right: true),
+                  _H(l.t('Balance'), 78, right: true),
+                ],
+              ),
+            ),
+            for (final line in statement.lines)
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: T.n200)),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 9,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _C(fmtDate(line.date), 52),
+                    _C(line.party, 84, strong: true),
+                    _C(line.detail, 150, faint: true),
+                    _C(line.enteredBy, 78, faint: true),
+                    _C(
+                      line.debit > 0 ? groupPk(line.debit) : '',
+                      68,
+                      right: true,
+                      colour: T.moneyOut,
+                    ),
+                    _C(
+                      line.credit > 0 ? groupPk(line.credit) : '',
+                      68,
+                      right: true,
+                      colour: T.moneyIn,
+                    ),
+                    _C(
+                      groupPk(line.balance),
+                      78,
+                      right: true,
+                      strong: true,
+                      colour: line.balance < 0 ? T.moneyDue : T.accent800,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _H extends StatelessWidget {
+  const _H(this.text, this.width, {this.right = false});
+
+  final String text;
+  final double width;
+  final bool right;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Text(
+      text.toUpperCase(),
+      textAlign: right ? TextAlign.right : TextAlign.left,
+      style: T.kicker,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    ),
+  );
+}
+
+class _C extends StatelessWidget {
+  const _C(
+    this.text,
+    this.width, {
+    this.right = false,
+    this.strong = false,
+    this.faint = false,
+    this.colour,
+  });
+
+  final String text;
+  final double width;
+  final bool right;
+  final bool strong;
+  final bool faint;
+  final Color? colour;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Text(
+      text,
+      textAlign: right ? TextAlign.right : TextAlign.left,
+      style: (faint ? T.meta : (strong ? T.bodyMid : T.body)).copyWith(
+        fontSize: faint ? 11 : 12.5,
+        color: colour,
+      ),
+      maxLines: 2,
+    ),
+  );
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({required this.label, required this.value, this.right = false});
+
+  final String label;
+  final String value;
+  final bool right;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: right
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start,
+    children: [
+      Text(label.toUpperCase(), style: T.kicker),
+      const SizedBox(height: 2),
+      Text(value, style: T.bodyMid.copyWith(fontSize: 12.5), maxLines: 2),
+    ],
+  );
+}
+
+class _FootLine extends StatelessWidget {
+  const _FootLine({
+    required this.label,
+    required this.value,
+    required this.tone,
+    this.big = false,
+  });
+
+  final String label;
+  final String value;
+  final Color tone;
+  final bool big;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Expanded(child: Text(label, style: big ? T.bodyMid : T.body)),
+        Text(value, style: (big ? T.num22 : T.bodyMid).copyWith(color: tone)),
+      ],
+    ),
+  );
+}
+
+class _Quick extends StatelessWidget {
+  const _Quick({required this.label, required this.onTap, this.icon});
+
+  final String label;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) =>
+      GhostButton(label: label, icon: icon, compact: true, onPressed: onTap);
+}

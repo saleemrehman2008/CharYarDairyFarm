@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
+import '../../services/allocation.dart';
 import '../../services/db.dart';
+import '../../services/statement.dart';
 import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -78,19 +80,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   String? _busyId;
 
-  /// Settling a week of milk in one go.
-  ///
-  /// The round sells on credit twice a day, so a customer who pays on Friday
-  /// is paying off a dozen entries at once. Ticking them off one at a time,
-  /// each with its own "how did the money come" sheet, is not something
-  /// anybody would do twice — so the whole lot is picked first and asked
-  /// about once. Which ones are settled is still recorded one by one, because
-  /// he may hand over enough for nine of them and not the other three.
-  final _picked = <String>{};
   bool _settling = false;
 
-  /// How much the customer is actually handing over, once it is not simply
-  /// all of it. Empty until somebody types in the box.
+  /// How much is being handed over. Empty means all of it.
+  ///
+  /// This one figure is the whole of the interaction. The round sells on
+  /// credit twice a day, so a customer paying on Friday is paying off a dozen
+  /// entries — and ticking twelve boxes to say so is twelve taps to tell the
+  /// app something it can work out from one number. Type what is in your hand
+  /// and the entries it reaches tick themselves, oldest first, with the one it
+  /// stops part way through showing how far it got.
   final _taking = TextEditingController();
 
   @override
@@ -146,13 +145,35 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
         return PageBody(
           children: [
-            HeroCard(
-              label: l.t(_filter.heading),
-              value: rs(_total(books, rows)),
-              gradient: T.washOf(_filter.tone),
-              note: loading ? l.t('Loading…') : l.t2('%s entries', rows.length),
-              trailing: Tag(periodLabel(store.month, short: true)),
-            ),
+            // Narrowed to one person, the figure on the left is only half the
+            // answer: it says what this tab is about, not where the account
+            // stands. So the balance goes beside it, worked out the same way
+            // the statement works it out — and the advance under both,
+            // subtracted from neither, because it is their money and not a
+            // payment against any of this.
+            if (_party != null)
+              _PartyHead(
+                party: _party!,
+                heading: l.t(_filter.heading),
+                shown: rs(_total(books, rows)),
+                count: rows.length,
+                balance: buildStatement(
+                  rows: everything,
+                  party: _party,
+                ).closing,
+                advanceHeld: store.advanceHeldFor(_party!),
+                tone: _filter.tone,
+              )
+            else
+              HeroCard(
+                label: l.t(_filter.heading),
+                value: rs(_total(books, rows)),
+                gradient: T.washOf(_filter.tone),
+                note: loading
+                    ? l.t('Loading…')
+                    : l.t2('%s entries', rows.length),
+                trailing: Tag(periodLabel(store.month, short: true)),
+              ),
             const SizedBox(height: T.pad),
 
             _FilterBar(
@@ -241,23 +262,22 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   _owedTab ? l.t(_filter.heading) : l.t('Still open'),
                 ),
                 const SizedBox(height: 6),
-                ..._withDividers(open, periods, l, isMaster),
+                ..._withDividers(open, periods, l, isMaster, _reach(rows)),
                 const SizedBox(height: 4),
                 _TotalStrip(
                   count: open.length,
                   total: open.fold<num>(0, (a, t) => a + t.outstanding),
                   tone: _filter.tone,
                 ),
-                if (_ticked(rows).isNotEmpty) ...[
+                if (_canTick) ...[
                   const SizedBox(height: 12),
                   _SettleBar(
-                    picked: _ticked(rows),
-                    incoming: _ticked(rows).first.type.isIncoming,
-                    taking: _taking,
+                    owing: _owing(rows),
+                    reach: _reach(rows),
+                    taking: _taken(rows),
+                    incoming: open.first.type.isIncoming,
+                    field: _taking,
                     busy: _settling,
-                    onAll: () => _pickAll(rows),
-                    allPicked: _allPicked(rows),
-                    onClear: _clearPicked,
                     onSettle: () => _settleMany(rows),
                     onAmountChanged: () => setState(() {}),
                   ),
@@ -270,7 +290,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   open.isEmpty ? l.t('Everything here') : l.t('Done with'),
                 ),
                 const SizedBox(height: 6),
-                ..._withDividers(done, periods, l, isMaster),
+                ..._withDividers(done, periods, l, isMaster, const {}),
                 const SizedBox(height: 4),
                 _TotalStrip(
                   count: done.length,
@@ -341,6 +361,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     List<FarmMonth> periods,
     L l,
     bool isMaster,
+    Map<String, num> reach,
   ) {
     final out = <Widget>[];
     String? current;
@@ -358,9 +379,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
           busy: _busyId == txn.id,
           onMarkPaid: () => _markPaid(txn),
           onDelete: () => _delete(txn),
-          selecting: _canTick,
-          selected: _picked.contains(txn.id),
-          onToggle: _canPick(txn) ? () => _toggle(txn) : null,
+          // Marked by the money, not by a finger.
+          showMark: _canTick && txn.outstanding > 0,
+          reached: reach[txn.id] ?? 0,
         ),
       );
     }
@@ -462,47 +483,42 @@ class _AccountsScreenState extends State<AccountsScreen> {
   bool get _owedTab =>
       _filter == AccountsFilter.receivable || _filter == AccountsFilter.payable;
 
-  /// Anything still outstanding can be ticked, part settled included. What is
-  /// finished stays on screen, faded, because the week has to read as the week.
-  bool _canPick(Txn txn) => _canTick && txn.outstanding > 0;
+  /// Everything still owing in the current view, oldest first — which is the
+  /// order the money will land in, so it is the order to show them in.
+  List<Txn> _owing(List<Txn> rows) =>
+      rows.where((t) => t.outstanding > 0).toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
 
-  List<Txn> _ticked(List<Txn> rows) =>
-      rows.where((t) => _picked.contains(t.id) && t.outstanding > 0).toList();
-
-  bool _allPicked(List<Txn> rows) {
-    final owing = rows.where((t) => t.outstanding > 0).toList();
-    return owing.isNotEmpty && owing.every((t) => _picked.contains(t.id));
+  /// What is being handed over. An empty box means all of it, which is what
+  /// usually happens; a figure larger than what is owed is a slip of the
+  /// thumb, not an overpayment for the farm to hold.
+  num _taken(List<Txn> rows) {
+    final owed = _owing(rows).fold<num>(0, (a, t) => a + t.outstanding);
+    final typed = num.tryParse(_taking.text.trim());
+    return typed == null ? owed : typed.clamp(0, owed);
   }
 
-  void _toggle(Txn txn) => setState(() {
-    if (!_picked.remove(txn.id)) _picked.add(txn.id);
-    _taking.clear();
-  });
+  /// How far that money gets into each entry, by entry id.
+  ///
+  /// The app's own allocation, so what is ticked on screen is exactly what
+  /// will be written when the button is pressed — not a second guess at it.
+  Map<String, num> _reach(List<Txn> rows) => {
+    for (final landing in allocate(_owing(rows), _taken(rows)))
+      landing.entry.id: landing.take,
+  };
 
-  void _pickAll(List<Txn> rows) => setState(() {
-    final owing = rows.where((t) => t.outstanding > 0).toList();
-    final all = _allPicked(rows);
-    _picked.clear();
-    if (!all) _picked.addAll(owing.map((t) => t.id));
-    _taking.clear();
-  });
-
-  void _clearPicked() => setState(() {
-    _picked.clear();
-    _taking.clear();
-  });
-
-  /// Take one lump of money against everything that is ticked.
+  /// Take the money in, against everything it reaches.
   Future<void> _settleMany(List<Txn> rows) async {
-    final chosen = _ticked(rows);
-    if (chosen.isEmpty) return;
+    final owing = _owing(rows);
+    final taking = _taken(rows);
+    if (owing.isEmpty || taking <= 0) return;
     final l = L.read(context);
 
     // One direction at a time, so "who took the money" is asked of the right
-    // people. In practice a week of milk is all one way; this only bites when
-    // somebody ticks a bill and a sale together.
-    final incoming = chosen.where((t) => t.type.isIncoming).toList();
-    final outgoing = chosen.where((t) => !t.type.isIncoming).toList();
+    // people. In practice a name's outstanding is all one way; this only
+    // bites where somebody both buys from the farm and sells to it.
+    final incoming = owing.where((t) => t.type.isIncoming).toList();
+    final outgoing = owing.where((t) => !t.type.isIncoming).toList();
     if (incoming.isNotEmpty && outgoing.isNotEmpty) {
       toast(
         context,
@@ -511,17 +527,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    final owed = chosen.fold<num>(0, (a, t) => a + t.outstanding);
-    final typed = num.tryParse(_taking.text.trim());
-    // Empty box means all of it, which is what usually happens. A figure
-    // larger than what is owed is a slip, not an overpayment to hold.
-    final taking = typed == null ? owed : typed.clamp(0, owed);
-    if (taking <= 0) return;
-
+    final owed = owing.fold<num>(0, (a, t) => a + t.outstanding);
     final settled = await askSettlement(
       context,
-      incoming: chosen.first.type.isIncoming,
-      party: chosen.first.party,
+      incoming: owing.first.type.isIncoming,
+      party: owing.first.party,
       amount: taking,
     );
     if (settled == null || !mounted) return;
@@ -530,7 +540,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     try {
       final finished = await TxnRepo.settle(
         context.read<Session>().actor,
-        chosen,
+        owing,
         amount: taking,
         payVia: settled.payVia ?? PayVia.cash,
         handledBy: settled.handledBy,
@@ -549,7 +559,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
       if (mounted) {
         setState(() {
           _settling = false;
-          _picked.clear();
           _taking.clear();
         });
       }
@@ -688,60 +697,62 @@ class _FilterChip extends StatelessWidget {
   );
 }
 
-/// What has been ticked, and the one button that takes the money in.
+/// One figure in, and everything else follows.
 ///
-/// Three figures, because three is what somebody standing in a yard with a
-/// handful of notes actually needs: how many days, how much milk, how much
-/// money — and the money written out as well as in digits, the way it would be
-/// said out loud while it is counted.
+/// The old version of this asked for the entries first and the amount second,
+/// which is the wrong way round: the farm knows what is in its hand before it
+/// knows which days that covers. So the amount is the only thing to fill in,
+/// and the rows above tick themselves as it is typed — the same allocation
+/// that will be written when the button is pressed, shown before it is.
 ///
-/// The amount box starts empty, meaning all of it, which is what usually
-/// happens. Type a smaller figure and the bar says what will still be owed
-/// afterwards, before anything is settled.
+/// Leave it empty for all of it, which is what usually happens.
 class _SettleBar extends StatelessWidget {
   const _SettleBar({
-    required this.picked,
-    required this.incoming,
+    required this.owing,
+    required this.reach,
     required this.taking,
+    required this.incoming,
+    required this.field,
     required this.busy,
-    required this.allPicked,
-    required this.onAll,
-    required this.onClear,
     required this.onSettle,
     required this.onAmountChanged,
   });
 
-  final List<Txn> picked;
+  final List<Txn> owing;
 
-  /// Money coming in, or money going out.
-  ///
-  /// The same ticking and the same splitting either way — a supplier paid half
-  /// his bill is the mirror of a customer who paid half of his — but the words
-  /// have to follow the direction, or half of them are a lie.
+  /// How far the money gets into each entry, by id.
+  final Map<String, num> reach;
+
+  /// What is actually being handed over.
+  final num taking;
+
+  /// Money coming in, or money going out. The same splitting either way — a
+  /// supplier paid half his bill is the mirror of a customer who paid half of
+  /// his — but the words have to follow the direction or half of them are a
+  /// lie.
   final bool incoming;
 
-  final TextEditingController taking;
+  final TextEditingController field;
   final bool busy;
-  final bool allPicked;
-  final VoidCallback onAll;
-  final VoidCallback onClear;
   final VoidCallback onSettle;
   final VoidCallback onAmountChanged;
 
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    final owed = picked.fold<num>(0, (a, t) => a + t.outstanding);
+    final owed = owing.fold<num>(0, (a, t) => a + t.outstanding);
+    final left = owed - taking;
 
-    // Only where litres mean something. Rent and vet bills have no litres, and
-    // a "0 L" under them would be a figure pretending to be information.
-    final litres = picked
-        .where((t) => t.unit == 'L' && t.qty != null)
+    // Only where litres mean something. Rent and vet bills have no litres,
+    // and a "0 L" under them would be a figure pretending to be information.
+    final litres = owing
+        .where((t) => t.unit == 'L' && t.qty != null && (reach[t.id] ?? 0) > 0)
         .fold<num>(0, (a, t) => a + t.qty!);
 
-    final typed = num.tryParse(taking.text.trim());
-    final amount = typed == null ? owed : typed.clamp(0, owed);
-    final over = owed - amount;
+    final covered = reach.values.where((v) => v > 0).length;
+    final whole = owing
+        .where((t) => (reach[t.id] ?? 0) >= t.outstanding)
+        .length;
 
     return RegCard(
       stripe: incoming ? T.moneyIn : T.moneyOut,
@@ -749,41 +760,17 @@ class _SettleBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 18,
-                  runSpacing: 8,
-                  children: [
-                    _Figure(
-                      value: '${picked.length}',
-                      label: l.t('ticked'),
-                      tone: T.accent700,
-                    ),
-                    if (litres > 0)
-                      _Figure(
-                        value: '${qty(litres)} L',
-                        label: l.t('milk'),
-                        tone: T.accent700,
-                      ),
-                    _Figure(
-                      value: rs(owed),
-                      label: incoming ? l.t('owed') : l.t('to pay'),
-                      tone: incoming ? T.moneyIn : T.moneyOut,
-                    ),
-                  ],
-                ),
-              ),
-              GhostButton(
-                label: allPicked ? l.t('Clear') : l.t('All of them'),
-                compact: true,
-                onPressed: busy ? null : (allPicked ? onClear : onAll),
-              ),
-            ],
+          Field(
+            label: incoming
+                ? l.t('How much is being handed over')
+                : l.t('How much is being paid'),
+            controller: field,
+            hint: l.t2('Leave it empty for all of it — %s', rs(owed)),
+            keyboardType: TextInputType.number,
+            onChanged: (_) => onAmountChanged(),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 9),
+
           // The figure said out loud, which is how it is checked against the
           // notes in somebody's hand.
           Container(
@@ -794,23 +781,37 @@ class _SettleBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(T.radiusXs),
             ),
             child: Text(
-              rsInWords(owed),
+              rsInWords(taking),
               style: T.bodyMid.copyWith(fontSize: 12.5, color: T.n700),
             ),
           ),
+          const SizedBox(height: 11),
 
-          const Divider(height: 20),
-          Field(
-            label: incoming
-                ? l.t('How much is being handed over')
-                : l.t('How much is being paid'),
-            controller: taking,
-            hint: l.t2('Leave it empty for all of it — %s', rs(owed)),
-            keyboardType: TextInputType.number,
-            onChanged: (_) => onAmountChanged(),
+          Wrap(
+            spacing: 18,
+            runSpacing: 8,
+            children: [
+              _Figure(
+                value: whole == covered ? '$whole' : '$whole + ½',
+                label: l.t('entries'),
+                tone: T.accent700,
+              ),
+              if (litres > 0)
+                _Figure(
+                  value: '${qty(litres)} L',
+                  label: l.t('milk'),
+                  tone: T.accent700,
+                ),
+              _Figure(
+                value: rs(owed),
+                label: incoming ? l.t('owed') : l.t('to pay'),
+                tone: incoming ? T.moneyIn : T.moneyOut,
+              ),
+            ],
           ),
-          if (over > 0) ...[
-            const SizedBox(height: 8),
+
+          if (left > 0) ...[
+            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
               decoration: BoxDecoration(
@@ -829,7 +830,7 @@ class _SettleBar extends StatelessWidget {
                             'paid first; whatever is left over stops part way '
                             'through one, and that is the one the next payment '
                             'finishes.',
-                  rs(over),
+                  rs(left),
                 ),
                 style: T.meta.copyWith(color: T.moneyDue),
               ),
@@ -840,14 +841,44 @@ class _SettleBar extends StatelessWidget {
             label: busy
                 ? (incoming ? l.t('Taking it in…') : l.t('Paying…'))
                 : (incoming
-                      ? l.t2('Take in %s', rs(amount))
-                      : l.t2('Pay %s', rs(amount))),
-            onPressed: busy || amount <= 0 ? null : onSettle,
+                      ? l.t2('Take in %s', rs(taking))
+                      : l.t2('Pay %s', rs(taking))),
+            onPressed: busy || taking <= 0 ? null : onSettle,
           ),
         ],
       ),
     );
   }
+}
+
+/// A tick, a half-filled circle, or an empty box.
+///
+/// Three states and three shapes, because the one in the middle is the one
+/// that matters and it has no word short enough to fit on a row. Half filled
+/// reads as half done from across a yard.
+class _Mark extends StatelessWidget {
+  const _Mark({required this.done, required this.part, required this.tone});
+
+  final bool done;
+  final bool part;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 21,
+    height: 21,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: done ? tone : Colors.white,
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: done || part ? tone : T.n300, width: 2),
+    ),
+    child: done
+        ? const Icon(Icons.check, size: 13, color: Colors.white)
+        : part
+        ? Icon(Icons.contrast, size: 13, color: tone)
+        : null,
+  );
 }
 
 class _Figure extends StatelessWidget {
@@ -866,6 +897,138 @@ class _Figure extends StatelessWidget {
       Text(label, style: T.meta),
     ],
   );
+}
+
+/// The figure this tab is about, and where the account actually stands.
+///
+/// Two numbers, because they answer two questions and neither answers the
+/// other. "To receive · Rs 3,26,000" is what this tab is showing; the balance
+/// is where the person stands once both sides are counted — and on a supplier
+/// it runs the other way and reads as what the farm owes them.
+///
+/// The advance sits under both and is taken off neither. It is a security
+/// against a standing order, not a payment against any of this, and it goes
+/// back whole when the contract ends. It appears only when there is one.
+class _PartyHead extends StatelessWidget {
+  const _PartyHead({
+    required this.party,
+    required this.heading,
+    required this.shown,
+    required this.count,
+    required this.balance,
+    required this.advanceHeld,
+    required this.tone,
+  });
+
+  final String party;
+  final String heading;
+  final String shown;
+  final int count;
+  final num balance;
+  final num advanceHeld;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final owesUs = balance >= 0;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: T.washOf(tone),
+        borderRadius: T.round,
+        boxShadow: T.shadowLift,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$party — $heading'.toUpperCase(),
+                        style: T.kicker.copyWith(color: T.accent200),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          shown,
+                          style: T.num30.copyWith(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        l.t2('%s entries', count),
+                        style: T.meta.copyWith(color: T.accent200),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      l.t(owesUs ? 'Balance' : 'The farm owes').toUpperCase(),
+                      style: T.kicker.copyWith(color: T.accent200),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      rs(balance.abs()),
+                      style: T.num22.copyWith(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (advanceHeld > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(T.radiusXs),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.lock_outline,
+                      size: 15,
+                      color: T.accent200,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l.t('Advance'),
+                        style: T.meta.copyWith(color: T.accent200),
+                      ),
+                    ),
+                    Text(
+                      rs(advanceHeld),
+                      style: T.bodyMid.copyWith(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// One person's whole account with the farm, on one card.
@@ -1056,9 +1219,8 @@ class _LedgerRow extends StatelessWidget {
     required this.busy,
     required this.onMarkPaid,
     required this.onDelete,
-    this.selecting = false,
-    this.selected = false,
-    this.onToggle,
+    this.showMark = false,
+    this.reached = 0,
   });
 
   final Txn txn;
@@ -1067,13 +1229,16 @@ class _LedgerRow extends StatelessWidget {
   final VoidCallback onMarkPaid;
   final VoidCallback onDelete;
 
-  /// Picking several entries to settle in one go.
-  final bool selecting;
-  final bool selected;
+  /// Whether this row shows a mark at all — only while a name is picked and
+  /// there is something left to settle on it.
+  final bool showMark;
 
-  /// Null when this entry cannot join the selection — it is already settled,
-  /// or the money runs the other way from what is already picked.
-  final VoidCallback? onToggle;
+  /// How much of the money being handed over lands on this entry. Nothing,
+  /// part of what it is worth, or the whole of it — three states, three marks.
+  final num reached;
+
+  bool get _done => reached >= txn.outstanding && reached > 0;
+  bool get _part => reached > 0 && !_done;
 
   @override
   Widget build(BuildContext context) {
@@ -1099,17 +1264,18 @@ class _LedgerRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (selecting)
-            SizedBox(
-              width: 34,
-              child: Checkbox(
-                value: selected,
-                // A settled entry, or one running the other way, is shown
-                // greyed rather than hidden: the week's account reads as the
-                // week's account, and only what can be settled can be ticked.
-                onChanged: onToggle == null ? null : (_) => onToggle!(),
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          // Three states, three marks. A tick for an entry the money covers
+          // in full; a half-filled circle for the one it stops part way
+          // through, which is the single shape that says "some of this"
+          // without a word; and an empty box for the rest, because nothing is
+          // happening to them.
+          if (showMark)
+            Padding(
+              padding: const EdgeInsets.only(right: 10, top: 1),
+              child: _Mark(
+                done: _done,
+                part: _part,
+                tone: _done ? T.moneyIn : T.moneyDue,
               ),
             ),
           SizedBox(width: 46, child: Text(fmtDate(txn.date), style: T.meta)),
@@ -1197,10 +1363,10 @@ class _LedgerRow extends StatelessWidget {
                             ? TagTone.warn
                             : TagTone.neutral,
                       ),
-                      // While entries are being ticked, the one-at-a-time
-                      // button would be a second way of doing the same
-                      // thing, half a second before the other one.
-                      if (!selecting) ...[
+                      // While the money is doing the marking, this would be
+                      // a second way of doing the same thing, half a second
+                      // before the other one.
+                      if (!showMark) ...[
                         const SizedBox(width: 8),
                         GhostButton(
                           label: l.t('Mark paid'),
@@ -1229,7 +1395,7 @@ class _LedgerRow extends StatelessWidget {
                   fontWeight: T.moneyWeight(txn.paid),
                 ),
               ),
-              if (isMaster && !selecting)
+              if (isMaster && !showMark)
                 SizedBox(
                   height: 30,
                   child: IconButton(
@@ -1245,18 +1411,6 @@ class _LedgerRow extends StatelessWidget {
       ),
     );
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      // The whole card is the tick box while several are being picked. Ticking
-      // fourteen days of milk one small square at a time, on a phone, in a
-      // yard, is not something anybody would do twice.
-      child: selecting && onToggle != null
-          ? InkWell(
-              onTap: onToggle,
-              borderRadius: BorderRadius.circular(T.radius),
-              child: card,
-            )
-          : card,
-    );
+    return Padding(padding: const EdgeInsets.only(bottom: 9), child: card);
   }
 }

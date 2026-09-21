@@ -19,6 +19,7 @@ import '../shared/deliveries_screen.dart';
 import '../shared/new_entry_screen.dart';
 import '../shared/products_screen.dart';
 import '../shared/report_screen.dart';
+import '../shared/statement_screen.dart';
 import 'activity_log_screen.dart';
 import 'cattle_screen.dart';
 import 'close_month_screen.dart';
@@ -191,6 +192,12 @@ class MasterHome extends StatelessWidget {
       label: l.t('Report'),
       tone: T.moneyIn,
       onTap: () => _push(context, store, const ReportScreen()),
+    ),
+    ActionTile(
+      icon: Icons.receipt_long_outlined,
+      label: l.t('Statement'),
+      tone: T.accent700,
+      onTap: () => _push(context, store, const StatementScreen()),
     ),
     ActionTile(
       icon: Icons.sell_outlined,
@@ -407,6 +414,13 @@ class _MoneyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
+    // Two things a figure can be a share of. What the co-founders put in is
+    // what the money above the line came out of; what was sold is what the
+    // money below it is measured against. Anything measured against the
+    // wrong one would be a percentage of nothing in particular.
+    final capital = money.capital;
+    final sales = money.sales + money.otherIncome;
+
     return RegCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,12 +437,14 @@ class _MoneyCard extends StatelessWidget {
             value: -money.assets,
             note: l.t('money that turned into animals, not money spent'),
             tone: T.moneyOut,
+            outOf: capital,
           ),
           _MoneyLine(
             label: l.t('Running costs so far'),
             value: -money.runningCosts,
             note: l.t('feed, salaries, bills'),
             tone: T.moneyOut,
+            outOf: sales,
           ),
           _MoneyLine(
             label: l.t('Sales so far'),
@@ -443,6 +459,7 @@ class _MoneyCard extends StatelessWidget {
               value: money.otherIncome,
               note: l.t('receipts with no sale booked against them'),
               tone: T.moneyIn,
+              outOf: sales,
             ),
           // Not a cost, but the cash is gone all the same. Without this line
           // the four above it stop adding up to the figure below, from the
@@ -453,6 +470,7 @@ class _MoneyCard extends StatelessWidget {
               value: -money.paidOut,
               note: l.t('their share of the profit'),
               tone: T.moneyOut,
+              outOf: sales,
             ),
           const Divider(height: 20),
           _MoneyLine(
@@ -460,6 +478,7 @@ class _MoneyCard extends StatelessWidget {
             value: money.cash,
             strong: true,
             tone: T.text,
+            outOf: capital,
           ),
           if (money.withRider > 0)
             _MoneyLine(
@@ -467,18 +486,21 @@ class _MoneyCard extends StatelessWidget {
               value: money.withRider,
               note: l.t('taken at doors, not handed in yet'),
               tone: T.moneyGet,
+              outOf: sales,
             ),
           if (money.receivable > 0)
             _MoneyLine(
               label: l.t('Still to collect'),
               value: money.receivable,
               tone: T.moneyGet,
+              outOf: sales,
             ),
           if (money.payable > 0)
             _MoneyLine(
               label: l.t('Still to pay'),
               value: -money.payable,
               tone: T.moneyDue,
+              outOf: money.runningCosts,
             ),
           // In the box, but not the farm's. It goes back when a contract
           // ends, so it is never counted as anything the farm has made.
@@ -507,6 +529,7 @@ class _MoneyLine extends StatelessWidget {
     required this.tone,
     this.note,
     this.strong = false,
+    this.outOf = 0,
   });
 
   final String label;
@@ -515,30 +538,62 @@ class _MoneyLine extends StatelessWidget {
   final String? note;
   final bool strong;
 
+  /// What this figure is a share of — the capital, or the sales. Zero leaves
+  /// the share off, for a line that is not a part of anything.
+  ///
+  /// A rupee figure on its own says how much. It does not say whether that is
+  /// most of the money or a corner of it, and that is usually the question:
+  /// thirty lakh of buffalo means one thing on a farm of forty-five and
+  /// another on a farm of three hundred.
+  final num outOf;
+
+  String? get _share {
+    if (outOf <= 0 || value == 0) return null;
+    final pc = (value.abs() / outOf.abs() * 100).round();
+    return pc < 1 ? '<1%' : '$pc%';
+  }
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final share = _share;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: strong ? T.cardTitle : T.body),
+                if (note != null)
+                  Text(note!, style: T.meta.copyWith(fontSize: 11)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(label, style: strong ? T.cardTitle : T.body),
-              if (note != null)
-                Text(note!, style: T.meta.copyWith(fontSize: 11)),
+              Text(
+                value < 0 ? '− ${rs(value.abs())}' : rs(value),
+                style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
+              ),
+              if (share != null)
+                Text(
+                  share,
+                  style: T.meta.copyWith(
+                    color: tone,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
             ],
           ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          value < 0 ? '− ${rs(value.abs())}' : rs(value),
-          style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _AttentionRow extends StatelessWidget {
