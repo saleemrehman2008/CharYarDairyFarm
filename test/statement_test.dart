@@ -22,6 +22,12 @@ Txn _txn({
   String category = 'Milk',
   bool paid = true,
   num? paidSoFar,
+  String? settles,
+
+  /// Whether the money moved as the row was written. Settled later by
+  /// default when it is not settled at all — an entry that was paid off
+  /// afterwards has a receipt of its own carrying that money.
+  bool? onCreate,
   String by = 'Ghulam Ali',
 }) => Txn(
   id: 'e${_n++}',
@@ -33,7 +39,8 @@ Txn _txn({
   amount: amount,
   paid: paid,
   paidSoFar: paidSoFar,
-  paidOnCreate: paid,
+  settlesTxnId: settles,
+  paidOnCreate: onCreate ?? paid,
   note: '',
   createdBy: 'u',
   createdByName: by,
@@ -43,8 +50,15 @@ Txn _txn({
 void main() {
   // Ali takes milk on credit and pays some of it. The feed merchant sells to
   // the farm and is paid. One cash sale over the counter.
+  final first = _txn(
+    type: TxnType.sale,
+    amount: 40000,
+    party: 'Ali',
+    day: 2,
+    paid: false,
+  );
   final ledger = [
-    _txn(type: TxnType.sale, amount: 40000, party: 'Ali', day: 2, paid: false),
+    first,
     _txn(type: TxnType.sale, amount: 12000, party: 'Counter', day: 3),
     _txn(type: TxnType.sale, amount: 40000, party: 'ali', day: 5, paid: false),
     _txn(
@@ -61,6 +75,7 @@ void main() {
       party: 'ALI',
       day: 9,
       category: 'Khaata receipt',
+      settles: first.id,
       by: 'Saleem Rehman',
     ),
     _txn(
@@ -69,6 +84,7 @@ void main() {
       party: 'Arbab Traders',
       day: 11,
       category: 'Supplier payment',
+      settles: 'the feed bill',
     ),
   ];
 
@@ -212,6 +228,103 @@ void main() {
   });
 
   _partyOwing();
+  _cashTrade();
+}
+
+/// A statement for somebody who pays on the spot.
+///
+/// This was the hole: the balance only moved by what was booked, never by
+/// what was settled on the same row. A man who paid at the door was shown
+/// owing the lot, and the mandi the farm had already paid was shown owed
+/// twelve lakh. Both are bills for money nobody owes, and both would have
+/// been handed to somebody.
+void _cashTrade() {
+  group('paid on the spot', () {
+    test('a sale paid at the door leaves nothing owing', () {
+      final rows = [
+        _txn(type: TxnType.sale, amount: 12000, party: 'Counter', day: 3),
+      ];
+      final s = buildStatement(rows: rows, party: 'Counter');
+      expect(s.lines.single.debit, 12000, reason: 'the milk went out');
+      expect(s.lines.single.credit, 12000, reason: 'and was paid for');
+      expect(s.closing, 0);
+    });
+
+    test('a buffalo paid for at the mandi leaves nothing owed', () {
+      final rows = [
+        _txn(
+          type: TxnType.purchase,
+          amount: 1200000,
+          party: 'Mandi',
+          day: 1,
+          category: 'Cattle purchase',
+        ),
+      ];
+      expect(buildStatement(rows: rows, party: 'Mandi').closing, 0);
+    });
+
+    test('an advance is held, not taken off what he owes', () {
+      final rows = [
+        _txn(
+          type: TxnType.receipt,
+          amount: 50000,
+          party: 'Ali',
+          day: 1,
+          category: advanceCategory,
+        ),
+        _txn(
+          type: TxnType.sale,
+          amount: 16000,
+          party: 'Ali',
+          day: 4,
+          paid: false,
+        ),
+      ];
+      expect(
+        buildStatement(rows: rows, party: 'Ali').closing,
+        16000,
+        reason: 'the security deposit is not a payment against the milk',
+      );
+    });
+
+    test('rent handed over with no bill leaves the landlord owing nothing', () {
+      final rows = [
+        _txn(
+          type: TxnType.payment,
+          amount: 35000,
+          party: 'Landlord',
+          day: 5,
+          category: 'Other payment',
+        ),
+      ];
+      expect(buildStatement(rows: rows, party: 'Landlord').closing, 0);
+    });
+  });
+
+  group('the cash book', () {
+    test('a dead buffalo costs the farm but takes no cash', () {
+      // She was paid for the day she was bought. Writing her off is a real
+      // cost and it is not a rupee leaving the box, and the cash book used
+      // to take it out all the same.
+      final rows = [
+        _txn(type: TxnType.sale, amount: 20000, party: 'Counter', day: 2),
+        _txn(
+          type: TxnType.expense,
+          amount: 150000,
+          party: 'B-04',
+          day: 6,
+          category: writeOffCategory,
+        ),
+      ];
+      final s = buildStatement(rows: rows, capital: 500000);
+      expect(s.closing, 520000);
+      expect(
+        s.lines.any((l) => l.detail.contains(writeOffCategory)),
+        isFalse,
+        reason: 'it is not a cash line at all',
+      );
+    });
+  });
 }
 
 /// The figure somebody is actually going to be asked for by name.
@@ -223,16 +336,24 @@ void main() {
 /// down to 2,000, one untouched.
 void _partyOwing() {
   group('what one party still owes', () {
+    final cleared = _txn(
+      type: TxnType.sale,
+      amount: 16000,
+      party: 'Ali',
+      day: 20,
+      onCreate: false,
+    );
+    final part = _txn(
+      type: TxnType.sale,
+      amount: 16000,
+      party: 'Ali',
+      day: 20,
+      paid: false,
+      paidSoFar: 14000,
+    );
     final ali = [
-      _txn(type: TxnType.sale, amount: 16000, party: 'Ali', day: 20),
-      _txn(
-        type: TxnType.sale,
-        amount: 16000,
-        party: 'Ali',
-        day: 20,
-        paid: false,
-        paidSoFar: 14000,
-      ),
+      cleared,
+      part,
       _txn(
         type: TxnType.sale,
         amount: 16000,
@@ -246,6 +367,7 @@ void _partyOwing() {
         party: 'Ali',
         day: 20,
         category: 'Khaata receipt',
+        settles: cleared.id,
       ),
       _txn(
         type: TxnType.receipt,
@@ -253,6 +375,7 @@ void _partyOwing() {
         party: 'Ali',
         day: 20,
         category: 'Khaata receipt',
+        settles: part.id,
       ),
     ];
 

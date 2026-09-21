@@ -71,7 +71,12 @@ class Statement {
 /// An entry booked on credit is not cash on the day it was written — its
 /// money arrives later, on the settlement row — so it is left out here and
 /// counted when it is paid.
-bool _movedCash(Txn t) => t.type.isSettlement || t.paidOnCreate;
+/// A write-off is the one entry that looks like cash and is not. An animal
+/// coming off the books is a real cost, but the rupees left when she was
+/// bought — nothing moves on the day she dies. Counting it here had the cash
+/// book short by the price of every dead and sold animal.
+bool _movedCash(Txn t) =>
+    !t.isWriteOff && (t.type.isSettlement || t.paidOnCreate);
 
 /// Which side of a person's account an entry falls on.
 ///
@@ -79,16 +84,43 @@ bool _movedCash(Txn t) => t.type.isSettlement || t.paidOnCreate;
 /// they handed money over, so they owe less. A supplier runs the same way with
 /// the signs the other way about, which is why one column can carry both — a
 /// negative balance simply means the farm owes them.
-({num debit, num credit}) _partySides(Txn t) => switch (t.type) {
-  // Sold to them: they owe the farm.
-  TxnType.sale => (debit: t.amount, credit: 0),
-  // They paid: they owe less.
-  TxnType.receipt => (debit: 0, credit: t.amount),
-  // Bought from them: the farm owes them.
-  TxnType.purchase || TxnType.expense => (debit: 0, credit: t.amount),
-  // Paid them: the farm owes less.
-  TxnType.payment => (debit: t.amount, credit: 0),
+/// What settled at the moment the entry was written, and so belongs in the
+/// column opposite the entry itself.
+///
+/// Without this the statement only worked for a man who buys on credit. A
+/// sale paid at the door put twelve thousand on the customer's account and
+/// nothing against it, so the counter trade showed as owing the whole day's
+/// milk; a buffalo bought and paid for at the mandi had the farm owing the
+/// seller twelve lakh for ever. Both had already been settled on the same
+/// row — a statement that only counts one side of a cash trade is a bill for
+/// money nobody owes.
+///
+/// A receipt or a payment tied to another entry leaves this at nothing: the
+/// entry it settles carries the other side. One tied to nothing carries both
+/// — rent handed over with no bill, scrap sold with no invoice, a profit
+/// share, an advance — and so moves the running balance not at all. Which is
+/// what the farm means by an advance: a security it is holding, not a payment
+/// against anything.
+num _settledOnTheSpot(Txn t) => switch (t.type) {
+  TxnType.sale ||
+  TxnType.purchase ||
+  TxnType.expense => t.paidOnCreate ? t.amount : 0,
+  TxnType.receipt || TxnType.payment => t.settlesAnotherEntry ? 0 : t.amount,
 };
+
+({num debit, num credit}) _partySides(Txn t) {
+  final settled = _settledOnTheSpot(t);
+  return switch (t.type) {
+    // Sold to them: they owe the farm, less whatever they paid on the spot.
+    TxnType.sale => (debit: t.amount, credit: settled),
+    // They paid: they owe less.
+    TxnType.receipt => (debit: settled, credit: t.amount),
+    // Bought from them: the farm owes them, less whatever it paid there.
+    TxnType.purchase || TxnType.expense => (debit: settled, credit: t.amount),
+    // Paid them: the farm owes less.
+    TxnType.payment => (debit: t.amount, credit: settled),
+  };
+}
 
 /// Which side of the cash book an entry falls on. Money out, money in.
 ({num debit, num credit}) _cashSides(Txn t) => t.type.isIncoming
