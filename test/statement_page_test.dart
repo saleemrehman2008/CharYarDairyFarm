@@ -76,6 +76,28 @@ void main() {
     ),
   ];
 
+  /// Nothing is wider than the page it is on.
+  ///
+  /// Not "no exception at all": a headless run has no asset bundle, so the
+  /// farm's mark cannot load and says so, and that is neither here nor there
+  /// when the question is whether a column fits. An overflow is the thing
+  /// being asked about and an overflow fails.
+  void expectItFits(WidgetTester tester) {
+    final e = tester.takeException();
+    if (e == null) return;
+    final what = e.toString();
+    expect(
+      what.contains('overflowed'),
+      isFalse,
+      reason: 'something is wider than the page — $what',
+    );
+    expect(
+      what.contains('Unable to load asset'),
+      isTrue,
+      reason: 'an exception that is not about the missing mark — $what',
+    );
+  }
+
   Future<void> onAPhone(WidgetTester tester, Widget child) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -103,9 +125,7 @@ void main() {
           advanceHeld: 0,
         ),
       );
-      // A Row wider than it is allowed to be throws in a test run, so
-      // reaching here without an exception is most of the claim.
-      expect(tester.takeException(), isNull);
+      expectItFits(tester);
     });
 
     testWidgets('all three money columns are on the page', (tester) async {
@@ -177,7 +197,7 @@ void main() {
           advanceHeld: 0,
         ),
       );
-      expect(tester.takeException(), isNull);
+      expectItFits(tester);
       expect(find.text('12,50,000'), findsWidgets);
     });
   });

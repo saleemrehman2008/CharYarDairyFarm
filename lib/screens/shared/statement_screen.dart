@@ -305,6 +305,12 @@ class StatementSheet extends StatelessWidget {
                       width: 38,
                       height: 38,
                       fit: BoxFit.cover,
+                      // The farm's mark is going to be swapped one day, and
+                      // a statement is not the place to find out the file has
+                      // moved. Without this the whole page throws and draws
+                      // nothing at all over a missing picture.
+                      errorBuilder: (_, _, _) =>
+                          const SizedBox(width: 38, height: 38),
                     ),
                   ),
                   const SizedBox(width: 11),
