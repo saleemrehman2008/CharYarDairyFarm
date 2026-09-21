@@ -1071,8 +1071,11 @@ class _PartyCard extends StatelessWidget {
     final bought = sum(
       (t) => t.type == TxnType.purchase || t.type == TxnType.expense,
     );
-    final owesUs = sum((t) => t.isReceivable);
-    final weOwe = sum((t) => t.isPayable);
+    // What is still owed, not what was booked — the one figure on this screen
+    // somebody is going to be asked for by name, so it comes from the same
+    // place the statement's balance does rather than being worked out again
+    // here and drifting.
+    final (owesUs: owesUs, weOwe: weOwe) = partyOwing(ledger, party);
 
     return RegCard(
       stripe: owesUs > 0 ? T.moneyGet : T.accent600,

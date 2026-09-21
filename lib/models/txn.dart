@@ -190,6 +190,7 @@ class Txn {
     required this.note,
     this.orderId,
     this.settlesTxnId,
+    this.capital,
     this.paidOnCreate = false,
     this.payVia = PayVia.cash,
     this.handledBy = '',
@@ -213,6 +214,17 @@ class Txn {
   final num? rate;
   final num amount;
   final bool paid;
+
+  /// Whether this bought something the farm now owns, when the category is
+  /// one somebody typed rather than one off the list.
+  ///
+  /// Null on every entry written under a listed category, and on every entry
+  /// written before this existed — those are read off [assetCategories] as
+  /// they always were. A typed word is not on that list and never will be, so
+  /// the answer is asked once and kept on the entry itself. On the entry, and
+  /// not in a settings list, because a list can be edited afterwards and would
+  /// quietly rewrite what last year's profit was.
+  final bool? capital;
 
   /// How much of [amount] has actually been taken against this entry.
   ///
@@ -297,7 +309,7 @@ class Txn {
   /// Cattle and equipment the farm now owns, rather than money it spent.
   bool get isCapitalAsset =>
       (type == TxnType.purchase || type == TxnType.expense) &&
-      assetCategories.contains(category);
+      (capital ?? assetCategories.contains(category));
 
   /// A co-founder's share of the profit, paid out when a period closed.
   ///
@@ -395,6 +407,7 @@ class Txn {
       note: s(m['note']),
       orderId: m['orderId'] == null ? null : s(m['orderId']),
       settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
+      capital: m['capital'] == null ? null : b(m['capital']),
       paidOnCreate: m['paidOnCreate'] == null
           ? _wasPaidOnCreate(paid, paidAt, createdAt)
           : b(m['paidOnCreate']),

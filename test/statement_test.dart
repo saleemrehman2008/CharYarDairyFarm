@@ -21,6 +21,7 @@ Txn _txn({
   required int day,
   String category = 'Milk',
   bool paid = true,
+  num? paidSoFar,
   String by = 'Ghulam Ali',
 }) => Txn(
   id: 'e${_n++}',
@@ -31,6 +32,7 @@ Txn _txn({
   category: category,
   amount: amount,
   paid: paid,
+  paidSoFar: paidSoFar,
   paidOnCreate: paid,
   note: '',
   createdBy: 'u',
@@ -208,4 +210,94 @@ void main() {
       expect(s.closing, 30000);
     });
   });
+
+  _partyOwing();
 }
+
+/// The figure somebody is actually going to be asked for by name.
+///
+/// This is the one that was wrong: the card added up what the sales were
+/// booked at instead of what was still owing on them, so a man who had paid
+/// most of his bill was still shown owing all of it. Taken from a real day on
+/// the farm — Ali, three loads of milk at 16,000, one paid in full, one paid
+/// down to 2,000, one untouched.
+void _partyOwing() {
+  group('what one party still owes', () {
+    final ali = [
+      _txn(type: TxnType.sale, amount: 16000, party: 'Ali', day: 20),
+      _txn(
+        type: TxnType.sale,
+        amount: 16000,
+        party: 'Ali',
+        day: 20,
+        paid: false,
+        paidSoFar: 14000,
+      ),
+      _txn(
+        type: TxnType.sale,
+        amount: 16000,
+        party: 'Ali',
+        day: 20,
+        paid: false,
+      ),
+      _txn(
+        type: TxnType.receipt,
+        amount: 16000,
+        party: 'Ali',
+        day: 20,
+        category: 'Khaata receipt',
+      ),
+      _txn(
+        type: TxnType.receipt,
+        amount: 14000,
+        party: 'Ali',
+        day: 20,
+        category: 'Khaata receipt',
+      ),
+    ];
+
+    test('counts what is left on a part-paid sale, not the whole of it', () {
+      // 16,000 untouched plus 2,000 still to come on the one he paid down.
+      expect(partyOwing(ali, 'Ali').owesUs, 18000);
+      expect(partyOwing(ali, 'Ali').weOwe, 0);
+    });
+
+    test('agrees with the balance on his statement', () {
+      expect(
+        partyOwing(ali, 'Ali').owesUs,
+        buildStatement(rows: ali, party: 'Ali').closing,
+      );
+    });
+
+    test('every spelling of the name is the same man', () {
+      expect(partyOwing(ali, 'ALI').owesUs, 18000);
+      expect(partyOwing(ali, ' ali ').owesUs, 18000);
+    });
+
+    test("another man's entries stay out of it", () {
+      expect(partyOwing(ali, 'Ali Khan').owesUs, 0);
+    });
+
+    test('an unpaid bill from a supplier is owed the other way', () {
+      final rows = [
+        ..._feedBill(),
+        _txn(type: TxnType.sale, amount: 5000, party: 'Ali', day: 20),
+      ];
+      expect(partyOwing(rows, 'Chaudhry Feed').weOwe, 9000);
+      expect(partyOwing(rows, 'Chaudhry Feed').owesUs, 0);
+    });
+  });
+}
+
+/// A feed bill of 30,000 with 21,000 paid off it.
+List<Txn> _feedBill() => [
+  _txn(
+    type: TxnType.purchase,
+    amount: 30000,
+    party: 'Chaudhry Feed',
+    day: 18,
+    category: 'Fodder / feed',
+    paid: false,
+    paidSoFar: 21000,
+  ),
+];

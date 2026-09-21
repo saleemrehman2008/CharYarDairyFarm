@@ -20,6 +20,7 @@ class TxnRepo {
     required String category,
     required num amount,
     required bool paid,
+    bool? capital,
     num? qty,
     String? unit,
     num? rate,
@@ -40,6 +41,9 @@ class TxnRepo {
       'party': party,
       'customerId': ?customerId,
       'category': category,
+      // Only written when somebody typed the category, because only then is
+      // there no list to read the answer off.
+      'capital': ?capital,
       if (!type.isSettlement && qty != null) 'qty': qty,
       if (!type.isSettlement && unit != null) 'unit': unit,
       if (!type.isSettlement && rate != null) 'rate': rate,

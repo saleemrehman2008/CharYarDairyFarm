@@ -737,4 +737,22 @@ const Map<String, String> romanUrdu = {
   'No round today': 'Aaj koi round nahi',
   'The farm has deliveries switched off at the moment, so there is nothing to take out. This screen will fill up again as soon as the master switches them back on.':
       'Farm ne filhal delivery band ki hui hai, is liye le jane ko kuch nahi. Master ke dobara chalu karte hi ye safha phir bhar jayega.',
+  // ---- Writing a category out ----
+  'Something else — write it out': 'Koi aur cheez — khud likhen',
+  'What is it for?': 'Ye kis cheez ke liye hai?',
+  'It will be filed under %s.': 'Ye %s me darj hogi.',
+  'Write it out': 'Khud likhen',
+  'Tubewell repair, trolley, mazdoori…':
+      'Tubewell marammat, trolley, mazdoori…',
+  'already there': 'pehle se maujood',
+  'Use this': 'Yehi rakhen',
+  '"%s" is already being used': '"%s" pehle se istemal ho raha hai',
+  'It is on the %s tab. If that is where this belongs, go back and write it there — the summary keeps one word in one place. Make it here as well only if it is genuinely a different thing.':
+      'Ye %s tab me hai. Agar is ka asal maqam wahi hai to wapas ja kar wahan likhen — summary ek lafz ko ek hi jagah rakhti hai. Yahan bhi tabhi banayen jab ye waqai alag cheez ho.',
+  'Make it here anyway': 'Phir bhi yahan banayen',
+  'Is "%s" something the farm keeps?': 'Kya "%s" farm ke paas rahegi?',
+  'A buffalo, a machine, a trolley — the farm still owns it afterwards, so the money moved but the profit did not. Feed, wages, bijli and repairs are spent and gone, and they do come off the profit.':
+      'Bhains, machine, trolley — baad me bhi farm ki milkiyat rehti hai, is liye paisa nikla magar profit kam nahi hua. Wanda, tankhwah, bijli aur marammat kharch ho kar khatam — ye profit se kat-ti hain.',
+  'The farm keeps it': 'Farm ke paas rahegi',
+  'Spent and gone': 'Kharch ho gaya',
 };

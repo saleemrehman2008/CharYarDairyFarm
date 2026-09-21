@@ -197,3 +197,22 @@ Statement buildStatement({
     forOneParty: forOneParty,
   );
 }
+
+/// What one party still owes the farm, and what the farm still owes them.
+///
+/// Both read [Txn.outstanding], never the amount the entry was booked at. A
+/// sale of 16,000 with 14,000 already received is 2,000 owing; reading the
+/// amount would put 16,000 on the card and have the farm asking a man twice
+/// for money it has already had. Every spelling of the name is folded in,
+/// because Ali and ali are one man and his account has to add up to what he
+/// actually owes.
+({num owesUs, num weOwe}) partyOwing(List<Txn> ledger, String party) {
+  final key = partyKey(party);
+  num owesUs = 0, weOwe = 0;
+  for (final t in ledger) {
+    if (partyKey(t.party) != key) continue;
+    if (t.isReceivable) owesUs += t.outstanding;
+    if (t.isPayable) weOwe += t.outstanding;
+  }
+  return (owesUs: owesUs, weOwe: weOwe);
+}

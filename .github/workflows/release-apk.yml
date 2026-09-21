@@ -112,23 +112,40 @@ jobs:
       - name: Fetch packages
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+      # Two builds, because one file cannot be both small and universal.
+      #
+      # A single APK has to carry the engine three times over — 64-bit, 32-bit
+      # and the emulator's — and the phone it lands on uses one of them. The
+      # split build is a third of the size and is what everybody should be
+      # installing. The universal one stays as the fallback for a phone too old
+      # to take the 64-bit file, which is rare but not nothing.
+      - name: Build APKs
+        run: |
+          BN=${{ github.run_number }}
+          flutter build apk --release --split-per-abi --build-number="$BN"
+          flutter build apk --release --build-number="$BN"
 
       - name: Name the artefact
         id: name
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1)
           TAG="v${VERSION}+${{ github.run_number }}"
+          OUT=build/app/outputs/flutter-apk
           APK="char-yar-dairy-farm-${TAG}.apk"
-          cp build/app/outputs/flutter-apk/app-release.apk "$APK"
+          OLD="char-yar-dairy-farm-${TAG}-any-phone.apk"
+          cp "$OUT/app-arm64-v8a-release.apk" "$APK"
+          cp "$OUT/app-release.apk" "$OLD"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          du -h "$APK" "$OLD"
 
       - uses: actions/upload-artifact@v7
         with:
           name: release-apk
-          path: ${{ steps.name.outputs.apk }}
+          path: |
+            ${{ steps.name.outputs.apk }}
+            ${{ steps.name.outputs.old }}
 
       - name: Publish the Release
         uses: softprops/action-gh-release@v2
@@ -136,10 +153,17 @@ jobs:
           tag_name: ${{ steps.name.outputs.tag }}
           name: Char Yar Dairy Farm ${{ steps.name.outputs.tag }}
           body: |
-            Install this APK on an Android phone.
+            Install **char-yar-dairy-farm-${{ steps.name.outputs.tag }}.apk**
+            on an Android phone. It is the small one and it is the right one
+            for any phone made since about 2017.
+
+            The file ending in **-any-phone.apk** is three times the size and
+            is only there for a phone too old to install the other one.
 
             Commit: ${{ github.sha }}
-          files: ${{ steps.name.outputs.apk }}
+          files: |
+            ${{ steps.name.outputs.apk }}
+            ${{ steps.name.outputs.old }}
           fail_on_unmatched_files: true
 
       - name: Clean up secrets on disk

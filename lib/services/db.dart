@@ -110,12 +110,15 @@ class Db {
   /// had just been closed. Where one period ends and the next begins is drawn
   /// as a line through the list instead.
   ///
-  /// Capped, because this grows for as long as the farm does. Five hundred
-  /// entries is well over a year for a farm this size; past that the oldest
-  /// are reached through the Sheet or the export.
-  static Stream<List<Txn>> watchLedger({int limit = 500}) => transactions
+  /// Deliberately not capped. It was capped at five hundred, on the reasoning
+  /// that five hundred is over a year of entries — but a statement built on a
+  /// cut-off list is not short, it is wrong: the rows past the cut are gone
+  /// from the opening balance too, so a customer's account would quietly shed
+  /// what he owed from before it. Better the phone carries the whole account
+  /// than that the account is handed over understated. Firestore sends the
+  /// changes after the first load, not the whole list again.
+  static Stream<List<Txn>> watchLedger() => transactions
       .orderBy('date', descending: true)
-      .limit(limit)
       .snapshots()
       .map((q) => q.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList());
 

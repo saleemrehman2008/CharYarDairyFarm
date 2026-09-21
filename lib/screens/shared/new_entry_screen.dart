@@ -9,6 +9,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/category_field.dart';
 import '../../widgets/party_field.dart';
 import '../../widgets/ui.dart';
 
@@ -25,6 +26,10 @@ class NewEntryScreen extends StatefulWidget {
 class _NewEntryScreenState extends State<NewEntryScreen> {
   late TxnType _type = widget.initialType;
   late String _category = _type.categories.first;
+
+  /// Set only when the category was written out rather than picked, because
+  /// only then is there no list to read the answer off. See [Txn.capital].
+  bool? _capital;
   String _unit = 'L';
   bool _paid = true;
   PayVia _payVia = PayVia.cash;
@@ -52,6 +57,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   }
 
   num get _amount => num.tryParse(_total.text.trim()) ?? 0;
+
+  /// Something the farm keeps. Off the list when it was picked off the list,
+  /// and off what was said at the time when it was written out.
+  bool get _isAsset => _capital ?? assetCategories.contains(_category);
 
   /// Quantity times rate fills the total.
   void _fromQtyRate() {
@@ -87,6 +96,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     setState(() {
       _type = type;
       _category = type.categories.first;
+      _capital = null;
       if (type.isSettlement) _paid = true;
     });
   }
@@ -119,6 +129,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         type: _type,
         party: party,
         category: _category,
+        capital: _capital,
         amount: _amount,
         paid: _paid,
         qty: num.tryParse(_qty.text.trim()),
@@ -169,13 +180,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           ),
           const SizedBox(height: T.gap),
 
-          Picker<String>(
+          CategoryField(
             label: 'Category',
+            type: _type,
             value: _category,
-            items: [for (final c in _type.categories) (c, c)],
-            onChanged: (v) => setState(() => _category = v),
+            onChanged: (c, capital) => setState(() {
+              _category = c;
+              _capital = capital;
+            }),
           ),
-          if (assetCategories.contains(_category) && !_type.isSettlement) ...[
+          if (_isAsset && !_type.isSettlement) ...[
             const SizedBox(height: 6),
             Text(
               'This counts as a farm asset, not a monthly cost. The cash still '

@@ -10,6 +10,7 @@ import '../services/bill_repo.dart';
 import '../services/db.dart';
 import '../services/log_service.dart';
 import '../services/month_repo.dart';
+import '../services/categories.dart';
 import '../services/sheet_sync.dart';
 import 'round_data.dart';
 
@@ -33,8 +34,14 @@ class PartySummary {
   final num owed;
 }
 
-class _PartyTally {
+/// A name the books carry more than once, and the spelling that won.
+///
+/// Used for customers and for categories alike — both are a word somebody
+/// types twice and spells two ways, and both have to come back as one thing.
+class _NameTally {
   int count = 0;
+
+  /// Only a party owes anything; a category is just a word.
   num owed = 0;
 
   /// Every way this name has been written, and how often.
@@ -459,12 +466,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// back is whichever one the farm has used most — so `kashif` typed in a
   /// hurry offers `Kashif`, and the account stays in one piece.
   List<PartySummary> get partyBook {
-    final byKey = <String, _PartyTally>{};
+    final byKey = <String, _NameTally>{};
     for (final t in _ledger) {
       final name = t.party.trim();
       if (name.isEmpty) continue;
       final k = partyKey(name);
-      final tally = byKey.putIfAbsent(k, _PartyTally.new);
+      final tally = byKey.putIfAbsent(k, _NameTally.new);
       tally.count++;
       tally.spellings[name] = (tally.spellings[name] ?? 0) + 1;
       if (t.isReceivable) tally.owed += t.outstanding;
@@ -484,6 +491,13 @@ class FarmStore extends ChangeNotifier implements RoundData {
         });
     return out;
   }
+
+  /// Every category the books already carry, and which tab each one sits on.
+  Map<TxnType, List<String>> get categoryBook => categoriesUsed(_ledger);
+
+  /// Which tabs a category is already being used on, if any.
+  List<TxnType> tabsUsing(String category) =>
+      tabsUsingCategory(_ledger, category);
 
   /// Advances the farm is holding right now, across every customer.
   ///
