@@ -9,7 +9,16 @@ import '../models/models.dart';
 enum StatementKind {
   party('Statement of account', 'Balance owed'),
   cashBook('Cash book', 'Cash in hand'),
-  capital('Capital account', 'Their stake in the farm');
+  capital('Capital account', 'Their stake in the farm'),
+
+  /// Narrowed to one kind of entry, or one category, or both.
+  ///
+  /// It has to be its own thing, because once part of the account is hidden
+  /// the last column has stopped being a balance. Only the sales listed and
+  /// the money that settled them left out, and the figure at the foot is a
+  /// running total of what is on the page — not a rupee of it is owed by
+  /// anybody. Calling that "balance owed" would be handing somebody a bill.
+  extract('Extract', 'Total shown');
 
   const StatementKind(this.title, this.footLabel);
 
@@ -67,6 +76,7 @@ class Statement {
     required this.credits,
     required this.forOneParty,
     required this.kind,
+    this.showing = '',
   });
 
   final List<StatementLine> lines;
@@ -81,9 +91,13 @@ class Statement {
   /// True when this is one person's account rather than the farm's cash.
   final bool forOneParty;
 
-  /// Which of the three documents this is, and so what to call the figure at
-  /// the foot of it.
+  /// Which of the documents this is, and so what to call the figure at the
+  /// foot of it.
   final StatementKind kind;
+
+  /// What it was narrowed to, said in words, for the line under the account
+  /// name. Empty when the whole account is on the page.
+  final String showing;
 
   bool get isEmpty => lines.isEmpty;
 }
@@ -182,15 +196,30 @@ Statement buildStatement({
   DateTime? from,
   DateTime? to,
   num capital = 0,
+  Set<TxnType>? types,
+  String? category,
 }) {
   final forOneParty = party != null && party.trim().isNotEmpty;
   final key = forOneParty ? partyKey(party) : '';
+
+  // Narrowed to one kind of entry or one category. Both are ordinary
+  // questions — what did the feed cost this year, what did Ali take in
+  // October — and the answer has to come out on the same sheet of paper as
+  // everything else, or the farm has two formats and one of them is nobody's
+  // idea of a statement.
+  final kinds = types == null || types.isEmpty ? null : types;
+  final cat = category == null || category.trim().isEmpty
+      ? null
+      : partyKey(category);
+  final narrowed = kinds != null || cat != null;
 
   final mine =
       rows
           .where((t) => !t.isDeleted)
           .where((t) => !forOneParty || partyKey(t.party) == key)
-          .where((t) => forOneParty || _movedCash(t))
+          .where((t) => forOneParty || narrowed || _movedCash(t))
+          .where((t) => kinds == null || kinds.contains(t.type))
+          .where((t) => cat == null || partyKey(t.category) == cat)
           .toList()
         ..sort((a, b) {
           final byDate = a.date.compareTo(b.date);
@@ -203,7 +232,10 @@ Statement buildStatement({
       ? null
       : DateTime(to.year, to.month, to.day, 23, 59, 59, 999);
 
-  num balance = forOneParty ? 0 : capital;
+  // A narrowed page opens at nothing. Part of the account is hidden, so a
+  // brought-forward figure would be the balance of something that is not
+  // what is printed underneath it.
+  num balance = forOneParty || narrowed ? 0 : capital;
   var opening = balance;
 
   // Everything before the window moves the balance without being listed —
@@ -249,8 +281,22 @@ Statement buildStatement({
     debits: debits,
     credits: credits,
     forOneParty: forOneParty,
-    kind: forOneParty ? StatementKind.party : StatementKind.cashBook,
+    kind: narrowed
+        ? StatementKind.extract
+        : forOneParty
+        ? StatementKind.party
+        : StatementKind.cashBook,
+    showing: narrowed ? _showing(kinds, category) : '',
   );
+}
+
+/// What the page was narrowed to, in the words the person picked it by.
+String _showing(Set<TxnType>? kinds, String? category) {
+  final parts = <String>[
+    if (kinds != null) kinds.map((t) => t.label).join(', '),
+    if (category != null && category.trim().isNotEmpty) category.trim(),
+  ];
+  return parts.join(' · ');
 }
 
 /// What one party still owes the farm, and what the farm still owes them.

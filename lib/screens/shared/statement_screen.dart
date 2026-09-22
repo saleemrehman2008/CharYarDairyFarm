@@ -32,6 +32,14 @@ class _StatementScreenState extends State<StatementScreen> {
   String? _party;
   DateTimeRange? _range;
 
+  /// One kind of entry, or all of them. Sale, purchase, expense, receipt,
+  /// payment — the whole ledger is on this page unless somebody narrows it.
+  TxnType? _type;
+
+  /// One heading off the books — milk, feed, salaries, or a word somebody
+  /// typed themselves.
+  String? _category;
+
   /// Shut to begin with. The whole account is what is wanted nine times out of
   /// ten, and a date box open on arrival is a question nobody asked.
   bool _datesOpen = false;
@@ -103,6 +111,8 @@ class _StatementScreenState extends State<StatementScreen> {
             from: _range?.start,
             to: _range?.end,
             capital: store.capitalIn,
+            types: _type == null ? null : {_type!},
+            category: _category,
           );
     final advance = _party == null || founder != null
         ? 0
@@ -142,6 +152,33 @@ class _StatementScreenState extends State<StatementScreen> {
               if (founder == null)
                 Flexible(
                   child: PickPill(
+                    icon: Icons.swap_vert,
+                    label: _type == null
+                        ? l.t('Everything')
+                        : l.t(_type!.label),
+                    chosen: _type != null,
+                    onClear: () => setState(() => _type = null),
+                    onTap: _pickType,
+                  ),
+                ),
+            ],
+          ),
+          if (founder == null) const SizedBox(height: 8),
+          if (founder == null)
+            Row(
+              children: [
+                Flexible(
+                  child: PickPill(
+                    icon: Icons.sell_outlined,
+                    label: _category ?? l.t('Anything'),
+                    chosen: _category != null,
+                    onClear: () => setState(() => _category = null),
+                    onTap: _pickCategory,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: PickPill(
                     icon: Icons.calendar_today_outlined,
                     label: _range == null
                         ? l.t('All dates')
@@ -154,8 +191,8 @@ class _StatementScreenState extends State<StatementScreen> {
                     onTap: () => setState(() => _datesOpen = !_datesOpen),
                   ),
                 ),
-            ],
-          ),
+              ],
+            ),
 
           if (_datesOpen && founder == null) ...[
             const SizedBox(height: 10),
@@ -231,6 +268,45 @@ class _StatementScreenState extends State<StatementScreen> {
     );
   }
 
+  Future<void> _pickType() async {
+    final l = L.read(context);
+    final picked = await pickOne(
+      context,
+      title: l.t('Which kind of entry?'),
+      options: [for (final t in TxnType.values) l.t(t.label)],
+      allLabel: l.t('Everything'),
+      current: _type == null ? null : l.t(_type!.label),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      final v = picked.value;
+      _type = v == null
+          ? null
+          : TxnType.values.firstWhere(
+              (t) => l.t(t.label) == v,
+              orElse: () => TxnType.sale,
+            );
+    });
+  }
+
+  Future<void> _pickCategory() async {
+    final store = context.read<FarmStore>();
+    final l = L.read(context);
+    // Every heading the books carry, on every tab, because the question
+    // "what has the feed cost" does not care which tab it was written on.
+    final all = <String>{
+      for (final list in store.categoryBook.values) ...list,
+    }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final picked = await pickOne(
+      context,
+      title: l.t('Which kind of entry?'),
+      options: all,
+      allLabel: l.t('Anything'),
+      current: _category,
+    );
+    if (picked != null && mounted) setState(() => _category = picked.value);
+  }
+
   Future<void> _pickParty() async {
     final store = context.read<FarmStore>();
     final l = L.read(context);
@@ -258,13 +334,21 @@ class _StatementScreenState extends State<StatementScreen> {
     setState(() => _busy = true);
     try {
       await StatementPaper.sharePdf(
-        statement: buildStatement(
-          rows: store.ledger,
-          party: _party,
-          from: _range?.start,
-          to: _range?.end,
-          capital: store.capitalIn,
-        ),
+        statement: _founder(store) != null
+            ? capitalAccount(
+                partner: _founder(store)!,
+                periods: store.settledPeriods,
+                label: (m) => periodLabel(m, short: true),
+              )
+            : buildStatement(
+                rows: store.ledger,
+                party: _party,
+                from: _range?.start,
+                to: _range?.end,
+                capital: store.capitalIn,
+                types: _type == null ? null : {_type!},
+                category: _category,
+              ),
         farmName: l.t('Char Yar Dairy Farm'),
         forWhom: _party ?? l.t('The whole farm'),
         period: _periodLine(l),
@@ -407,8 +491,12 @@ class StatementSheet extends StatelessWidget {
                     child: _Fact(label: l.t('Period'), value: period),
                   ),
                   _Fact(
-                    label: l.t('Opening'),
-                    value: rs(statement.opening),
+                    label: statement.showing.isEmpty
+                        ? l.t('Opening')
+                        : l.t('Showing'),
+                    value: statement.showing.isEmpty
+                        ? rs(statement.opening)
+                        : statement.showing,
                     right: true,
                   ),
                 ],

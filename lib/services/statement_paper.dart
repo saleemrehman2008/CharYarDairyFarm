@@ -163,7 +163,11 @@ class StatementPaper {
               pw.Expanded(child: facts('Account', forWhom)),
               pw.Expanded(child: facts('Period', period)),
               pw.Expanded(
-                child: facts('Opening balance', rs(statement.opening)),
+                child: statement.showing.isEmpty
+                    ? facts('Opening balance', rs(statement.opening))
+                    // Narrowed, so there is no balance brought forward —
+                    // what there is instead is what was left out.
+                    : facts('Showing', statement.showing),
               ),
             ],
           ),

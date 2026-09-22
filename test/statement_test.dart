@@ -229,6 +229,147 @@ void main() {
 
   _partyOwing();
   _cashTrade();
+  _narrowed();
+}
+
+/// The page narrowed to one kind of entry, or one heading.
+///
+/// "What has the feed cost this year" and "what did Ali take in October" are
+/// ordinary questions, and the answer has to come out on the same sheet of
+/// paper as everything else — otherwise the farm has two formats and one of
+/// them is nobody's idea of a statement.
+///
+/// But hiding part of an account stops the last column being a balance. Show
+/// only the sales and leave out the money that settled them, and the figure
+/// at the foot is a running total of what is printed — not a rupee of it is
+/// owed by anybody. So the page stops calling itself a statement of account
+/// and stops calling that figure a balance owed. Handing somebody the other
+/// version is handing them a bill.
+void _narrowed() {
+  final sale = _txn(
+    type: TxnType.sale,
+    amount: 40000,
+    party: 'Ali',
+    day: 2,
+    paid: false,
+  );
+  final rows = [
+    sale,
+    _txn(type: TxnType.sale, amount: 12000, party: 'Ali', day: 3),
+    _txn(
+      type: TxnType.receipt,
+      amount: 40000,
+      party: 'Ali',
+      day: 9,
+      category: 'Khaata receipt',
+      settles: sale.id,
+    ),
+    _txn(
+      type: TxnType.purchase,
+      amount: 30000,
+      party: 'Arbab Traders',
+      day: 6,
+      category: 'Fodder / feed',
+      paid: false,
+    ),
+    _txn(
+      type: TxnType.expense,
+      amount: 60000,
+      party: 'The farm',
+      day: 7,
+      category: 'Salaries',
+    ),
+  ];
+
+  group('narrowed to one kind of entry', () {
+    test('only that kind is listed', () {
+      // Nobody picked, so the columns are the farm's own: money in is a
+      // credit, the way it is on a bank statement, and not a debit the way
+      // it would be on the customer's own page.
+      final s = buildStatement(rows: rows, types: {TxnType.sale});
+      expect(s.lines.length, 2);
+      expect(s.credits, 52000);
+      expect(s.debits, 0);
+    });
+
+    test('it stops calling itself a statement of account', () {
+      final s = buildStatement(rows: rows, party: 'Ali', types: {TxnType.sale});
+      expect(s.kind, StatementKind.extract);
+      expect(s.kind.title, 'Extract');
+      expect(s.kind.footLabel, 'Total shown');
+    });
+
+    test('it opens at nothing, because half the account is not on it', () {
+      final s = buildStatement(
+        rows: rows,
+        capital: 2000000,
+        types: {TxnType.sale},
+      );
+      expect(s.opening, 0);
+    });
+
+    test('the page says what it was narrowed to', () {
+      final s = buildStatement(rows: rows, types: {TxnType.expense});
+      expect(s.showing, 'Expense');
+    });
+
+    test('a kind that never happened comes back empty, not wrong', () {
+      final s = buildStatement(rows: rows, types: {TxnType.payment});
+      expect(s.isEmpty, isTrue);
+      expect(s.closing, 0);
+    });
+
+    test('a credit sale is on it even though no cash moved', () {
+      // The unnarrowed cash book leaves a credit sale out, because no money
+      // moved that day. Asked for the sales, the farm means all of them.
+      final s = buildStatement(rows: rows, types: {TxnType.sale});
+      expect(s.lines.any((l) => l.credit == 40000), isTrue);
+    });
+  });
+
+  group('narrowed to one heading', () {
+    test('only that heading is listed', () {
+      final s = buildStatement(rows: rows, category: 'Salaries');
+      expect(s.lines.single.debit, 60000, reason: 'money out of the farm');
+      expect(s.showing, 'Salaries');
+    });
+
+    test('however the heading was spelled', () {
+      expect(buildStatement(rows: rows, category: 'salaries').lines.length, 1);
+      expect(buildStatement(rows: rows, category: 'SALARIES').lines.length, 1);
+    });
+
+    test('a heading and a kind together narrow to both', () {
+      final s = buildStatement(
+        rows: rows,
+        types: {TxnType.expense},
+        category: 'Salaries',
+      );
+      expect(s.lines.length, 1);
+      expect(s.showing, 'Expense · Salaries');
+    });
+
+    test('one person, one heading', () {
+      final s = buildStatement(rows: rows, party: 'Ali', category: 'Milk');
+      expect(s.lines.length, 2);
+      expect(s.lines.every((l) => l.party.toLowerCase() == 'ali'), isTrue);
+    });
+  });
+
+  group('nothing narrowed', () {
+    test('it is still the account it always was', () {
+      final s = buildStatement(rows: rows, party: 'Ali');
+      expect(s.kind, StatementKind.party);
+      expect(s.showing, isEmpty);
+      expect(s.closing, 0, reason: '40,000 owed and settled, 12,000 cash');
+    });
+
+    test('and the cash book still opens at the capital', () {
+      final s = buildStatement(rows: rows, capital: 2000000);
+      expect(s.kind, StatementKind.cashBook);
+      expect(s.opening, 2000000);
+    });
+  });
 }
 
 /// A statement for somebody who pays on the spot.
