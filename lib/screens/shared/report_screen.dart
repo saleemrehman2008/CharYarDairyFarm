@@ -12,6 +12,7 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
+import '../../widgets/investment_card.dart';
 import '../../widgets/ui.dart';
 
 /// Where the farm's money came from and where it went, over a stretch of time.
@@ -74,7 +75,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 const SizedBox(height: T.gap),
                 _PeriodByPeriod(store: store),
                 const SizedBox(height: 20),
-                _InvestmentCard(partners: store.partners, ratios: store.ratios),
+                InvestmentCard(partners: store.partners, ratios: store.ratios),
               ],
             )
           : _span == _Span.thisPeriod
@@ -150,14 +151,18 @@ class _ReportScreenState extends State<ReportScreen> {
                   ],
                 ),
                 const Divider(height: 24),
-                _Total(label: l.t('Money in'), value: totalIn, tone: T.moneyIn),
-                _Total(
+                TotalRow(
+                  label: l.t('Money in'),
+                  value: totalIn,
+                  tone: T.moneyIn,
+                ),
+                TotalRow(
                   label: l.t('Money out'),
                   value: totalOut,
                   tone: T.moneyOut,
                 ),
                 const Divider(height: 16),
-                _Total(
+                TotalRow(
                   label: l.t('Net'),
                   value: net,
                   tone: net < 0 ? T.moneyOut : T.moneyIn,
@@ -201,14 +206,14 @@ class _ReportScreenState extends State<ReportScreen> {
             child: Column(
               children: [
                 if (assets > 0) ...[
-                  _Total(
+                  TotalRow(
                     label: l.t('Less cattle & equipment'),
                     value: assets,
                     tone: T.accent700,
                   ),
                   const Divider(height: 16),
                 ],
-                _Total(
+                TotalRow(
                   label: l.t('Net'),
                   value: net,
                   tone: net < 0 ? T.moneyOut : T.moneyIn,
@@ -230,7 +235,7 @@ class _ReportScreenState extends State<ReportScreen> {
         ],
 
         const SizedBox(height: 20),
-        _InvestmentCard(partners: store.partners, ratios: store.ratios),
+        InvestmentCard(partners: store.partners, ratios: store.ratios),
 
         if (live.isEmpty) ...[
           const SizedBox(height: T.gap),
@@ -336,39 +341,11 @@ class _Block extends StatelessWidget {
                 ),
               ),
           const Divider(height: 18),
-          _Total(label: l.t('Total'), value: total, tone: tone, strong: true),
+          TotalRow(label: l.t('Total'), value: total, tone: tone, strong: true),
         ],
       ),
     );
   }
-}
-
-class _Total extends StatelessWidget {
-  const _Total({
-    required this.label,
-    required this.value,
-    required this.tone,
-    this.strong = false,
-  });
-
-  final String label;
-  final num value;
-  final Color tone;
-  final bool strong;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      children: [
-        Expanded(child: Text(label, style: strong ? T.cardTitle : T.body)),
-        Text(
-          rs(value),
-          style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
-        ),
-      ],
-    ),
-  );
 }
 
 class _SpanPicker extends StatelessWidget {
@@ -505,91 +482,6 @@ class _RingPainter extends CustomPainter {
 
 /// What the co-founders have put into the farm, and what that makes their
 /// share. All time, not this stretch — capital does not belong to a period.
-class _InvestmentCard extends StatelessWidget {
-  const _InvestmentCard({required this.partners, required this.ratios});
-
-  final List<Partner> partners;
-  final Map<String, double> ratios;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = L.of(context);
-    final total = partners.fold<num>(0, (a, p) => a + p.capital);
-    final out = partners.fold<num>(0, (a, p) => a + p.withdrawn);
-
-    return RegCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Kicker(l.t('What the co-founders have in')),
-          const SizedBox(height: 10),
-          if (partners.isEmpty)
-            Text(l.t('No co-founders yet.'), style: T.meta)
-          else ...[
-            for (final p in partners)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            p.name,
-                            style: T.body,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            p.reinvested > 0
-                                ? l.t2(
-                                    'incl. %s left in from profit',
-                                    rs(p.reinvested),
-                                  )
-                                : l.t('put in from their own pocket'),
-                            style: T.meta.copyWith(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Tag(
-                      '${((ratios[p.id] ?? 0) * 100).toStringAsFixed(0)}%',
-                      tone: TagTone.accent,
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 96,
-                      child: Text(
-                        rs(p.capital),
-                        textAlign: TextAlign.right,
-                        style: T.bodyMid,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const Divider(height: 18),
-            _Total(
-              label: l.t('Total capital'),
-              value: total,
-              tone: T.accent700,
-              strong: true,
-            ),
-            if (out > 0)
-              _Total(
-                label: l.t('Taken out so far'),
-                value: out,
-                tone: T.moneyOut,
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 /// The farm from the day it started: what went in, what it sold, what it
 /// spent, what is left.
 ///

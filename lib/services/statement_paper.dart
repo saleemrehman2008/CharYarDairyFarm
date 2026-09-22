@@ -126,9 +126,7 @@ class StatementPaper {
                       ),
                     ),
                     pw.Text(
-                      statement.forOneParty
-                          ? 'Statement of account'
-                          : 'Cash book',
+                      statement.kind.title,
                       style: const pw.TextStyle(fontSize: 9, color: faint),
                     ),
                   ],
@@ -239,7 +237,7 @@ class StatementPaper {
                     pw.Container(height: 1, color: blue),
                     pw.SizedBox(height: 6),
                     _sum(
-                      statement.forOneParty ? 'Balance owed' : 'Cash in hand',
+                      statement.kind.footLabel,
                       rs(statement.closing),
                       big: true,
                     ),

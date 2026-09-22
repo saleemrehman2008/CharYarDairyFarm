@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
+import '../../models/models.dart';
 import '../../services/statement.dart';
 import '../../services/statement_paper.dart';
 import '../../state/farm_store.dart';
@@ -40,9 +41,27 @@ class _StatementScreenState extends State<StatementScreen> {
   final _paper = GlobalKey();
   bool _busy = false;
 
-  String _periodLine(L l) => _range == null
-      ? l.t('Everything, from the start')
-      : '${fmtDateFull(_range!.start)} — ${fmtDateFull(_range!.end)}';
+  /// The co-founder whose name is picked, if it is one of theirs.
+  Partner? _founder(FarmStore store) {
+    if (_party == null) return null;
+    for (final p in store.partners) {
+      if (partyKey(p.name) == partyKey(_party!)) return p;
+    }
+    return null;
+  }
+
+  /// A co-founder's account is every period the farm has settled and cannot
+  /// be cut to a window of days — the money arrives in one lump at a close,
+  /// not on the days in between — so the page says so rather than showing
+  /// dates it has not honoured.
+  String _periodLine(L l) {
+    if (_founder(context.read<FarmStore>()) != null) {
+      return l.t('Every period settled so far');
+    }
+    return _range == null
+        ? l.t('Everything, from the start')
+        : '${fmtDateFull(_range!.start)} — ${fmtDateFull(_range!.end)}';
+  }
 
   Future<void> _pickDates() async {
     final now = DateTime.now();
@@ -71,14 +90,23 @@ class _StatementScreenState extends State<StatementScreen> {
     final store = context.watch<FarmStore>();
     final l = L.of(context);
 
-    final statement = buildStatement(
-      rows: store.ledger,
-      party: _party,
-      from: _range?.start,
-      to: _range?.end,
-      capital: store.capitalIn,
-    );
-    final advance = _party == null ? 0 : store.advanceHeldFor(_party!);
+    final founder = _founder(store);
+    final statement = founder != null
+        ? capitalAccount(
+            partner: founder,
+            periods: store.settledPeriods,
+            label: (m) => periodLabel(m, short: true),
+          )
+        : buildStatement(
+            rows: store.ledger,
+            party: _party,
+            from: _range?.start,
+            to: _range?.end,
+            capital: store.capitalIn,
+          );
+    final advance = _party == null || founder != null
+        ? 0
+        : store.advanceHeldFor(_party!);
 
     return FarmScaffold(
       title: l.t('Statement'),
@@ -110,25 +138,26 @@ class _StatementScreenState extends State<StatementScreen> {
                   onTap: _pickParty,
                 ),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: PickPill(
-                  icon: Icons.calendar_today_outlined,
-                  label: _range == null
-                      ? l.t('All dates')
-                      : l.t2('%s days', _range!.duration.inDays + 1),
-                  chosen: _range != null,
-                  onClear: () => setState(() {
-                    _range = null;
-                    _datesOpen = false;
-                  }),
-                  onTap: () => setState(() => _datesOpen = !_datesOpen),
+              if (founder == null) const SizedBox(width: 8),
+              if (founder == null)
+                Flexible(
+                  child: PickPill(
+                    icon: Icons.calendar_today_outlined,
+                    label: _range == null
+                        ? l.t('All dates')
+                        : l.t2('%s days', _range!.duration.inDays + 1),
+                    chosen: _range != null,
+                    onClear: () => setState(() {
+                      _range = null;
+                      _datesOpen = false;
+                    }),
+                    onTap: () => setState(() => _datesOpen = !_datesOpen),
+                  ),
                 ),
-              ),
             ],
           ),
 
-          if (_datesOpen) ...[
+          if (_datesOpen && founder == null) ...[
             const SizedBox(height: 10),
             RegCard(
               child: Column(
@@ -208,7 +237,15 @@ class _StatementScreenState extends State<StatementScreen> {
     final picked = await pickOne(
       context,
       title: l.t('Whose statement?'),
-      options: [for (final p in store.partyBook) p.name],
+      // The four of them first. A co-founder's page is a different document
+      // from a customer's — capital never went through the ledger — and the
+      // way to ask for it is to pick their name like anybody else's.
+      options: [
+        for (final p in store.partners) p.name,
+        for (final p in store.partyBook)
+          if (!store.partners.any((f) => partyKey(f.name) == partyKey(p.name)))
+            p.name,
+      ],
       allLabel: l.t('The whole farm'),
       current: _party,
     );
@@ -328,9 +365,7 @@ class StatementSheet extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          statement.forOneParty
-                              ? l.t('Statement of account')
-                              : l.t('Cash book'),
+                          l.t(statement.kind.title),
                           style: T.meta.copyWith(color: T.accent300),
                         ),
                       ],
@@ -406,9 +441,7 @@ class StatementSheet extends StatelessWidget {
                   ),
                   const Divider(height: 14, color: T.accent300),
                   _FootLine(
-                    label: statement.forOneParty
-                        ? l.t('Balance owed')
-                        : l.t('Cash in hand'),
+                    label: l.t(statement.kind.footLabel),
                     value: rs(statement.closing),
                     tone: T.accent800,
                     big: true,

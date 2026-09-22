@@ -1,5 +1,22 @@
 import '../models/models.dart';
 
+/// Which of the three documents this is.
+///
+/// They share a shape and answer three different questions, and the page has
+/// to say which one it is or the figure at the foot means nothing. A
+/// customer's balance is what he owes; the cash book's is what is in the box;
+/// a co-founder's is what they own of the farm.
+enum StatementKind {
+  party('Statement of account', 'Balance owed'),
+  cashBook('Cash book', 'Cash in hand'),
+  capital('Capital account', 'Their stake in the farm');
+
+  const StatementKind(this.title, this.footLabel);
+
+  final String title;
+  final String footLabel;
+}
+
 /// One line of a statement: what happened, and what the balance was after it.
 class StatementLine {
   const StatementLine({
@@ -49,6 +66,7 @@ class Statement {
     required this.debits,
     required this.credits,
     required this.forOneParty,
+    required this.kind,
   });
 
   final List<StatementLine> lines;
@@ -62,6 +80,10 @@ class Statement {
 
   /// True when this is one person's account rather than the farm's cash.
   final bool forOneParty;
+
+  /// Which of the three documents this is, and so what to call the figure at
+  /// the foot of it.
+  final StatementKind kind;
 
   bool get isEmpty => lines.isEmpty;
 }
@@ -227,6 +249,7 @@ Statement buildStatement({
     debits: debits,
     credits: credits,
     forOneParty: forOneParty,
+    kind: forOneParty ? StatementKind.party : StatementKind.cashBook,
   );
 }
 
@@ -247,4 +270,78 @@ Statement buildStatement({
     if (t.isPayable) weOwe += t.outstanding;
   }
   return (owesUs: owesUs, weOwe: weOwe);
+}
+
+/// A co-founder's own account with the farm, written the way an account is.
+///
+/// Not the same thing as a customer's statement and it cannot be built from
+/// the ledger, because what a founder put in never passed through it — the
+/// ledger is trading, and capital is not trading. So it is built from the two
+/// places that do know: what they have put in, and what every settled period
+/// handed them.
+///
+/// It reads down like any other statement. What they put in is what the page
+/// opens at. Each settled period credits their share, and what they took out
+/// of it is debited on the next line. The closing figure is what they have in
+/// the farm today — and it has to come out at what they put in plus every
+/// rupee of profit they have left in, which is the one thing four friends
+/// will want to check.
+///
+/// A period that is sealed but not yet closed is deliberately absent. Nothing
+/// has been decided and nothing has been handed over; putting it here would
+/// be promising somebody money the four of them have not finished settling.
+Statement capitalAccount({
+  required Partner partner,
+  required List<FarmMonth> periods,
+  required String Function(FarmMonth) label,
+}) {
+  final settled = periods.where((m) => m.isClosed).toList()
+    ..sort(
+      (a, b) => (a.closedAt ?? a.to ?? DateTime(2000)).compareTo(
+        b.closedAt ?? b.to ?? DateTime(2000),
+      ),
+    );
+
+  final opening = partner.invested;
+  num balance = opening;
+  num debits = 0;
+  num credits = 0;
+  final lines = <StatementLine>[];
+
+  void add(DateTime on, String what, {num debit = 0, num credit = 0}) {
+    balance += credit - debit;
+    debits += debit;
+    credits += credit;
+    lines.add(
+      StatementLine(
+        date: on,
+        party: partner.name,
+        detail: what,
+        enteredBy: '',
+        debit: debit,
+        credit: credit,
+        balance: balance,
+      ),
+    );
+  }
+
+  for (final m in settled) {
+    final share = m.shareFor(partner.id);
+    if (share == null || share.share <= 0) continue;
+    final on = m.closedAt ?? m.to ?? DateTime(2000);
+    add(on, 'Profit share · ${label(m)}', credit: share.share);
+    if (share.withdraw > 0) {
+      add(on, 'Taken out · ${label(m)}', debit: share.withdraw);
+    }
+  }
+
+  return Statement(
+    lines: lines,
+    opening: opening,
+    closing: balance,
+    debits: debits,
+    credits: credits,
+    forOneParty: true,
+    kind: StatementKind.capital,
+  );
 }

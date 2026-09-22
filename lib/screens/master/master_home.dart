@@ -12,6 +12,7 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/balance_check.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
+import '../../widgets/investment_card.dart';
 import '../../widgets/ui.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/bills_screen.dart';
@@ -126,6 +127,14 @@ class MasterHome extends StatelessWidget {
         const SizedBox(height: 20),
 
         _MoneyCard(money: store.money),
+        const SizedBox(height: 20),
+
+        // What the four of them have in, under where the money went. The
+        // card above opens at what came out of their pockets, which is the
+        // figure the cash has to answer to; this one says what they own,
+        // which grows every time somebody leaves their share in. Two
+        // questions, two places, and neither pretending to be the other.
+        InvestmentCard(partners: store.partners, ratios: store.ratios),
         const SizedBox(height: 20),
 
         SectionTitle(l.t('Needs attention')),

@@ -739,6 +739,17 @@ const Map<String, String> romanUrdu = {
       'Farm ne filhal delivery band ki hui hai, is liye le jane ko kuch nahi. Master ke dobara chalu karte hi ye safha phir bhar jayega.',
   'Particulars': 'Tafseel',
 
+  // ---- What the co-founders have in ----
+  'Put in from their pockets': 'Apni jeb se lagaya',
+  'Profit left in the farm': 'Profit jo farm me chhora',
+  'Total investment': 'Kul investment',
+  // These three reach l.t() through StatementKind, so check_words cannot see
+  // them in the source. They are looked up by the same English text all the
+  // same, and without them a whole page falls back to English.
+  'Capital account': 'Hissa-daari ka khaata',
+  'Their stake in the farm': 'Farm me un ka hissa',
+  'Every period settled so far': 'Ab tak ke tamam settle shuda period',
+
   // ---- Writing a category out ----
   'Something else — write it out': 'Koi aur cheez — khud likhen',
   'What is it for?': 'Ye kis cheez ke liye hai?',
