@@ -738,6 +738,7 @@ const Map<String, String> romanUrdu = {
   'The farm has deliveries switched off at the moment, so there is nothing to take out. This screen will fill up again as soon as the master switches them back on.':
       'Farm ne filhal delivery band ki hui hai, is liye le jane ko kuch nahi. Master ke dobara chalu karte hi ye safha phir bhar jayega.',
   'Particulars': 'Tafseel',
+  '%s still to decide': '%s ka faisla baqi hai',
 
   // ---- What the co-founders have in ----
   'Put in from their pockets': 'Apni jeb se lagaya',

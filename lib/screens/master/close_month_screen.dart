@@ -416,10 +416,15 @@ class _DecisionsStepState extends State<_DecisionsStep> {
           ],
 
           const SizedBox(height: 14),
+          // It used to say "Approve all & close the period", which is a
+          // promise it cannot keep: it does not approve anything, and it does
+          // nothing at all until every co-founder has said what they want.
+          // Read that label, press it, watch nothing happen, and the only
+          // conclusion available is that the app is broken.
           PrimaryButton(
-            label: p.nothingToShare
+            label: p.allDecided
                 ? l.t('Close the period')
-                : l.t('Approve all & close the period'),
+                : l.t2('%s still to decide', '${p.undecided.length}'),
             icon: Icons.lock_outline,
             busy: _busy,
             onPressed: p.allDecided ? () => _close(p) : null,
