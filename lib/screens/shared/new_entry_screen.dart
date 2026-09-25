@@ -118,6 +118,27 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       return;
     }
 
+    // Nobody can pay back more than they borrowed. The last instalment is
+    // where this bites: the figure filled in for them is a whole month, the
+    // loan has less than a month left on it, and they press save. Past that
+    // point the farm is owed a negative amount, which is not a thing — and
+    // the extra would sit in the cash with nothing to account for it.
+    //
+    // Not quietly trimmed to fit, either. Somebody typing ten thousand should
+    // be told what is actually owed, rather than handed a receipt for eight
+    // and left to find out later.
+    if (_category == loanRepaidCategory) {
+      final loan = context.read<FarmStore>().loanFor(party);
+      if (loan == null) {
+        toast(context, 'No loan is running against that name.');
+        return;
+      }
+      if (_amount > loan.left) {
+        toast(context, 'Only ${rs(loan.left)} is left on that loan.');
+        return;
+      }
+    }
+
     final store = context.read<FarmStore>();
     final actor = context.read<Session>().actor;
     setState(() => _busy = true);
@@ -210,6 +231,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     style: T.meta.copyWith(color: T.moneyDue),
                   );
                 }
+                // The last instalment is smaller than the rest, and the
+                // button has to say so. Offering a whole month on a loan with
+                // less than a month left is offering a figure that will be
+                // refused on save, which is a strange way to treat somebody
+                // who is finishing paying.
+                final due = loan.instalment < loan.left
+                    ? loan.instalment
+                    : loan.left;
+                final last = due >= loan.left;
                 return RegCard(
                   wash: T.moneyInWash,
                   padding: const EdgeInsets.all(12),
@@ -222,20 +252,21 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'One month comes to ${rs(loan.instalment)}. Change it '
-                        'to whatever is actually being handed over — it comes '
-                        'straight off the loan, and it is not income.',
+                        last
+                            ? 'This is the last of it. Nothing more than '
+                                  '${rs(loan.left)} can go on this loan.'
+                            : 'One month comes to ${rs(due)}. Change it to '
+                                  'whatever is actually being handed over — it '
+                                  'comes straight off the loan, and it is not '
+                                  'income.',
                         style: T.meta,
                       ),
                       const SizedBox(height: 8),
                       GhostButton(
-                        label: 'Fill in ${rs(loan.instalment)}',
+                        label: 'Fill in ${rs(due)}',
                         icon: Icons.south_west,
                         compact: true,
                         onPressed: () {
-                          final due = loan.instalment < loan.left
-                              ? loan.instalment
-                              : loan.left;
                           _total.text = '${due.round()}';
                           _fromTotal();
                         },

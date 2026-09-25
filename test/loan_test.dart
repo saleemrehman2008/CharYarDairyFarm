@@ -229,6 +229,40 @@ void main() {
     });
   });
 
+  group('the last instalment', () {
+    // A lakh over twelve months is 8,333 a month, and twelve of those is
+    // 99,996 — so the last month is not a month, it is whatever is left. The
+    // figure offered has to be that, and nothing bigger than it can be taken:
+    // past the end of a loan the farm is owed a negative amount, which is not
+    // a thing, and the extra would sit in the cash with nothing behind it.
+    num offered(FounderLoan loan) =>
+        loan.instalment < loan.left ? loan.instalment : loan.left;
+
+    test('is whatever is left, not a whole month', () {
+      final nearlyDone = _loan(repaid: 95000);
+      expect(nearlyDone.left, 5000);
+      expect(nearlyDone.instalment, 8333);
+      expect(offered(nearlyDone), 5000);
+    });
+
+    test('an ordinary month is still a whole month', () {
+      expect(offered(_loan(repaid: 8333)), 8333);
+    });
+
+    test('a loan already paid off offers nothing', () {
+      expect(offered(_loan(repaid: 100000)), 0);
+      expect(_loan(repaid: 100000).isCleared, isTrue);
+    });
+
+    test('what is left never goes past the end', () {
+      for (final paid in [0, 8333, 50000, 99999, 100000, 120000]) {
+        final loan = _loan(repaid: paid);
+        expect(loan.left, greaterThanOrEqualTo(0));
+        expect(offered(loan), lessThanOrEqualTo(loan.left));
+      }
+    });
+  });
+
   group('where a loan stands', () {
     test('only one that has been handed over is running', () {
       expect(_loan(state: LoanState.asked).state.isOpen, isFalse);
