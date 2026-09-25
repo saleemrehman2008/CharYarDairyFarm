@@ -35,11 +35,13 @@ class _LoanCardState extends State<LoanCard> {
     final l = L.of(context);
     final loan = widget.loan;
     final asked = loan.state == LoanState.asked;
+    // What it is, rather than what was last written down about it.
+    final standing = loan.standing;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: T.gap),
       child: RegCard(
-        stripe: switch (loan.state) {
+        stripe: switch (standing) {
           LoanState.asked => T.moneyDue,
           LoanState.given => T.moneyGet,
           LoanState.cleared => T.moneyIn,
@@ -59,8 +61,8 @@ class _LoanCardState extends State<LoanCard> {
                   ),
                 ),
                 Tag(
-                  l.t(loan.state.label),
-                  tone: switch (loan.state) {
+                  l.t(standing.label),
+                  tone: switch (standing) {
                     LoanState.asked => TagTone.warn,
                     LoanState.given => TagTone.accent,
                     LoanState.cleared => TagTone.good,
@@ -80,7 +82,25 @@ class _LoanCardState extends State<LoanCard> {
               style: T.meta,
             ),
 
-            if (loan.state == LoanState.given) ...[
+            if (standing == LoanState.cleared) ...[
+              const SizedBox(height: 12),
+              RatioBar(fraction: 1, color: T.moneyIn),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.check_circle, color: T.moneyIn, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l.t2('Paid back in full — %s.', rs(loan.amount)),
+                      style: T.bodyMid,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            if (standing == LoanState.given) ...[
               const SizedBox(height: 12),
               RatioBar(fraction: loan.done, color: T.moneyIn),
               const SizedBox(height: 8),

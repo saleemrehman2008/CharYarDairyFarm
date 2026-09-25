@@ -263,6 +263,38 @@ void main() {
     });
   });
 
+  group('a loan that has been paid off says so', () {
+    // The stored word records what the master did — handed it over — and
+    // nothing goes back to rewrite it when the last instalment lands. An
+    // instalment somebody enters themselves pays a loan off just as truly as
+    // one a close took, so whether it is finished has to be read off the
+    // ledger rather than off that word. Read the word alone and a loan that
+    // is fully paid goes on calling itself running, which is what the farm
+    // was looking at.
+    test('even while the record still says it was handed over', () {
+      final done = _loan(repaid: 100000);
+      expect(done.state, LoanState.given);
+      expect(done.standing, LoanState.cleared);
+      expect(done.standing.isOpen, isFalse);
+    });
+
+    test('one still being paid is still running', () {
+      expect(_loan(repaid: 50000).standing, LoanState.given);
+    });
+
+    test('overpaid is still paid off, not something stranger', () {
+      final over = _loan(repaid: 100499);
+      expect(over.standing, LoanState.cleared);
+      expect(over.left, 0);
+      expect(over.done, 1);
+    });
+
+    test('asking and being turned down are left alone', () {
+      expect(_loan(state: LoanState.asked).standing, LoanState.asked);
+      expect(_loan(state: LoanState.refused).standing, LoanState.refused);
+    });
+  });
+
   group('where a loan stands', () {
     test('only one that has been handed over is running', () {
       expect(_loan(state: LoanState.asked).state.isOpen, isFalse);

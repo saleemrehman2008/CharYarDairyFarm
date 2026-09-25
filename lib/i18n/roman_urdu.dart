@@ -870,6 +870,7 @@ const Map<String, String> romanUrdu = {
   'Handed over.': 'De diya.',
   'Noted.': 'Darj ho gaya.',
   'Paid back': 'Wapas hua',
+  'Paid back in full — %s.': 'Poora wapas ho gaya — %s.',
   'Still owed': 'Abhi baqi',
   'The instalment comes off what they are handed when a period is settled. In a month where nothing goes out there is nothing to take it from, so it waits — and they can pay it in themselves any time.':
       'Kist us me se katt-ti hai jo un ko period band hone per milta hai. Jis mahine kuch bahar hi na jaye, us mahine kaatne ko kuch nahi hota, to kist ruk jati hai — aur wo khud kabhi bhi jama kara sakte hain.',

@@ -90,6 +90,17 @@ class FounderLoan {
 
   bool get isCleared => left <= 0;
 
+  /// Where it stands to look at, which is not always what is written down.
+  ///
+  /// The stored state records what the master did — asked, handed over,
+  /// turned down. Whether it is finished is a different question, and the
+  /// answer is in the ledger: an instalment somebody entered themselves pays
+  /// a loan off just as truly as one a close took, and it does not go back
+  /// and rewrite the record to say so. Read the stored word on its own and a
+  /// loan that is fully paid goes on calling itself running.
+  LoanState get standing =>
+      state == LoanState.given && isCleared ? LoanState.cleared : state;
+
   /// How much of it is behind them, for the bar.
   double get done => amount <= 0 ? 1 : (repaid / amount).clamp(0, 1).toDouble();
 
