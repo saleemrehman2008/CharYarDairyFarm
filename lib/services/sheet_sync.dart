@@ -50,7 +50,9 @@ class SheetSync {
   /// Writing to a spreadsheet the person can already open. Sensitive enough
   /// that Google asks about it once, and no more than is needed: the app can
   /// reach no other file in the account.
-  static const scope = 'https://www.googleapis.com/auth/spreadsheets';
+  /// Declared where the sign-in is, because that is where it is now asked
+  /// for — a second copy of the string is a second thing to get wrong.
+  static const scope = AuthService.sheetsScope;
 
   static const _api = 'https://sheets.googleapis.com/v4/spreadsheets';
 

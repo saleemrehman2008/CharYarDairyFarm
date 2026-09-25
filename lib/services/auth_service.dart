@@ -15,6 +15,20 @@ class AuthService {
   static final _auth = FirebaseAuth.instance;
   static bool _initialised = false;
 
+  /// Writing the farm's books into the Google Sheet.
+  ///
+  /// Asked for during sign-in rather than afterwards. Google treats knowing
+  /// who somebody is and writing to their spreadsheet as two separate
+  /// permissions, and asked separately they are two separate trips through
+  /// the account picker and the consent screen — four screens to sign in
+  /// once, which is what the farm was seeing. Asking at sign-in folds them
+  /// into one.
+  ///
+  /// It is a hint and not a promise: a person can still be signed in without
+  /// having granted it, which is why the Sheet mirror goes on checking rather
+  /// than assuming.
+  static const sheetsScope = 'https://www.googleapis.com/auth/spreadsheets';
+
   static User? get currentUser => _auth.currentUser;
   static Stream<User?> authState() => _auth.authStateChanges();
 
@@ -43,7 +57,7 @@ class AuthService {
       final google = GoogleSignIn.instance;
       if (!google.supportsAuthenticate()) return await _browserFallback();
 
-      final account = await google.authenticate();
+      final account = await google.authenticate(scopeHint: const [sheetsScope]);
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         // No id token means the web client id never reached the app.
