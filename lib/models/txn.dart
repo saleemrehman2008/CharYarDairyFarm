@@ -80,7 +80,18 @@ enum TxnType {
     //
     // Money coming in against something already booked is taken in from the
     // ledger: pick the name, tick what they are paying for, take it in.
-    TxnType.receipt => const [advanceCategory, 'Other receipt'],
+    // A loan instalment is offered here, unlike a khaata receipt, and the
+    // difference is what happens if it is typed against the wrong name. A
+    // khaata receipt tied to nothing reads as fresh income and the books
+    // count the same rupee twice. A loan repayment is never income whatever
+    // it is tied to — it only ever moves the cash and what is owed — so the
+    // worst a mistake can do here is put a figure in the wrong person's row,
+    // which is visible and correctable.
+    TxnType.receipt => const [
+      advanceCategory,
+      loanRepaidCategory,
+      'Other receipt',
+    ],
     // Deliberately short. A payment settles something the books already
     // know about; it is not the place to record what the money was for. Rent,
     // salaries and bills used to be offered here as well as under Expense,

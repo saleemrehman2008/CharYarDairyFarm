@@ -189,6 +189,63 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               _capital = capital;
             }),
           ),
+          // A loan instalment. The figure is filled in for them and stays
+          // theirs to change: somebody who can spare more this month should
+          // not have to work out what more means, and somebody who can spare
+          // less should not have to skip the whole thing.
+          if (_category == loanRepaidCategory) ...[
+            const SizedBox(height: 8),
+            Builder(
+              builder: (context) {
+                final loan = context.watch<FarmStore>().loanFor(
+                  _party.text.trim(),
+                );
+                if (loan == null) {
+                  return Text(
+                    _party.text.trim().isEmpty
+                        ? 'Put the name in and the instalment fills itself.'
+                        : 'No loan running against that name. Money taken in '
+                              'here comes off a loan — if this is something '
+                              'else, pick another kind of entry.',
+                    style: T.meta.copyWith(color: T.moneyDue),
+                  );
+                }
+                return RegCard(
+                  wash: T.moneyInWash,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${loan.name} · ${rs(loan.left)} still owed',
+                        style: T.bodyMid,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'One month comes to ${rs(loan.instalment)}. Change it '
+                        'to whatever is actually being handed over — it comes '
+                        'straight off the loan, and it is not income.',
+                        style: T.meta,
+                      ),
+                      const SizedBox(height: 8),
+                      GhostButton(
+                        label: 'Fill in ${rs(loan.instalment)}',
+                        icon: Icons.south_west,
+                        compact: true,
+                        onPressed: () {
+                          final due = loan.instalment < loan.left
+                              ? loan.instalment
+                              : loan.left;
+                          _total.text = '${due.round()}';
+                          _fromTotal();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
           if (_isAsset && !_type.isSettlement) ...[
             const SizedBox(height: 6),
             Text(

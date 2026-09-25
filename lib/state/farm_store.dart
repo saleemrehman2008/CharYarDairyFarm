@@ -554,6 +554,22 @@ class FarmStore extends ChangeNotifier implements RoundData {
       ),
   ];
 
+  /// The loan running against a name, however it is spelled.
+  ///
+  /// By name rather than by id, because this is asked from the entry form
+  /// where somebody has typed a name and not picked a person.
+  FounderLoan? loanFor(String party) {
+    if (party.trim().isEmpty) return null;
+    for (final loan in loans) {
+      if (loan.state.isOpen &&
+          !loan.isCleared &&
+          partyKey(loan.name) == partyKey(party)) {
+        return loan;
+      }
+    }
+    return null;
+  }
+
   /// The loan one co-founder is still paying off, if there is one.
   FounderLoan? runningLoanFor(String partnerId) {
     for (final loan in loans) {

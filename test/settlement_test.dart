@@ -270,6 +270,45 @@ void main() {
       expect(TxnType.receipt.categories, contains('Other receipt'));
     });
 
+    test(
+      'but a loan instalment is, and the difference is what a mistake costs',
+      () {
+        // A khaata receipt typed against the wrong name reads as fresh income
+        // and the books count the same rupee twice — invisibly, because the
+        // cash and the income go up together and the balance check sees
+        // nothing. A loan repayment is never income whatever it is tied to: it
+        // only moves the cash and what is owed. The worst a mistake can do is
+        // put a figure in the wrong person's row, where somebody can see it.
+        expect(TxnType.receipt.categories, contains(loanRepaidCategory));
+
+        final back = Txn(
+          id: 'r1',
+          date: DateTime(2026, 10, 3),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Ghulam Ali',
+          category: loanRepaidCategory,
+          amount: 8333,
+          paid: true,
+          paidOnCreate: true,
+          note: '',
+          createdBy: 'u',
+          createdAt: DateTime(2026, 10, 3),
+        );
+        expect(back.isLoanBack, isTrue);
+        expect(
+          back.isLooseReceipt,
+          isFalse,
+          reason: 'the farm is getting its own money back, not earning it',
+        );
+      },
+    );
+
+    test('the money the farm lends is not offered as a cost either', () {
+      expect(TxnType.expense.categories, isNot(contains(founderLoanCategory)));
+      expect(TxnType.purchase.categories, isNot(contains(founderLoanCategory)));
+    });
+
     test('and neither is anything else the app posts on its own', () {
       expect(TxnType.expense.categories, isNot(contains(writeOffCategory)));
       expect(TxnType.payment.categories, isNot(contains(profitShareCategory)));
