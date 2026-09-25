@@ -223,7 +223,7 @@ class _SealStepState extends State<_SealStep> {
 
           PrimaryButton(
             label: profitToShare > 0
-                ? l.t('Send to co-founders')
+                ? l.t('Freeze the figures')
                 : l.t('End this period'),
             icon: profitToShare > 0 ? Icons.send_outlined : Icons.lock_outline,
             busy: _busy,
@@ -232,10 +232,10 @@ class _SealStepState extends State<_SealStep> {
           const SizedBox(height: 10),
           Text(
             l.t(
-              'The figures freeze the moment you send it. Everything sold or '
-              'spent after this belongs to the next period, whatever the date '
-              'says — so a co-founder answering in two days sees exactly what '
-              'you are looking at now.',
+              'The figures freeze here. Everything sold or spent after this '
+              'belongs to the next period, whatever the date says. Nothing is '
+              'handed out yet — that is the next step, where you say how much '
+              'of it goes out and how much stays in the farm.',
             ),
             style: T.meta,
           ),
@@ -279,16 +279,17 @@ class _SealStepState extends State<_SealStep> {
       title: l.t2('Freeze %s?', periodLabel(store.month)),
       body: profitToShare > 0
           ? l.t3(
-              '%s goes out to %s co-founders to decide on.\n\nFrom this '
-              'moment the figures cannot change, and every new entry — even '
-              'one dated today — belongs to the next period.',
+              '%s is cut into %s shares and held there.\n\nFrom this moment '
+              'the figures cannot change, and every new entry — even one '
+              'dated today — belongs to the next period. Nothing is paid out '
+              'until you close it.',
               rs(profitToShare),
               store.partners.length,
             )
           : l.t(
-              'There is nothing to share, so nobody is asked to decide.\n\n'
-              'From this moment the figures cannot change, and every new '
-              'entry — even one dated today — belongs to the next period.',
+              'There is nothing to share this time.\n\nFrom this moment the '
+              'figures cannot change, and every new entry — even one dated '
+              'today — belongs to the next period.',
             ),
       confirmLabel: profitToShare > 0 ? l.t('Send') : l.t('End it'),
     );

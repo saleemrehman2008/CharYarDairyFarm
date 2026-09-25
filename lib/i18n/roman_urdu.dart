@@ -876,4 +876,12 @@ const Map<String, String> romanUrdu = {
   'Running': 'Chal raha hai',
   'Paid off': 'Chukta ho gaya',
   'Not given': 'Nahi diya',
+  // ---- Freezing the figures ----
+  'Freeze the figures': 'Figures jama den',
+  'The figures freeze here. Everything sold or spent after this belongs to the next period, whatever the date says. Nothing is handed out yet — that is the next step, where you say how much of it goes out and how much stays in the farm.':
+      'Figures yahin jam jate hain. Is ke baad jo bhi becha ya kharch hua wo agle period ka hai, tareekh chahe jo kahe. Abhi kisi ko kuch diya nahi ja raha — wo agla qadam hai, jahan aap batate hain ke kitna bahar jayega aur kitna farm me rahega.',
+  '%s is cut into %s shares and held there.\n\nFrom this moment the figures cannot change, and every new entry — even one dated today — belongs to the next period. Nothing is paid out until you close it.':
+      '%s ko %s hisson me kaat kar rakh diya jayega.\n\nIs waqt ke baad figures nahi badal sakte, aur har nayi entry — chahe aaj ki tareekh ki ho — agle period ki hai. Jab tak aap band nahi karte, kisi ko kuch nahi diya jayega.',
+  'There is nothing to share this time.\n\nFrom this moment the figures cannot change, and every new entry — even one dated today — belongs to the next period.':
+      'Is bar baantne ko kuch nahi hai.\n\nIs waqt ke baad figures nahi badal sakte, aur har nayi entry — chahe aaj ki tareekh ki ho — agle period ki hai.',
 };
