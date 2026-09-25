@@ -49,7 +49,122 @@ MonthShare _share(String partnerId, num amount, {num taken = 0}) => MonthShare(
 
 String _label(FarmMonth m) => m.id;
 
+var _t = 0;
+
+Txn _loanTxn({
+  required TxnType type,
+  required num amount,
+  required String category,
+  String party = 'Saleem Rehman',
+  int day = 25,
+}) => Txn(
+  id: 'n${_t++}',
+  date: DateTime(2026, 9, day),
+  monthId: '2026-09',
+  type: type,
+  party: party,
+  category: category,
+  amount: amount,
+  paid: true,
+  paidOnCreate: true,
+  note: '',
+  createdBy: 'u',
+  createdByName: 'Saleem Rehman',
+  createdAt: DateTime(2026, 9, day),
+);
+
 void main() {
+  group('a co-founder s loan account', () {
+    // The whole reason it needs a page of its own: the money going out is a
+    // payment and every instalment back is a receipt, so no filter catches
+    // both. Asking for the repayments gave a list with no loan above it —
+    // six credits, no debit, and nothing to say what any of it was against.
+    final ledger = [
+      _loanTxn(
+        type: TxnType.payment,
+        amount: 100000,
+        category: founderLoanCategory,
+        day: 25,
+      ),
+      _loanTxn(
+        type: TxnType.receipt,
+        amount: 8333,
+        category: loanRepaidCategory,
+        day: 26,
+      ),
+      _loanTxn(
+        type: TxnType.receipt,
+        amount: 50000,
+        category: loanRepaidCategory,
+        day: 27,
+      ),
+      // Somebody else's milk, and somebody else's loan.
+      _loanTxn(type: TxnType.sale, amount: 16000, category: 'Milk'),
+      _loanTxn(
+        type: TxnType.payment,
+        amount: 40000,
+        category: founderLoanCategory,
+        party: 'Ghulam Ali',
+      ),
+    ];
+    final him = _p('p1', 'Saleem Rehman', invested: 1000000);
+    final s = loanAccount(partner: him, rows: ledger);
+
+    test('both halves are on the page', () {
+      expect(s.lines.length, 3);
+      expect(s.lines.first.debit, 100000, reason: 'the loan itself');
+      expect(s.lines[1].credit, 8333);
+      expect(s.lines[2].credit, 50000);
+    });
+
+    test('it closes at what is still owed', () {
+      expect(s.closing, 100000 - 8333 - 50000);
+      expect(s.kind, StatementKind.loan);
+      expect(s.kind.footLabel, 'Still owed');
+    });
+
+    test('nothing that is not a loan is on it', () {
+      expect(s.lines.any((l) => l.detail.contains('Milk')), isFalse);
+    });
+
+    test("and neither is anybody else's", () {
+      expect(s.lines.every((l) => l.party == 'Saleem Rehman'), isTrue);
+      expect(
+        loanAccount(
+          partner: _p('p2', 'Ghulam Ali', invested: 2000000),
+          rows: ledger,
+        ).closing,
+        40000,
+      );
+    });
+
+    test('the two columns and the running figure agree', () {
+      expect(s.debits - s.credits, s.closing - s.opening);
+    });
+
+    test('paid off in full closes at nothing', () {
+      final done = [
+        ...ledger,
+        _loanTxn(
+          type: TxnType.receipt,
+          amount: 41667,
+          category: loanRepaidCategory,
+          day: 28,
+        ),
+      ];
+      expect(loanAccount(partner: him, rows: done).closing, 0);
+    });
+
+    test('a co-founder who has never borrowed has an empty page', () {
+      final s = loanAccount(
+        partner: _p('p9', 'Asif Soomro', invested: 1500000),
+        rows: ledger,
+      );
+      expect(s.isEmpty, isTrue);
+      expect(s.closing, 0);
+    });
+  });
+
   group('a year of keeping it all in', () {
     final periods = [
       _closed(id: '2026-09', month: 9, shares: [_share('p1', 148000)]),

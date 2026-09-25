@@ -49,6 +49,13 @@ class _StatementScreenState extends State<StatementScreen> {
   /// wrong to.
   bool _everything = false;
 
+  /// Which of a co-founder's accounts is on the page.
+  ///
+  /// They have two with the farm and they are not the same thing: what the
+  /// farm has earned in their name, and what they have borrowed off it. Put
+  /// on one page the running column would be neither.
+  bool _theirLoan = false;
+
   /// Shut to begin with. The whole account is what is wanted nine times out of
   /// ten, and a date box open on arrival is a question nobody asked.
   bool _datesOpen = false;
@@ -73,7 +80,9 @@ class _StatementScreenState extends State<StatementScreen> {
   /// dates it has not honoured.
   String _periodLine(L l) {
     if (_founder(context.read<FarmStore>()) != null) {
-      return l.t('Every period settled so far');
+      return _theirLoan
+          ? l.t('The whole loan, from the day it was handed over')
+          : l.t('Every period settled so far');
     }
     return _range == null
         ? l.t('Everything, from the start')
@@ -108,12 +117,24 @@ class _StatementScreenState extends State<StatementScreen> {
     final l = L.of(context);
 
     final founder = _founder(store);
+    // Only worth offering the second account to somebody who has one.
+    final hasLoan =
+        founder != null &&
+        store.ledger.any(
+          (t) =>
+              (t.isLoanOut || t.isLoanBack) &&
+              partyKey(t.party) == partyKey(founder.name),
+        );
+    final onLoan = founder != null && _theirLoan && hasLoan;
+
     final statement = founder != null
-        ? profitAccount(
-            partner: founder,
-            periods: store.settledPeriods,
-            label: (m) => periodLabel(m, short: true),
-          )
+        ? onLoan
+              ? loanAccount(partner: founder, rows: store.ledger)
+              : profitAccount(
+                  partner: founder,
+                  periods: store.settledPeriods,
+                  label: (m) => periodLabel(m, short: true),
+                )
         : buildStatement(
             rows: store.ledger,
             party: _party,
@@ -175,6 +196,16 @@ class _StatementScreenState extends State<StatementScreen> {
           ),
           // One person's own page carries everything of theirs already, so
           // this is only worth offering on the farm's own.
+          // Two accounts, two pages. A co-founder who has never borrowed
+          // sees neither this nor the question.
+          if (hasLoan) ...[
+            const SizedBox(height: 8),
+            Segmented<bool>(
+              value: _theirLoan,
+              options: [(false, l.t('Profit')), (true, l.t('Loan'))],
+              onChanged: (v) => setState(() => _theirLoan = v),
+            ),
+          ],
           if (founder == null && _party == null) ...[
             const SizedBox(height: 8),
             SwitchRow(
@@ -359,12 +390,16 @@ class _StatementScreenState extends State<StatementScreen> {
     setState(() => _busy = true);
     try {
       await StatementPaper.sharePdf(
+        // Whatever is on the screen is what goes on the paper. Working it
+        // out a second time here is how the two drift apart.
         statement: _founder(store) != null
-            ? profitAccount(
-                partner: _founder(store)!,
-                periods: store.settledPeriods,
-                label: (m) => periodLabel(m, short: true),
-              )
+            ? (_theirLoan
+                  ? loanAccount(partner: _founder(store)!, rows: store.ledger)
+                  : profitAccount(
+                      partner: _founder(store)!,
+                      periods: store.settledPeriods,
+                      label: (m) => periodLabel(m, short: true),
+                    ))
             : buildStatement(
                 rows: store.ledger,
                 party: _party,

@@ -11,6 +11,16 @@ enum StatementKind {
   cashBook('Cash book', 'Cash in hand'),
   capital('Profit account', 'Kept in the farm'),
 
+  /// What one co-founder has borrowed and what has come back.
+  ///
+  /// Its own page because it is its own account, and because neither half of
+  /// it can be found by narrowing the others: the money going out is a
+  /// payment and every instalment coming back is a receipt, so any filter
+  /// that catches one loses the other. Ask for the lot and you get a list of
+  /// repayments with no loan above them, which is what the farm was looking
+  /// at and is no use to anybody.
+  loan('Loan account', 'Still owed'),
+
   /// Narrowed to one kind of entry, or one category, or both.
   ///
   /// It has to be its own thing, because once part of the account is hidden
@@ -406,5 +416,65 @@ Statement profitAccount({
     credits: credits,
     forOneParty: true,
     kind: StatementKind.capital,
+  );
+}
+
+/// What one co-founder has borrowed off the farm, and what has come back.
+///
+/// The third account a founder has, after the profit and whatever they trade.
+/// It is built from the ledger, unlike the profit account, because both
+/// halves of a loan are real rupees moving and the ledger is where rupees
+/// moving are written down.
+///
+/// Money going out is a debit — they owe more. An instalment is a credit —
+/// they owe less. The closing figure is what is still owed, and it is the
+/// same figure the loan card shows, arrived at the other way round.
+Statement loanAccount({required Partner partner, required List<Txn> rows}) {
+  final key = partyKey(partner.name);
+  final mine =
+      rows
+          .where((t) => !t.isDeleted)
+          .where((t) => t.isLoanOut || t.isLoanBack)
+          .where((t) => partyKey(t.party) == key)
+          .toList()
+        ..sort((a, b) {
+          final byDate = a.date.compareTo(b.date);
+          return byDate != 0 ? byDate : a.createdAt.compareTo(b.createdAt);
+        });
+
+  num balance = 0;
+  num debits = 0;
+  num credits = 0;
+  final lines = <StatementLine>[];
+
+  for (final t in mine) {
+    final out = t.isLoanOut;
+    balance += out ? t.amount : -t.amount;
+    if (out) {
+      debits += t.amount;
+    } else {
+      credits += t.amount;
+    }
+    lines.add(
+      StatementLine(
+        date: t.date,
+        party: t.party,
+        detail: _detail(t),
+        enteredBy: t.createdByName,
+        debit: out ? t.amount : 0,
+        credit: out ? 0 : t.amount,
+        balance: balance,
+      ),
+    );
+  }
+
+  return Statement(
+    lines: lines,
+    opening: 0,
+    closing: balance,
+    debits: debits,
+    credits: credits,
+    forOneParty: true,
+    kind: StatementKind.loan,
   );
 }
