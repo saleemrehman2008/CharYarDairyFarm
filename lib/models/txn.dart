@@ -165,6 +165,30 @@ const founderLoanCategory = 'Founder loan';
 /// a share of a rupee that was never made.
 const loanRepaidCategory = 'Loan repayment';
 
+/// Categories the app posts for itself, and nobody types by hand.
+///
+/// Each of these is written as one half of something the books already
+/// understand: a collection against an entry, a founder's slice at a close, an
+/// animal coming off the register, money lent through the loan it belongs to.
+/// Typed loose, each one is the same money counted a second time or a figure
+/// with no arrangement behind it.
+///
+/// Keeping them off the fixed lists was never enough. The entry form also
+/// offers back every heading the books already carry, so that a word written
+/// once is a tap from then on — and that read them straight out of the ledger
+/// and handed them back, which is how "Profit share" turned up as something to
+/// pick on the payment form.
+///
+/// An advance and a loan instalment are deliberately absent from this set:
+/// both are ordinary things a person does at a counter, and both are safe to
+/// type because neither can ever be read as income or as a cost.
+const appPostedCategories = {
+  khaataReceiptCategory,
+  profitShareCategory,
+  writeOffCategory,
+  founderLoanCategory,
+};
+
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
 

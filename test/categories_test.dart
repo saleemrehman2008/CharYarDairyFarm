@@ -93,6 +93,57 @@ void main() {
     });
   });
 
+  group('what the app posts for itself', () {
+    // The fixed lists have never offered these. What did offer them was the
+    // entry form's other half: it hands back every heading the books already
+    // carry, so a word written once is a tap from then on — and it read them
+    // straight out of the ledger, where the app's own entries live. That is
+    // how "Profit share" turned up as something to pick on the payment form.
+    test('they are named in one place', () {
+      expect(
+        appPostedCategories,
+        containsAll([
+          khaataReceiptCategory,
+          profitShareCategory,
+          writeOffCategory,
+          founderLoanCategory,
+        ]),
+      );
+    });
+
+    test('and none of them is on a fixed list', () {
+      for (final type in TxnType.values) {
+        for (final own in appPostedCategories) {
+          expect(
+            type.categories,
+            isNot(contains(own)),
+            reason: '$own is offered on the ${type.label} form',
+          );
+        }
+      }
+    });
+
+    test('an advance is not one of them, and neither is an instalment', () {
+      // Both are ordinary things somebody does at a counter, and both are
+      // safe to type: neither can ever be read as income or as a cost.
+      expect(appPostedCategories, isNot(contains(advanceCategory)));
+      expect(appPostedCategories, isNot(contains(advanceReturnCategory)));
+      expect(appPostedCategories, isNot(contains(loanRepaidCategory)));
+    });
+
+    test('the books still carry them, which is why the filter is needed', () {
+      // They have to stay readable — a report on what the farm lent out is a
+      // fair question. They just must not come back as something to write.
+      final rows = [
+        _txn(type: TxnType.payment, category: founderLoanCategory),
+        _txn(type: TxnType.payment, category: 'Supplier payment'),
+      ];
+      final used = categoriesUsed(rows)[TxnType.payment] ?? const [];
+      expect(used, contains(founderLoanCategory));
+      expect(used, contains('Supplier payment'));
+    });
+  });
+
   group('kept or spent', () {
     test('a listed asset is still an asset with nothing said about it', () {
       expect(

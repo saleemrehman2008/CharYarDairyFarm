@@ -66,6 +66,14 @@ class _CategoryFieldState extends State<CategoryField> {
     final extra =
         seen
             .where((c) => !listed.any((b) => partyKey(b) == partyKey(c)))
+            // The books carry what the app wrote for itself as well as what
+            // people typed, and handing those back turns a figure the app is
+            // responsible for into one anybody can post loose.
+            .where(
+              (c) => !appPostedCategories.any(
+                (own) => partyKey(own) == partyKey(c),
+              ),
+            )
             .toList()
           ..sort();
 
@@ -253,10 +261,18 @@ class _WriteOutSheetState extends State<_WriteOutSheet> {
 
     // Every word the books carry, on any tab, because the point of showing
     // them is to stop a second spelling of one that already exists.
-    final all = <String>{
-      for (final type in TxnType.values) ...type.categories,
-      for (final list in store.categoryBook.values) ...list,
-    }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final all =
+        <String>{
+              for (final type in TxnType.values) ...type.categories,
+              for (final list in store.categoryBook.values) ...list,
+            }
+            .where(
+              (c) => !appPostedCategories.any(
+                (own) => partyKey(own) == partyKey(c),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     final hits = needle.isEmpty
         ? const <String>[]
