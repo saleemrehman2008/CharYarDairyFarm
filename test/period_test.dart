@@ -90,123 +90,121 @@ void main() {
     });
   });
 
-  group('what a co-founder decides', () {
-    MonthShare fresh() => const MonthShare(
+  group('what a co-founder is handed', () {
+    MonthShare fresh({num share = 150000}) => MonthShare(
       partnerId: 'p1',
       name: 'Bilal Ahmed',
       ratio: 0.3,
-      share: 150000,
-      choice: 'reinvest',
+      share: share,
     );
 
-    test('starts undecided, and a period cannot close on it', () {
+    test('nothing out leaves the whole slice in the farm', () {
+      final handed = fresh().handing(0);
+      expect(handed.taken, 0);
+      expect(handed.held, 150000);
+      expect(handed.isLoss, isFalse);
+    });
+
+    test('part of it out leaves the rest in', () {
+      final handed = fresh().handing(50000);
+      expect(handed.taken, 50000);
+      expect(handed.held, 100000);
+    });
+
+    test('all of it out leaves nothing in', () {
+      final handed = fresh().handing(150000);
+      expect(handed.held, 0);
+    });
+
+    test('a loss is a slice like any other, pointing the other way', () {
+      final bad = fresh(share: -60000);
+      expect(bad.isLoss, isTrue);
+      expect(bad.taken, 0);
+      expect(bad.held, -60000);
+    });
+
+    test('the period adds up what went out and what stayed', () {
       final period = FarmMonth(
         id: '2026-09',
-        status: 'sealed',
+        status: 'closed',
         openingCash: 0,
-        shares: [fresh()],
-      );
-      expect(period.allDecided, isFalse);
-      expect(period.undecided.single.name, 'Bilal Ahmed');
-    });
-
-    test('taking part of it leaves the rest as investment', () {
-      final decided = fresh().decide(withdraw: 50000, by: 'u1');
-      expect(decided.withdraw, 50000);
-      expect(decided.reinvest, 100000);
-      expect(decided.choice, 'split');
-      expect(decided.decided, isTrue);
-      expect(decided.byPhone, isFalse);
-    });
-
-    test('taking nothing puts the whole share back into the farm', () {
-      final decided = fresh().decide(withdraw: 0, by: 'u1');
-      expect(decided.reinvest, 150000);
-      expect(decided.isReinvested, isTrue);
-      expect(decided.choice, 'reinvest');
-    });
-
-    test('nobody can take more than their share', () {
-      final decided = fresh().decide(withdraw: 999999, by: 'u1');
-      expect(decided.withdraw, 150000);
-      expect(decided.reinvest, 0);
-      expect(decided.takesAll, isTrue);
-    });
-
-    test('the master entering it is recorded as second hand', () {
-      final decided = fresh().decide(
-        withdraw: 50000,
-        by: 'master',
-        byPhone: true,
-      );
-      expect(decided.byPhone, isTrue);
-      expect(decided.decidedBy, 'master');
-    });
-
-    test('the period adds up what is going out and what is staying', () {
-      final period = FarmMonth(
-        id: '2026-09',
-        status: 'sealed',
-        openingCash: 0,
+        sharedPercent: 40,
         shares: [
-          fresh().decide(withdraw: 50000, by: 'a'),
+          fresh().handing(50000),
           const MonthShare(
             partnerId: 'p2',
             name: 'Adnan Khan',
             ratio: 0.25,
             share: 125000,
-            choice: 'reinvest',
-          ).decide(withdraw: 125000, by: 'b'),
+          ).handing(125000),
         ],
       );
-      expect(period.allDecided, isTrue);
-      expect(period.totalWithdraw, 175000);
-      expect(period.totalReinvest, 100000);
+      expect(period.totalTaken, 175000);
+      expect(period.totalHeld, 100000);
+      expect(period.sharedPercent, 40);
+    });
+
+    test('who has seen the figures is recorded, and blocks nothing', () {
+      final period = FarmMonth(
+        id: '2026-09',
+        status: 'closed',
+        openingCash: 0,
+        shares: [fresh()],
+        seen: {'p1': DateTime(2026, 10, 1)},
+      );
+      expect(period.seenBy('p1'), isTrue);
+      expect(period.seenBy('p2'), isFalse);
+      expect(period.notSeen, isEmpty);
     });
   });
 
-  group('a period that made nothing still closes', () {
+  group('a period that lost money still closes', () {
     // A farm that spent more than it sold this month is an ordinary thing.
     // The books have to roll forward whatever the figure says, so a loss must
-    // not be able to jam the settling-up shut.
+    // not be able to jam the settling-up shut — and, since version 2, it must
+    // not quietly vanish off four people's accounts either.
     FarmMonth atLoss() => FarmMonth(
       id: '2026-09',
       status: 'sealed',
       openingCash: 0,
+      profit: -377960,
       profitShared: -377960,
       shares: const [
         MonthShare(
           partnerId: 'p1',
           name: 'Saleem Rehman',
           ratio: 0.24,
-          share: 0,
-          choice: 'reinvest',
+          share: -90710,
         ),
         MonthShare(
           partnerId: 'p2',
           name: 'Ghulam Ali',
           ratio: 0.48,
-          share: 0,
-          choice: 'reinvest',
+          share: -181421,
         ),
       ],
     );
 
-    test('has nothing to hand out', () {
+    test('it knows it is a loss', () {
+      expect(atLoss().isLoss, isTrue);
       expect(atLoss().nothingToShare, isTrue);
-      expect(atLoss().totalWithdraw, 0);
-      expect(atLoss().totalReinvest, 0);
     });
 
-    test('does not wait on anybody to decide', () {
-      expect(atLoss().allDecided, isTrue);
+    test('nothing is handed out of it', () {
+      expect(atLoss().totalTaken, 0);
     });
 
-    test('a period with real shares still waits', () {
-      final real = FarmMonth(
+    test('but every slice of it lands on somebody', () {
+      expect(atLoss().totalHeld, -272131);
+      expect(atLoss().shares.every((s) => s.isLoss), isTrue);
+    });
+
+    test('a period that made money is not a loss', () {
+      final good = FarmMonth(
         id: '2026-09',
         status: 'sealed',
         openingCash: 0,
+        profit: 500000,
         profitShared: 500000,
         shares: const [
           MonthShare(
@@ -214,30 +212,29 @@ void main() {
             name: 'Saleem Rehman',
             ratio: 0.24,
             share: 120000,
-            choice: 'reinvest',
           ),
         ],
       );
-      expect(real.nothingToShare, isFalse);
-      expect(real.allDecided, isFalse);
+      expect(good.isLoss, isFalse);
+      expect(good.nothingToShare, isFalse);
     });
 
-    test('a farm with no co-founders yet has nothing to wait for', () {
+    test('a farm with no co-founders yet has nothing to hand round', () {
       final none = FarmMonth(id: '2026-09', status: 'sealed', openingCash: 0);
       expect(none.nothingToShare, isTrue);
-      expect(none.allDecided, isTrue);
+      expect(none.totalTaken, 0);
     });
   });
 
   group('a capital record', () {
-    Partner record({num invested = 0, num reinvested = 0, num withdrawn = 0}) =>
+    Partner record({num invested = 0, num held = 0, num withdrawn = 0}) =>
         Partner(
           id: 'p1',
           userId: 'u1',
           name: 'Saleem Rehman',
           email: 'saleem@example.com',
           invested: invested,
-          reinvested: reinvested,
+          profitHeld: held,
           withdrawn: withdrawn,
           createdAt: DateTime(2026),
         );
@@ -249,7 +246,7 @@ void main() {
 
     test('with money in it never can', () {
       expect(record(invested: 1000000).isEmpty, isFalse);
-      expect(record(reinvested: 50000).isEmpty, isFalse);
+      expect(record(held: 50000).isEmpty, isFalse);
       expect(record(withdrawn: 50000).isEmpty, isFalse);
     });
   });
@@ -266,27 +263,42 @@ void main() {
       );
     });
 
-    test('an old all-or-nothing choice still reads as an amount', () {
-      // Periods closed before split decisions existed recorded only the word.
+    test('a version 1 withdrawal still reads as what was handed over', () {
+      // Periods closed under version 1 called it a withdrawal, because the
+      // co-founder had asked for it. Nothing about the money changed.
       final took = MonthShare.fromMap({
         'partnerId': 'p1',
         'name': 'Someone',
         'ratio': 0.5,
         'share': 80000,
-        'choice': 'withdraw',
+        'withdraw': 80000,
       });
-      expect(took.withdraw, 80000);
-      expect(took.reinvest, 0);
+      expect(took.taken, 80000);
+      expect(took.held, 0);
 
       final left = MonthShare.fromMap({
         'partnerId': 'p2',
         'name': 'Someone else',
         'ratio': 0.5,
         'share': 80000,
-        'choice': 'reinvest',
+        'withdraw': 0,
       });
-      expect(left.withdraw, 0);
-      expect(left.reinvest, 80000);
+      expect(left.taken, 0);
+      expect(left.held, 80000);
+    });
+
+    test('a version 1 record reads its profit out of the old field', () {
+      // It was called `reinvested` when it was capital. It is the same money.
+      final old = Partner(
+        id: 'p1',
+        userId: 'u1',
+        name: 'Someone',
+        invested: 1000000,
+        profitHeld: 0,
+        withdrawn: 0,
+        createdAt: DateTime(2026),
+      );
+      expect(old.inTheFarm, 1000000);
     });
   });
 }

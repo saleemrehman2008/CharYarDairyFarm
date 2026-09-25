@@ -9,7 +9,7 @@ import '../models/models.dart';
 enum StatementKind {
   party('Statement of account', 'Balance owed'),
   cashBook('Cash book', 'Cash in hand'),
-  capital('Capital account', 'Their stake in the farm'),
+  capital('Profit account', 'Kept in the farm'),
 
   /// Narrowed to one kind of entry, or one category, or both.
   ///
@@ -318,25 +318,29 @@ String _showing(Set<TxnType>? kinds, String? category) {
   return (owesUs: owesUs, weOwe: weOwe);
 }
 
-/// A co-founder's own account with the farm, written the way an account is.
+/// A co-founder's profit account, written the way an account is written.
 ///
-/// Not the same thing as a customer's statement and it cannot be built from
-/// the ledger, because what a founder put in never passed through it — the
-/// ledger is trading, and capital is not trading. So it is built from the two
-/// places that do know: what they have put in, and what every settled period
-/// handed them.
+/// Their own money is not on it. What somebody put in out of their pocket is
+/// a fixed figure that moves only when they put in more, and mixing it with
+/// the running profit was the thing version 2 was asked to stop: every month
+/// settled used to shift everybody's share of the next one. So the money in
+/// their pocket decides the share, and this page is only about what the farm
+/// has earned in their name.
 ///
-/// It reads down like any other statement. What they put in is what the page
-/// opens at. Each settled period credits their share, and what they took out
-/// of it is debited on the next line. The closing figure is what they have in
-/// the farm today — and it has to come out at what they put in plus every
-/// rupee of profit they have left in, which is the one thing four friends
-/// will want to check.
+/// It cannot be built from the ledger, because none of it went through the
+/// ledger — a share that stays in the farm moves no rupee at all, it is a
+/// label put on cash that is already there. So it is built from what every
+/// settled period handed them.
+///
+/// Each closed period credits their slice and debits whatever was handed
+/// over. A period that lost money debits their part of the loss, and if the
+/// losses run past what has been earned the balance goes below zero and stays
+/// there: Saleem was asked directly and was plain about it.
 ///
 /// A period that is sealed but not yet closed is deliberately absent. Nothing
-/// has been decided and nothing has been handed over; putting it here would
-/// be promising somebody money the four of them have not finished settling.
-Statement capitalAccount({
+/// has been settled and nothing handed over, and putting it here would be
+/// promising money the four of them have not finished settling.
+Statement profitAccount({
   required Partner partner,
   required List<FarmMonth> periods,
   required String Function(FarmMonth) label,
@@ -348,8 +352,7 @@ Statement capitalAccount({
       ),
     );
 
-  final opening = partner.invested;
-  num balance = opening;
+  num balance = 0;
   num debits = 0;
   num credits = 0;
   final lines = <StatementLine>[];
@@ -373,17 +376,21 @@ Statement capitalAccount({
 
   for (final m in settled) {
     final share = m.shareFor(partner.id);
-    if (share == null || share.share <= 0) continue;
+    if (share == null || share.share == 0) continue;
     final on = m.closedAt ?? m.to ?? DateTime(2000);
+    if (share.isLoss) {
+      add(on, 'Loss · ${label(m)}', debit: share.share.abs());
+      continue;
+    }
     add(on, 'Profit share · ${label(m)}', credit: share.share);
-    if (share.withdraw > 0) {
-      add(on, 'Taken out · ${label(m)}', debit: share.withdraw);
+    if (share.taken > 0) {
+      add(on, 'Paid out · ${label(m)}', debit: share.taken);
     }
   }
 
   return Statement(
     lines: lines,
-    opening: opening,
+    opening: 0,
     closing: balance,
     debits: debits,
     credits: credits,

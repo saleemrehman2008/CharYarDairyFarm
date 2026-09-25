@@ -100,7 +100,7 @@ class _StatementScreenState extends State<StatementScreen> {
 
     final founder = _founder(store);
     final statement = founder != null
-        ? capitalAccount(
+        ? profitAccount(
             partner: founder,
             periods: store.settledPeriods,
             label: (m) => periodLabel(m, short: true),
@@ -335,7 +335,7 @@ class _StatementScreenState extends State<StatementScreen> {
     try {
       await StatementPaper.sharePdf(
         statement: _founder(store) != null
-            ? capitalAccount(
+            ? profitAccount(
                 partner: _founder(store)!,
                 periods: store.settledPeriods,
                 label: (m) => periodLabel(m, short: true),

@@ -36,7 +36,7 @@ void main() {
       userId: 'u0',
       name: 'Saleem Rehman',
       invested: 800000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -45,7 +45,7 @@ void main() {
       userId: 'u1',
       name: 'Ghulam Ali',
       invested: 600000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -54,7 +54,7 @@ void main() {
       userId: 'u2',
       name: 'Asif Soomro',
       invested: 400000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -63,7 +63,7 @@ void main() {
       userId: 'u3',
       name: 'Rafeeque Memon',
       invested: 200000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -200,8 +200,8 @@ void main() {
       shareLog.add(
         farm.closePeriod(
           on: lastDay,
-          // One takes it all, one takes half, two leave it in.
-          takeOut: const [1.0, 0.5, 0, 0],
+          // Half of it handed over, the same for all four.
+          percent: 50,
           nextPeriod: month == 3 ? '2027-01' : periods[month + 1],
         ),
       );
@@ -282,12 +282,21 @@ void main() {
       }
     });
 
-    test('leaving it in raises your slice, taking it out lowers it', () {
+    test('four months of settling up has not moved anybody s slice', () {
+      // Under version 1 this read the other way round: profit left in the
+      // farm counted as capital, so whoever left the most in grew, month by
+      // month, at the others' expense. The four of them asked for that to
+      // stop — they mean to keep everything in for a year and buy buffaloes
+      // with it, and a share that drifts underneath them while they do it is
+      // the thing that ends up in an argument.
+      //
+      // The share now comes from what came out of a pocket, and nothing has
+      // come out of a pocket since day one.
       final before = ratiosOf(founders);
       final now = ratiosOf(farm.partnersNow);
-      expect(now['p0']!, lessThan(before['p0']!), reason: 'took it all out');
-      expect(now['p2']!, greaterThan(before['p2']!), reason: 'left it all in');
-      expect(now['p3']!, greaterThan(before['p3']!), reason: 'left it all in');
+      for (final id in before.keys) {
+        expect(now[id], closeTo(before[id]!, 1e-9), reason: id);
+      }
       expect(now.values.fold<double>(0, (a, r) => a + r), closeTo(1, 1e-9));
     });
 
@@ -303,7 +312,7 @@ void main() {
       final leftIn = farm.reinvested.values.fold<num>(0, (a, v) => a + v);
       expect(leftIn, greaterThan(0));
       expect(
-        farm.partnersNow.fold<num>(0, (a, p) => a + p.capital),
+        farm.partnersNow.fold<num>(0, (a, p) => a + p.inTheFarm),
         2000000 + leftIn,
       );
     });

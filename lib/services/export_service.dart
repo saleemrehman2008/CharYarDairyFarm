@@ -174,7 +174,7 @@ class ExportService {
           p.id,
           p.name,
           p.invested,
-          p.reinvested,
+          p.profitHeld,
           p.withdrawn,
           ((ratios[p.id] ?? 0) * 1000).round() / 10,
         ],
@@ -186,9 +186,12 @@ class ExportService {
     final months = snap.docs.map(FarmMonth.fromDoc).toList()
       ..sort((a, b) => a.id.compareTo(b.id));
 
-    String slot(FarmMonth m, int i, bool choice) {
+    // What their slice was, and how much of it they were actually handed.
+    // It used to be the slice and the word they chose; there is no choosing
+    // any more, and what somebody was given is the more useful of the two.
+    String slot(FarmMonth m, int i, bool taken) {
       if (i >= m.shares.length) return '';
-      return choice ? m.shares[i].choice : '${m.shares[i].share}';
+      return taken ? '${m.shares[i].taken}' : '${m.shares[i].share}';
     }
 
     return [

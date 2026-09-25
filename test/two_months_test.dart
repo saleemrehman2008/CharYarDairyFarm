@@ -52,7 +52,7 @@ List<Partner> _partners(List<num> invested, [List<num>? reinvested]) => [
       userId: 'u$i',
       name: 'Founder $i',
       invested: invested[i],
-      reinvested: reinvested == null ? 0 : reinvested[i],
+      profitHeld: reinvested == null ? 0 : reinvested[i],
       withdrawn: 0,
       createdAt: DateTime(2026, 1, 1),
     ),
@@ -248,11 +248,7 @@ void main() {
   // ------------------------------------------------------- settling September
 
   final sepShared = sep.profitToShare(arIncluded: true);
-  final sepShares = shareOut(
-    partners: founders,
-    profitToShare: sepShared,
-    choices: const {},
-  );
+  final sepShares = shareOut(partners: founders, profit: sepShared);
 
   group('settling September', () {
     test('the shares add up to the profit, to the rupee', () {
@@ -267,22 +263,26 @@ void main() {
       expect(sepShares[3].share, 9800, reason: '10 per cent');
     });
 
-    test('nobody can take out more than their share', () {
-      final greedy = sepShares[3].decide(withdraw: 999999, by: 'u3');
-      expect(greedy.withdraw, 9800);
-      expect(greedy.reinvest, 0);
+    test('a slice nobody has handed out yet stays whole in the farm', () {
+      expect(sepShares[0].taken, 0);
+      expect(sepShares[0].held, 39200);
     });
 
-    test('a share nobody has decided on takes nothing', () {
-      expect(sepShares[0].decided, isFalse);
-      expect(sepShares[0].withdraw, 0);
-      expect(sepShares[0].reinvest, 39200);
+    test('what goes out and what stays in always make the share', () {
+      for (final pct in [0, 50, 100]) {
+        for (final s in handOut(sepShares, pct)) {
+          expect(s.taken + s.held, s.share, reason: 'at $pct%');
+        }
+      }
     });
 
-    test('what is taken out and what is left in always make the share', () {
-      for (final s in sepShares) {
-        final half = s.decide(withdraw: s.share / 2, by: 'u');
-        expect(half.withdraw + half.reinvest, s.share);
+    test('the percentage is one figure for all four', () {
+      // Which is what keeps the ratio fair: they all hold back the same
+      // proportion, so nobody has more of their money working in the farm
+      // than their share of it reflects.
+      final handed = handOut(sepShares, 25);
+      for (var i = 0; i < handed.length; i++) {
+        expect(handed[i].taken, (sepShares[i].share * 0.25).round());
       }
     });
   });
@@ -477,29 +477,21 @@ void main() {
       [0, 14700, 19600, 9800],
     );
 
-    // Your slice moves against what everybody else did, not against what
-    // you took. Between them the four left 44,100 in. Leave in more than
-    // your own share of that and your slice grows; leave in less and it
-    // shrinks. Founder 1 took half of his out and his slice still grew,
-    // because half of his was more than 30 per cent of the 44,100.
-    test('leaving more in than the others raises your slice', () {
+    // Under version 1 this is where the slices moved: whoever left in more
+    // than their own share of the pot grew, and whoever left in less shrank.
+    // The four of them asked for that to stop, and it has. What somebody
+    // holds in the farm is theirs and is written down as theirs; it does not
+    // buy them a larger piece of next month.
+    test('what they hold does not move anybody s slice', () {
       final before = ratiosOf(founders);
       final now = ratiosOf(after);
-      const pot = 44100;
-      final left = {'p0': 0, 'p1': 14700, 'p2': 19600, 'p3': 9800};
-
-      for (final id in left.keys) {
-        final fairShare = before[id]! * pot;
-        if (left[id]! > fairShare) {
-          expect(now[id]!, greaterThan(before[id]!), reason: '$id left more');
-        } else {
-          expect(now[id]!, lessThan(before[id]!), reason: '$id left less');
-        }
+      for (final id in before.keys) {
+        expect(now[id]!, closeTo(before[id]!, 1e-9), reason: id);
       }
     });
 
-    test('taking the whole lot out shrinks your slice', () {
-      expect(ratiosOf(after)['p0']!, lessThan(ratiosOf(founders)['p0']!));
+    test('nor does taking the whole lot out', () {
+      expect(ratiosOf(after)['p0']!, closeTo(ratiosOf(founders)['p0']!, 1e-9));
     });
 
     test('if all four leave theirs in, nobody moves', () {
@@ -525,16 +517,12 @@ void main() {
         capital,
         reason: 'the cash only ever knows about this column',
       );
-      expect(after.fold<num>(0, (a, p) => a + p.capital), 2044100);
+      expect(after.fold<num>(0, (a, p) => a + p.inTheFarm), 2044100);
     });
 
     test("October's shares add up to October's profit, to the rupee", () {
       final toShare = oct.profitToShare(arIncluded: true);
-      final shares = shareOut(
-        partners: after,
-        profitToShare: toShare,
-        choices: const {},
-      );
+      final shares = shareOut(partners: after, profit: toShare);
       expect(shares.fold<num>(0, (a, s) => a + s.share), toShare.round());
     });
 
@@ -675,8 +663,7 @@ void main() {
       );
       final shares = shareOut(
         partners: founders,
-        profitToShare: b.profit > 0 ? b.profit : 0,
-        choices: const {},
+        profit: b.profit > 0 ? b.profit : 0,
       );
       expect(shares.every((s) => s.share == 0), isTrue);
     });
@@ -707,27 +694,19 @@ void main() {
       expect(bad.profit, -40000);
       final shares = shareOut(
         partners: founders,
-        profitToShare: bad.profit > 0 ? bad.profit : 0,
-        choices: const {},
+        profit: bad.profit > 0 ? bad.profit : 0,
       );
       expect(shares.every((s) => s.share == 0), isTrue);
       expect(shares.length, 4, reason: 'everybody still gets told');
     });
 
     test('a profit that will not divide still hands out every last rupee', () {
-      final shares = shareOut(
-        partners: _partners([1, 1, 1]),
-        profitToShare: 100,
-        choices: const {},
-      );
+      final shares = shareOut(partners: _partners([1, 1, 1]), profit: 100);
       expect(shares.fold<num>(0, (a, s) => a + s.share), 100);
     });
 
     test('a farm with nobody signed up yet does not fall over', () {
-      expect(
-        shareOut(partners: const [], profitToShare: 5000, choices: const {}),
-        isEmpty,
-      );
+      expect(shareOut(partners: const [], profit: 5000), isEmpty);
     });
 
     test('an animal put back on the farm is owned again', () {

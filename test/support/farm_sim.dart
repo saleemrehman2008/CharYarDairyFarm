@@ -396,7 +396,7 @@ class Farm {
         userId: p.userId,
         name: p.name,
         invested: p.invested,
-        reinvested: reinvested[p.id] ?? 0,
+        profitHeld: reinvested[p.id] ?? 0,
         withdrawn: withdrawn[p.id] ?? 0,
         createdAt: p.createdAt,
       ),
@@ -406,19 +406,19 @@ class Farm {
 
   /// Freeze the period, hand out the shares, open the next one.
   ///
-  /// `takeOut` says what fraction of their slice each founder takes in cash;
-  /// the rest stays in the farm and lifts their share of the next one.
+  /// `percent` is what the master hands over, the same for all four — which
+  /// is what keeps the ratio honest, since everybody then holds back the same
+  /// proportion of what they earned.
   List<MonthShare> closePeriod({
     required DateTime on,
-    required List<double> takeOut,
+    required int percent,
     required String nextPeriod,
   }) {
     final b = books;
     final toShare = b.profit > 0 ? b.profit : 0;
-    final shares = shareOut(
-      partners: partnersNow,
-      profitToShare: toShare,
-      choices: const {},
+    final shares = handOut(
+      shareOut(partners: partnersNow, profit: toShare),
+      percent,
     );
 
     closed.add(
@@ -441,12 +441,11 @@ class Farm {
     period = nextPeriod;
     openingCash = carried;
 
-    for (var i = 0; i < shares.length; i++) {
-      final share = shares[i];
-      final out = (share.share * takeOut[i]).round();
-      final left = share.share - out;
-      if (left > 0) {
-        reinvested[share.partnerId] = (reinvested[share.partnerId] ?? 0) + left;
+    for (final share in shares) {
+      final out = share.taken;
+      if (share.held != 0) {
+        reinvested[share.partnerId] =
+            (reinvested[share.partnerId] ?? 0) + share.held;
       }
       if (out > 0) {
         withdrawn[share.partnerId] = (withdrawn[share.partnerId] ?? 0) + out;

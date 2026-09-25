@@ -357,23 +357,25 @@ service cloud.firestore {
     // A period of trading. The master opens, seals and closes it; the figures
     // written at the seal are his and nobody else may touch them.
     //
-    // The one exception is the decision each co-founder makes about their own
-    // share, and it is exactly that: their own. Decisions are a map keyed by
-    // partner id, so the diff below can insist that a co-founder's write
-    // touches nothing but their own key — the database enforces it, not the
-    // app. The master may write any key, because he enters what a co-founder
-    // tells him on the phone when they have not answered in the app; that
-    // write is stamped byPhone and lands in the activity log with his name.
+    // The one exception is each co-founder saying they have seen a closed
+    // period's figures. It is not a decision and it holds nothing up — the
+    // master closes when he closes. It is the record that all four were shown
+    // what the month came to, which four friends in business need written
+    // down more than they need a veto.
+    //
+    // `seen` is a map keyed by partner id, so the diff below can insist that
+    // a co-founder's write touches nothing but their own key. The database
+    // enforces it, not the app.
     match /months/{id} {
       allow read: if isPartner();
       allow create, delete: if isMaster();
 
       allow update: if isMaster()
         || (isPartner()
-            && resource.data.status == 'sealed'
-            && changedKeys().hasOnly(['decisions'])
-            && request.resource.data.get('decisions', {})
-                 .diff(resource.data.get('decisions', {}))
+            && resource.data.status == 'closed'
+            && changedKeys().hasOnly(['seen'])
+            && request.resource.data.get('seen', {})
+                 .diff(resource.data.get('seen', {}))
                  .affectedKeys()
                  .hasOnly([myPartnerId()]));
     }

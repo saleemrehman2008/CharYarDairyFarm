@@ -256,46 +256,59 @@ class MoneySummary {
   bool get reconciles => (expected - farmMoney).abs() < 1;
 }
 
-/// Whole-rupee shares for a month close, one per partner.
+/// Whole-rupee slices of a period, one per partner.
 ///
-/// Rounding each share on its own would leave a rupee or two unaccounted for —
-/// three partners on a profit of 100 would take 33 each. The leftover goes to
-/// the largest share, so the shares always add up to exactly what was shared.
+/// Takes the profit as it stands, which may be a loss. A loss is split the
+/// same way a profit is and comes back negative — the four of them share what
+/// the farm makes and they share what it loses, and a month that went badly
+/// which left everybody's account untouched would be a month the books had
+/// quietly paid for out of somebody's capital without saying whose.
+///
+/// Rounding each slice on its own would leave a rupee or two unaccounted for —
+/// three partners on a profit of 100 would take 33 each. The odd rupee goes to
+/// the largest slice, so the slices always add up to exactly what was made.
 List<MonthShare> shareOut({
   required List<Partner> partners,
-  required num profitToShare,
-  required Map<String, String> choices,
+  required num profit,
 }) {
   final ratios = ratiosOf(partners);
-  final shares = partners
-      .map(
-        (p) => MonthShare(
-          partnerId: p.id,
-          name: p.name,
-          ratio: ratios[p.id] ?? 0,
-          share: (profitToShare * (ratios[p.id] ?? 0)).round(),
-          choice: choices[p.id] ?? 'withdraw',
-        ),
-      )
-      .toList();
-
+  final shares = [
+    for (final p in partners)
+      MonthShare(
+        partnerId: p.id,
+        name: p.name,
+        ratio: ratios[p.id] ?? 0,
+        share: (profit * (ratios[p.id] ?? 0)).round(),
+      ),
+  ];
   if (shares.isEmpty) return shares;
 
-  final remainder =
-      profitToShare.round() -
-      shares.fold<int>(0, (a, s) => a + s.share.round());
-  if (remainder == 0) return shares;
+  final over =
+      profit.round() - shares.fold<int>(0, (a, s) => a + s.share.round());
+  if (over == 0) return shares;
 
   var biggest = 0;
   for (var i = 1; i < shares.length; i++) {
-    if (shares[i].share > shares[biggest].share) biggest = i;
+    if (shares[i].share.abs() > shares[biggest].share.abs()) biggest = i;
   }
   shares[biggest] = MonthShare(
     partnerId: shares[biggest].partnerId,
     name: shares[biggest].name,
     ratio: shares[biggest].ratio,
-    share: shares[biggest].share + remainder,
-    choice: shares[biggest].choice,
+    share: shares[biggest].share + over,
   );
   return shares;
+}
+
+/// The same slices with a percentage of each handed over.
+///
+/// One percentage for all four, set by the master at the close. Nothing is
+/// handed out of a loss: a negative slice stays whole and goes into that
+/// partner's profit account, where it takes the balance down.
+List<MonthShare> handOut(List<MonthShare> shares, int percent) {
+  final pct = percent.clamp(0, 100);
+  return [
+    for (final s in shares)
+      s.handing(s.share <= 0 ? 0 : (s.share * pct / 100).round()),
+  ];
 }

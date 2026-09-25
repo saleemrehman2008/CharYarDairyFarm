@@ -93,12 +93,12 @@ Txn settlement({
   createdAt: DateTime(2026, 10, 5),
 );
 
-Partner partner(String id, {num invested = 0, num reinvested = 0}) => Partner(
+Partner partner(String id, {num invested = 0, num held = 0}) => Partner(
   id: id,
   userId: 'u$id',
   name: 'Partner $id',
   invested: invested,
-  reinvested: reinvested,
+  profitHeld: held,
   withdrawn: 0,
   createdAt: DateTime(2026, 1, 1),
 );
@@ -1378,14 +1378,18 @@ void main() {
   });
 
   group('share ratios', () {
-    test('follow capital including reinvested profit', () {
+    test('follow what came out of a pocket, and nothing else', () {
+      // Version 1 counted profit left in the farm as capital, so this used to
+      // come out 60/40. It was changed on purpose: the four of them mean to
+      // keep everything in for a year, and a share that moved underneath them
+      // every month while they did it was the thing they asked to stop.
       final partners = [
         partner('a', invested: 300000),
-        partner('b', invested: 100000, reinvested: 100000),
+        partner('b', invested: 100000, held: 100000),
       ];
       final ratios = ratiosOf(partners);
-      expect(ratios['a'], closeTo(0.6, 1e-9));
-      expect(ratios['b'], closeTo(0.4, 1e-9));
+      expect(ratios['a'], closeTo(0.75, 1e-9));
+      expect(ratios['b'], closeTo(0.25, 1e-9));
     });
 
     test('split evenly before anyone has put money in', () {
@@ -1393,29 +1397,18 @@ void main() {
       expect(ratios['a'], closeTo(1 / 3, 1e-9));
     });
 
-    test('shareOut rounds to whole rupees and honours each choice', () {
+    test('shareOut rounds to whole rupees', () {
       final partners = [
         partner('a', invested: 60000),
         partner('b', invested: 40000),
       ];
-      final shares = shareOut(
-        partners: partners,
-        profitToShare: 50001,
-        choices: {'a': 'reinvest'},
-      );
+      final shares = shareOut(partners: partners, profit: 50001);
       expect(shares.map((s) => s.share).toList(), [30001, 20000]);
-      expect(shares.first.isReinvested, isTrue);
-      // Anyone not given a choice defaults to taking the cash.
-      expect(shares.last.choice, 'withdraw');
     });
 
     test('every rupee is handed out, even when it will not divide', () {
       final partners = [partner('a', invested: 1), partner('b', invested: 1)];
-      final shares = shareOut(
-        partners: partners,
-        profitToShare: 101,
-        choices: const {},
-      );
+      final shares = shareOut(partners: partners, profit: 101);
       expect(shares.fold<num>(0, (a, s) => a + s.share), 101);
     });
 
@@ -1425,11 +1418,7 @@ void main() {
         partner('b', invested: 1),
         partner('c', invested: 1),
       ];
-      final shares = shareOut(
-        partners: partners,
-        profitToShare: 100,
-        choices: const {},
-      );
+      final shares = shareOut(partners: partners, profit: 100);
       expect(shares.fold<num>(0, (a, s) => a + s.share), 100);
     });
   });

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
@@ -12,51 +11,45 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
 
-/// One co-founder decides how much of their share to take out.
+/// What a co-founder was handed for a closed period, and their word that they
+/// have seen it.
 ///
-/// The two figures move as the amount is typed, because that is the whole
-/// question: what goes in your pocket, and what stays in the farm. Whatever is
-/// not taken out is added to that co-founder's investment, which raises their
-/// share of the next period.
+/// This screen used to ask them what they wanted doing with their share, and
+/// the master could not close until all four had answered. The four of them
+/// have since agreed to leave the lot in the farm for a year and buy more
+/// buffaloes with it, so the question had the same answer every month and the
+/// close sat waiting on four taps nobody was going to make.
 ///
-/// The master reaches the same screen with [onBehalf] set, to enter what a
-/// co-founder told them on the phone. It is recorded as second hand.
+/// What was worth keeping out of that is not the veto. It is the record: four
+/// friends in business need it written down that every one of them was shown
+/// what the month came to, and when. So the figures are laid out in full and
+/// there is one button, and pressing it changes nothing about the money.
 class ShareDecisionScreen extends StatefulWidget {
   const ShareDecisionScreen({
     super.key,
     required this.periodId,
     required this.partnerId,
-    this.onBehalf = false,
   });
 
   final String periodId;
   final String partnerId;
-
-  /// The master entering it for somebody else, after speaking to them.
-  final bool onBehalf;
 
   @override
   State<ShareDecisionScreen> createState() => _ShareDecisionScreenState();
 }
 
 class _ShareDecisionScreenState extends State<ShareDecisionScreen> {
-  final _amount = TextEditingController();
   bool _busy = false;
-  bool _started = false;
-
-  @override
-  void dispose() {
-    _amount.dispose();
-    super.dispose();
-  }
-
-  num get _withdraw => num.tryParse(_amount.text.trim()) ?? 0;
 
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
     final store = context.watch<FarmStore>();
-    final period = store.sealedPeriod;
+
+    FarmMonth? period;
+    for (final m in store.periods) {
+      if (m.id == widget.periodId) period = m;
+    }
     final share = period?.shareFor(widget.partnerId);
 
     if (period == null || share == null) {
@@ -64,223 +57,186 @@ class _ShareDecisionScreenState extends State<ShareDecisionScreen> {
         title: l.t('Your share'),
         showBack: true,
         body: PageBody(
-          children: [
-            EmptyNote(
-              l.t(
-                'There is nothing to decide right now. The master will send '
-                'the figures when the period is settled.',
-              ),
-            ),
-          ],
+          children: [EmptyNote(l.t('That period is no longer here.'))],
         ),
       );
     }
 
-    // Start on what they already chose, or on nothing if they have not.
-    if (!_started) {
-      _started = true;
-      if (share.decided && share.withdraw > 0) {
-        _amount.text = share.withdraw.round().toString();
-      }
-    }
-
-    final over = _withdraw > share.share;
-    final take = over ? share.share : _withdraw;
-    final keep = share.share - take;
+    final seen = period.seenBy(widget.partnerId);
+    final loss = share.isLoss;
 
     return FarmScaffold(
-      title: widget.onBehalf ? share.name : l.t('Your share'),
+      title: l.t2('%s — your share', periodLabel(period)),
       showBack: true,
       body: PageBody(
         children: [
           HeroCard(
-            label: l.t2('%s share', periodLabel(period, short: true)),
-            value: rs(share.share),
-            note: period.sealedAt == null
-                ? null
-                : l.t2(
-                    'Frozen %s. This figure will not change.',
-                    fmtStamp(period.sealedAt!),
-                  ),
+            label: loss ? l.t('Your share of the loss') : l.t('Your share'),
+            value: rs(share.share.abs()),
+            gradient: T.washOf(loss ? T.moneyOut : T.moneyIn),
+            note: l.t2(
+              'Your %s of what the farm made this period.',
+              '${(share.ratio * 100).toStringAsFixed(1)}%',
+            ),
             trailing: Tag(
-              '${(share.ratio * 100).toStringAsFixed(0)}%',
-              tone: TagTone.accent,
+              seen ? l.t('Seen') : l.t('New'),
+              tone: seen ? TagTone.good : TagTone.warn,
             ),
           ),
-          const SizedBox(height: T.gap),
-
-          // The two columns the farm asked for: what is left of the share,
-          // and what that leaves in the farm. Both move as you type.
-          Row(
-            children: [
-              Expanded(
-                child: StatTile(
-                  label: l.t('You take out'),
-                  value: rs(take),
-                  tone: T.moneyOut,
-                ),
-              ),
-              const SizedBox(width: T.gap),
-              Expanded(
-                child: StatTile(
-                  label: l.t('Stays as investment'),
-                  value: rs(keep),
-                  tone: T.moneyIn,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: T.gap),
+          const SizedBox(height: 20),
 
           RegCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Kicker(l.t('How much do you want to take out?')),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _amount,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                  ],
-                  onChanged: (_) => setState(() {}),
-                  style: T.num22,
-                  decoration: InputDecoration(
-                    prefixText: 'Rs ',
-                    prefixStyle: T.num22.copyWith(color: T.n600),
-                    hintText: '0',
+                Kicker(l.t('The period')),
+                const SizedBox(height: 10),
+                _Row(
+                  label: loss
+                      ? l.t('What the farm lost')
+                      : l.t('What the farm made'),
+                  value: rs((period.profitShared ?? 0).abs()),
+                  tone: loss ? T.moneyOut : T.moneyIn,
+                ),
+                _Row(
+                  label: l.t('Your share of the farm'),
+                  value: '${(share.ratio * 100).toStringAsFixed(1)}%',
+                  tone: T.accent700,
+                ),
+                if (period.sharedPercent != null)
+                  _Row(
+                    label: l.t('Handed out this period'),
+                    value: '${period.sharedPercent}%',
+                    tone: T.n700,
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GhostButton(
-                        label: l.t('Take nothing'),
-                        compact: true,
-                        onPressed: () => setState(() => _amount.text = '0'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: GhostButton(
-                        label: l.t('Take all of it'),
-                        compact: true,
-                        onPressed: () => setState(
-                          () => _amount.text = share.share.round().toString(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  over
-                      ? l.t2(
-                          'Your share is only %s — you cannot take more than '
-                          'that.',
-                          rs(share.share),
-                        )
-                      : keep == 0
-                      ? l.t(
-                          'Taking the whole share. Nothing goes to '
-                          'investment.',
-                        )
-                      : l.t2(
-                          '%s is added to your investment, so your share of '
-                          'the next period goes up.',
-                          rs(keep),
-                        ),
-                  style: T.meta.copyWith(color: over ? T.alert : T.n700),
-                ),
+                const Divider(height: 20),
+                if (loss)
+                  _Row(
+                    label: l.t('Taken off what you had kept'),
+                    value: rs(share.held.abs()),
+                    tone: T.moneyOut,
+                    strong: true,
+                  )
+                else ...[
+                  _Row(
+                    label: l.t('Paid out to you'),
+                    value: rs(share.taken),
+                    tone: T.moneyOut,
+                    strong: true,
+                  ),
+                  _Row(
+                    label: l.t('Kept in the farm, in your name'),
+                    value: rs(share.held),
+                    tone: T.moneyIn,
+                    strong: true,
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: T.pad),
+          const SizedBox(height: T.gap),
 
-          if (widget.onBehalf)
-            Padding(
-              padding: const EdgeInsets.only(bottom: T.pad),
-              child: RegCard(
-                wash: T.moneyDueWash,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l.t('Entering this for someone else'),
-                      style: T.cardTitle.copyWith(color: T.moneyDue),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
+          Text(
+            loss
+                ? l.t(
+                    'A month that loses money is shared the same way a month '
+                    'that makes it — your part of it comes off what you have '
+                    'kept in the farm. Nothing is hidden and nothing is '
+                    'carried quietly.',
+                  )
+                : l.t(
+                    'Whatever is kept in stays yours. It does not change '
+                    'your share of the farm — that comes from what you have '
+                    'put in out of your own pocket, and only moves when you '
+                    'put in more.',
+                  ),
+            style: T.meta,
+          ),
+          const SizedBox(height: 20),
+
+          if (seen)
+            RegCard(
+              wash: T.moneyInWash,
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: T.moneyIn, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
                       l.t2(
-                        'Only do this after speaking to %s. It will be saved '
-                        'as confirmed by phone, with your name on it, and they '
-                        'will be told what was entered.',
-                        share.name,
+                        'You saw this on %s.',
+                        fmtStamp(period.seen[widget.partnerId]!),
                       ),
                       style: T.body,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            )
+          else ...[
+            PrimaryButton(
+              label: l.t('I have seen this'),
+              icon: Icons.check,
+              busy: _busy,
+              onPressed: _busy ? null : () => _seen(period!),
             ),
-
-          PrimaryButton(
-            label: widget.onBehalf
-                ? l.t('Save what they told you')
-                : l.t('Confirm my decision'),
-            icon: Icons.check,
-            busy: _busy,
-            onPressed: _amount.text.trim().isEmpty || over
-                ? null
-                : () => _save(period, share, take),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            l.t(
-              'You can change this until the master closes the period. After '
-              'that it is final.',
+            const SizedBox(height: 10),
+            Text(
+              l.t(
+                'It changes nothing about the money. It puts your name and '
+                'the date against these figures, so nobody has to remember '
+                'later who was told what.',
+              ),
+              style: T.meta,
             ),
-            style: T.meta,
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Future<void> _save(FarmMonth period, MonthShare share, num take) async {
+  Future<void> _seen(FarmMonth period) async {
     final l = L.read(context);
-    final ok = await confirm(
-      context,
-      title: widget.onBehalf
-          ? l.t2('Save for %s?', share.name)
-          : l.t('Confirm?'),
-      body: l.t3(
-        '%s out, %s into investment.',
-        rs(take),
-        rs(share.share - take),
-      ),
-      confirmLabel: l.t('Confirm'),
-    );
-    if (!ok || !mounted) return;
-
     setState(() => _busy = true);
     try {
-      await MonthRepo.decide(
+      await MonthRepo.markSeen(
         actor: context.read<Session>().actor,
         period: period,
         partnerId: widget.partnerId,
-        withdraw: take,
-        byPhone: widget.onBehalf,
       );
-      if (!mounted) return;
-      Navigator.pop(context);
-      toast(context, l.t('Saved.'));
+      if (mounted) toast(context, l.t('Noted — thank you.'));
     } catch (e) {
       if (mounted) toast(context, l.t2('Could not save it. %s', e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.label,
+    required this.value,
+    required this.tone,
+    this.strong = false,
+  });
+
+  final String label;
+  final String value;
+  final Color tone;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      children: [
+        Expanded(child: Text(label, style: strong ? T.bodyMid : T.body)),
+        Text(
+          value,
+          style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
+        ),
+      ],
+    ),
+  );
 }

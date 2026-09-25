@@ -36,7 +36,7 @@ void main() {
       userId: 'u0',
       name: 'Saleem Rehman',
       invested: 800000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -45,7 +45,7 @@ void main() {
       userId: 'u1',
       name: 'Ghulam Ali',
       invested: 600000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -54,7 +54,7 @@ void main() {
       userId: 'u2',
       name: 'Asif Soomro',
       invested: 400000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -63,7 +63,7 @@ void main() {
       userId: 'u3',
       name: 'Rafeeque Memon',
       invested: 200000,
-      reinvested: 0,
+      profitHeld: 0,
       withdrawn: 0,
       createdAt: DateTime(2026, 8, 1),
     ),
@@ -246,13 +246,13 @@ void main() {
           on: DateTime(year, mon, days),
           // Taken out differently every month, and differently by each of
           // them — which is what changes the ratios underneath.
-          takeOut: switch (month) {
-            0 => const [1.0, 0.5, 0, 0],
-            1 => const [0, 0, 1.0, 0.25],
-            2 => const [0.5, 0.5, 0.5, 0.5],
-            3 => const [0, 0, 0, 0],
-            4 => const [1.0, 1.0, 1.0, 1.0],
-            _ => const [0.3, 0, 0.6, 0],
+          percent: switch (month) {
+            0 => 60,
+            1 => 25,
+            2 => 50,
+            3 => 0,
+            4 => 100,
+            _ => 30,
           },
           nextPeriod: month == 5 ? '2027-03' : periods[month + 1],
         ),
@@ -504,20 +504,36 @@ void main() {
       }
     });
 
-    test('a founder who leaves his share in ends up with more of the next', () {
-      // Rafeeque took almost nothing out for four months running. His slice
-      // has to have grown, and the man who took everything out has to have
-      // shrunk against him.
-      final first = shareLog.first;
-      final last = shareLog.last;
+    test('six settlings later, the slices are the same slices', () {
+      // Sixty per cent out, then twenty-five, then half, then nothing, then
+      // all of it — and through the lot, nobody's share of the farm moves.
+      // It comes from what came out of a pocket, and nothing has.
+      //
+      // One percentage for all four is what makes that fair: they all hold
+      // back the same proportion, so nobody ends up with more of their own
+      // money working in the farm than their share of it reflects.
       num sliceOf(List<MonthShare> shares, String id) {
         final total = shares.fold<num>(0, (a, s) => a + s.share);
         if (total <= 0) return 0;
         return shares.firstWhere((s) => s.partnerId == id).share / total;
       }
 
-      expect(sliceOf(last, 'p3'), greaterThan(sliceOf(first, 'p3')));
-      expect(sliceOf(last, 'p0'), lessThan(sliceOf(first, 'p0')));
+      for (final id in ['p0', 'p1', 'p2', 'p3']) {
+        expect(
+          sliceOf(shareLog.last, id),
+          closeTo(sliceOf(shareLog.first, id), 1e-9),
+          reason: id,
+        );
+      }
+    });
+
+    test('what each of them holds is their own slice of the lot', () {
+      final held = farm.reinvested;
+      final total = held.values.fold<num>(0, (a, v) => a + v);
+      expect(total, greaterThan(0));
+      // Ghulam Ali put in a third of the money, so a third of what the farm
+      // has kept back is in his name.
+      expect(held['p3']! / total, closeTo(0.1, 0.02));
     });
 
     test('nobody was paid out more than the farm made', () {

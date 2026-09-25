@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
+import '../../services/accounting.dart';
 import '../../services/month_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -10,7 +11,6 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/ui.dart';
-import '../shared/share_decision_screen.dart';
 
 /// Master only. Settling up at the end of a stretch of trading, in two steps.
 ///
@@ -26,7 +26,7 @@ class CloseMonthScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
     final sealed = store.sealedPeriod;
-    return sealed == null ? const _SealStep() : _DecisionsStep(period: sealed);
+    return sealed == null ? const _SealStep() : _HandOutStep(period: sealed);
   }
 }
 
@@ -316,16 +316,32 @@ class _SealStepState extends State<_SealStep> {
 
 // ---------------------------------------------------------------- step two
 
-class _DecisionsStep extends StatefulWidget {
-  const _DecisionsStep({required this.period});
+/// How much of it goes out, and how much stays in the farm.
+///
+/// Version 1 asked each co-founder what they wanted doing with their share
+/// and would not close until all four had answered. That is a fine rule and a
+/// hard one to live under when the answer is the same every month for a year:
+/// the four of them have agreed to keep the lot in and buy more buffaloes
+/// with it, and the close sat there waiting for four taps that never came.
+///
+/// So the master sets one percentage for all of them. That is not a shortcut
+/// either — it is what keeps the share ratio honest. Everybody holds back the
+/// same proportion, so nobody ends up with more of their own money working in
+/// the farm than their slice of it reflects.
+class _HandOutStep extends StatefulWidget {
+  const _HandOutStep({required this.period});
 
   final FarmMonth period;
 
   @override
-  State<_DecisionsStep> createState() => _DecisionsStepState();
+  State<_HandOutStep> createState() => _HandOutStepState();
 }
 
-class _DecisionsStepState extends State<_DecisionsStep> {
+class _HandOutStepState extends State<_HandOutStep> {
+  /// Nothing out, to begin with. It is what they have agreed for the first
+  /// year, and it is the answer that cannot cost anybody anything by being
+  /// the one already filled in.
+  int _percent = 0;
   bool _busy = false;
 
   @override
@@ -333,56 +349,30 @@ class _DecisionsStepState extends State<_DecisionsStep> {
     final l = L.of(context);
     final store = context.watch<FarmStore>();
     final p = store.sealedPeriod ?? widget.period;
-    final waiting = p.undecided.length;
+    final handed = handOut(p.shares, _percent);
+    final out = handed.fold<num>(0, (a, s) => a + s.taken);
+    final held = handed.fold<num>(0, (a, s) => a + s.held);
 
     return FarmScaffold(
-      title: l.t2('%s — decisions', periodLabel(p)),
+      title: l.t2('%s — settling up', periodLabel(p)),
       showBack: true,
       body: PageBody(
         children: [
           HeroCard(
-            label: l.t('Profit to share'),
-            value: rs(p.profitShared ?? 0),
+            label: p.isLoss ? l.t('Lost this period') : l.t('Profit to share'),
+            value: rs((p.profitShared ?? 0).abs()),
+            gradient: T.washOf(p.isLoss ? T.moneyOut : T.moneyIn),
             note: p.sealedAt == null
                 ? null
                 : l.t2('Frozen %s. It will not change.', fmtStamp(p.sealedAt!)),
             trailing: Tag(
-              p.nothingToShare
-                  ? l.t('Nothing to share')
-                  : waiting == 0
-                  ? l.t('All in')
-                  : l.t2('%s waiting', waiting),
-              tone: p.nothingToShare
-                  ? TagTone.neutral
-                  : waiting == 0
-                  ? TagTone.good
-                  : TagTone.warn,
+              p.isLoss ? l.t('A loss') : l.t('Frozen'),
+              tone: p.isLoss ? TagTone.warn : TagTone.good,
             ),
-          ),
-          const SizedBox(height: T.gap),
-
-          Row(
-            children: [
-              Expanded(
-                child: StatTile(
-                  label: l.t('Taking out'),
-                  value: rs(p.totalWithdraw),
-                  tone: T.moneyOut,
-                ),
-              ),
-              const SizedBox(width: T.gap),
-              Expanded(
-                child: StatTile(
-                  label: l.t('Back into the farm'),
-                  value: rs(p.totalReinvest),
-                  tone: T.moneyIn,
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: 20),
 
-          if (p.nothingToShare)
+          if (p.isLoss)
             RegCard(
               wash: T.moneyDueWash,
               child: Column(
@@ -395,9 +385,10 @@ class _DecisionsStepState extends State<_DecisionsStep> {
                   const SizedBox(height: 6),
                   Text(
                     l.t(
-                      'This period made no profit, so nobody is being asked to '
-                      'decide anything. Close it and the next period carries '
-                      'on from here.',
+                      'This period lost money, so there is nothing going out. '
+                      'The loss is split the same way a profit would be and '
+                      'comes off what each of them has kept in the farm — a '
+                      'bad month belongs to all four, the same as a good one.',
                     ),
                     style: T.body,
                   ),
@@ -405,45 +396,66 @@ class _DecisionsStepState extends State<_DecisionsStep> {
               ),
             )
           else ...[
-            SectionTitle(l.t('What each of them wants')),
-            const SizedBox(height: 8),
-            for (final share in p.shares)
-              _ShareRow(
-                period: p,
-                share: share,
-                onEnter: () => _open(context, store, p, share),
+            SectionTitle(l.t('How much goes out?')),
+            const SizedBox(height: 4),
+            Text(
+              l.t(
+                'The same for all four. Whatever is left stays in the farm, '
+                'in each of their names — it buys the next buffalo, and it is '
+                'still theirs.',
               ),
+              style: T.meta,
+            ),
+            const SizedBox(height: 10),
+            _PercentPicker(
+              value: _percent,
+              onPick: (v) => setState(() => _percent = v),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: StatTile(
+                    label: l.t('Going out'),
+                    value: rs(out),
+                    tone: T.moneyOut,
+                  ),
+                ),
+                const SizedBox(width: T.gap),
+                Expanded(
+                  child: StatTile(
+                    label: l.t('Staying in the farm'),
+                    value: rs(held),
+                    tone: T.moneyIn,
+                  ),
+                ),
+              ],
+            ),
           ],
+          const SizedBox(height: 20),
+
+          SectionTitle(l.t('What each of them gets')),
+          const SizedBox(height: 8),
+          for (final share in handed) _ShareRow(share: share),
 
           const SizedBox(height: 14),
-          // It used to say "Approve all & close the period", which is a
-          // promise it cannot keep: it does not approve anything, and it does
-          // nothing at all until every co-founder has said what they want.
-          // Read that label, press it, watch nothing happen, and the only
-          // conclusion available is that the app is broken.
           PrimaryButton(
-            label: p.allDecided
-                ? l.t('Close the period')
-                : l.t2('%s still to decide', '${p.undecided.length}'),
+            label: l.t('Close the period'),
             icon: Icons.lock_outline,
             busy: _busy,
-            onPressed: p.allDecided ? () => _close(p) : null,
+            onPressed: _busy ? null : () => _close(p, handed),
           ),
           const SizedBox(height: 10),
           Text(
-            p.nothingToShare
-                ? l.t('Nothing is paid out. The period is finished and filed.')
-                : p.allDecided
+            p.isLoss
                 ? l.t(
-                    'Every share is posted, the withdrawals are entered as '
-                    'payments, and the investments go up. This cannot be '
-                    'undone.',
+                    'The loss is posted to all four accounts and the period '
+                    'is filed. This cannot be undone.',
                   )
-                : l.t2(
-                    'Waiting on %s. The decision is theirs — ring them, and if '
-                    'they tell you what they want, enter it on their row. It '
-                    'will be recorded as confirmed by phone.',
-                    p.undecided.map((s) => s.name).join(', '),
+                : l.t(
+                    'What goes out is entered as a payment, what stays in '
+                    'goes to each of their profit accounts, and the other '
+                    'three are shown the figures. This cannot be undone.',
                   ),
             style: T.meta,
           ),
@@ -458,9 +470,8 @@ class _DecisionsStepState extends State<_DecisionsStep> {
           const SizedBox(height: 8),
           Text(
             l.t(
-              'Puts the figures back to being worked out, and clears every '
-              'decision. Only for a period sealed by mistake — nothing has '
-              'been paid yet at this stage.',
+              'Puts the figures back to being worked out. Only for a period '
+              'sealed by mistake — nothing has been paid yet at this stage.',
             ),
             style: T.meta,
           ),
@@ -469,43 +480,36 @@ class _DecisionsStepState extends State<_DecisionsStep> {
     );
   }
 
-  void _open(
-    BuildContext context,
-    FarmStore store,
-    FarmMonth period,
-    MonthShare share,
-  ) => Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ChangeNotifierProvider.value(
-        value: store,
-        child: ShareDecisionScreen(
-          periodId: period.id,
-          partnerId: share.partnerId,
-          onBehalf: true,
-        ),
-      ),
-    ),
-  );
-
-  Future<void> _close(FarmMonth p) async {
+  Future<void> _close(FarmMonth p, List<MonthShare> handed) async {
     final l = L.read(context);
+    final out = handed.fold<num>(0, (a, s) => a + s.taken);
+    final held = handed.fold<num>(0, (a, s) => a + s.held);
     final ok = await confirm(
       context,
       title: l.t2('Close %s?', periodLabel(p)),
-      body: l.t3(
-        '%s goes out to the co-founders and %s stays in the farm as '
-        'investment.\n\nThis cannot be undone from the app.',
-        rs(p.totalWithdraw),
-        rs(p.totalReinvest),
-      ),
+      body: p.isLoss
+          ? l.t2(
+              'The loss of %s goes onto all four accounts, split the way a '
+              'profit would be.\n\nThis cannot be undone from the app.',
+              rs(held.abs()),
+            )
+          : l.t3(
+              '%s goes out to the co-founders and %s stays in the farm in '
+              'their names.\n\nThis cannot be undone from the app.',
+              rs(out),
+              rs(held),
+            ),
       confirmLabel: l.t('Close the period'),
     );
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
     try {
-      await MonthRepo.close(actor: context.read<Session>().actor, period: p);
+      await MonthRepo.close(
+        actor: context.read<Session>().actor,
+        period: p,
+        percent: _percent,
+      );
       if (!mounted) return;
       Navigator.pop(context);
       toast(context, l.t2('%s closed.', periodLabel(p)));
@@ -522,17 +526,18 @@ class _DecisionsStepState extends State<_DecisionsStep> {
       context,
       title: l.t('Reopen it?'),
       body: l.t(
-        'The figures go back to being worked out and every decision so far is '
-        'cleared. The co-founders will have to choose again.',
+        'The figures go back to being worked out. Nothing has been paid yet, '
+        'so nothing is taken back.',
       ),
-      confirmLabel: l.t('Reopen'),
+      confirmLabel: l.t('Reopen it'),
     );
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
     try {
       await MonthRepo.unseal(actor: context.read<Session>().actor, period: p);
-      if (mounted) Navigator.pop(context);
+      if (!mounted) return;
+      toast(context, l.t2('%s is open again.', periodLabel(p)));
     } catch (e) {
       if (mounted) toast(context, l.t2('Could not reopen it. %s', e));
     } finally {
@@ -541,16 +546,63 @@ class _DecisionsStepState extends State<_DecisionsStep> {
   }
 }
 
-class _ShareRow extends StatelessWidget {
-  const _ShareRow({
-    required this.period,
-    required this.share,
-    required this.onEnter,
-  });
+/// The one figure the master sets, in the steps anybody actually asks for.
+///
+/// Typed as well as tapped, because 35% is a perfectly reasonable answer and
+/// a row of round buttons that cannot say it is a row of round buttons that
+/// gets worked around.
+class _PercentPicker extends StatelessWidget {
+  const _PercentPicker({required this.value, required this.onPick});
 
-  final FarmMonth period;
+  final int value;
+  final ValueChanged<int> onPick;
+
+  static const _steps = [0, 25, 50, 75, 100];
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final step in _steps)
+              ChoiceChip(
+                label: Text(step == 0 ? l.t('Nothing out') : '$step%'),
+                selected: value == step,
+                showCheckmark: false,
+                labelStyle: T.bodyMid.copyWith(
+                  color: value == step ? Colors.white : T.n700,
+                ),
+                selectedColor: T.accent,
+                backgroundColor: Colors.white,
+                side: BorderSide(color: value == step ? T.accent : T.n300),
+                onSelected: (_) => onPick(step),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Slider(
+          value: value.toDouble(),
+          max: 100,
+          divisions: 20,
+          label: '$value%',
+          activeColor: T.accent,
+          onChanged: (v) => onPick(v.round()),
+        ),
+      ],
+    );
+  }
+}
+
+/// One co-founder's line: their slice, what they are handed, what stays in.
+class _ShareRow extends StatelessWidget {
+  const _ShareRow({required this.share});
+
   final MonthShare share;
-  final VoidCallback onEnter;
 
   @override
   Widget build(BuildContext context) {
@@ -558,8 +610,7 @@ class _ShareRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: T.gap),
       child: RegCard(
-        stripe: share.decided ? T.moneyIn : T.moneyDue,
-        padding: const EdgeInsets.all(13),
+        stripe: share.isLoss ? T.moneyOut : T.moneyIn,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -569,51 +620,31 @@ class _ShareRow extends StatelessWidget {
                   child: Text(
                     share.name,
                     style: T.cardTitle,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Tag(
-                  share.decided ? l.t('Decided') : l.t('Waiting'),
-                  tone: share.decided ? TagTone.good : TagTone.warn,
-                ),
+                Tag('${(share.ratio * 100).toStringAsFixed(1)}%'),
               ],
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: Text(l.t('Share'), style: T.body)),
-                Text(rs(share.share), style: T.bodyMid),
-              ],
+            _Line(
+              label: share.isLoss
+                  ? l.t('Their share of the loss')
+                  : l.t('Share'),
+              value: rs(share.share.abs()),
+              tone: share.isLoss ? T.moneyOut : T.moneyIn,
             ),
-            if (share.decided) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(child: Text(l.t('Taking out'), style: T.body)),
-                  Money(share.withdraw, incoming: false, settled: true),
-                ],
+            if (!share.isLoss) ...[
+              _Line(
+                label: l.t('Taking out'),
+                value: rs(share.taken),
+                tone: T.moneyOut,
               ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(child: Text(l.t('Into investment'), style: T.body)),
-                  Money(share.reinvest, incoming: true, settled: true),
-                ],
-              ),
-              if (share.byPhone) ...[
-                const SizedBox(height: 6),
-                Text(
-                  l.t('Confirmed by phone and entered by the master.'),
-                  style: T.meta.copyWith(color: T.moneyDue),
-                ),
-              ],
-            ] else ...[
-              const SizedBox(height: 10),
-              GhostButton(
-                label: l.t('Enter after ringing them'),
-                icon: Icons.call_outlined,
-                compact: true,
-                onPressed: onEnter,
+              _Line(
+                label: l.t('Staying in the farm'),
+                value: rs(share.held),
+                tone: T.moneyIn,
               ),
             ],
           ],

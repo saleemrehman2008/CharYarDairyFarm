@@ -109,23 +109,12 @@ class MonthRepo {
       arIncluded: arIncluded,
       carriedReceivable: carriedReceivable,
     );
-    final ratios = ratiosOf(partners);
-
-    // A period at a loss shares out nothing. The loss is already in the cash
-    // the next period opens with, so it needs no handing round: it is not
-    // taken off anybody's capital, and nobody is asked to decide about a
-    // negative number.
-    final toShare = profitToShare > 0 ? profitToShare : 0;
-    final shares = [
-      for (final p in partners)
-        MonthShare(
-          partnerId: p.id,
-          name: p.name,
-          ratio: ratios[p.id] ?? 0,
-          share: ((ratios[p.id] ?? 0) * toShare).round(),
-          choice: 'reinvest',
-        ),
-    ];
+    // A loss is split the same way a profit is, and comes back negative. It
+    // used to be left at nothing on the reasoning that there is nothing to
+    // hand out — true, but it meant a bad month vanished off four people's
+    // accounts while the cash it cost was quietly gone. Every slice adds up
+    // to what the period actually did, either way.
+    final shares = shareOut(partners: partners, profit: profitToShare);
 
     final nextId = nextPeriodId(period.id, now);
     final batch = Db.fs.batch();
@@ -152,7 +141,7 @@ class MonthRepo {
       'profit': books.profit,
       'profitShared': profitToShare,
       'shares': shares.map((e) => e.toMap()).toList(),
-      'decisions': <String, dynamic>{},
+      'seen': <String, dynamic>{},
     });
 
     // The next period starts with the cash trading actually left behind. What
@@ -171,70 +160,67 @@ class MonthRepo {
     await Log.write(
       actor,
       LogKind.monthClose,
-      'sealed ${periodLabel(period)} at ${rs(profitToShare)} to share, and '
-      'sent it to ${shares.length} co-founders',
+      profitToShare < 0
+          ? 'sealed ${periodLabel(period)} at a loss of '
+                '${rs(profitToShare.abs())}, split between '
+                '${shares.length} co-founders'
+          : 'sealed ${periodLabel(period)} at ${rs(profitToShare)} to share, '
+                'and sent it to ${shares.length} co-founders',
       refType: 'month',
       refId: period.id,
     );
   }
 
-  /// One co-founder says how much of their share they are taking out. The rest
-  /// goes back into the farm as investment.
+  /// One co-founder says they have seen a closed period's figures.
   ///
-  /// The decision is theirs. The master may enter it for them only after
-  /// speaking to them, and then [byPhone] records that it was second hand.
-  static Future<void> decide({
+  /// Not a decision and not a gate. Version 1 would not close until all four
+  /// had said what they wanted doing with their share, and for four friends
+  /// who have agreed to leave it all in for a year that is a lock with
+  /// nothing behind it. What is worth keeping is the record that they were
+  /// shown it — so this writes one key of one map, their own, and the master
+  /// closes whenever he closes.
+  static Future<void> markSeen({
     required Actor actor,
     required FarmMonth period,
     required String partnerId,
-    required num withdraw,
-    bool byPhone = false,
   }) async {
-    if (!period.isSealed) {
-      throw StateError('That period is not out for decisions.');
-    }
-
-    final mine = period.shareFor(partnerId);
-    if (mine == null) throw StateError('No share to decide on.');
-
-    // One key of one map, so two co-founders answering at the same moment
-    // cannot overwrite each other — and so the rules can insist that a
-    // co-founder only ever writes their own.
+    if (period.seenBy(partnerId)) return;
     await Db.months.doc(period.id).update({
-      'decisions.$partnerId': mine
-          .decide(withdraw: withdraw, by: actor.uid, byPhone: byPhone)
-          .decisionMap(),
+      'seen.$partnerId': Timestamp.fromDate(DateTime.now()),
     });
-
     await Log.write(
       actor,
       LogKind.monthClose,
-      byPhone
-          ? 'entered ${rs(withdraw)} withdrawal for a co-founder after '
-                'confirming by phone · ${periodLabel(period)}'
-          : 'chose to take ${rs(withdraw)} out of ${periodLabel(period)}',
+      'saw the figures for ${periodLabel(period)}',
       refType: 'month',
       refId: period.id,
     );
   }
 
-  /// Master only. Posts every co-founder's decision and finishes the period.
+  /// Master only. Hands out a share of the profit and finishes the period.
   ///
-  /// Every share must have been decided first, because the money is theirs.
+  /// One percentage for all four, which is what makes the ratio fair: they
+  /// all keep back the same proportion, so nobody ends up with more of their
+  /// money working in the farm than their share of it reflects.
+  ///
+  /// [percent] of each slice goes out as cash; the rest goes into that
+  /// partner's profit account. A period at a loss hands out nothing whatever
+  /// the percentage says, and every slice of it lands in the profit accounts
+  /// as a debit — a bad month is shared the way a good one is.
+  ///
   /// Unpaid entries are not touched: they carry forward and stay in the
   /// receivables and payables until someone marks them paid.
   static Future<void> close({
     required Actor actor,
     required FarmMonth period,
+    required int percent,
   }) async {
     if (!period.isSealed) {
       throw StateError('Seal the period before closing it.');
     }
-    if (!period.allDecided) {
-      throw StateError('Every co-founder has to decide first.');
-    }
 
     final now = DateTime.now();
+    final handed = handOut(period.shares, percent);
     final batch = Db.fs.batch();
 
     batch.update(Db.months.doc(period.id), {
@@ -242,15 +228,19 @@ class MonthRepo {
       'closedAt': Timestamp.fromDate(now),
       'closedBy': actor.uid,
       'closedByName': actor.name,
+      'sharedPercent': percent.clamp(0, 100),
+      'shares': handed.map((e) => e.toMap()).toList(),
     });
 
-    for (final share in period.shares) {
+    for (final share in handed) {
       final ref = Db.partners.doc(share.partnerId);
-      if (share.reinvest > 0) {
-        batch.update(ref, {'reinvested': FieldValue.increment(share.reinvest)});
+      // What stayed in — or, on a bad month, what the loss took out. Both go
+      // to the same place, because they are the same account.
+      if (share.held != 0) {
+        batch.update(ref, {'profitHeld': FieldValue.increment(share.held)});
       }
-      if (share.withdraw > 0) {
-        batch.update(ref, {'withdrawn': FieldValue.increment(share.withdraw)});
+      if (share.taken > 0) {
+        batch.update(ref, {'withdrawn': FieldValue.increment(share.taken)});
         // Real money leaving the farm, so it is a payment row — booked into
         // the period that is open now, because that is when it leaves.
         batch.set(Db.transactions.doc(), {
@@ -259,11 +249,12 @@ class MonthRepo {
           'type': TxnType.payment.name,
           'party': share.name,
           'category': profitShareCategory,
-          'amount': share.withdraw,
+          'amount': share.taken,
           'paid': true,
           'paidAt': Timestamp.fromDate(now),
           'note':
-              'Profit share – ${share.name} · ${periodLabel(period, short: true)}',
+              'Profit share – ${share.name} · '
+              '${periodLabel(period, short: true)}',
           'createdBy': actor.uid,
           'createdByName': actor.name,
           'createdAt': FieldValue.serverTimestamp(),
@@ -273,11 +264,13 @@ class MonthRepo {
 
     await batch.commit();
 
+    final out = handed.fold<num>(0, (a, s) => a + s.taken);
+    final inFarm = handed.fold<num>(0, (a, s) => a + s.held);
     await Log.write(
       actor,
       LogKind.monthClose,
-      'closed ${periodLabel(period)}: ${rs(period.totalWithdraw)} taken out, '
-      '${rs(period.totalReinvest)} back into the farm',
+      'closed ${periodLabel(period)} at $percent% out: ${rs(out)} handed '
+      'over, ${rs(inFarm)} kept in the farm',
       refType: 'month',
       refId: period.id,
     );

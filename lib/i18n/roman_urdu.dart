@@ -773,4 +773,67 @@ const Map<String, String> romanUrdu = {
       'Bhains, machine, trolley — baad me bhi farm ki milkiyat rehti hai, is liye paisa nikla magar profit kam nahi hua. Wanda, tankhwah, bijli aur marammat kharch ho kar khatam — ye profit se kat-ti hain.',
   'The farm keeps it': 'Farm ke paas rahegi',
   'Spent and gone': 'Kharch ho gaya',
+  // ---- Settling up, version 2 ----
+  'How much goes out?': 'Kitna bahar jayega?',
+  'The same for all four. Whatever is left stays in the farm, in each of their names — it buys the next buffalo, and it is still theirs.':
+      'Chaaron ke liye ek jaisa. Jo bache wo farm me rahega, har ek ke naam per — us se agli bhains aayegi, aur wo phir bhi un ki hai.',
+  'Nothing out': 'Kuch bahar nahi',
+  'Going out': 'Bahar ja raha hai',
+  'Staying in the farm': 'Farm me reh raha hai',
+  'What each of them gets': 'Har ek ko kya milta hai',
+  'Frozen': 'Jam chuka',
+  'Lost this period': 'Is period me nuqsan',
+  'Their share of the loss': 'Nuqsan me un ka hissa',
+  'This period lost money, so there is nothing going out. The loss is split the same way a profit would be and comes off what each of them has kept in the farm — a bad month belongs to all four, the same as a good one.':
+      'Is period me nuqsan hua, is liye bahar kuch nahi ja raha. Nuqsan usi tarah baanta jata hai jaise munafa, aur har ek ne jo farm me rakha hai us me se katta hai — bura mahina bhi chaaron ka hai, achhe ki tarah.',
+  'What goes out is entered as a payment, what stays in goes to each of their profit accounts, and the other three are shown the figures. This cannot be undone.':
+      'Jo bahar jata hai wo payment ki entry banti hai, jo rehta hai wo har ek ke profit khaate me jata hai, aur baqi teeno ko figures dikha diye jate hain. Ye wapas nahi hoga.',
+  'The loss is posted to all four accounts and the period is filed. This cannot be undone.':
+      'Nuqsan chaaron ke khaaton me darj ho jayega aur period band ho jayega. Ye wapas nahi hoga.',
+  'The loss of %s goes onto all four accounts, split the way a profit would be.\n\nThis cannot be undone from the app.':
+      '%s ka nuqsan chaaron ke khaaton me jayega, usi tarah jaise munafa baantta hai.\n\nApp se ye wapas nahi hoga.',
+  'Puts the figures back to being worked out. Only for a period sealed by mistake — nothing has been paid yet at this stage.':
+      'Figures dobara nikalne ke liye khul jate hain. Sirf us period ke liye jo ghalti se jam gaya — abhi tak kisi ko kuch diya nahi gaya.',
+  'The figures go back to being worked out. Nothing has been paid yet, so nothing is taken back.':
+      'Figures dobara nikalne ke liye khul jate hain. Abhi tak kuch diya nahi gaya, is liye kuch wapas bhi nahi lena.',
+  'Reopen it': 'Dobara kholen',
+
+  // ---- What a co-founder is shown ----
+  'See the figures': 'Figures dekhen',
+  'Your share. All of it has stayed in the farm, in your name, and it does not change your share of the farm.':
+      'Aap ka hissa. Poora farm me hi raha, aap ke naam per — aur is se farm me aap ka hissa nahi badalta.',
+  'Your share. %s of it has been handed over and the rest has stayed in the farm, in your name.':
+      'Aap ka hissa. Is me se %s de diya gaya, baqi farm me hi raha, aap ke naam per.',
+  'Your share of what the farm lost this period. It has come off what you had kept in the farm.':
+      'Is period me farm ko jo nuqsan hua, us me aap ka hissa. Aap ne jo farm me rakha tha us me se kat gaya.',
+  'Your share of the loss': 'Nuqsan me aap ka hissa',
+  'Your %s of what the farm made this period.':
+      'Is period me farm ne jo kamaya, us ka aap ka %s.',
+  'The period': 'Period',
+  'What the farm made': 'Farm ne kya kamaya',
+  'What the farm lost': 'Farm ko kya nuqsan hua',
+  'Your share of the farm': 'Farm me aap ka hissa',
+  'Handed out this period': 'Is period me diya gaya',
+  'Taken off what you had kept': 'Aap ne jo rakha tha us me se kata',
+  'Paid out to you': 'Aap ko diya gaya',
+  'Kept in the farm, in your name': 'Farm me raha, aap ke naam per',
+  'Kept in the farm': 'Farm me raha',
+  'Whatever is kept in stays yours. It does not change your share of the farm — that comes from what you have put in out of your own pocket, and only moves when you put in more.':
+      'Jo farm me rehta hai wo aap hi ka hai. Us se farm me aap ka hissa nahi badalta — wo us se banta hai jo aap ne apni jeb se lagaya, aur tabhi badalta hai jab aap aur lagayen.',
+  'A month that loses money is shared the same way a month that makes it — your part of it comes off what you have kept in the farm. Nothing is hidden and nothing is carried quietly.':
+      'Jis mahine nuqsan ho wo usi tarah baanta jata hai jis tarah kamai — aap ka hissa us me se katta hai jo aap ne farm me rakha hai. Kuch chhupaya nahi jata aur kuch chup chaap aage nahi le jaya jata.',
+  'I have seen this': 'Maine ye dekh liya',
+  'It changes nothing about the money. It puts your name and the date against these figures, so nobody has to remember later who was told what.':
+      'Is se paison me kuch nahi badalta. Bas in figures ke saath aap ka naam aur tareekh likhi jati hai, taake baad me kisi ko yaad na rakhna pare ke kis ko kya bataya gaya tha.',
+  'Noted — thank you.': 'Darj ho gaya — shukriya.',
+  'Seen': 'Dekh liya',
+  'New': 'Naya',
+  'You saw this on %s.': 'Aap ne ye %s ko dekha tha.',
+  'That period is no longer here.': 'Wo period ab yahan nahi hai.',
+  '%s — your share': '%s — aap ka hissa',
+  '%s — settling up': '%s — hisaab chukta',
+  'A loss': 'Nuqsan',
+  '%s is open again.': '%s dobara khul gaya.',
+  '%s goes out to the co-founders and %s stays in the farm in their names.\n\nThis cannot be undone from the app.':
+      '%s saathiyon ko ja raha hai aur %s farm me un ke naam per reh raha hai.\n\nApp se ye wapas nahi hoga.',
 };

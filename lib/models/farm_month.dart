@@ -1,134 +1,68 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'helpers.dart';
 
-/// What one partner does with their slice of a period.
+/// One partner's slice of a period, and how much of it they were handed.
 ///
-/// The choice is theirs, not the master's. It arrives here when they make it,
-/// and the master can only fill it in for them after speaking to them — which
-/// is recorded, so the farm can always see who actually decided.
+/// There is no decision in here any more. Version 1 asked each co-founder what
+/// they wanted doing with their share and would not close until all four had
+/// answered — which is a fine rule and a bad one to live under when the answer
+/// is the same every month for a year. The four of them have agreed to keep
+/// the lot in and buy more buffaloes with it, so the master now sets one
+/// percentage for everybody at the close and this records what that came to.
+///
+/// The same percentage for all four is not a convenience, it is what makes the
+/// ratio fair: everyone keeps back the same proportion, so nobody ends up with
+/// more of their money working in the farm than their share of it reflects.
 class MonthShare {
   const MonthShare({
     required this.partnerId,
     required this.name,
     required this.ratio,
     required this.share,
-    required this.choice,
-    this.withdraw = 0,
-    this.decidedAt,
-    this.decidedBy = '',
-    this.byPhone = false,
+    this.taken = 0,
   });
 
   final String partnerId;
   final String name;
   final double ratio;
 
-  /// The whole slice, frozen when the master sent it out.
+  /// Their slice of what the period made — or lost, in which case it is
+  /// negative and nothing is handed out.
   final num share;
 
-  /// Kept for the months closed under the old all-or-nothing rule, where a
-  /// partner either took the lot or left the lot.
-  final String choice; // withdraw | reinvest | split
+  /// How much of it actually left the farm.
+  final num taken;
 
-  /// How much of [share] this partner is taking out. The rest is added to
-  /// their investment.
-  final num withdraw;
+  /// What stayed in, and went into their profit account.
+  num get held => share - taken;
 
-  /// Set once they have actually decided. Until then the master cannot close.
-  final DateTime? decidedAt;
+  bool get isLoss => share < 0;
 
-  /// Whose finger pressed it. Their own uid normally; the master's when
-  /// [byPhone].
-  final String decidedBy;
-
-  /// The master entered this after ringing them, because they had not
-  /// answered in the app.
-  final bool byPhone;
-
-  bool get decided => decidedAt != null;
-
-  /// What goes back into the farm.
-  num get reinvest => share - withdraw;
-
-  bool get isReinvested => withdraw <= 0;
-  bool get takesAll => withdraw >= share;
-
-  String get choiceLabel => switch (true) {
-    _ when takesAll => 'Withdrawing',
-    _ when isReinvested => 'Reinvesting',
-    _ => 'Part out, part in',
-  };
-
-  MonthShare decide({
-    required num withdraw,
-    required String by,
-    bool byPhone = false,
-  }) => MonthShare(
-    partnerId: partnerId,
-    name: name,
-    ratio: ratio,
-    share: share,
-    choice: withdraw <= 0
-        ? 'reinvest'
-        : withdraw >= share
-        ? 'withdraw'
-        : 'split',
-    withdraw: withdraw.clamp(0, share),
-    decidedAt: DateTime.now(),
-    decidedBy: by,
-    byPhone: byPhone,
-  );
-
-  /// The frozen slice, as the master writes it at the seal. The decision is
-  /// not in here: it belongs to the co-founder and is written separately, so
-  /// the database itself can hold each of them to their own row.
   Map<String, dynamic> toMap() => {
     'partnerId': partnerId,
     'name': name,
     'ratio': ratio,
     'share': share,
+    'taken': taken,
   };
 
-  /// What one co-founder decided, as stored under their own key.
-  Map<String, dynamic> decisionMap() => {
-    'withdraw': withdraw,
-    'decidedAt': decidedAt == null ? null : Timestamp.fromDate(decidedAt!),
-    'decidedBy': decidedBy,
-    'byPhone': byPhone,
-  };
-
-  /// The same slice with a decision laid over it.
-  MonthShare withDecision(Map<String, dynamic> m) => MonthShare(
+  MonthShare handing(num taken) => MonthShare(
     partnerId: partnerId,
     name: name,
     ratio: ratio,
     share: share,
-    choice: choice,
-    withdraw: n(m['withdraw']).clamp(0, share),
-    decidedAt: dt(m['decidedAt']),
-    decidedBy: s(m['decidedBy']),
-    byPhone: b(m['byPhone']),
+    taken: taken,
   );
 
-  factory MonthShare.fromMap(Map<String, dynamic> m) {
-    final share = n(m['share']);
-    // A period closed before decisions were split out carried the whole
-    // answer in one word. A period sealed since carries no answer at all
-    // until its co-founder writes one, and an unanswered share takes nothing.
-    final legacy = m.containsKey('choice');
-    final choice = legacy ? s(m['choice']) : 'reinvest';
-    return MonthShare(
-      partnerId: s(m['partnerId']),
-      name: s(m['name']),
-      ratio: d(m['ratio']),
-      share: share,
-      choice: choice,
-      withdraw: legacy ? (choice == 'reinvest' ? 0 : share) : 0,
-      decidedAt: legacy ? dt(m['decidedAt']) ?? DateTime(2000) : null,
-      decidedBy: s(m['decidedBy']),
-      byPhone: b(m['byPhone']),
-    );
-  }
+  factory MonthShare.fromMap(Map<String, dynamic> m) => MonthShare(
+    partnerId: s(m['partnerId']),
+    name: s(m['name']),
+    ratio: d(m['ratio']),
+    share: n(m['share']),
+    // Version 1 called it a withdrawal, because it was one — the co-founder
+    // had asked for it. Months closed then still say so.
+    taken: m['taken'] == null ? n(m['withdraw']) : n(m['taken']),
+  );
 }
 
 /// One stretch of trading the farm settles up at the end of.
@@ -160,6 +94,8 @@ class FarmMonth {
     this.carriedReceivable,
     this.assets,
     this.shares = const [],
+    this.seen = const {},
+    this.sharedPercent,
   });
 
   final String id;
@@ -207,6 +143,17 @@ class FarmMonth {
 
   final List<MonthShare> shares;
 
+  /// When each co-founder opened the closed period and said they had seen it.
+  final Map<String, DateTime> seen;
+
+  /// What proportion of the profit the master handed out at the close, as a
+  /// whole number. Null on a period that has not been closed yet.
+  ///
+  /// One figure for all four. It is on the period rather than worked out
+  /// backwards from the slices so that a close which handed out nothing can
+  /// still say it meant to.
+  final int? sharedPercent;
+
   bool get isOpen => status == 'open';
   bool get isSealed => status == 'sealed';
   bool get isClosed => status == 'closed';
@@ -242,14 +189,23 @@ class FarmMonth {
   bool get nothingToShare =>
       shares.isEmpty || shares.every((s) => s.share <= 0);
 
-  /// Everyone has said what they want. Until then the master cannot close.
-  bool get allDecided =>
-      nothingToShare || (shares.isNotEmpty && shares.every((s) => s.decided));
+  /// A period that lost money. Nothing is handed out and every slice is
+  /// negative — which is not hidden, at Saleem's word: a loss that is not
+  /// written down is a loss somebody finds out about later.
+  bool get isLoss => (profit ?? 0) < 0;
 
-  List<MonthShare> get undecided => shares.where((s) => !s.decided).toList();
+  num get totalTaken => shares.fold<num>(0, (a, s) => a + s.taken);
+  num get totalHeld => shares.fold<num>(0, (a, s) => a + s.held);
 
-  num get totalWithdraw => shares.fold<num>(0, (a, s) => a + s.withdraw);
-  num get totalReinvest => shares.fold<num>(0, (a, s) => a + s.reinvest);
+  /// Which of the four have opened the close and seen the figures.
+  ///
+  /// Not a gate. The master closes when he closes; this is the record that
+  /// the other three were shown what it came to and when. Four friends in
+  /// business need that written down more than they need a veto.
+  bool seenBy(String partnerId) => seen.containsKey(partnerId);
+
+  List<MonthShare> get notSeen =>
+      shares.where((s) => !seenBy(s.partnerId)).toList();
 
   MonthShare? shareFor(String partnerId) {
     for (final s in shares) {
@@ -286,6 +242,10 @@ class FarmMonth {
           : n(m['carriedReceivable']),
       assets: m['assets'] == null ? null : n(m['assets']),
       shares: _readShares(m),
+      seen: _readSeen(m),
+      sharedPercent: m['sharedPercent'] == null
+          ? null
+          : n(m['sharedPercent']).round(),
     );
   }
 }
@@ -295,17 +255,22 @@ class FarmMonth {
 /// Two fields rather than one, because two different people write them and
 /// the database has to be able to tell them apart. The master writes the
 /// slices at the seal; each co-founder writes only their own key under
-/// `decisions`. Nobody can touch anybody else's, and that is enforced by the
-/// rules rather than by the app being polite.
-List<MonthShare> _readShares(Map<String, dynamic> m) {
-  final decisions =
-      (m['decisions'] as Map?)?.cast<String, dynamic>() ?? const {};
-  return ((m['shares'] as List?) ?? const [])
-      .whereType<Map>()
-      .map((e) => MonthShare.fromMap(e.cast<String, dynamic>()))
-      .map((base) {
-        final d = (decisions[base.partnerId] as Map?)?.cast<String, dynamic>();
-        return d == null ? base : base.withDecision(d);
-      })
-      .toList();
+/// `decisions`, as version 1 called it. The master writes the slices and what
+/// each of them came to; each co-founder writes only their own key, and it now
+/// says they have seen it rather than what they want done.
+List<MonthShare> _readShares(Map<String, dynamic> m) =>
+    ((m['shares'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => MonthShare.fromMap(e.cast<String, dynamic>()))
+        .toList();
+
+/// When each co-founder opened the closed period, by partner id.
+Map<String, DateTime> _readSeen(Map<String, dynamic> m) {
+  final raw = (m['seen'] as Map?)?.cast<String, dynamic>() ?? const {};
+  final out = <String, DateTime>{};
+  raw.forEach((k, v) {
+    final at = dt(v);
+    if (at != null) out[k] = at;
+  });
+  return out;
 }

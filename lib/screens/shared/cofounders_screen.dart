@@ -237,7 +237,7 @@ class _PartnerCardState extends State<_PartnerCard> {
             Row(
               children: [
                 _Stat(label: 'Invested', value: rs(p.invested)),
-                _Stat(label: 'Reinvested', value: rs(p.reinvested)),
+                _Stat(label: 'Reinvested', value: rs(p.profitHeld)),
                 _Stat(label: 'Withdrawn', value: rs(p.withdrawn)),
               ],
             ),

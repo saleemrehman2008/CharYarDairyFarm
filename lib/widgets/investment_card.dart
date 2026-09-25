@@ -20,7 +20,7 @@ class InvestmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final pockets = partners.fold<num>(0, (a, p) => a + p.invested);
-    final left = partners.fold<num>(0, (a, p) => a + p.reinvested);
+    final left = partners.fold<num>(0, (a, p) => a + p.profitHeld);
     final total = pockets + left;
     final out = partners.fold<num>(0, (a, p) => a + p.withdrawn);
 
@@ -49,10 +49,10 @@ class InvestmentCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            p.reinvested > 0
+                            p.profitHeld > 0
                                 ? l.t2(
                                     'incl. %s left in from profit',
-                                    rs(p.reinvested),
+                                    rs(p.profitHeld),
                                   )
                                 : l.t('put in from their own pocket'),
                             style: T.meta.copyWith(fontSize: 11),
@@ -69,7 +69,7 @@ class InvestmentCard extends StatelessWidget {
                     SizedBox(
                       width: 96,
                       child: Text(
-                        rs(p.capital),
+                        rs(p.inTheFarm),
                         textAlign: TextAlign.right,
                         style: T.bodyMid,
                       ),

@@ -73,10 +73,10 @@ class CofounderHome extends StatelessWidget {
             Expanded(
               child: StatTile(
                 label: l.t('Your capital'),
-                value: rs(me?.capital ?? 0),
+                value: rs(me?.inTheFarm ?? 0),
                 tone: T.accent700,
-                note: (me?.reinvested ?? 0) > 0
-                    ? l.t2('incl. %s left in', rs(me!.reinvested))
+                note: (me?.profitHeld ?? 0) > 0
+                    ? l.t2('incl. %s left in', rs(me!.profitHeld))
                     : l.t('put in from your pocket'),
               ),
             ),
@@ -368,7 +368,7 @@ class _History extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 9),
                 child: RegCard(
-                  stripe: share.withdraw > 0 ? T.moneyOut : T.moneyIn,
+                  stripe: share.taken > 0 ? T.moneyOut : T.moneyIn,
                   padding: const EdgeInsets.all(13),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,18 +391,15 @@ class _History extends StatelessWidget {
                           Expanded(
                             child: Text(l.t('Taken out'), style: T.body),
                           ),
-                          Money(share.withdraw, incoming: false, settled: true),
+                          Money(share.taken, incoming: false, settled: true),
                         ],
                       ),
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              l.t('Left in as investment'),
-                              style: T.body,
-                            ),
+                            child: Text(l.t('Kept in the farm'), style: T.body),
                           ),
-                          Money(share.reinvest, incoming: true, settled: true),
+                          Money(share.held, incoming: true, settled: true),
                         ],
                       ),
                     ],

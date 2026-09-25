@@ -443,7 +443,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   Map<String, double> get ratios => ratiosOf(_partners);
 
-  num get totalCapital => _partners.fold<num>(0, (a, p) => a + p.capital);
+  num get totalCapital => _partners.fold<num>(0, (a, p) => a + p.inTheFarm);
 
   /// Money the partners actually put in, which is cash the farm can spend.
   /// Reinvested profit is left out: it never left the farm in the first place.
