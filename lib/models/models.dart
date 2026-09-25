@@ -8,6 +8,7 @@ export 'farm_order.dart';
 export 'farm_settings.dart';
 export 'helpers.dart';
 export 'log_entry.dart';
+export 'founder_loan.dart';
 export 'partner.dart';
 export 'product.dart';
 export 'rider_day.dart';

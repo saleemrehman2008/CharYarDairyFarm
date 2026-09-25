@@ -199,6 +199,8 @@ class MoneySummary {
     this.paidOut = 0,
     this.otherIncome = 0,
     this.advancesHeld = 0,
+    this.loansOut = 0,
+    this.profitHeld = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -223,6 +225,23 @@ class MoneySummary {
   /// and owes to somebody else.
   final num advancesHeld;
 
+  /// What the farm has lent its own co-founders and not had back.
+  ///
+  /// The mirror of an advance, and it belongs on the opposite side. An
+  /// advance is money in the box that is not the farm's; a loan is money the
+  /// farm owns that is not in the box. Both have to be said out loud or the
+  /// waterfall and the holdings stop agreeing by exactly that much.
+  final num loansOut;
+
+  /// Profit the co-founders have earned and left in the farm.
+  ///
+  /// It is sitting in the cash, and it is not the farm's to spend freely —
+  /// any of them can ask for it. Not taken off anything here, because it was
+  /// never added: retaining profit moves no rupee, it only puts a name on
+  /// cash that is already there. It is on the card so that fifty lakh in the
+  /// box is not mistaken for fifty lakh to spend on buffaloes.
+  final num profitHeld;
+
   /// Cash actually in hand right now.
   final num cash;
 
@@ -245,7 +264,8 @@ class MoneySummary {
 
   /// What the farm is actually worth in money: cash, what a rider is carrying,
   /// and what is still to come in, less what it still owes.
-  num get farmMoney => cash + withRider + receivable - payable - advancesHeld;
+  num get farmMoney =>
+      cash + withRider + receivable - payable - advancesHeld + loansOut;
 
   /// The same figure read down the waterfall — every rupee that came in, less
   /// every rupee that went out or turned into an animal. It should equal

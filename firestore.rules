@@ -176,6 +176,30 @@ service cloud.firestore {
       allow delete: if isMaster();
     }
 
+    // ---- Money the farm has lent its own ----
+    //
+    // A co-founder asks for their own, and only for themselves. Handing it
+    // over is the master's alone, because that is real money leaving the farm
+    // and money leaving the farm has never been anybody else's to do — the
+    // asking and the giving are two halves, written down separately with
+    // whose finger pressed each.
+    //
+    // Nothing is deleted. A request that was turned down stays on the record:
+    // four friends should be able to look back at what was asked and what was
+    // said, and a record that only keeps the answers somebody liked is not a
+    // record.
+    match /founder_loans/{id} {
+      allow read: if isPartner();
+
+      allow create: if isMaster()
+        || (isPartner()
+            && request.resource.data.partnerId == myPartnerId()
+            && request.resource.data.state == 'asked');
+
+      allow update: if isMaster();
+      allow delete: if false;
+    }
+
     // ---- Products (the shop catalogue) ----
     match /products/{id} {
       allow read: if signedIn();

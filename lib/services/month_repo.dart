@@ -214,6 +214,7 @@ class MonthRepo {
     required Actor actor,
     required FarmMonth period,
     required int percent,
+    List<FounderLoan> loans = const [],
   }) async {
     if (!period.isSealed) {
       throw StateError('Seal the period before closing it.');
@@ -241,6 +242,41 @@ class MonthRepo {
       }
       if (share.taken > 0) {
         batch.update(ref, {'withdrawn': FieldValue.increment(share.taken)});
+
+        // An instalment on a loan comes off what they are handed, before the
+        // cash does. In a month where nothing goes out there is nothing to
+        // take it from, so it is skipped and the term runs on — which is
+        // every month of the first year, by their own agreement, and they
+        // can pay it in themselves whenever they like.
+        final loan = _runningLoan(loans, share.partnerId);
+        if (loan != null) {
+          final due = loan.instalment < loan.left ? loan.instalment : loan.left;
+          final taking = due < share.taken ? due : share.taken;
+          if (taking > 0) {
+            batch.set(Db.transactions.doc(), {
+              'date': Timestamp.fromDate(now),
+              'monthId': bookingId,
+              'type': TxnType.receipt.name,
+              'party': share.name,
+              'category': loanRepaidCategory,
+              'amount': taking,
+              'paid': true,
+              'paidAt': Timestamp.fromDate(now),
+              'paidOnCreate': true,
+              'note':
+                  'Loan instalment – ${share.name} · '
+                  '${periodLabel(period, short: true)}',
+              'createdBy': actor.uid,
+              'createdByName': actor.name,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            if (loan.repaid + taking >= loan.amount) {
+              batch.update(Db.loans.doc(loan.id), {
+                'state': LoanState.cleared.name,
+              });
+            }
+          }
+        }
         // Real money leaving the farm, so it is a payment row — booked into
         // the period that is open now, because that is when it leaves.
         batch.set(Db.transactions.doc(), {
@@ -274,6 +310,16 @@ class MonthRepo {
       refType: 'month',
       refId: period.id,
     );
+  }
+
+  /// The loan a co-founder is still paying off, if there is one.
+  static FounderLoan? _runningLoan(List<FounderLoan> loans, String partnerId) {
+    for (final loan in loans) {
+      if (loan.partnerId == partnerId && loan.state.isOpen && !loan.isCleared) {
+        return loan;
+      }
+    }
+    return null;
   }
 
   /// Master only. Puts a sealed period back to open, before anything is paid.

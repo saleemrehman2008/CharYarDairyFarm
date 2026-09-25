@@ -836,4 +836,44 @@ const Map<String, String> romanUrdu = {
   '%s is open again.': '%s dobara khul gaya.',
   '%s goes out to the co-founders and %s stays in the farm in their names.\n\nThis cannot be undone from the app.':
       '%s saathiyon ko ja raha hai aur %s farm me un ke naam per reh raha hai.\n\nApp se ye wapas nahi hoga.',
+  // ---- What the cash is spoken for ----
+  'Of that, the co-founders': 'Us me se saathiyon ka',
+  'profit they have earned and left in the farm':
+      'un ka kamaya hua profit jo farm me hi chhora',
+  'Lent to co-founders': 'Saathiyon ko qarz diya',
+  'out of the cash, and still owed to the farm':
+      'cash me se nikla, aur abhi farm ko wapas aana hai',
+
+  // ---- Qarz ----
+  'Ask the farm for a loan': 'Farm se qarz maangen',
+  'How much': 'Kitna',
+  'Over how many months': 'Kitne mahinon me',
+  '%s a month': '%s mahana',
+  'over %s months · %s a month': '%s mahinon me · %s mahana',
+  'Taken off your share when a period is settled. No interest — it is the farm\'s money and you pay back what you took, nothing more.':
+      'Period band hone per aap ke hisse me se kat jayega. Koi sood nahi — ye farm ka paisa hai, jitna liya utna hi wapas, us se ek rupiya zyada nahi.',
+  'Ask': 'Maangen',
+  'Asked. The master will see it.': 'Maang li. Master ko dikh jayegi.',
+  'Could not ask. %s': 'Maang nahi saka. %s',
+  'Waiting for the master to hand it over.': 'Master ke dene ka intezaar hai.',
+  'The cash leaves the farm when you hand it over. It is not a cost and it does not touch anybody\'s profit — it is the farm\'s money, in their pocket, until it comes back.':
+      'Aap ke dete hi paisa farm se nikal jayega. Ye kharcha nahi hai aur is se kisi ka profit nahi hilta — ye farm ka hi paisa hai, un ki jeb me, jab tak wapas na aa jaye.',
+  'Hand it over': 'De den',
+  'Hand %s over?': '%s de den?',
+  '%s leaves the farm now and comes back at %s a month out of what they are handed when a period is settled.\n\nIt is not a cost and nobody\'s profit changes.':
+      '%s abhi farm se nikal jayega aur %s mahana wapas aayega — us me se jo un ko period band hone per milta hai.\n\nYe kharcha nahi hai aur kisi ka profit nahi badalta.',
+  'Handed over.': 'De diya.',
+  'Noted.': 'Darj ho gaya.',
+  'Paid back': 'Wapas hua',
+  'Still owed': 'Abhi baqi',
+  'The instalment comes off what they are handed when a period is settled. In a month where nothing goes out there is nothing to take it from, so it waits — and they can pay it in themselves any time.':
+      'Kist us me se katt-ti hai jo un ko period band hone per milta hai. Jis mahine kuch bahar hi na jaye, us mahine kaatne ko kuch nahi hota, to kist ruk jati hai — aur wo khud kabhi bhi jama kara sakte hain.',
+  'They paid some in': 'Un hon ne kuch jama karaya',
+  'How much did they pay in?': 'Kitna jama karaya?',
+  'Taken in.': 'Le liya.',
+  'Could not do it. %s': 'Ye nahi ho saka. %s',
+  'Asked for': 'Maanga hua',
+  'Running': 'Chal raha hai',
+  'Paid off': 'Chukta ho gaya',
+  'Not given': 'Nahi diya',
 };

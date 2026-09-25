@@ -1386,6 +1386,46 @@ Future<Settlement?> askSettlement(
 }
 
 /// Square-cornered confirm dialog; returns true only on the primary action.
+/// Ask for one figure and nothing else.
+///
+/// For the small over-the-counter moments — somebody hands cash in against a
+/// loan — where opening a whole form to take one number would be the wrong
+/// size of thing.
+Future<num?> askForMoney(
+  BuildContext context, {
+  required String title,
+  String hint = '',
+}) async {
+  final field = TextEditingController();
+  final said = await showDialog<num>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text(title, style: T.cardTitle),
+      content: TextField(
+        controller: field,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(hintText: hint),
+        style: T.body,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('Cancel', style: T.bodyMid),
+        ),
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(ctx, num.tryParse(field.text.trim()) ?? 0),
+          child: Text('Save', style: T.bodyMid.copyWith(color: T.accent700)),
+        ),
+      ],
+    ),
+  );
+  field.dispose();
+  return said;
+}
+
 Future<bool> confirm(
   BuildContext context, {
   required String title,

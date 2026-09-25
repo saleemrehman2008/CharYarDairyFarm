@@ -511,6 +511,29 @@ class _MoneyCard extends StatelessWidget {
               tone: T.moneyDue,
               outOf: money.runningCosts,
             ),
+          // In the box, and owed to the four of them. Not taken off the cash
+          // above, because it was never added to it — a share kept in moves
+          // no money, it only puts a name on money already there. It is here
+          // so that a big closing figure is not mistaken for a big figure to
+          // spend.
+          if (money.profitHeld != 0)
+            _MoneyLine(
+              label: l.t('Of that, the co-founders'),
+              value: money.profitHeld,
+              note: l.t('profit they have earned and left in the farm'),
+              tone: T.accent700,
+              outOf: capital,
+            ),
+          // Out of the box and still the farm's. The other way round from an
+          // advance, and it has to be said or the figures stop agreeing.
+          if (money.loansOut > 0)
+            _MoneyLine(
+              label: l.t('Lent to co-founders'),
+              value: money.loansOut,
+              note: l.t('out of the cash, and still owed to the farm'),
+              tone: T.moneyGet,
+              outOf: capital,
+            ),
           // In the box, but not the farm's. It goes back when a contract
           // ends, so it is never counted as anything the farm has made.
           if (money.advancesHeld > 0)

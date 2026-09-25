@@ -134,6 +134,26 @@ const khaataReceiptCategory = 'Khaata receipt';
 /// Handing that money back when the contract ends.
 const advanceReturnCategory = 'Advance returned';
 
+/// Money the farm lends one of its own co-founders.
+///
+/// The mirror of an advance, and it has to be read the same way round. Cash
+/// leaves the box, and that is all that happens: it is not a cost and it must
+/// never touch the profit, because it is coming back. Book it as a purchase
+/// or an expense — which was the first idea, and an understandable one — and
+/// that month's profit drops by the whole loan, so all four co-founders lose
+/// their share of money that one of them is going to repay.
+///
+/// No interest. It is a loan between friends and they have said so.
+const founderLoanCategory = 'Founder loan';
+
+/// An instalment coming back, or the founder paying it in himself.
+///
+/// Cash in and nothing else, for the same reason: the farm is not earning
+/// this, it is getting its own money back. Counted as income and the profit
+/// would climb by the whole loan over the term, and all four would be handed
+/// a share of a rupee that was never made.
+const loanRepaidCategory = 'Loan repayment';
+
 /// Units offered on the new-entry form.
 const txnUnits = ['L', 'kg', 'maund', 'bag', 'pc', 'head', 'month'];
 
@@ -333,7 +353,8 @@ class Txn {
       type == TxnType.payment &&
       !settlesAnotherEntry &&
       !isProfitShare &&
-      !isAdvanceOut;
+      !isAdvanceOut &&
+      !isLoanOut;
 
   /// An advance taken in against a standing order. Cash in, and nothing
   /// else: the farm is holding this money, not earning it.
@@ -353,7 +374,18 @@ class Txn {
   /// the cash and the profit never notices, and the books stop adding up by
   /// exactly that much.
   bool get isLooseReceipt =>
-      type == TxnType.receipt && !settlesAnotherEntry && !isAdvanceIn;
+      type == TxnType.receipt &&
+      !settlesAnotherEntry &&
+      !isAdvanceIn &&
+      !isLoanBack;
+
+  /// Money lent to a co-founder. Cash out, and nothing else.
+  bool get isLoanOut =>
+      type == TxnType.payment && category == founderLoanCategory;
+
+  /// An instalment of it coming back. Cash in, and nothing else.
+  bool get isLoanBack =>
+      type == TxnType.receipt && category == loanRepaidCategory;
 
   /// Feed, salaries, bills — the cost of running the farm this month.
   bool get isRunningCost =>

@@ -9,6 +9,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/loan_card.dart';
 import '../../widgets/ui.dart';
 
 /// Capital, share ratios and the record of closed months.
@@ -36,8 +37,9 @@ class CofoundersScreen extends StatelessWidget {
               _StackedRatioBar(partners: partners, ratios: ratios),
               const SizedBox(height: 10),
               Text(
-                'Share ratio follows investment. Reinvested profit raises a '
-                'partner\'s ratio automatically.',
+                'The share ratio follows what each of them has put in out of '
+                'their own pocket. Profit kept in the farm is theirs and is '
+                'listed on their own card — it does not move the ratio.',
                 style: T.meta,
               ),
             ],
@@ -65,6 +67,22 @@ class CofoundersScreen extends StatelessWidget {
               canAddInvestment: isMaster,
               canRemove: isMaster,
             ),
+
+        // Money the farm has lent its own. Asked for by them, handed over by
+        // the master, and paid back out of what they are handed at a close.
+        if (store.loans.any((l) => l.state != LoanState.refused)) ...[
+          const SizedBox(height: 12),
+          const SectionTitle('Loans'),
+          const SizedBox(height: 8),
+          for (final loan in store.loans)
+            if (loan.state != LoanState.refused)
+              LoanCard(loan: loan, canDecide: isMaster),
+        ],
+        for (final me in partners)
+          if (me.userId == session.user?.uid &&
+              store.runningLoanFor(me.id) == null &&
+              !store.loansAsked.any((l) => l.partnerId == me.id))
+            AskForLoanCard(partner: me),
 
         const SizedBox(height: 12),
         const SectionTitle('Closed months'),

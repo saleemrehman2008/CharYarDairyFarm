@@ -91,6 +91,14 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _advanceTxns = v;
         notifyListeners();
       }),
+      Db.watchLoanTxns().listen((v) {
+        _loanTxns = v;
+        notifyListeners();
+      }),
+      Db.watchLoans().listen((v) {
+        _loans = v;
+        notifyListeners();
+      }),
       // The whole running account. Held here rather than opened again by
       // every screen that wants it: Accounts reads it, and so does the name
       // suggestion on a new entry, which needs every customer the farm has
@@ -234,6 +242,8 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _shareTxns = const [];
   List<Txn> _advanceTxns = const [];
   List<Txn> _ledger = const [];
+  List<Txn> _loanTxns = const [];
+  List<FounderLoan> _loans = const [];
 
   /// Every period, newest first.
   List<FarmMonth> _periods = const [];
@@ -509,6 +519,60 @@ class FarmStore extends ChangeNotifier implements RoundData {
     (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount,
   );
 
+  /// What the farm has lent its co-founders and not had back.
+  ///
+  /// Money the farm owns that is not in the box, which is the exact mirror of
+  /// an advance — somebody else's money that is. Neither is income or cost,
+  /// and both have to be said out loud or the books stop adding up by what
+  /// they come to.
+  num get loansOut => _loanTxns.fold<num>(
+    0,
+    (a, t) => t.isLoanOut ? a + t.amount : a - t.amount,
+  );
+
+  /// Profit the four of them have earned and left in the farm.
+  ///
+  /// Sitting in the cash and spoken for. Can be negative, and is meant to be
+  /// able to: a run of bad months eats into it and then past it, and the
+  /// figure says so rather than stopping at nothing.
+  num get profitHeldByFounders =>
+      _partners.fold<num>(0, (a, p) => a + p.profitHeld);
+
+  /// Every loan, with what has come back on it read off the ledger.
+  ///
+  /// Not stored on the loan itself: an instalment the close took and one the
+  /// founder paid in over the counter are the same money, and a figure kept
+  /// in two places is a figure that will one day disagree with itself.
+  List<FounderLoan> get loans => [
+    for (final loan in _loans)
+      loan.withRepaid(
+        _loanTxns
+            .where(
+              (t) => t.isLoanBack && partyKey(t.party) == partyKey(loan.name),
+            )
+            .fold<num>(0, (a, t) => a + t.amount),
+      ),
+  ];
+
+  /// The loan one co-founder is still paying off, if there is one.
+  FounderLoan? runningLoanFor(String partnerId) {
+    for (final loan in loans) {
+      if (loan.partnerId == partnerId && loan.state.isOpen && !loan.isCleared) {
+        return loan;
+      }
+    }
+    return null;
+  }
+
+  /// Loans waiting on the master to hand over or turn down.
+  List<FounderLoan> get loansAsked =>
+      loans.where((l) => l.state == LoanState.asked).toList();
+
+  /// What one co-founder still owes on money the farm lent them.
+  num loanOwedBy(String party) => _loanTxns
+      .where((t) => partyKey(t.party) == partyKey(party))
+      .fold<num>(0, (a, t) => t.isLoanOut ? a + t.amount : a - t.amount);
+
   /// What one customer has left with the farm, and not had back.
   num advanceHeldFor(String party) => _advanceTxns
       .where((t) => partyKey(t.party) == partyKey(party))
@@ -571,6 +635,8 @@ class FarmStore extends ChangeNotifier implements RoundData {
     withRider: cashWithRiders,
     paidOut: paidToFounders,
     advancesHeld: advancesHeld,
+    loansOut: loansOut,
+    profitHeld: profitHeldByFounders,
   );
 
   Partner? partnerFor(String uid) {

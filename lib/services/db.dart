@@ -15,6 +15,11 @@ class Db {
 
   static Col get users => fs.collection('users');
   static Col get partners => fs.collection('partners');
+
+  /// Money the farm has lent its own co-founders. Kept apart from the ledger
+  /// because a loan is an arrangement with a term, and the ledger only knows
+  /// about the rupees moving on the days they move.
+  static Col get loans => fs.collection('founder_loans');
   static Col get products => fs.collection('products');
   static Col get transactions => fs.collection('transactions');
   static Col get orders => fs.collection('orders');
@@ -203,6 +208,22 @@ class Db {
         (q) => q.docs
             .map(Txn.fromDoc)
             .where((t) => !t.isDeleted && (t.isAdvanceIn || t.isAdvanceOut))
+            .toList(),
+      );
+
+  static Stream<List<FounderLoan>> watchLoans() => loans
+      .orderBy('askedAt', descending: true)
+      .snapshots()
+      .map((q) => q.docs.map(FounderLoan.fromDoc).toList());
+
+  /// Money lent to co-founders, and the instalments coming back.
+  static Stream<List<Txn>> watchLoanTxns() => transactions
+      .where('category', whereIn: [founderLoanCategory, loanRepaidCategory])
+      .snapshots()
+      .map(
+        (q) => q.docs
+            .map(Txn.fromDoc)
+            .where((t) => !t.isDeleted && (t.isLoanOut || t.isLoanBack))
             .toList(),
       );
 
