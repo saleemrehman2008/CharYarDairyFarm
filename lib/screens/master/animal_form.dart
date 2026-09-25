@@ -56,16 +56,42 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
   File? _photo;
   bool _busy = false;
 
+  /// A milch buffalo is not sold on her own. She comes with her calf, one
+  /// price is paid for the pair, and the calf has to go on the register — she
+  /// is the farm's, and one day she will be milking or sold. Registering her
+  /// afterwards is a second job somebody forgets, so it is asked here.
+  bool _withCalf = false;
+  Sex _calfSex = Sex.female;
+  final _calfName = TextEditingController();
+  final _calfMonths = TextEditingController();
+  File? _calfPhoto;
+
   bool get _isCalf => widget.mother != null;
+
+  /// Only worth asking about an animal that gives milk, and only when she is
+  /// being bought rather than born here.
+  bool get _canHaveCalf => !_isCalf && _species.milks && _sex == Sex.female;
 
   @override
   void dispose() {
     _name.dispose();
+    _calfName.dispose();
+    _calfMonths.dispose();
     _price.dispose();
     _litres.dispose();
     _note.dispose();
     _handledBy.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickCalf(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    setState(() => _calfPhoto = File(picked.path));
   }
 
   Future<void> _pick(ImageSource source) async {
@@ -110,6 +136,21 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
       toast(context, 'Who paid for it? Fill that in first.');
       return;
     }
+    // The calf gets the same treatment as her mother, because she is on the
+    // register the same way: her own tag, her own picture, her own age. A
+    // register with one animal missing a photo is a register somebody stops
+    // trusting.
+    final calfMonths = num.tryParse(_calfMonths.text.trim());
+    if (_withCalf && _canHaveCalf) {
+      if (_calfPhoto == null) {
+        toast(context, 'A photo of the calf is needed too.');
+        return;
+      }
+      if (calfMonths == null || calfMonths < 0) {
+        toast(context, 'How many months old is the calf?');
+        return;
+      }
+    }
 
     final actor = context.read<Session>().actor;
     setState(() => _busy = true);
@@ -143,9 +184,36 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
               handledBy: _handledBy.text.trim(),
             );
 
+      // Her calf, straight after her and out of the same price. Nothing is
+      // booked for it: what was paid was paid for the pair and all of it is
+      // already on the mother, so a second entry would be the same money on
+      // the books twice.
+      Animal? calf;
+      if (_withCalf && _canHaveCalf && _calfPhoto != null) {
+        final months = (calfMonths ?? 0).round();
+        calf = await AnimalRepo.recordCameWith(
+          actor,
+          animal,
+          species: _species,
+          sex: _calfSex,
+          photo: _calfPhoto!,
+          date: DateTime.now().subtract(Duration(days: months * 30)),
+          name: _calfName.text.trim(),
+          what: months == 0
+              ? 'Came with ${animal.tag}'
+              : 'Came with ${animal.tag}, about $months months old',
+        );
+      }
+
       if (!mounted) return;
       Navigator.pop(context, animal);
-      toast(context, 'Registered ${animal.tag} — put that number on the tag');
+      toast(
+        context,
+        calf == null
+            ? 'Registered ${animal.tag} — put that number on the tag'
+            : 'Registered ${animal.tag} and ${calf.tag} — put those numbers '
+                  'on the tags',
+      );
     } catch (e) {
       if (mounted) toast(context, 'Could not register it. $e');
     } finally {
@@ -277,6 +345,91 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
               ],
             ),
           ),
+
+          // A milch buffalo is not sold on her own. One price buys the pair
+          // and the calf has to go on the register — she is the farm's, and
+          // one day she will be milking or sold. Asking here is the only
+          // moment anybody is certainly thinking about it; asked later it is
+          // a second job that gets forgotten, and then the register is short
+          // an animal the farm owns.
+          if (_canHaveCalf) ...[
+            const SizedBox(height: T.pad),
+            RegCard(
+              stripe: _withCalf ? T.accent : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchRow(
+                    title: 'She came with a calf',
+                    note:
+                        'One price for the pair. The calf gets a tag of its '
+                        'own and costs nothing on top — what was paid is '
+                        'already on the mother.',
+                    value: _withCalf,
+                    onChanged: (v) => setState(() => _withCalf = v),
+                  ),
+                  if (_withCalf) ...[
+                    const Divider(height: 22),
+                    const Kicker('The calf'),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FarmPhotoView(file: _calfPhoto, size: 96),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              GhostButton(
+                                label: 'Take a photo',
+                                icon: Icons.photo_camera_outlined,
+                                compact: true,
+                                onPressed: _busy
+                                    ? null
+                                    : () => _pickCalf(ImageSource.camera),
+                              ),
+                              const SizedBox(height: 8),
+                              GhostButton(
+                                label: 'From the gallery',
+                                icon: Icons.image_outlined,
+                                compact: true,
+                                onPressed: _busy
+                                    ? null
+                                    : () => _pickCalf(ImageSource.gallery),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: T.gap),
+                    const Kicker('Male or female'),
+                    const SizedBox(height: 6),
+                    Segmented<Sex>(
+                      value: _calfSex,
+                      compact: true,
+                      options: [for (final s in Sex.values) (s, s.label)],
+                      onChanged: (v) => setState(() => _calfSex = v),
+                    ),
+                    const SizedBox(height: T.gap),
+                    Field(
+                      label: 'How many months old',
+                      controller: _calfMonths,
+                      keyboardType: TextInputType.number,
+                      hint: 'Roughly is fine',
+                    ),
+                    const SizedBox(height: T.gap),
+                    Field(
+                      label: 'Name (if it has one)',
+                      controller: _calfName,
+                      hint: 'Optional',
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
 
           if (!_isCalf) ...[
             const SizedBox(height: T.pad),
