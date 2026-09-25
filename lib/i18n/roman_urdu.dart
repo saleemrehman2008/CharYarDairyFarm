@@ -739,6 +739,11 @@ const Map<String, String> romanUrdu = {
       'Farm ne filhal delivery band ki hui hai, is liye le jane ko kuch nahi. Master ke dobara chalu karte hi ye safha phir bhar jayega.',
   'Particulars': 'Tafseel',
   'Showing': 'Dikha raha hai',
+  'Show everything, paid or not': 'Sab kuch dikhayen, ada ho ya na ho',
+  'Feed bought on credit, a buffalo that died, milk still owed for. The running total stops being the cash in the box and becomes the total of what is on the page.':
+      'Udhaar per liya hua wanda, mari hui bhains, wo dodh jis ka paisa abhi aana hai. Neeche ka figure phir tijori ka cash nahi rehta — wo us sab ka jorr ban jata hai jo is safhe per hai.',
+  // Reaches l.t() through StatementKind, so check_words cannot see it.
+  'Every entry, paid or not': 'Har entry, ada ho ya na ho',
   // Reaches l.t() through StatementKind, so check_words cannot see it.
   'Extract': 'Khulasa',
   'Total shown': 'Jo dikhaya gaya, us ka kul',

@@ -198,6 +198,7 @@ Statement buildStatement({
   num capital = 0,
   Set<TxnType>? types,
   String? category,
+  bool everything = false,
 }) {
   final forOneParty = party != null && party.trim().isNotEmpty;
   final key = forOneParty ? partyKey(party) : '';
@@ -211,13 +212,21 @@ Statement buildStatement({
   final cat = category == null || category.trim().isEmpty
       ? null
       : partyKey(category);
-  final narrowed = kinds != null || cat != null;
+
+  // Every entry the farm has, whether a rupee moved or not — the feed bought
+  // on credit, the buffalo that died, the milk still owed for. The cash book
+  // leaves all of those out, and it is right to: its last column is the money
+  // in the box and those rows did not touch it. But "what has this farm done"
+  // is a different question and it deserves the same sheet of paper, so it is
+  // asked for here rather than left to somebody adding up four screens.
+  final narrowed = kinds != null || cat != null || everything;
 
   final mine =
       rows
           .where((t) => !t.isDeleted)
           .where((t) => !forOneParty || partyKey(t.party) == key)
           .where((t) => forOneParty || narrowed || _movedCash(t))
+          // One person's own page has always carried everything of theirs.
           .where((t) => kinds == null || kinds.contains(t.type))
           .where((t) => cat == null || partyKey(t.category) == cat)
           .toList()
@@ -286,16 +295,17 @@ Statement buildStatement({
         : forOneParty
         ? StatementKind.party
         : StatementKind.cashBook,
-    showing: narrowed ? _showing(kinds, category) : '',
+    showing: narrowed ? _showing(kinds, category, everything) : '',
   );
 }
 
 /// What the page was narrowed to, in the words the person picked it by.
-String _showing(Set<TxnType>? kinds, String? category) {
+String _showing(Set<TxnType>? kinds, String? category, bool everything) {
   final parts = <String>[
     if (kinds != null) kinds.map((t) => t.label).join(', '),
     if (category != null && category.trim().isNotEmpty) category.trim(),
   ];
+  if (parts.isEmpty && everything) return 'Every entry, paid or not';
   return parts.join(' · ');
 }
 

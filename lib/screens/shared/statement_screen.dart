@@ -40,6 +40,15 @@ class _StatementScreenState extends State<StatementScreen> {
   /// typed themselves.
   String? _category;
 
+  /// Everything the farm has done, whether the money has moved or not.
+  ///
+  /// Off by default, because the page asked for most often is the cash book
+  /// and its last column has to be the money in the box. On, it is a listing
+  /// of the lot: feed bought on credit, a buffalo that died, milk still owed
+  /// for — the things a cash book is right to leave out and a summary is
+  /// wrong to.
+  bool _everything = false;
+
   /// Shut to begin with. The whole account is what is wanted nine times out of
   /// ten, and a date box open on arrival is a question nobody asked.
   bool _datesOpen = false;
@@ -113,6 +122,7 @@ class _StatementScreenState extends State<StatementScreen> {
             capital: store.capitalIn,
             types: _type == null ? null : {_type!},
             category: _category,
+            everything: _everything,
           );
     final advance = _party == null || founder != null
         ? 0
@@ -163,6 +173,21 @@ class _StatementScreenState extends State<StatementScreen> {
                 ),
             ],
           ),
+          // One person's own page carries everything of theirs already, so
+          // this is only worth offering on the farm's own.
+          if (founder == null && _party == null) ...[
+            const SizedBox(height: 8),
+            SwitchRow(
+              title: l.t('Show everything, paid or not'),
+              note: l.t(
+                'Feed bought on credit, a buffalo that died, milk still owed '
+                'for. The running total stops being the cash in the box and '
+                'becomes the total of what is on the page.',
+              ),
+              value: _everything,
+              onChanged: (v) => setState(() => _everything = v),
+            ),
+          ],
           if (founder == null) const SizedBox(height: 8),
           if (founder == null)
             Row(
@@ -348,6 +373,7 @@ class _StatementScreenState extends State<StatementScreen> {
                 capital: store.capitalIn,
                 types: _type == null ? null : {_type!},
                 category: _category,
+                everything: _everything,
               ),
         farmName: l.t('Char Yar Dairy Farm'),
         forWhom: _party ?? l.t('The whole farm'),

@@ -230,6 +230,115 @@ void main() {
   _partyOwing();
   _cashTrade();
   _narrowed();
+  _everything();
+}
+
+/// The page that leaves nothing out.
+///
+/// The cash book is right to drop the feed bought on credit and the buffalo
+/// that died — its last column is the money in the box and neither of those
+/// touched it. But "what has this farm actually done" is a different question
+/// and it deserves the same sheet of paper rather than four screens and a
+/// calculator.
+void _everything() {
+  final onCredit = _txn(
+    type: TxnType.purchase,
+    amount: 110000,
+    party: 'Arbab Traders',
+    day: 3,
+    category: 'Fodder / feed',
+    paid: false,
+  );
+  final rows = [
+    onCredit,
+    _txn(type: TxnType.sale, amount: 12000, party: 'Counter', day: 4),
+    _txn(type: TxnType.sale, amount: 16000, party: 'Ali', day: 5, paid: false),
+    _txn(
+      type: TxnType.expense,
+      amount: 60000,
+      party: 'The farm',
+      day: 6,
+      category: 'Salaries',
+    ),
+    _txn(
+      type: TxnType.expense,
+      amount: 150000,
+      party: 'B-04',
+      day: 7,
+      category: writeOffCategory,
+    ),
+  ];
+
+  group('the cash book, which leaves things out on purpose', () {
+    final s = buildStatement(rows: rows, capital: 2000000);
+
+    test('the feed bought on credit is not on it', () {
+      expect(s.lines.any((l) => l.party == 'Arbab Traders'), isFalse);
+    });
+
+    test('nor the milk still owed for', () {
+      expect(s.lines.any((l) => l.party == 'Ali'), isFalse);
+    });
+
+    test('nor the buffalo that died', () {
+      expect(s.lines.any((l) => l.party == 'B-04'), isFalse);
+    });
+
+    test('and its closing figure is the cash', () {
+      expect(s.closing, 2000000 + 12000 - 60000);
+    });
+  });
+
+  group('everything, paid or not', () {
+    final s = buildStatement(rows: rows, capital: 2000000, everything: true);
+
+    test('every single entry is on the page', () {
+      expect(s.lines.length, rows.length);
+      for (final who in [
+        'Arbab Traders',
+        'Counter',
+        'Ali',
+        'The farm',
+        'B-04',
+      ]) {
+        expect(
+          s.lines.any((l) => l.party == who),
+          isTrue,
+          reason:
+              '$who is missing from a page that claims to leave nothing out',
+        );
+      }
+    });
+
+    test('the buffalo that died is on it — that was the point', () {
+      final off = s.lines.firstWhere((l) => l.party == 'B-04');
+      expect(off.debit, 150000);
+    });
+
+    test('it says so across the top, rather than looking like a cash book', () {
+      expect(s.kind, StatementKind.extract);
+      expect(s.showing, 'Every entry, paid or not');
+    });
+
+    test('it opens at nothing, because it is not the cash any more', () {
+      expect(s.opening, 0);
+      expect(s.closing, 12000 + 16000 - 110000 - 60000 - 150000);
+    });
+
+    test('the two columns and the running total still agree', () {
+      expect(s.credits - s.debits, s.closing - s.opening);
+    });
+
+    test('narrowing it further still works', () {
+      final just = buildStatement(
+        rows: rows,
+        everything: true,
+        types: {TxnType.expense},
+      );
+      expect(just.lines.length, 2, reason: 'the wages and the buffalo');
+      expect(just.debits, 210000);
+    });
+  });
 }
 
 /// The page narrowed to one kind of entry, or one heading.
