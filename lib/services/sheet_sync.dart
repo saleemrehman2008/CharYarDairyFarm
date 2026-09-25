@@ -74,6 +74,25 @@ class SheetSync {
   static bool _writing = false;
   static String? _lastError;
 
+  /// The last token Google gave us, and when it stops working.
+  ///
+  /// Kept because asking Google again is not free: on a phone with more than
+  /// one Google account the ask can put the account picker on the screen, and
+  /// the Sheet is written every time anything changes. Four taps to sign in
+  /// once was the farm's experience of that. A token lasts about an hour;
+  /// this throws it away early so a write never fails on a stale one.
+  static String? _cached;
+  static DateTime? _cachedUntil;
+
+  /// Whether the plugin has been woken up this run.
+  ///
+  /// After a restart Firebase still knows who is signed in and the Google
+  /// plugin does not, so it has to be asked once. Asked more than once, on a
+  /// phone carrying several Google accounts, it stops being able to pick
+  /// silently and shows the picker — which is what was happening on every
+  /// single write.
+  static bool _woken = false;
+
   /// What went wrong last time, for the screen that shows the Sheet's state.
   static String? get lastError => _lastError;
 
@@ -149,6 +168,10 @@ class SheetSync {
     _retry?.cancel();
     _timer = null;
     _retry = null;
+    // Somebody else may sign in next. Their Sheet is not this one's.
+    _cached = null;
+    _cachedUntil = null;
+    _woken = false;
   }
 
   /// Writes the books into the Sheet.
@@ -200,23 +223,49 @@ class SheetSync {
   // ---- Google ----
 
   static Future<String?> _token({required bool prompt}) async {
+    final held = _cached;
+    final until = _cachedUntil;
+    if (held != null && until != null && DateTime.now().isBefore(until)) {
+      return held;
+    }
+
     try {
       await AuthService.ensureGoogleReady();
       final google = GoogleSignIn.instance;
-
-      // After a restart Firebase still knows who is signed in, but the Google
-      // plugin does not until it is asked.
-      await google.attemptLightweightAuthentication();
-
       final client = google.authorizationClient;
-      final granted = await client.authorizationForScopes([scope]);
-      if (granted != null) return granted.accessToken;
-      if (!prompt) return null;
-      return (await client.authorizeScopes([scope])).accessToken;
+
+      // Ask for the token first. If the account has already granted the
+      // permission and the plugin knows who it is, this needs no waking and
+      // shows nothing.
+      var granted = await client.authorizationForScopes([scope]);
+
+      // Only if that came back empty is the plugin worth waking — and only
+      // once, because waking it again is what puts the picker on screen.
+      if (granted == null && (!_woken || prompt)) {
+        _woken = true;
+        await google.attemptLightweightAuthentication();
+        granted = await client.authorizationForScopes([scope]);
+      }
+
+      if (granted == null) {
+        if (!prompt) return null;
+        granted = await client.authorizeScopes([scope]);
+      }
+      return _keep(granted.accessToken);
     } catch (e) {
       _lastError = '$e';
       return null;
     }
+  }
+
+  /// Holds on to a token for a while, and hands it back.
+  ///
+  /// Fifty minutes against Google's hour, so a write that starts just inside
+  /// the window does not finish just outside it.
+  static String _keep(String token) {
+    _cached = token;
+    _cachedUntil = DateTime.now().add(const Duration(minutes: 50));
+    return token;
   }
 
   static Map<String, String> _headers(String token) => {

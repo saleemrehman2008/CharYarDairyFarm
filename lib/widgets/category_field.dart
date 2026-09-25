@@ -104,7 +104,14 @@ class _CategoryFieldState extends State<CategoryField> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
       ),
-      builder: (_) => _WriteOutSheet(type: widget.type),
+      // The store has to be handed down. A modal sheet is built from the
+      // navigator's context, which sits above the provider this screen was
+      // pushed with — so asking for it inside the sheet finds nothing and
+      // the whole sheet comes up blank.
+      builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+        value: store,
+        child: _WriteOutSheet(type: widget.type),
+      ),
     );
     if (!mounted || typed == null || typed.isEmpty) return;
 
