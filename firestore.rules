@@ -113,7 +113,7 @@ service cloud.firestore {
         || (signedIn() && request.auth.uid == uid
             && changedKeys().hasOnly(['name', 'email', 'photoUrl',
                                       'fcmTokens', 'address', 'mobile',
-                                      'lang']))
+                                      'lang', 'skin', 'chatSeenAt']))
         // The pointer to their own capital record, written on first sign-in.
         // It has to be right: the rules on months read it to decide whose
         // share this person may answer for, so it is only accepted when the
@@ -198,6 +198,30 @@ service cloud.firestore {
 
       allow update: if isMaster();
       allow delete: if false;
+    }
+
+    // ---- The farm's room ----
+    //
+    // Only the people who run the farm are in it: a customer or a rider can
+    // neither read it nor write to it.
+    //
+    // Nothing said can be changed or removed afterwards, by anybody, the
+    // master included. That is the whole reason the room exists rather than
+    // a WhatsApp group — four people keeping books together have to be able
+    // to point at what was said about a figure and know it is what was said.
+    // A line is also stamped with who wrote it by the server's reckoning of
+    // who is signed in, so nobody can post under another founder's name.
+    match /chat/{id} {
+      allow read: if isPartner();
+
+      allow create: if isPartner()
+        && request.resource.data.byUid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 4000
+        && request.resource.data.at == request.time;
+
+      allow update, delete: if false;
     }
 
     // ---- Products (the shop catalogue) ----

@@ -43,7 +43,7 @@ class RegCard extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget card = DecoratedBox(
       decoration: BoxDecoration(
-        color: wash ?? Colors.white,
+        color: wash ?? T.surface,
         borderRadius: T.round,
         boxShadow: T.shadow,
       ),
@@ -142,7 +142,7 @@ class HeroCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         label.toUpperCase(),
-                        style: T.kicker.copyWith(color: T.accent200),
+                        style: T.kicker.copyWith(color: T.onHeroQuiet),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -153,13 +153,13 @@ class HeroCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   value,
-                  style: T.num36.copyWith(color: Colors.white),
+                  style: T.num36.copyWith(color: T.onHero),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (note != null) ...[
                   const SizedBox(height: 4),
-                  Text(note!, style: T.meta.copyWith(color: T.accent200)),
+                  Text(note!, style: T.meta.copyWith(color: T.onHeroQuiet)),
                 ],
               ],
             ),
@@ -191,7 +191,7 @@ class StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: T.surface,
       borderRadius: T.round,
       boxShadow: T.shadow,
     ),
@@ -269,82 +269,90 @@ class ActionTile extends StatelessWidget {
   final int badge;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: T.roundSm,
-      boxShadow: T.shadow,
-    ),
-    child: ClipRRect(
-      borderRadius: T.roundSm,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      // Centred, so the icon keeps its own size. Without this
-                      // the box hands the child tight constraints and a drawn
-                      // icon is stretched to fill the whole tile.
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: tone.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(T.radiusXs + 3),
-                      ),
-                      child: drawn ?? Icon(icon, size: 21, color: tone),
-                    ),
-                    if (badge > 0)
-                      Positioned(
-                        right: -5,
-                        top: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: T.pending,
-                            borderRadius: BorderRadius.circular(T.pill),
-                          ),
-                          child: Text(
-                            '$badge',
-                            style: T.meta.copyWith(
-                              color: Colors.white,
-                              fontSize: 10,
-                              height: 1.2,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: T.meta.copyWith(
-                    color: T.text,
-                    fontSize: 11.5,
-                    height: 1.2,
-                    fontWeight: FontWeight.w500,
+  Widget build(BuildContext context) => Pressable(
+    height: 96,
+    onTap: onTap,
+    face: T.surface,
+    depth: 3,
+    border: Border.all(color: T.divider, width: 1),
+    glow: T.shadow,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(6, 10, 6, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                // Centred, so the icon keeps its own size. Without this
+                // the box hands the child tight constraints and a drawn
+                // icon is stretched to fill the whole tile.
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  // Each errand has its own colour and the square behind
+                  // the glyph carries it, so the grid is read by colour
+                  // from across the yard before any of it is read as words.
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      tone.withValues(alpha: T.isDark ? 0.34 : 0.20),
+                      tone.withValues(alpha: T.isDark ? 0.14 : 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(T.radiusXs + 3),
+                  border: Border.all(
+                    color: tone.withValues(alpha: 0.30),
+                    width: 1,
                   ),
                 ),
-              ],
+                child: drawn ?? Icon(icon, size: 22, color: tone),
+              ),
+              if (badge > 0)
+                Positioned(
+                  right: -5,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: T.pending,
+                      borderRadius: BorderRadius.circular(T.pill),
+                    ),
+                    child: Text(
+                      '$badge',
+                      style: T.meta.copyWith(
+                        color: T.inkOn(T.pending),
+                        fontSize: 10,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Flexible(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: T.meta.copyWith(
+                color: T.text,
+                fontSize: 11.5,
+                height: 1.2,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
+        ],
       ),
     ),
   );
@@ -398,7 +406,110 @@ class Money extends StatelessWidget {
   );
 }
 
-/// The one action a screen is really for: the logo's blue, rounded, lifted.
+/// A button built as an object with a thickness, not a coloured rectangle.
+///
+/// The farm looked at the flat version and said it did not look like
+/// anything you could press. So every button in the app is now two pieces:
+/// a face, and a lip of the same colour driven into the dark underneath it.
+/// Press it and the face drops onto the lip and the button gets shallower —
+/// the height never changes, so nothing on the page moves.
+///
+/// This is the only place that geometry is written down. Every button in
+/// the app goes through it, which is what keeps them all the same object.
+class Pressable extends StatefulWidget {
+  const Pressable({
+    super.key,
+    required this.child,
+    required this.height,
+    this.onTap,
+    this.face,
+    this.gradient,
+    this.radius = T.radiusSm,
+    this.depth = 4,
+    this.border,
+    this.glow,
+  });
+
+  final Widget child;
+  final double height;
+  final VoidCallback? onTap;
+
+  /// The face's colour, or [gradient] for the ones that carry a wash.
+  final Color? face;
+  final Gradient? gradient;
+
+  final double radius;
+
+  /// How thick the button is. The lip is this tall at rest and 1 px down.
+  final double depth;
+
+  final BoxBorder? border;
+  final List<BoxShadow>? glow;
+
+  @override
+  State<Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<Pressable> {
+  bool _down = false;
+
+  bool get _live => widget.onTap != null;
+
+  void _set(bool v) {
+    if (_down != v && _live) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(widget.radius);
+    final face = widget.face ?? T.fill;
+    final lip = _live ? T.lipOf(face) : T.n400;
+    final sunk = _down && _live;
+
+    return Semantics(
+      button: true,
+      enabled: _live,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _set(true),
+        onTapUp: (_) => _set(false),
+        onTapCancel: () => _set(false),
+        onTap: widget.onTap,
+        child: SizedBox(
+          height: widget.height,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: lip,
+              borderRadius: r,
+              boxShadow: sunk ? null : widget.glow,
+            ),
+            child: AnimatedPadding(
+              duration: const Duration(milliseconds: 70),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(
+                top: sunk ? widget.depth - 1 : 0,
+                bottom: sunk ? 1 : widget.depth,
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: widget.gradient == null ? face : null,
+                  gradient: widget.gradient ?? T.faceOf(face),
+                  borderRadius: r,
+                  border:
+                      widget.border ??
+                      Border(top: BorderSide(color: T.lit, width: 1)),
+                ),
+                child: Center(child: widget.child),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The one action a screen is really for: the farm's wash, rounded, thick.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -406,7 +517,7 @@ class PrimaryButton extends StatelessWidget {
     this.onPressed,
     this.icon,
     this.busy = false,
-    this.height = 48,
+    this.height = 50,
   });
 
   final String label;
@@ -418,67 +529,57 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
+    const ink = Color(0xFFFFFFFF);
     return SizedBox(
-      height: height,
       width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: enabled
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [T.accent700, T.accent600],
-                )
-              : null,
-          color: enabled ? null : T.n300,
-          borderRadius: T.roundSm,
-          boxShadow: enabled
-              ? const [
-                  BoxShadow(
-                    color: Color(0x4D2277AF),
-                    blurRadius: 14,
-                    offset: Offset(0, 5),
-                  ),
-                ]
-              : null,
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: enabled ? onPressed : null,
-            borderRadius: T.roundSm,
-            child: Center(
-              child: busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: T.accent100,
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (icon != null) ...[
-                          Icon(icon, size: 18, color: T.accent100),
-                          const SizedBox(width: 8),
-                        ],
-                        Text(
-                          label,
-                          style: T.bodyMid.copyWith(color: T.accent100),
-                        ),
-                      ],
+      child: Pressable(
+        height: height,
+        onTap: enabled ? onPressed : null,
+        gradient: enabled ? T.cta : null,
+        face: enabled ? null : T.n300,
+        glow: enabled
+            ? [
+                BoxShadow(
+                  color: T.accent.withValues(alpha: 0.30),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
+        child: busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: ink),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: 18,
+                      color: enabled ? ink : T.inkOn(T.n300),
                     ),
-            ),
-          ),
-        ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: T.bodyMid.copyWith(
+                      color: enabled ? ink : T.inkOn(T.n300),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
 }
 
-/// Hairline-outlined button for secondary actions (Approve, Mark paid, Add).
+/// The same object in the page's own colour, for the second-choice actions
+/// (Approve, Mark paid, Add). Thinner lip, because it is a lesser thing.
 class GhostButton extends StatelessWidget {
   const GhostButton({
     super.key,
@@ -497,28 +598,23 @@ class GhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = onPressed == null
+    final off = onPressed == null;
+    final fg = off
         ? T.n500
         : danger
         ? T.alert
         : T.accent700;
-    return SizedBox(
-      height: compact ? 34 : T.tap,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: fg,
-          backgroundColor: Colors.white,
-          side: BorderSide(
-            color: onPressed == null ? T.n300 : fg.withValues(alpha: 0.45),
-            width: 1.4,
-          ),
-          padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(T.radiusSm)),
-          ),
-          textStyle: T.bodyMid,
-        ),
+    return Pressable(
+      height: compact ? 36 : T.tap + 2,
+      onTap: onPressed,
+      face: T.raised,
+      depth: 3,
+      border: Border.all(
+        color: off ? T.n300 : fg.withValues(alpha: 0.42),
+        width: 1.3,
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -526,7 +622,17 @@ class GhostButton extends StatelessWidget {
               Icon(icon, size: 16, color: fg),
               const SizedBox(width: 6),
             ],
-            Text(label, style: T.bodyMid.copyWith(color: fg)),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: T.bodyMid.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -718,7 +824,7 @@ class _Seg extends StatelessWidget {
             style: T.bodyMid.copyWith(
               fontSize: compact ? 12 : 13,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? Colors.white : T.n700,
+              color: selected ? T.inkOn(tone) : T.n700,
             ),
           ),
         ),
@@ -757,10 +863,12 @@ class StepBar extends StatelessWidget {
 
 /// Single filled bar — profit over sales.
 class RatioBar extends StatelessWidget {
-  const RatioBar({super.key, required this.fraction, this.color = T.accent});
+  const RatioBar({super.key, required this.fraction, this.color});
 
   final double fraction;
-  final Color color;
+
+  /// Left off, the bar takes the skin's accent.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
@@ -771,7 +879,10 @@ class RatioBar extends StatelessWidget {
         builder: (_, c) => Stack(
           children: [
             Container(color: T.n300),
-            Container(width: c.maxWidth * fraction.clamp(0, 1), color: color),
+            Container(
+              width: c.maxWidth * fraction.clamp(0, 1),
+              color: color ?? T.accent,
+            ),
           ],
         ),
       ),
@@ -1054,7 +1165,7 @@ class _WhoFieldState extends State<WhoField> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.person_outline, size: 17, color: T.done),
+                Icon(Icons.person_outline, size: 17, color: T.done),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1137,15 +1248,15 @@ class _WhoChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? T.accent : Colors.white,
+          color: selected ? T.fill : T.surface,
           borderRadius: BorderRadius.circular(T.pill),
-          border: Border.all(color: selected ? T.accent : T.n300, width: 1.3),
+          border: Border.all(color: selected ? T.fill : T.n300, width: 1.3),
         ),
         child: Text(
           label,
           style: T.bodyMid.copyWith(
             fontSize: 13,
-            color: selected ? Colors.white : T.n700,
+            color: selected ? T.onFill : T.n700,
           ),
         ),
       ),
@@ -1400,7 +1511,7 @@ Future<num?> askForMoney(
   final said = await showDialog<num>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: Colors.white,
+      backgroundColor: T.surface,
       title: Text(title, style: T.cardTitle),
       content: TextField(
         controller: field,

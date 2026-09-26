@@ -463,148 +463,156 @@ class StatementSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: T.round,
-        boxShadow: T.shadow,
-      ),
-      child: ClipRRect(
-        borderRadius: T.round,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Head
-            Container(
-              color: T.accent800,
-              padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(T.radiusXs),
-                    child: Image.asset(
-                      'assets/mark.png',
-                      width: 38,
-                      height: 38,
-                      fit: BoxFit.cover,
-                      // The farm's mark is going to be swapped one day, and
-                      // a statement is not the place to find out the file has
-                      // moved. Without this the whole page throws and draws
-                      // nothing at all over a missing picture.
-                      errorBuilder: (_, _, _) =>
-                          const SizedBox(width: 38, height: 38),
+    // Paper, not a screen: this sheet is shared out of the app and read by
+    // somebody who never chose a skin. Everything below is laid out in this
+    // one pass, which is why the parts are functions.
+    return T.onPaper(
+      () => DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: T.round,
+          boxShadow: T.shadow,
+        ),
+        child: ClipRRect(
+          borderRadius: T.round,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Head
+              Container(
+                color: T.accent800,
+                padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(T.radiusXs),
+                      child: Image.asset(
+                        'assets/mark.png',
+                        width: 38,
+                        height: 38,
+                        fit: BoxFit.cover,
+                        // The farm's mark is going to be swapped one day, and
+                        // a statement is not the place to find out the file has
+                        // moved. Without this the whole page throws and draws
+                        // nothing at all over a missing picture.
+                        errorBuilder: (_, _, _) =>
+                            const SizedBox(width: 38, height: 38),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            farmName,
+                            style: T.cardTitle.copyWith(
+                              color: Colors.white,
+                              fontSize: 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            l.t(statement.kind.title),
+                            style: T.meta.copyWith(color: T.accent300),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          farmName,
-                          style: T.cardTitle.copyWith(
-                            color: Colors.white,
-                            fontSize: 15,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          l.t('Issued').toUpperCase(),
+                          style: T.kicker.copyWith(color: T.accent300),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          l.t(statement.kind.title),
-                          style: T.meta.copyWith(color: T.accent300),
+                          fmtDateFull(DateTime.now()),
+                          style: T.bodyMid.copyWith(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        l.t('Issued').toUpperCase(),
-                        style: T.kicker.copyWith(color: T.accent300),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        fmtDateFull(DateTime.now()),
-                        style: T.bodyMid.copyWith(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Who, when, and where the balance started
-            Container(
-              color: T.n100,
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _Fact(label: l.t('Account'), value: forWhom),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: _Fact(label: l.t('Period'), value: period),
-                  ),
-                  _Fact(
-                    label: statement.showing.isEmpty
-                        ? l.t('Opening')
-                        : l.t('Showing'),
-                    value: statement.showing.isEmpty
-                        ? rs(statement.opening)
-                        : statement.showing,
-                    right: true,
-                  ),
-                ],
-              ),
-            ),
-
-            if (statement.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 28),
-                child: EmptyNote(l.t('Nothing in these days.')),
-              )
-            else
-              _Table(statement: statement),
-
-            // The foot
-            Container(
-              color: T.accent100,
-              padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
-              child: Column(
-                children: [
-                  _FootLine(
-                    label: l.t('Total debit'),
-                    value: rs(statement.debits),
-                    tone: T.moneyOut,
-                  ),
-                  _FootLine(
-                    label: l.t('Total credit'),
-                    value: rs(statement.credits),
-                    tone: T.moneyIn,
-                  ),
-                  const Divider(height: 14, color: T.accent300),
-                  _FootLine(
-                    label: l.t(statement.kind.footLabel),
-                    value: rs(statement.closing),
-                    tone: T.accent800,
-                    big: true,
-                  ),
-                  if (advanceHeld > 0)
-                    _FootLine(
-                      label: l.t('Advance'),
-                      value: rs(advanceHeld),
-                      tone: T.moneyDue,
+              // Who, when, and where the balance started
+              Container(
+                color: T.n100,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 11,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _fact(label: l.t('Account'), value: forWhom),
                     ),
-                ],
+                    Expanded(
+                      flex: 2,
+                      child: _fact(label: l.t('Period'), value: period),
+                    ),
+                    _fact(
+                      label: statement.showing.isEmpty
+                          ? l.t('Opening')
+                          : l.t('Showing'),
+                      value: statement.showing.isEmpty
+                          ? rs(statement.opening)
+                          : statement.showing,
+                      right: true,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              if (statement.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: EmptyNote(l.t('Nothing in these days.')),
+                )
+              else
+                _table(context, statement),
+
+              // The foot
+              Container(
+                color: T.accent100,
+                padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+                child: Column(
+                  children: [
+                    _footLine(
+                      label: l.t('Total debit'),
+                      value: rs(statement.debits),
+                      tone: T.moneyOut,
+                    ),
+                    _footLine(
+                      label: l.t('Total credit'),
+                      value: rs(statement.credits),
+                      tone: T.moneyIn,
+                    ),
+                    Divider(height: 14, color: T.accent300),
+                    _footLine(
+                      label: l.t(statement.kind.footLabel),
+                      value: rs(statement.closing),
+                      tone: T.accent800,
+                      big: true,
+                    ),
+                    if (advanceHeld > 0)
+                      _footLine(
+                        label: l.t('Advance'),
+                        value: rs(advanceHeld),
+                        tone: T.moneyDue,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -624,166 +632,125 @@ class StatementSheet extends StatelessWidget {
 /// columns keep their own width, and everything wordy — who it was, what it
 /// was, who wrote it — shares what is left and wraps. The A4 version keeps
 /// the true grid, because a sheet of paper is wide enough for it.
-class _Table extends StatelessWidget {
-  const _Table({required this.statement});
+/// Wide enough for a lakh with its commas, and not a pixel more.
+const _money = 56.0;
+const _balance = 64.0;
+const _date = 42.0;
 
-  final Statement statement;
-
-  /// Wide enough for a lakh with its commas, and not a pixel more.
-  static const _money = 56.0;
-  static const _balance = 64.0;
-  static const _date = 42.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = L.of(context);
-    return Column(
-      children: [
+Widget _table(BuildContext context, Statement statement) {
+  final l = L.of(context);
+  return Column(
+    children: [
+      Container(
+        color: T.n100,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(width: _date, child: _h('Date')),
+            Expanded(child: _h(l.t('Particulars'))),
+            SizedBox(width: _money, child: _h(l.t('Debit'), right: true)),
+            SizedBox(width: _money, child: _h(l.t('Credit'), right: true)),
+            SizedBox(width: _balance, child: _h(l.t('Balance'), right: true)),
+          ],
+        ),
+      ),
+      for (final line in statement.lines)
         Container(
-          color: T.n100,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: T.n200)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(width: _date, child: _H('Date')),
-              Expanded(child: _H(l.t('Particulars'))),
-              SizedBox(width: _money, child: _H(l.t('Debit'), right: true)),
-              SizedBox(width: _money, child: _H(l.t('Credit'), right: true)),
-              SizedBox(width: _balance, child: _H(l.t('Balance'), right: true)),
+              SizedBox(
+                width: _date,
+                child: Text(
+                  fmtDate(line.date),
+                  style: T.body.copyWith(fontSize: 11),
+                ),
+              ),
+              // Who, what, and whose hand wrote it — one under the other,
+              // because on a phone these are the three that can afford to
+              // wrap and the money is the one that cannot.
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(line.party, style: T.bodyMid.copyWith(fontSize: 12)),
+                    Text(line.detail, style: T.meta.copyWith(fontSize: 10.5)),
+                    if (line.enteredBy.isNotEmpty)
+                      Text(
+                        line.enteredBy,
+                        style: T.meta.copyWith(fontSize: 10, color: T.n500),
+                      ),
+                  ],
+                ),
+              ),
+              _moneyCell(line.debit, _money, T.moneyOut),
+              _moneyCell(line.credit, _money, T.moneyIn),
+              SizedBox(
+                width: _balance,
+                child: Text(
+                  groupPk(line.balance),
+                  textAlign: TextAlign.right,
+                  style: T.bodyMid.copyWith(
+                    fontSize: 11.5,
+                    color: line.balance < 0 ? T.moneyDue : T.accent800,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        for (final line in statement.lines)
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: T.n200)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: _date,
-                  child: Text(
-                    fmtDate(line.date),
-                    style: T.body.copyWith(fontSize: 11),
-                  ),
-                ),
-                // Who, what, and whose hand wrote it — one under the other,
-                // because on a phone these are the three that can afford to
-                // wrap and the money is the one that cannot.
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(line.party, style: T.bodyMid.copyWith(fontSize: 12)),
-                      Text(line.detail, style: T.meta.copyWith(fontSize: 10.5)),
-                      if (line.enteredBy.isNotEmpty)
-                        Text(
-                          line.enteredBy,
-                          style: T.meta.copyWith(fontSize: 10, color: T.n500),
-                        ),
-                    ],
-                  ),
-                ),
-                _Money(line.debit, _money, T.moneyOut),
-                _Money(line.credit, _money, T.moneyIn),
-                SizedBox(
-                  width: _balance,
-                  child: Text(
-                    groupPk(line.balance),
-                    textAlign: TextAlign.right,
-                    style: T.bodyMid.copyWith(
-                      fontSize: 11.5,
-                      color: line.balance < 0 ? T.moneyDue : T.accent800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _Money extends StatelessWidget {
-  const _Money(this.value, this.width, this.tone);
-
-  final num value;
-  final double width;
-  final Color tone;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: width,
-    child: Text(
-      value > 0 ? groupPk(value) : '',
-      textAlign: TextAlign.right,
-      style: T.body.copyWith(fontSize: 11.5, color: tone),
-    ),
-  );
-}
-
-class _H extends StatelessWidget {
-  const _H(this.text, {this.right = false});
-
-  final String text;
-  final bool right;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    text.toUpperCase(),
-    textAlign: right ? TextAlign.right : TextAlign.left,
-    style: T.kicker,
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-  );
-}
-
-class _Fact extends StatelessWidget {
-  const _Fact({required this.label, required this.value, this.right = false});
-
-  final String label;
-  final String value;
-  final bool right;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: right
-        ? CrossAxisAlignment.end
-        : CrossAxisAlignment.start,
-    children: [
-      Text(label.toUpperCase(), style: T.kicker),
-      const SizedBox(height: 2),
-      Text(value, style: T.bodyMid.copyWith(fontSize: 12.5), maxLines: 2),
     ],
   );
 }
 
-class _FootLine extends StatelessWidget {
-  const _FootLine({
-    required this.label,
-    required this.value,
-    required this.tone,
-    this.big = false,
-  });
+Widget _moneyCell(num value, double width, Color tone) => SizedBox(
+  width: width,
+  child: Text(
+    value > 0 ? groupPk(value) : '',
+    textAlign: TextAlign.right,
+    style: T.body.copyWith(fontSize: 11.5, color: tone),
+  ),
+);
 
-  final String label;
-  final String value;
-  final Color tone;
-  final bool big;
+Widget _h(String text, {bool right = false}) => Text(
+  text.toUpperCase(),
+  textAlign: right ? TextAlign.right : TextAlign.left,
+  style: T.kicker,
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
+);
 
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
-    child: Row(
-      children: [
-        Expanded(child: Text(label, style: big ? T.bodyMid : T.body)),
-        Text(value, style: (big ? T.num22 : T.bodyMid).copyWith(color: tone)),
-      ],
-    ),
-  );
-}
+Widget _fact({
+  required String label,
+  required String value,
+  bool right = false,
+}) => Column(
+  crossAxisAlignment: right ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+  children: [
+    Text(label.toUpperCase(), style: T.kicker),
+    const SizedBox(height: 2),
+    Text(value, style: T.bodyMid.copyWith(fontSize: 12.5), maxLines: 2),
+  ],
+);
+
+Widget _footLine({
+  required String label,
+  required String value,
+  required Color tone,
+  bool big = false,
+}) => Padding(
+  padding: const EdgeInsets.symmetric(vertical: 2),
+  child: Row(
+    children: [
+      Expanded(child: Text(label, style: big ? T.bodyMid : T.body)),
+      Text(value, style: (big ? T.num22 : T.bodyMid).copyWith(color: tone)),
+    ],
+  ),
+);
 
 class _Quick extends StatelessWidget {
   const _Quick({required this.label, required this.onTap, this.icon});

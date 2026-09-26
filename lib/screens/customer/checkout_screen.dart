@@ -101,7 +101,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(child: Text('Total', style: T.cardTitle)),
+                  Expanded(child: Text('Total', style: T.cardTitle)),
                   Text(rs(total), style: T.num22),
                 ],
               ),
@@ -374,7 +374,7 @@ class _PayOption extends StatelessWidget {
       opacity: enabled ? 1 : 0.5,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: T.divider, width: 1)),
         ),
         child: Row(
@@ -458,7 +458,7 @@ class _CartLine extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.event_outlined, size: 15, color: T.n600),
+                Icon(Icons.event_outlined, size: 15, color: T.n600),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

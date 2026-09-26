@@ -173,6 +173,7 @@ final _dayMonthYear = DateFormat('d MMM yyyy');
 final _monthName = DateFormat('MMMM yyyy');
 final _monthShort = DateFormat('MMM yyyy');
 final _timeStamp = DateFormat('d MMM, h:mm a');
+final _clock = DateFormat('h:mm a');
 
 String fmtDate(DateTime d) => d.year == DateTime.now().year
     ? _dayMonth.format(d)
@@ -181,6 +182,10 @@ String fmtDate(DateTime d) => d.year == DateTime.now().year
 String fmtDateFull(DateTime d) => _dayMonthYear.format(d);
 
 String fmtStamp(DateTime d) => _timeStamp.format(d);
+
+/// The time of day on its own — for a chat line, where the date is already
+/// written once above the run of messages it belongs to.
+String fmtClock(DateTime d) => _clock.format(d);
 
 /// `2026-09` -> `September 2026`
 String monthName(String monthId) {

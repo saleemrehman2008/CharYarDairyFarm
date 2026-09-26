@@ -88,7 +88,7 @@ class _LoanCardState extends State<LoanCard> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.check_circle, color: T.moneyIn, size: 18),
+                  Icon(Icons.check_circle, color: T.moneyIn, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -320,10 +320,10 @@ class _AskForLoanCardState extends State<AskForLoanCard> {
                     selected: _months == m,
                     showCheckmark: false,
                     labelStyle: T.bodyMid.copyWith(
-                      color: _months == m ? Colors.white : T.n700,
+                      color: _months == m ? T.onFill : T.n700,
                     ),
                     selectedColor: T.accent,
-                    backgroundColor: Colors.white,
+                    backgroundColor: T.surface,
                     side: BorderSide(color: _months == m ? T.accent : T.n300),
                     onSelected: (_) => setState(() => _months = m),
                   ),

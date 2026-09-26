@@ -546,7 +546,7 @@ class _DateRow extends StatelessWidget {
           decoration: BoxDecoration(border: T.hair),
           child: Row(
             children: [
-              const Icon(Icons.event_outlined, size: 17, color: T.n600),
+              Icon(Icons.event_outlined, size: 17, color: T.n600),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -559,7 +559,7 @@ class _DateRow extends StatelessWidget {
               if (onClear != null)
                 InkWell(
                   onTap: onClear,
-                  child: const Icon(Icons.close, size: 16, color: T.n500),
+                  child: Icon(Icons.close, size: 16, color: T.n500),
                 ),
             ],
           ),

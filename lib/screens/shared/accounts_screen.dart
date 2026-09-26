@@ -26,16 +26,25 @@ import 'new_entry_screen.dart';
 /// come in is green, what has gone out is red, what is still owed either way
 /// is pale.
 enum AccountsFilter {
-  all('All', T.accent600),
-  sales('Sales', T.moneyIn),
-  expenses('Expenses', T.moneyOut),
-  receivable('To receive', T.moneyGet),
-  payable('To pay', T.moneyDue);
+  all('All'),
+  sales('Sales'),
+  expenses('Expenses'),
+  receivable('To receive'),
+  payable('To pay');
 
-  const AccountsFilter(this.label, this.tone);
+  const AccountsFilter(this.label);
 
   final String label;
-  final Color tone;
+
+  /// Read fresh every time, because the money colours differ between the
+  /// three skins — a red that reads on paper is a bruise on a black page.
+  Color get tone => switch (this) {
+    AccountsFilter.all => T.accent600,
+    AccountsFilter.sales => T.moneyIn,
+    AccountsFilter.expenses => T.moneyOut,
+    AccountsFilter.receivable => T.moneyGet,
+    AccountsFilter.payable => T.moneyDue,
+  };
 
   /// The one figure this view is about.
   num totalFrom(Books books) => switch (this) {
@@ -671,7 +680,7 @@ class _FilterChip extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 15),
         decoration: BoxDecoration(
-          color: selected ? tone : Colors.white,
+          color: selected ? tone : T.surface,
           borderRadius: BorderRadius.circular(T.pill),
           border: Border.all(color: selected ? tone : T.n300, width: 1.3),
           boxShadow: selected
@@ -689,7 +698,7 @@ class _FilterChip extends StatelessWidget {
           style: T.bodyMid.copyWith(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : T.n700,
+            color: selected ? T.inkOn(tone) : T.n700,
           ),
         ),
       ),
@@ -869,12 +878,12 @@ class _Mark extends StatelessWidget {
     height: 21,
     alignment: Alignment.center,
     decoration: BoxDecoration(
-      color: done ? tone : Colors.white,
+      color: done ? tone : T.surface,
       borderRadius: BorderRadius.circular(6),
       border: Border.all(color: done || part ? tone : T.n300, width: 2),
     ),
     child: done
-        ? const Icon(Icons.check, size: 13, color: Colors.white)
+        ? Icon(Icons.check, size: 13, color: T.inkOn(tone))
         : part
         ? Icon(Icons.contrast, size: 13, color: tone)
         : null,
@@ -953,7 +962,7 @@ class _PartyHead extends StatelessWidget {
                     children: [
                       Text(
                         '$party — $heading'.toUpperCase(),
-                        style: T.kicker.copyWith(color: T.accent200),
+                        style: T.kicker.copyWith(color: T.onHeroQuiet),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -963,13 +972,13 @@ class _PartyHead extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           shown,
-                          style: T.num30.copyWith(color: Colors.white),
+                          style: T.num30.copyWith(color: T.onHero),
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         l.t2('%s entries', count),
-                        style: T.meta.copyWith(color: T.accent200),
+                        style: T.meta.copyWith(color: T.onHeroQuiet),
                       ),
                     ],
                   ),
@@ -980,12 +989,12 @@ class _PartyHead extends StatelessWidget {
                   children: [
                     Text(
                       l.t(owesUs ? 'Balance' : 'The farm owes').toUpperCase(),
-                      style: T.kicker.copyWith(color: T.accent200),
+                      style: T.kicker.copyWith(color: T.onHeroQuiet),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       rs(balance.abs()),
-                      style: T.num22.copyWith(color: Colors.white),
+                      style: T.num22.copyWith(color: T.onHero),
                     ),
                   ],
                 ),
@@ -999,26 +1008,22 @@ class _PartyHead extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
+                  color: T.onHero.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(T.radiusXs),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.lock_outline,
-                      size: 15,
-                      color: T.accent200,
-                    ),
+                    Icon(Icons.lock_outline, size: 15, color: T.onHeroQuiet),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         l.t('Advance'),
-                        style: T.meta.copyWith(color: T.accent200),
+                        style: T.meta.copyWith(color: T.onHeroQuiet),
                       ),
                     ),
                     Text(
                       rs(advanceHeld),
-                      style: T.bodyMid.copyWith(color: Colors.white),
+                      style: T.bodyMid.copyWith(color: T.onHero),
                     ),
                   ],
                 ),
@@ -1403,7 +1408,7 @@ class _LedgerRow extends StatelessWidget {
                   height: 30,
                   child: IconButton(
                     onPressed: busy ? null : onDelete,
-                    icon: const Icon(Icons.close, size: 15, color: T.n400),
+                    icon: Icon(Icons.close, size: 15, color: T.n400),
                     padding: EdgeInsets.zero,
                     tooltip: l.t('Delete entry'),
                   ),

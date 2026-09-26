@@ -145,6 +145,24 @@ const Map<String, String> romanUrdu = {
   'This cannot be undone.': 'Ye wapas nahi hoga.',
   'Language': 'Zubaan',
   'My account': 'Mera account',
+  'Theme': 'Rang',
+  'Dark': 'Kaala',
+  'Medium dark': 'Darmiyana',
+  'Light': 'Safed',
+  'Dark is easiest at four in the morning and after sunset. Light is easiest '
+          'in the sun. It is yours alone; nobody else on the farm changes '
+          'with it.':
+      'Subah chaar baje aur sham ke baad kaala aasaan rehta hai, dhoop mein '
+      'safed. Ye sirf aap ka hai; farm mein kisi aur ka nahi badalta.',
+  // ---- The farm's room ----
+  'Chat': 'Baat',
+  'Farm room': 'Farm ka kamra',
+  'Say something to the others': 'Baqi sab se kuch kahen',
+  'Nothing said here yet.': 'Abhi yahan kuch nahi kaha gaya.',
+  'This room is only for the people who run the farm. Write a name with an @ '
+          'in front of it to call somebody out.':
+      'Ye kamra sirf un logon ke liye hai jo farm chalate hain. Kisi ko '
+      'pukaarna ho to naam se pehle @ lagayen.',
   // ---- Home and getting around ----
   'Farm dashboard': 'Farm ka dashboard',
   'Do': 'Kaam',

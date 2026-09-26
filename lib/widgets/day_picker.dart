@@ -193,10 +193,10 @@ class _Day extends StatelessWidget {
       margin: const EdgeInsets.all(1.5),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: on ? T.accent700 : Colors.transparent,
+        color: on ? T.fill : Colors.transparent,
         border: Border.all(
           color: on
-              ? T.accent700
+              ? T.fill
               : today
               ? T.accent300
               : T.divider,
@@ -206,7 +206,7 @@ class _Day extends StatelessWidget {
         '$number',
         style: T.body.copyWith(
           color: on
-              ? Colors.white
+              ? T.onFill
               : off
               ? T.n400
               : T.n800,

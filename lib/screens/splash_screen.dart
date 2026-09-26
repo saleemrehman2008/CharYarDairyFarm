@@ -13,7 +13,7 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: T.accent900,
+    backgroundColor: T.brandDeep,
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -23,7 +23,7 @@ class SplashScreen extends StatelessWidget {
           Text(
             'CHAR YAR',
             style: T.screenTitle.copyWith(
-              color: Colors.white,
+              color: T.onHero,
               letterSpacing: 6,
               fontSize: 20,
             ),
@@ -31,14 +31,14 @@ class SplashScreen extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             'DAIRY FARM',
-            style: T.meta.copyWith(color: T.accent300, letterSpacing: 4),
+            style: T.meta.copyWith(color: T.onHeroQuiet, letterSpacing: 4),
           ),
           const SizedBox(height: 34),
           SizedBox(
             width: 96,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(T.pill),
-              child: const LinearProgressIndicator(
+              child: LinearProgressIndicator(
                 minHeight: 3,
                 color: T.accent2,
                 backgroundColor: Color(0x33FFFFFF),

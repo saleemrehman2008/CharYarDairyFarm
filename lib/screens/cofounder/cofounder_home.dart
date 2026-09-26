@@ -281,7 +281,7 @@ class _MilkCard extends StatelessWidget {
                   color: T.accent100,
                   borderRadius: BorderRadius.circular(T.radiusXs),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.water_drop_outlined,
                   size: 19,
                   color: T.accent600,

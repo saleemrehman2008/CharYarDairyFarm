@@ -159,7 +159,7 @@ class _ShareDecisionScreenState extends State<ShareDecisionScreen> {
               wash: T.moneyInWash,
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: T.moneyIn, size: 20),
+                  Icon(Icons.check_circle, color: T.moneyIn, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

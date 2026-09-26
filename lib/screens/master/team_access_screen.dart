@@ -144,7 +144,7 @@ class _EmailListState extends State<_EmailList> {
           for (final email in widget.emails)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: T.divider, width: 1)),
               ),
               child: Row(
@@ -158,7 +158,7 @@ class _EmailListState extends State<_EmailList> {
                   ),
                   IconButton(
                     onPressed: _busy ? null : () => _remove(email),
-                    icon: const Icon(Icons.close, size: 16, color: T.n500),
+                    icon: Icon(Icons.close, size: 16, color: T.n500),
                     tooltip: 'Remove',
                   ),
                 ],

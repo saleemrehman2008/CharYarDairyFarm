@@ -22,7 +22,7 @@ class BlockedScreen extends StatelessWidget {
             children: [
               const FarmLogo(width: 150),
               const SizedBox(height: 20),
-              const Text('Account blocked', style: T.screenTitle),
+              Text('Account blocked', style: T.screenTitle),
               const SizedBox(height: 8),
               Text(
                 'This account cannot use the app right now. Please contact the '

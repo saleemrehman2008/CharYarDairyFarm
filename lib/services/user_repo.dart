@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 import '../models/models.dart';
+import '../theme/tokens.dart';
 import '../util/phone.dart';
 import 'auth_service.dart';
 import 'db.dart';
@@ -227,6 +228,12 @@ class UserRepo {
   /// anybody may set their own.
   static Future<void> setLang(String uid, Lang lang) async {
     await Db.users.doc(uid).set({'lang': lang.id}, SetOptions(merge: true));
+  }
+
+  /// The skin this person's phone wears. Same footing as the language: it
+  /// changes nothing anybody else sees, so anybody may set their own.
+  static Future<void> setSkin(String uid, Skin skin) async {
+    await Db.users.doc(uid).set({'skin': skin.name}, SetOptions(merge: true));
   }
 
   static Future<void> saveFcmToken(String uid, String token) async {

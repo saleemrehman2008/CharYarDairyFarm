@@ -577,10 +577,10 @@ class _PercentPicker extends StatelessWidget {
                 selected: value == step,
                 showCheckmark: false,
                 labelStyle: T.bodyMid.copyWith(
-                  color: value == step ? Colors.white : T.n700,
+                  color: value == step ? T.onFill : T.n700,
                 ),
                 selectedColor: T.accent,
-                backgroundColor: Colors.white,
+                backgroundColor: T.surface,
                 side: BorderSide(color: value == step ? T.accent : T.n300),
                 onSelected: (_) => onPick(step),
               ),

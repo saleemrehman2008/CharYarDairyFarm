@@ -2,6 +2,7 @@ export 'animal.dart';
 export 'animal_event.dart';
 export 'app_user.dart';
 export 'bill.dart';
+export 'chat_msg.dart';
 export 'delivery.dart';
 export 'farm_month.dart';
 export 'farm_order.dart';

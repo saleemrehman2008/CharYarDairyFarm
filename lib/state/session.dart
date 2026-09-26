@@ -10,6 +10,7 @@ import '../services/log_service.dart';
 import '../services/month_repo.dart';
 import '../services/notif_service.dart';
 import '../services/user_repo.dart';
+import '../theme/tokens.dart';
 
 /// Who is signed in and what the app is allowed to show them.
 ///
@@ -76,6 +77,9 @@ class Session extends ChangeNotifier {
   bool get settingsLoading => _settings == null;
 
   Lang get lang => _user?.lang ?? Lang.en;
+
+  /// The skin this person chose. Dark until the profile says otherwise.
+  Skin get skin => _user?.skin ?? Skin.dark;
 
   Role get role => _user?.role ?? Role.customer;
   Actor get actor => Actor(
@@ -149,6 +153,11 @@ class Session extends ChangeNotifier {
         _user = appUser;
         _docMissing = appUser == null;
         _error = null;
+        // The skin lives outside the widget tree, because the whole tree is
+        // built from it. Set it here, where the profile lands, so it is
+        // right on the first frame after sign-in and on every other phone
+        // this person picks up.
+        if (appUser != null) skinNow.value = appUser.skin;
         _settle();
         notifyListeners();
 

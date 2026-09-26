@@ -48,8 +48,8 @@ class _CattleScreenState extends State<CattleScreen> {
       showBack: true,
       floating: FloatingActionButton.extended(
         onPressed: () => _open(context, store, const AnimalFormScreen()),
-        backgroundColor: T.accent700,
-        foregroundColor: Colors.white,
+        backgroundColor: T.fill,
+        foregroundColor: T.onFill,
         icon: const Icon(Icons.add),
         label: const Text('Add animal'),
       ),
@@ -212,7 +212,7 @@ class _DueCard extends StatelessWidget {
                       color: a.overdue() ? T.alert : T.n600,
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 16, color: T.n500),
+                  Icon(Icons.chevron_right, size: 16, color: T.n500),
                 ],
               ),
             ),
@@ -270,7 +270,7 @@ class _AnimalRow extends StatelessWidget {
             ],
           ),
         ),
-        const Icon(Icons.chevron_right, size: 18, color: T.n500),
+        Icon(Icons.chevron_right, size: 18, color: T.n500),
       ],
     ),
   );
@@ -291,12 +291,12 @@ class _Chip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
-          color: on ? T.accent700 : Colors.transparent,
-          border: Border.all(color: on ? T.accent700 : T.divider),
+          color: on ? T.fill : Colors.transparent,
+          border: Border.all(color: on ? T.fill : T.divider),
         ),
         child: Text(
           label,
-          style: T.meta.copyWith(color: on ? Colors.white : T.n700),
+          style: T.meta.copyWith(color: on ? T.onFill : T.n700),
         ),
       ),
     ),

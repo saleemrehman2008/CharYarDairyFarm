@@ -108,7 +108,7 @@ void main() {
     testWidgets('a striped card draws its content and its stripe', (
       tester,
     ) async {
-      await inAList(tester, const [
+      await inAList(tester, [
         RegCard(stripe: T.moneyIn, child: Text('Delivered')),
       ]);
 
@@ -118,7 +118,7 @@ void main() {
     });
 
     testWidgets('a card does not stop the ones after it', (tester) async {
-      await inAList(tester, const [
+      await inAList(tester, [
         RegCard(child: Text('First')),
         RegCard(stripe: T.moneyDue, child: Text('Second')),
         Text('After the cards'),
@@ -149,7 +149,7 @@ void main() {
 
   group('the rest of the page furniture', () {
     testWidgets('the headline figure and the tiles under it', (tester) async {
-      await inAList(tester, const [
+      await inAList(tester, [
         HeroCard(
           label: 'Cash in hand',
           value: 'Rs 6,12,400',
@@ -182,7 +182,7 @@ void main() {
     });
 
     testWidgets('the grid of things to go and do', (tester) async {
-      await inAList(tester, const [
+      await inAList(tester, [
         ActionGrid(
           tiles: [
             ActionTile(icon: Icons.add, label: 'New entry', tone: T.accent600),

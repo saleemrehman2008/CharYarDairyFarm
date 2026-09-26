@@ -43,16 +43,27 @@ Future<void> main() async {
     initError = e;
   }
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: T.bg,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
-  );
+  paintSystemBars();
 
   runApp(CharYarApp(initError: initError));
+}
+
+/// Paint the status bar and the navigation bar to match the skin.
+///
+/// Android draws those two strips itself, outside anything Flutter controls,
+/// so a black app with a white strip at the top looks like two apps stacked.
+/// Called at start and again whenever the skin changes.
+void paintSystemBars() {
+  final bars = T.isDark ? Brightness.light : Brightness.dark;
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: bars,
+      statusBarBrightness: T.isDark ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: T.bg,
+      systemNavigationBarIconBrightness: bars,
+    ),
+  );
 }
 
 class CharYarApp extends StatelessWidget {
@@ -63,11 +74,8 @@ class CharYarApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (initError != null) {
-      return MaterialApp(
-        title: 'Char Yar Dairy Farm',
-        debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(),
-        home: NoticeScreen(
+      return _skinned(
+        NoticeScreen(
           title: 'Firebase did not start',
           body:
               'This build could not reach its Firebase project. It was '
@@ -82,14 +90,27 @@ class CharYarApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => Session()),
         ChangeNotifierProvider(create: (_) => Cart()),
       ],
-      child: MaterialApp(
+      child: _skinned(const AuthGate()),
+    );
+  }
+
+  /// The app, rebuilt from the top whenever the skin changes.
+  ///
+  /// [T] reads the skin on every access rather than holding a value, so the
+  /// only thing needed to repaint the whole app is to build it again — no
+  /// screen has to know a skin exists.
+  Widget _skinned(Widget home) => ValueListenableBuilder<Skin>(
+    valueListenable: skinNow,
+    builder: (_, _, _) {
+      paintSystemBars();
+      return MaterialApp(
         title: 'Char Yar Dairy Farm',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: const AuthGate(),
-      ),
-    );
-  }
+        home: home,
+      );
+    },
+  );
 }
 
 /// Picks the home screen from the signed-in user's role.

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/tokens.dart';
 import 'helpers.dart';
 
 enum Role {
@@ -77,6 +78,8 @@ class AppUser {
     required this.mobile,
     this.partnerId,
     required this.lang,
+    required this.skin,
+    required this.chatSeenAt,
     required this.createdAt,
   });
 
@@ -97,6 +100,15 @@ class AppUser {
   /// Each person reads the app in their own language; it is their setting,
   /// not the farm's.
   final Lang lang;
+
+  /// Which of the three skins this person's phone wears. Theirs alone, the
+  /// same as the language — the man who does the four o'clock round wants
+  /// black, the man who does the books at noon may not.
+  final Skin skin;
+
+  /// The last time this person had the farm's room open. Everything said
+  /// after it is what the dot on the tab is counting.
+  final DateTime? chatSeenAt;
 
   final DateTime createdAt;
 
@@ -122,6 +134,8 @@ class AppUser {
       mobile: s(m['mobile']),
       partnerId: m['partnerId'] == null ? null : s(m['partnerId']),
       lang: Lang.parse(m['lang']),
+      skin: Skin.byName(m['skin'] as String?),
+      chatSeenAt: m['chatSeenAt'] == null ? null : dtOr(m['chatSeenAt']),
       createdAt: dtOr(m['createdAt']),
     );
   }

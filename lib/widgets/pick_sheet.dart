@@ -20,7 +20,7 @@ Future<Picked?> pickOne(
 }) => showModalBottomSheet<Picked>(
   context: context,
   isScrollControlled: true,
-  backgroundColor: Colors.white,
+  backgroundColor: T.surface,
   shape: const RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
   ),
@@ -185,7 +185,7 @@ class _Option extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (selected) const Icon(Icons.check, size: 18, color: T.accent600),
+            if (selected) Icon(Icons.check, size: 18, color: T.accent600),
           ],
         ),
       ),
@@ -224,7 +224,7 @@ class PickPill extends StatelessWidget {
         height: 38,
         padding: EdgeInsets.only(left: 12, right: chosen ? 4 : 12),
         decoration: BoxDecoration(
-          color: chosen ? T.accent100 : Colors.white,
+          color: chosen ? T.accent100 : T.surface,
           borderRadius: BorderRadius.circular(T.pill),
           border: Border.all(color: chosen ? T.accent600 : T.n300, width: 1.3),
         ),

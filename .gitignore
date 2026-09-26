@@ -44,3 +44,5 @@ functions/node_modules/
 functions/lib/
 functions/.env
 zoom.png
+# Design samples rendered while deciding the three skins. Scratch, not the app.
+.preview/

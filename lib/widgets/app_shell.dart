@@ -68,19 +68,10 @@ class FarmScaffold extends StatelessWidget {
       backgroundColor: T.bg,
       body: Column(
         children: [
-          // The bar keeps its own white ground running up under the status
-          // bar, so the page reads as one sheet rather than a strip on grey.
+          // The bar keeps its own ground running up under the status bar, so
+          // the page reads as one sheet rather than a strip on grey.
           DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x0F0B2438),
-                  blurRadius: 12,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
+            decoration: BoxDecoration(color: T.surface, boxShadow: T.shadow),
             child: SafeArea(
               bottom: false,
               child: Column(
@@ -163,11 +154,7 @@ class _TopBar extends StatelessWidget {
                   color: T.accent100,
                   borderRadius: BorderRadius.circular(T.radiusXs),
                 ),
-                child: const Icon(
-                  Icons.person_outline,
-                  size: 18,
-                  color: T.accent700,
-                ),
+                child: Icon(Icons.person_outline, size: 18, color: T.accent700),
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
@@ -277,7 +264,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
 
         return Container(
           padding: const EdgeInsets.fromLTRB(T.pad, 8, 8, 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: T.accent100,
             border: Border(bottom: BorderSide(color: T.divider, width: 1)),
           ),
@@ -301,7 +288,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
               ),
               IconButton(
                 onPressed: () => setState(() => _dismissed = true),
-                icon: const Icon(Icons.close, size: 16, color: T.n600),
+                icon: Icon(Icons.close, size: 16, color: T.n600),
                 tooltip: 'Not now',
               ),
             ],
@@ -328,13 +315,13 @@ class FarmTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    decoration: const BoxDecoration(
-      color: Colors.white,
+    decoration: BoxDecoration(
+      color: T.surface,
       boxShadow: [
         BoxShadow(
-          color: Color(0x140B2438),
+          color: T.isDark ? const Color(0xB3000000) : const Color(0x140B2438),
           blurRadius: 16,
-          offset: Offset(0, -3),
+          offset: const Offset(0, -3),
         ),
       ],
     ),
@@ -396,7 +383,7 @@ class FarmTabBar extends StatelessWidget {
                                     child: Text(
                                       '${tab.badge}',
                                       style: T.meta.copyWith(
-                                        color: Colors.white,
+                                        color: T.inkOn(T.pending),
                                         fontSize: 10,
                                         height: 1.2,
                                         fontWeight: FontWeight.w600,

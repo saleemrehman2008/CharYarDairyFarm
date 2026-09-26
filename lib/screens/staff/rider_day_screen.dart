@@ -576,13 +576,10 @@ class _Pick extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: on ? T.accent700 : Colors.transparent,
-        border: Border.all(color: on ? T.accent700 : T.divider),
+        color: on ? T.fill : Colors.transparent,
+        border: Border.all(color: on ? T.fill : T.divider),
       ),
-      child: Text(
-        label,
-        style: T.body.copyWith(color: on ? Colors.white : T.n800),
-      ),
+      child: Text(label, style: T.body.copyWith(color: on ? T.onFill : T.n800)),
     ),
   );
 }

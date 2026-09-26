@@ -108,7 +108,7 @@ class _CategoryFieldState extends State<CategoryField> {
     final typed = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: T.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
       ),
@@ -161,7 +161,7 @@ class _CategoryFieldState extends State<CategoryField> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: T.surface,
         title: Text(
           l.t2('"%s" is already being used', typed),
           style: T.cardTitle,
@@ -200,7 +200,7 @@ class _CategoryFieldState extends State<CategoryField> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: T.surface,
         title: Text(
           l.t2('Is "%s" something the farm keeps?', typed),
           style: T.cardTitle,
@@ -318,7 +318,7 @@ class _WriteOutSheetState extends State<_WriteOutSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.subdirectory_arrow_right,
                       size: 16,
                       color: T.n500,

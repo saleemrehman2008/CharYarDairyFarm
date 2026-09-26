@@ -10,6 +10,7 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/balance_check.dart';
+import '../../widgets/day_chart.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
 import '../../widgets/investment_card.dart';
@@ -116,6 +117,12 @@ class MasterHome extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 20),
+
+        // The shape of the period, not just its totals. Four figures tell
+        // you where the farm stands; the columns tell you which way it is
+        // going, which is the thing a partner actually asks at the gate.
+        DayChart(days: dayTotals(store.monthTxns)),
         const SizedBox(height: 20),
 
         SectionTitle(l.t('Do')),
@@ -672,7 +679,7 @@ class _AttentionRow extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, size: 18, color: T.n500),
+          Icon(Icons.chevron_right, size: 18, color: T.n500),
         ],
       ),
     ),

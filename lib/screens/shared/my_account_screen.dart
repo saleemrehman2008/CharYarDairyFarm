@@ -24,6 +24,25 @@ class MyAccountScreen extends StatefulWidget {
 class _MyAccountScreenState extends State<MyAccountScreen> {
   bool _busy = false;
 
+  Future<void> _setSkin(Skin skin) async {
+    final session = context.read<Session>();
+    final user = session.user;
+    if (user == null || user.skin == skin || _busy) return;
+
+    // Change it on the spot, then save. The whole app repaints off this one
+    // line, and waiting for Firestore to answer first would mean tapping a
+    // colour and watching nothing happen for a second on a bad signal.
+    skinNow.value = skin;
+    setState(() => _busy = true);
+    try {
+      await UserRepo.setSkin(user.uid, skin);
+    } catch (e) {
+      if (mounted) toast(context, 'Could not save that. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _setLang(Lang lang) async {
     final session = context.read<Session>();
     final user = session.user;
@@ -50,6 +69,40 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
       showBack: true,
       body: PageBody(
         children: [
+          RegCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Kicker(l.t('Theme')),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (final skin in Skin.values) ...[
+                      if (skin != Skin.values.first) const SizedBox(width: 8),
+                      Expanded(
+                        child: _SkinCard(
+                          skin: skin,
+                          chosen: (user?.skin ?? Skin.dark) == skin,
+                          onTap: () => _setSkin(skin),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  l.t(
+                    'Dark is easiest at four in the morning and after sunset. '
+                    'Light is easiest in the sun. It is yours alone; nobody '
+                    'else on the farm changes with it.',
+                  ),
+                  style: T.meta,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: T.gap),
+
           RegCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,6 +163,108 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
   }
 }
 
+/// One skin to pick, painted in its own colours.
+///
+/// The swatch is a little screen: the page it would give you, a card on it,
+/// a line of writing, and the accent. Nothing here goes through [T] — the
+/// whole point is to show the two skins you are not wearing.
+class _SkinCard extends StatelessWidget {
+  const _SkinCard({
+    required this.skin,
+    required this.chosen,
+    required this.onTap,
+  });
+
+  final Skin skin;
+  final bool chosen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: T.roundSm,
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: T.surface,
+            borderRadius: T.roundSm,
+            border: Border.all(
+              color: chosen ? T.accent : T.n300,
+              width: chosen ? 1.8 : 1.2,
+            ),
+          ),
+          child: Column(
+            children: [
+              AspectRatio(
+                aspectRatio: 1.25,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: skin.sampleBg,
+                    borderRadius: BorderRadius.circular(T.radiusXs),
+                    border: Border.all(color: T.n300, width: 0.8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 6,
+                        width: 26,
+                        decoration: BoxDecoration(
+                          color: skin.sampleAccent,
+                          borderRadius: BorderRadius.circular(T.pill),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: skin.sampleCard,
+                          borderRadius: BorderRadius.circular(T.radiusXs),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 5,
+                              width: 34,
+                              color: skin.sampleInk,
+                            ),
+                            const SizedBox(height: 3),
+                            Container(
+                              height: 4,
+                              width: 20,
+                              color: skin.sampleGood,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l.t(skin.label),
+                textAlign: TextAlign.center,
+                style: T.meta.copyWith(
+                  fontSize: 11.5,
+                  fontWeight: chosen ? FontWeight.w600 : FontWeight.w400,
+                  color: chosen ? T.accent : T.n600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// One language to pick, shown in that language so the choice needs no
 /// translating — a reader recognises their own words.
 class _LangCard extends StatelessWidget {
@@ -137,7 +292,7 @@ class _LangCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: chosen ? T.moneyGetWash : Colors.white,
+          color: chosen ? T.moneyGetWash : T.surface,
           borderRadius: T.roundSm,
           border: Border.all(
             color: chosen ? T.accent : T.n300,

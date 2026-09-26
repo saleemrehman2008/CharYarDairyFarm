@@ -147,7 +147,7 @@ class _BillDueCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.receipt_long_outlined, size: 18, color: T.n700),
+            Icon(Icons.receipt_long_outlined, size: 18, color: T.n700),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -342,7 +342,7 @@ class _BillRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 11),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       border: Border(bottom: BorderSide(color: T.divider, width: 1)),
     ),
     child: Row(
@@ -390,7 +390,7 @@ class _DeliveryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 9),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       border: Border(bottom: BorderSide(color: T.divider, width: 1)),
     ),
     child: Row(

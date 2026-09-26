@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
+import '../../state/chat_store.dart';
 import '../../state/farm_store.dart';
+import '../../state/session.dart';
 import '../../widgets/app_shell.dart';
 import '../shared/accounts_screen.dart';
+import '../shared/chat_screen.dart';
 import '../shared/cofounders_screen.dart';
 import '../shared/orders_screen.dart';
 import 'master_home.dart';
@@ -14,8 +17,13 @@ class MasterRoot extends StatelessWidget {
   const MasterRoot({super.key});
 
   @override
-  Widget build(BuildContext context) => ChangeNotifierProvider(
-    create: (_) => FarmStore(isMaster: true),
+  Widget build(BuildContext context) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => FarmStore(isMaster: true)),
+      // Listened to from here rather than from inside the tab, because the
+      // dot has to appear on a tab that is not open.
+      ChangeNotifierProvider(create: (_) => ChatStore()),
+    ],
     child: const _MasterTabs(),
   );
 }
@@ -46,6 +54,8 @@ class _MasterTabsState extends State<_MasterTabs> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
+    final chat = context.watch<ChatStore>();
+    final me = context.watch<Session>().user;
     final l = L.of(context);
     final f = store.features;
 
@@ -79,6 +89,14 @@ class _MasterTabsState extends State<_MasterTabs> {
         icon: Icons.groups_outlined,
         title: l.t('Co-founders'),
         body: const CofoundersScreen(),
+      ),
+      TabDef(
+        id: 'chat',
+        label: l.t('Chat'),
+        icon: Icons.forum_outlined,
+        title: l.t('Farm room'),
+        badge: chat.unreadFor(me?.uid ?? '', me?.chatSeenAt),
+        body: ChatScreen(active: _tab == 'chat'),
       ),
       TabDef(
         id: 'more',

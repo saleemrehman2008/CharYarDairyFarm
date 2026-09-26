@@ -345,7 +345,7 @@ class _Row extends StatelessWidget {
               Tag('$badge', tone: TagTone.warn),
               const SizedBox(width: 8),
             ],
-            const Icon(Icons.chevron_right, size: 18, color: T.n500),
+            Icon(Icons.chevron_right, size: 18, color: T.n500),
           ],
         ),
       ),

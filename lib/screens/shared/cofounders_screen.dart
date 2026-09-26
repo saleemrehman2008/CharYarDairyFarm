@@ -98,7 +98,7 @@ class CofoundersScreen extends StatelessWidget {
                 for (final m in months)
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border(
                         bottom: BorderSide(color: T.divider, width: 1),
                       ),
@@ -435,7 +435,7 @@ class _AddPartnerCardState extends State<_AddPartnerCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Add a co-founder', style: T.cardTitle),
+          Text('Add a co-founder', style: T.cardTitle),
           const SizedBox(height: 4),
           Text(
             'They do not have to have signed in. Put their email on it and '

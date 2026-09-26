@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 22),
                 const Kicker('Fresh & natural · Quality milk'),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Char Yar Dairy Farm',
                   textAlign: TextAlign.center,
                   style: T.title,

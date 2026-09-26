@@ -548,7 +548,7 @@ class _EventRow extends StatelessWidget {
     final e = event;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: T.divider, width: 1)),
       ),
       child: Row(

@@ -104,7 +104,7 @@ class _PartyFieldState extends State<PartyField> {
           const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: T.surface,
               borderRadius: BorderRadius.circular(T.radiusSm),
               border: Border.all(color: T.n200),
               boxShadow: T.shadow,
@@ -197,7 +197,7 @@ class _NewOption extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       child: Row(
         children: [
-          const Icon(Icons.add, size: 17, color: T.accent700),
+          Icon(Icons.add, size: 17, color: T.accent700),
           const SizedBox(width: 9),
           Expanded(
             child: Column(

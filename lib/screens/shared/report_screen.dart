@@ -374,10 +374,10 @@ class _SpanPicker extends StatelessWidget {
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: s == span ? T.accent700 : Colors.white,
+                      color: s == span ? T.fill : T.surface,
                       borderRadius: BorderRadius.circular(T.pill),
                       border: Border.all(
-                        color: s == span ? T.accent700 : T.n300,
+                        color: s == span ? T.fill : T.n300,
                         width: 1.3,
                       ),
                     ),
@@ -386,7 +386,7 @@ class _SpanPicker extends StatelessWidget {
                       style: T.meta.copyWith(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: s == span ? Colors.white : T.n700,
+                        color: s == span ? T.onFill : T.n700,
                       ),
                     ),
                   ),

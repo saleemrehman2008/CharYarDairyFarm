@@ -41,6 +41,10 @@ class Db {
   /// One document per rider per day: milk out, milk delivered, cash held.
   static Col get riderDays => fs.collection('rider_days');
 
+  /// The farm's own room. Only the people who run the farm are in it, and
+  /// nothing said in it can be taken back — see [ChatMsg].
+  static Col get chat => fs.collection('chat');
+
   static Col get months => fs.collection('months');
   static Col get logs => fs.collection('logs');
   static DocumentReference<Map<String, dynamic>> get farmSettings =>
@@ -126,6 +130,18 @@ class Db {
       .orderBy('date', descending: true)
       .snapshots()
       .map((q) => q.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList());
+
+  /// The last stretch of the farm's room, newest first.
+  ///
+  /// Capped, because a room that has been running for two years should not
+  /// be pulled down whole every time somebody opens the tab. Two hundred is
+  /// several months of the way these four talk, and the screen says plainly
+  /// when it is showing the end of what it has.
+  static Stream<List<ChatMsg>> watchChat({int last = 200}) => chat
+      .orderBy('at', descending: true)
+      .limit(last)
+      .snapshots()
+      .map((q) => q.docs.map(ChatMsg.fromDoc).toList());
 
   /// The ledger from a date onwards, for a report that spans more than one
   /// period. Pass null for the lot.
