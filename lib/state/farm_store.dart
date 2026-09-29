@@ -514,10 +514,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Somebody else's money, sitting in the farm's cash. It is not income, it
   /// is not profit, and it has to come off what the farm is worth — the day
   /// a contract ends it goes back out again.
-  num get advancesHeld => _advanceTxns.fold<num>(
-    0,
-    (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount,
-  );
+  num get advancesHeld => advancesHeldIn(_advanceTxns);
 
   /// What the farm has lent its co-founders and not had back.
   ///
@@ -590,9 +587,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
       .fold<num>(0, (a, t) => t.isLoanOut ? a + t.amount : a - t.amount);
 
   /// What one customer has left with the farm, and not had back.
-  num advanceHeldFor(String party) => _advanceTxns
-      .where((t) => partyKey(t.party) == partyKey(party))
-      .fold<num>(0, (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount);
+  num advanceHeldFor(String party) => advanceHeldForIn(_advanceTxns, party);
 
   /// Profit the co-founders have taken out of the farm, across every close.
   ///

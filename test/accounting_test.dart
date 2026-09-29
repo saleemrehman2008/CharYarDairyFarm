@@ -120,6 +120,7 @@ UdhaarAccount _khaataStop(String id, num litres) => UdhaarAccount(
 void main() {
   milkTests();
   flowTests();
+  advanceTests();
 
   group('money formatting', () {
     test('groups the Pakistani way', () {
@@ -1910,6 +1911,142 @@ void flowTests() {
 
     test('and milk sold is earnings', () {
       expect(profitOf(TxnType.sale, milkCategory, asset: false), 1000);
+    });
+  });
+}
+
+/// Handing an advance back.
+///
+/// An advance is the one thing in the cash that is not the farm's. Give back
+/// more than was left and the farm has handed away its own money under
+/// somebody else's heading — and the advances held come out negative, which
+/// reads as the farm being owed by a man the farm owes, and takes the
+/// balance check down with it.
+///
+/// Less is ordinary and must keep working: a contract winding down in
+/// stages, or a customer taking part of it and leaving the rest against next
+/// month.
+Txn _advance({required bool coming, required num amount, String who = 'Ali'}) =>
+    Txn(
+      id: 'adv${_seq++}',
+      date: DateTime(2026, 9, 10),
+      monthId: '2026-09',
+      type: coming ? TxnType.receipt : TxnType.payment,
+      party: who,
+      category: coming ? advanceCategory : advanceReturnCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      note: '',
+      createdBy: 'uid',
+      createdAt: DateTime(2026, 9, 10),
+    );
+
+/// The very function the entry form checks a return against, so this is
+/// the rule itself being tested and not a second copy of it.
+num _heldFor(List<Txn> rows, String who) => advanceHeldForIn(rows, who);
+
+void advanceTests() {
+  group('what the farm is holding for somebody', () {
+    test('is what they left, before any of it goes back', () {
+      final rows = [_advance(coming: true, amount: 50000)];
+      expect(_heldFor(rows, 'Ali'), 50000);
+    });
+
+    test('comes down by whatever has gone back', () {
+      final rows = [
+        _advance(coming: true, amount: 50000),
+        _advance(coming: false, amount: 20000),
+      ];
+      expect(_heldFor(rows, 'Ali'), 30000);
+    });
+
+    test('is nothing once all of it has', () {
+      final rows = [
+        _advance(coming: true, amount: 50000),
+        _advance(coming: false, amount: 50000),
+      ];
+      expect(_heldFor(rows, 'Ali'), 0);
+    });
+
+    test('is one person at a time, not the whole counter', () {
+      final rows = [
+        _advance(coming: true, amount: 50000),
+        _advance(coming: true, amount: 8000, who: 'Rafeeq'),
+      ];
+      expect(_heldFor(rows, 'Ali'), 50000);
+      expect(_heldFor(rows, 'Rafeeq'), 8000);
+      // Ali cannot be handed Rafeeq's eight thousand.
+      expect(_heldFor(rows, 'Ali') < 58000, isTrue);
+    });
+
+    test('and the name is folded, so one man is not two accounts', () {
+      final rows = [
+        _advance(coming: true, amount: 50000, who: 'Ali'),
+        _advance(coming: false, amount: 10000, who: 'ali'),
+      ];
+      expect(_heldFor(rows, 'ALI'), 40000);
+    });
+  });
+
+  group('how much of it may go back', () {
+    final rows = [_advance(coming: true, amount: 50000)];
+    final held = _heldFor(rows, 'Ali');
+
+    test('part of it', () {
+      expect(20000 <= held, isTrue);
+    });
+
+    test('all of it', () {
+      expect(50000 <= held, isTrue);
+    });
+
+    test('but never a rupee more', () {
+      // The case the farm asked to have stopped. Without the check this
+      // saves, and the advances held go to minus ten thousand.
+      expect(60000 <= held, isFalse);
+    });
+
+    test('and nothing at all when nothing is being held', () {
+      expect(_heldFor(const [], 'Ali'), 0);
+    });
+
+    test('what going over would do to the books, if it were allowed', () {
+      final over = [...rows, _advance(coming: false, amount: 60000)];
+      expect(
+        _heldFor(over, 'Ali'),
+        -10000,
+        reason: 'the farm owing itself money is not a state the books have',
+      );
+    });
+  });
+
+  group('and an advance is still not earnings', () {
+    test('coming in', () {
+      final books = Books(
+        monthId: '2026-09',
+        openingCash: 0,
+        capital: 100000,
+        monthTxns: [_advance(coming: true, amount: 50000)],
+        unpaidTxns: const [],
+      );
+      expect(books.profit, 0);
+      expect(books.cash, 150000, reason: 'the cash is up, the profit is not');
+    });
+
+    test('or going back', () {
+      final books = Books(
+        monthId: '2026-09',
+        openingCash: 0,
+        capital: 100000,
+        monthTxns: [
+          _advance(coming: true, amount: 50000),
+          _advance(coming: false, amount: 50000),
+        ],
+        unpaidTxns: const [],
+      );
+      expect(books.profit, 0);
+      expect(books.cash, 100000);
     });
   });
 }

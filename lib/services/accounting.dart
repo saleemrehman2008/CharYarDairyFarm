@@ -439,3 +439,24 @@ class MilkBook {
     );
   }
 }
+
+/// What the farm is holding for one person, and has not handed back.
+///
+/// Somebody else's money sitting in the farm's cash. It matters that this
+/// can never go below nothing: a negative figure here reads as the farm
+/// being owed by a man the farm owes, and it takes the balance check down
+/// with it — so the entry form checks a return against this before saving,
+/// and refuses anything larger.
+///
+/// Lives here rather than on the store so the rule the form enforces is the
+/// same code a test can run, instead of a second copy of it that agrees
+/// until the day it does not.
+num advanceHeldForIn(List<Txn> advanceRows, String party) => advanceRows
+    .where((t) => partyKey(t.party) == partyKey(party))
+    .fold<num>(0, (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount);
+
+/// The same across every customer.
+num advancesHeldIn(List<Txn> advanceRows) => advanceRows.fold<num>(
+  0,
+  (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount,
+);

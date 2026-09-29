@@ -172,6 +172,26 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       }
     }
 
+    // And nobody can be handed back more advance than they left. Less is
+    // ordinary — a contract winding down in stages, or a customer taking
+    // part of it and leaving the rest against next month — but more is the
+    // farm giving away its own cash under the heading of somebody else's.
+    //
+    // Past that point the advances held come out negative, which reads as
+    // the farm being owed money by a man who is owed money by the farm, and
+    // it takes the whole balance check down with it.
+    if (_category == advanceReturnCategory) {
+      final held = context.read<FarmStore>().advanceHeldFor(party);
+      if (held <= 0) {
+        toast(context, 'No advance is being held for that name.');
+        return;
+      }
+      if (_amount > held) {
+        toast(context, 'Only ${rs(held)} of advance is held for $party.');
+        return;
+      }
+    }
+
     final store = context.read<FarmStore>();
     final actor = context.read<Session>().actor;
     setState(() => _busy = true);
@@ -306,6 +326,64 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         compact: true,
                         onPressed: () {
                           _total.text = '${due.round()}';
+                          _fromTotal();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+          // Handing an advance back. What is actually being held is put on
+          // the screen before anything is typed, because the figure is the
+          // one thing nobody carries in their head — a customer leaves an
+          // advance once and takes it back a year later.
+          //
+          // Less than the whole is ordinary: a contract winding down in
+          // stages, or somebody taking part of it and leaving the rest
+          // against next month. More is not, and save refuses it.
+          if (_category == advanceReturnCategory) ...[
+            const SizedBox(height: 8),
+            Builder(
+              builder: (context) {
+                final name = _party.text.trim();
+                final held = context.watch<FarmStore>().advanceHeldFor(name);
+                if (name.isEmpty) {
+                  return Text(
+                    'Put the name in and it will say what is being held.',
+                    style: T.meta,
+                  );
+                }
+                if (held <= 0) {
+                  return Text(
+                    'No advance is being held for that name. Money handed '
+                    'back here comes off an advance — if this is something '
+                    'else, pick another heading.',
+                    style: T.meta.copyWith(color: T.moneyDue),
+                  );
+                }
+                return RegCard(
+                  wash: T.moneyDueWash,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$name · ${rs(held)} held', style: T.bodyMid),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Hand back all of it or part of it. Nothing more '
+                        'than ${rs(held)} can go back, because that is all '
+                        'the farm is holding.',
+                        style: T.meta,
+                      ),
+                      const SizedBox(height: 8),
+                      GhostButton(
+                        label: 'Fill in ${rs(held)}',
+                        icon: Icons.north_east,
+                        compact: true,
+                        onPressed: () {
+                          _total.text = '${held.round()}';
                           _fromTotal();
                         },
                       ),
