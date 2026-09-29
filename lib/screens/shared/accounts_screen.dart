@@ -238,18 +238,25 @@ class _AccountsScreenState extends State<AccountsScreen> {
               const SizedBox(height: 12),
             ],
 
-            GhostButton(
-              label: l.t('Add an entry'),
-              icon: Icons.add,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChangeNotifierProvider.value(
-                    value: store,
-                    child: const NewEntryScreen(),
+            // The same two doors as on Home, in the same two colours.
+            Row(
+              children: [
+                Expanded(
+                  child: _EntryButton(
+                    flow: MoneyFlow.incoming,
+                    label: l.t('Money in'),
+                    store: store,
                   ),
                 ),
-              ),
+                const SizedBox(width: T.gap),
+                Expanded(
+                  child: _EntryButton(
+                    flow: MoneyFlow.outgoing,
+                    label: l.t('Money out'),
+                    store: store,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
 
@@ -1302,6 +1309,7 @@ class _LedgerRow extends StatelessWidget {
                     txn.type.label,
                     txn.category,
                     ?qtyLine,
+                    ?txn.shift?.label,
                     if (txn.handOverLine.isNotEmpty) txn.handOverLine,
                   ].join(' · '),
                   style: T.meta,
@@ -1420,5 +1428,59 @@ class _LedgerRow extends StatelessWidget {
     );
 
     return Padding(padding: const EdgeInsets.only(bottom: 9), child: card);
+  }
+}
+
+/// One of the two doors into the entry form, in its direction's colour.
+///
+/// Money coming in is green and money going out is red, the same as every
+/// figure in the app — so the button a person is about to press already
+/// tells them which way the books are going to move.
+class _EntryButton extends StatelessWidget {
+  const _EntryButton({
+    required this.flow,
+    required this.label,
+    required this.store,
+  });
+
+  final MoneyFlow flow;
+  final String label;
+  final FarmStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final coming = flow == MoneyFlow.incoming;
+    final tone = coming ? T.moneyIn : T.moneyOut;
+    return Pressable(
+      height: T.tap + 4,
+      face: tone,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider.value(
+            value: store,
+            child: NewEntryScreen(flow: flow),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            coming ? Icons.south_west_rounded : Icons.north_east_rounded,
+            size: 17,
+            color: T.inkOn(tone),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: T.bodyMid.copyWith(
+              color: T.inkOn(tone),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

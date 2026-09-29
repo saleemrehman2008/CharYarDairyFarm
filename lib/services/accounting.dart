@@ -332,3 +332,110 @@ List<MonthShare> handOut(List<MonthShare> shares, int percent) {
       s.handing(s.share <= 0 ? 0 : (s.share * pct / 100).round()),
   ];
 }
+
+/// The milk trade on its own, split three ways: what the herd gave, what was
+/// bought off another farm to sell on, and what the difference came to.
+///
+/// The farm took on a neighbouring farm's milk — a hundred litres at a
+/// hundred and eighty, sold on at two hundred — and the books as they stood
+/// could not answer the question that arrangement raises. Milk in and milk
+/// out both ran through the same totals: sales went up by what the farm sold
+/// and costs went up by what it paid, so the rupees came out right and the
+/// month still looked like a month the buffaloes had had. They had not. Some
+/// of it was somebody else's milk passing through.
+///
+/// So the two are counted apart. [ownLitres] is the herd's; [marginPk] is
+/// what the trading itself earned, and it is the figure that says whether
+/// buying milk in is worth doing at all.
+class MilkBook {
+  const MilkBook({
+    required this.soldLitres,
+    required this.soldPk,
+    required this.boughtLitres,
+    required this.boughtPk,
+    required this.morningLitres,
+    required this.eveningLitres,
+    required this.unsaidLitres,
+  });
+
+  /// Litres the farm sold, whoever's buffalo they came out of.
+  final num soldLitres;
+  final num soldPk;
+
+  /// Litres bought off another farm, and what was owed for them.
+  final num boughtLitres;
+  final num boughtPk;
+
+  /// The day split, across sales. [unsaidLitres] is what was entered before
+  /// the app asked which milking — shown rather than shared out, because
+  /// putting it in either half would be inventing it.
+  final num morningLitres;
+  final num eveningLitres;
+  final num unsaidLitres;
+
+  /// What the herd itself gave, as far as the books can tell: everything
+  /// sold that was not bought in first.
+  ///
+  /// Negative would mean more milk was bought in than went out — which is
+  /// either milk still in the tank or an entry somebody got wrong, and
+  /// either way it is shown as it falls rather than clamped to zero.
+  num get ownLitres => soldLitres - boughtLitres;
+
+  /// What the trading made. Only meaningful when milk was actually bought
+  /// in; on a farm selling nothing but its own it is simply the milk income.
+  num get marginPk => soldPk - boughtPk;
+
+  /// What the farm paid on average for a bought-in litre, and what it got
+  /// for a litre sold. Null when there were none, rather than zero — no
+  /// trade is not the same as a rate of nothing.
+  num? get boughtRate => boughtLitres == 0 ? null : boughtPk / boughtLitres;
+  num? get soldRate => soldLitres == 0 ? null : soldPk / soldLitres;
+
+  /// Whether any milk was bought in at all. The card only earns its place on
+  /// the report when it did.
+  bool get trades => boughtLitres > 0 || boughtPk > 0;
+
+  bool get isEmpty => soldLitres == 0 && soldPk == 0 && !trades;
+
+  /// Reads the milk out of a stretch of the ledger.
+  ///
+  /// Litres come off the entry's own quantity, and only when it was measured
+  /// in litres — a bulk deal written as one total with no quantity has no
+  /// litres to count, and guessing them from the rate would be making up a
+  /// figure the farm never wrote down.
+  factory MilkBook.from(List<Txn> rows) {
+    num soldL = 0, soldPk = 0, boughtL = 0, boughtPk = 0;
+    num morning = 0, evening = 0, unsaid = 0;
+
+    for (final t in rows) {
+      if (t.isDeleted) continue;
+      final litres = t.unit == 'L' ? (t.qty ?? 0) : 0;
+
+      if (t.isMilkSale) {
+        soldL += litres;
+        soldPk += t.amount;
+        switch (t.shift) {
+          case MilkShift.morning:
+            morning += litres;
+          case MilkShift.evening:
+            evening += litres;
+          case null:
+            unsaid += litres;
+        }
+      } else if (t.isMilkBoughtIn) {
+        boughtL += litres;
+        boughtPk += t.amount;
+      }
+    }
+
+    return MilkBook(
+      soldLitres: soldL,
+      soldPk: soldPk,
+      boughtLitres: boughtL,
+      boughtPk: boughtPk,
+      morningLitres: morning,
+      eveningLitres: evening,
+      unsaidLitres: unsaid,
+    );
+  }
+}

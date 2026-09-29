@@ -13,24 +13,44 @@ import '../../widgets/category_field.dart';
 import '../../widgets/party_field.dart';
 import '../../widgets/ui.dart';
 
-/// One form for every kind of money that moves.
+/// One form for every kind of money that moves, opened in one of two
+/// directions.
+///
+/// It used to open on five buttons — Sale, Purchase, Expense, Receipt,
+/// Payment — and the farm said plainly that the five words did not tell
+/// anybody what they did. They were right. The difference between them is
+/// not a difference between things that happen on a farm; it is a difference
+/// in what the books do afterwards, and no button can carry that.
+///
+/// So the question the form asks is the one the person can answer without
+/// being taught anything: did the money come in, or did it go out. The
+/// heading decides the rest — see [MoneyFlow.typeOf] — and a line under it
+/// says out loud what this entry is about to do to the profit.
 class NewEntryScreen extends StatefulWidget {
-  const NewEntryScreen({super.key, this.initialType = TxnType.sale});
+  const NewEntryScreen({super.key, required this.flow});
 
-  final TxnType initialType;
+  final MoneyFlow flow;
 
   @override
   State<NewEntryScreen> createState() => _NewEntryScreenState();
 }
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
-  late TxnType _type = widget.initialType;
-  late String _category = _type.categories.first;
+  late String _category = widget.flow.categories.first;
+
+  /// What the books will record this as, worked out from the heading rather
+  /// than asked. A typed heading falls back to earned or spent, whichever
+  /// way the money went.
+  TxnType get _type => widget.flow.typeOf(_category);
 
   /// Set only when the category was written out rather than picked, because
   /// only then is there no list to read the answer off. See [Txn.capital].
   bool? _capital;
   String _unit = 'L';
+
+  /// Which milking, on a milk entry. Null until picked, and save refuses
+  /// while it is — see [_shiftNeeded].
+  MilkShift? _shift;
   bool _paid = true;
   PayVia _payVia = PayVia.cash;
   bool _busy = false;
@@ -62,6 +82,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// and off what was said at the time when it was written out.
   bool get _isAsset => _capital ?? assetCategories.contains(_category);
 
+  /// True when this entry is milk moving in or out, and so has to say which
+  /// milking it came from.
+  bool get _shiftNeeded =>
+      (_type == TxnType.sale && _category == milkCategory) ||
+      (_type == TxnType.purchase && _category == milkBoughtInCategory);
+
   /// Quantity times rate fills the total.
   void _fromQtyRate() {
     if (_syncing) return;
@@ -92,12 +118,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     _syncing = false;
   }
 
-  void _setType(TxnType type) {
+  void _setCategory(String category, bool? capital) {
     setState(() {
-      _type = type;
-      _category = type.categories.first;
-      _capital = null;
-      if (type.isSettlement) _paid = true;
+      _category = category;
+      _capital = capital;
+      // A receipt or a payment settles rather than owes, so there is no
+      // credit side to it — the money has moved by definition.
+      if (_type.isSettlement) _paid = true;
     });
   }
 
@@ -109,6 +136,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
     if (_amount <= 0) {
       toast(context, 'Add the total amount.');
+      return;
+    }
+    // A buffalo is milked twice a day. Left unanswered, the litres land in
+    // neither half and every figure built on the split is short by them.
+    if (_shiftNeeded && _shift == null) {
+      toast(context, 'Morning or evening? Pick one first.');
       return;
     }
     // Money that moved needs a name against it, or nobody can be asked about
@@ -151,6 +184,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         party: party,
         category: _category,
         capital: _capital,
+        shift: _shiftNeeded ? _shift : null,
         amount: _amount,
         paid: _paid,
         qty: num.tryParse(_qty.text.trim()),
@@ -174,41 +208,45 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   Widget build(BuildContext context) {
     final measured = !_type.isSettlement;
 
+    final coming = widget.flow == MoneyFlow.incoming;
+    final tone = coming ? T.moneyIn : T.moneyOut;
+
     return FarmScaffold(
-      title: 'New entry',
+      title: coming ? 'Money in' : 'Money out',
       showBack: true,
       body: PageBody(
         children: [
-          const Kicker('Type'),
-          const SizedBox(height: 6),
-          Segmented<TxnType>(
-            value: _type,
-            compact: true,
-            options: [for (final t in TxnType.values) (t, t.label)],
-            onChanged: _setType,
-          ),
+          // Which way the money went, said once at the top and then left
+          // alone. It cannot be changed here: the two directions are two
+          // buttons on the page before this, so a person who picked the
+          // wrong one goes back rather than discovering halfway down a
+          // filled-in form that everything under it has quietly changed.
+          _Heading(flow: widget.flow, tone: tone),
           const SizedBox(height: T.pad),
 
           // Names come off the books as they are typed, so one customer
           // never ends up written two ways and split across two accounts.
           PartyField(
-            label: _type == TxnType.sale ? 'Customer / party' : 'Party',
+            label: coming ? 'Who it came from' : 'Who it went to',
             controller: _party,
-            hint: _type == TxnType.sale
-                ? 'Who bought it'
-                : 'Who you paid or bought from',
+            hint: coming ? 'Who paid, or who bought it' : 'Who you paid',
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: T.gap),
 
           CategoryField(
-            label: 'Category',
-            type: _type,
+            label: 'What for',
+            flow: widget.flow,
             value: _category,
-            onChanged: (c, capital) => setState(() {
-              _category = c;
-              _capital = capital;
-            }),
+            onChanged: _setCategory,
+          ),
+          // What this is about to do to the books, in one line. The old form
+          // never said, so the only way to know whether an entry moved the
+          // profit was to know already.
+          const SizedBox(height: 7),
+          Text(
+            entryEffect(type: _type, category: _category, isAsset: _isAsset),
+            style: T.meta,
           ),
           // A loan instalment. The figure is filled in for them and stays
           // theirs to change: somebody who can spare more this month should
@@ -327,6 +365,21 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             ),
           ],
 
+          // Which milking. Asked on milk and on nothing else, and left blank
+          // until somebody picks — a buffalo gives twice a day and the two
+          // are different trades, so a guess here would quietly halve the
+          // worth of every figure built on top of it.
+          if (_shiftNeeded) ...[
+            const SizedBox(height: T.pad),
+            const Kicker('Which milking?'),
+            const SizedBox(height: 6),
+            Segmented<MilkShift?>(
+              value: _shift,
+              options: [for (final s in MilkShift.values) (s, s.label)],
+              onChanged: (v) => setState(() => _shift = v),
+            ),
+          ],
+
           const SizedBox(height: T.gap),
           Field(
             label: 'Total amount (Rs)',
@@ -402,6 +455,65 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           Text(
             'Booked into ${monthName(context.watch<FarmStore>().month.id)}.',
             style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Which way the money went, stated across the top of the form in that
+/// direction's own colour — the same green and red the figures are written
+/// in everywhere else, so the page is recognisable before a word is read.
+class _Heading extends StatelessWidget {
+  const _Heading({required this.flow, required this.tone});
+
+  final MoneyFlow flow;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final coming = flow == MoneyFlow.incoming;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: T.isDark ? 0.16 : 0.09),
+        borderRadius: T.roundSm,
+        border: Border.all(color: tone.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(T.radiusXs),
+            ),
+            child: Icon(
+              coming ? Icons.south_west_rounded : Icons.north_east_rounded,
+              size: 21,
+              color: tone,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  coming ? 'Money in' : 'Money out',
+                  style: T.cardTitle.copyWith(color: tone),
+                ),
+                Text(
+                  coming
+                      ? 'Somebody handed money to the farm.'
+                      : 'The farm handed money to somebody.',
+                  style: T.meta,
+                ),
+              ],
+            ),
           ),
         ],
       ),

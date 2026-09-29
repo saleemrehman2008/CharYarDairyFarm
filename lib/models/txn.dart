@@ -39,7 +39,7 @@ enum TxnType {
 
   List<String> get categories => switch (this) {
     TxnType.sale => const [
-      'Milk',
+      milkCategory,
       'Dahi',
       'Butter',
       'Ghee',
@@ -53,6 +53,7 @@ enum TxnType {
     ],
     TxnType.purchase => const [
       'Fodder / feed',
+      milkBoughtInCategory,
       'Cattle purchase',
       'Equipment',
       'Vet & medicine',
@@ -102,6 +103,198 @@ enum TxnType {
       advanceReturnCategory,
       'Other payment',
     ],
+  };
+}
+
+/// Which way the money went.
+///
+/// This is the only thing a person actually knows standing at the gate with
+/// notes in their hand, and so it is the only thing the entry form asks.
+/// Before this it asked which of five kinds of entry it was, and the farm's
+/// verdict on those five words was that they did not say what they did —
+/// which is fair, because the difference between them is not a difference
+/// between things that happen on a farm, it is a difference between what the
+/// books do about it afterwards.
+///
+/// So the direction is picked and the heading decides the rest: [typeOf]
+/// maps every heading on offer to the kind of entry the books need. Nobody
+/// has to know that a customer's advance is a "receipt" while his milk bill
+/// is a "sale". The form says in plain words what each choice will do
+/// instead, which is the part that was actually missing.
+///
+/// What is deliberately *not* on these lists matters as much as what is.
+/// A payment against a bill already in the books is not here: typed loose it
+/// is counted as a cost all over again while the bill it was meant to settle
+/// stays open. That has its own path — find the entry in the ledger and
+/// settle it there — and leaving it off this list is what stops the same
+/// rupee being spent twice.
+enum MoneyFlow {
+  incoming('Money in'),
+  outgoing('Money out');
+
+  const MoneyFlow(this.label);
+
+  final String label;
+
+  /// Every heading on offer under this direction, in the order it is shown,
+  /// and what the books record each one as.
+  List<(String, TxnType)> get choices => switch (this) {
+    MoneyFlow.incoming => const [
+      (milkCategory, TxnType.sale),
+      ('Dahi', TxnType.sale),
+      ('Butter', TxnType.sale),
+      ('Ghee', TxnType.sale),
+      ('Lassi', TxnType.sale),
+      ('Paneer', TxnType.sale),
+      ('Cream', TxnType.sale),
+      ('Khoya', TxnType.sale),
+      ('Cattle sale', TxnType.sale),
+      ('Dung / manure', TxnType.sale),
+      ('Other sale', TxnType.sale),
+      // Money in that the farm has not earned. Both raise the cash and
+      // leave the profit exactly where it was.
+      (advanceCategory, TxnType.receipt),
+      (loanRepaidCategory, TxnType.receipt),
+    ],
+    MoneyFlow.outgoing => const [
+      ('Fodder / feed', TxnType.purchase),
+      (milkBoughtInCategory, TxnType.purchase),
+      ('Vet & medicine', TxnType.purchase),
+      ('Food & kitchen', TxnType.purchase),
+      ('Salaries', TxnType.expense),
+      ('Rent', TxnType.expense),
+      ('Utilities (bijli, gas, pani)', TxnType.expense),
+      ('Transport', TxnType.expense),
+      ('Repairs', TxnType.expense),
+      // Things the farm keeps. Money leaves and the profit does not move,
+      // because the farm still has what it paid for.
+      ('Cattle purchase', TxnType.purchase),
+      ('Equipment', TxnType.purchase),
+      // Handing back money that was never the farm's.
+      (advanceReturnCategory, TxnType.payment),
+      ('Other purchase', TxnType.purchase),
+    ],
+  };
+
+  List<String> get categories => [for (final c in choices) c.$1];
+
+  /// What the books should record a heading as.
+  ///
+  /// A heading nobody listed — typed out at the counter — is taken at face
+  /// value: money in was earned, money out was spent. That is the safe way
+  /// round. The other way, a typed word would raise the cash without the
+  /// profit ever noticing, and the books would stop adding up by that much.
+  TxnType typeOf(String category) {
+    final k = partyKey(category);
+    for (final (name, type) in choices) {
+      if (partyKey(name) == k) return type;
+    }
+    return this == MoneyFlow.incoming ? TxnType.sale : TxnType.purchase;
+  }
+
+  /// The kinds of entry this direction can produce, for reading the ledger's
+  /// own headings back off it.
+  List<TxnType> get types => this == MoneyFlow.incoming
+      ? const [TxnType.sale, TxnType.receipt]
+      : const [TxnType.purchase, TxnType.expense, TxnType.payment];
+}
+
+/// Whether an entry under this heading moves the profit at all.
+///
+/// The one fact both the sentence on the form and the books are built from,
+/// so a heading cannot promise one thing on screen and do another in the
+/// ledger. A test walks every heading on both lists and checks that a period
+/// containing one entry agrees with what this says.
+bool entryMovesProfit({
+  required TxnType type,
+  required String category,
+  required bool isAsset,
+}) {
+  if (type == TxnType.sale) return true;
+  if (type == TxnType.receipt) {
+    return category != advanceCategory && category != loanRepaidCategory;
+  }
+  if (isAsset) return false;
+  if (type == TxnType.payment) return category != advanceReturnCategory;
+  return true;
+}
+
+/// What an entry about to be saved will do to the books, in one line.
+///
+/// Shown under the heading on the form. The whole trouble with the old
+/// five-button form was that nothing on screen ever said this out loud, so
+/// the only way to know whether an entry moved the profit was to know
+/// already.
+String entryEffect({
+  required TxnType type,
+  required String category,
+  required bool isAsset,
+}) {
+  if (type == TxnType.sale) {
+    return 'This counts as the farm earning money. It raises the profit.';
+  }
+  if (type == TxnType.receipt) {
+    if (category == advanceCategory) {
+      return 'Not earnings — the farm is only holding this money and owes it '
+          'back. The cash goes up and the profit does not move.';
+    }
+    if (category == loanRepaidCategory) {
+      return 'Not earnings — the farm is getting its own money back. The cash '
+          'goes up and the profit does not move.';
+    }
+    return 'Nothing already in the books accounts for this, so it counts as '
+        'the farm earning it.';
+  }
+  if (isAsset) {
+    return 'Not a cost — the farm owns what it paid for. Only the cash goes '
+        'down; the profit does not move.';
+  }
+  if (type == TxnType.payment) {
+    if (category == advanceReturnCategory) {
+      return 'Handing back money the farm was holding. Not a cost — the cash '
+          'goes down and the profit does not move.';
+    }
+    return 'Nothing already in the books accounts for this, so it counts as '
+        'money the farm spent.';
+  }
+  return 'This counts as money the farm spent. It takes the profit down.';
+}
+
+/// Milk the farm produced itself and sold.
+const milkCategory = 'Milk';
+
+/// Milk the farm bought from another farm to sell on.
+///
+/// Kept apart from feed and everything else the farm buys, because it is the
+/// only purchase that is really the cost of a sale. The neighbouring farm
+/// hands over a hundred litres at a hundred and eighty; the farm sells a
+/// hundred and eighty litres at two hundred. Booked as an ordinary purchase
+/// the two disappear into one another and the month says the herd is doing
+/// better than it is — the rupees are right either way, but the question
+/// "how much of this did our own buffaloes make" has no answer.
+///
+/// The supplying farm is a party like any other, so what is owed to them
+/// reads off their own statement without anything new being built for it.
+const milkBoughtInCategory = 'Milk bought in';
+
+/// Which milking a litre came from.
+///
+/// A buffalo is milked twice a day and the two are not the same trade: the
+/// morning is the bigger one and goes out early, the evening is smaller and
+/// often sold nearer the gate. Written into the note until now, which means
+/// it could not be counted. [Txn.needsShift] says when it must be filled in.
+enum MilkShift {
+  morning('Morning'),
+  evening('Evening');
+
+  const MilkShift(this.label);
+
+  final String label;
+
+  static MilkShift? parse(Object? v) => switch (s(v)) {
+    'morning' => MilkShift.morning,
+    'evening' => MilkShift.evening,
+    _ => null,
   };
 }
 
@@ -246,6 +439,7 @@ class Txn {
     this.orderId,
     this.settlesTxnId,
     this.capital,
+    this.shift,
     this.paidOnCreate = false,
     this.payVia = PayVia.cash,
     this.handledBy = '',
@@ -280,6 +474,11 @@ class Txn {
   /// not in a settings list, because a list can be edited afterwards and would
   /// quietly rewrite what last year's profit was.
   final bool? capital;
+
+  /// Which milking this milk came from, or null on an entry written before
+  /// the app asked. Null is "nobody said", never a guess — a litre put in
+  /// the wrong half of the day is worse than one that admits it is unknown.
+  final MilkShift? shift;
 
   /// How much of [amount] has actually been taken against this entry.
   ///
@@ -365,6 +564,20 @@ class Txn {
   bool get isCapitalAsset =>
       (type == TxnType.purchase || type == TxnType.expense) &&
       (capital ?? assetCategories.contains(category));
+
+  /// Milk the farm produced and sold.
+  bool get isMilkSale => type == TxnType.sale && category == milkCategory;
+
+  /// Milk bought off another farm to sell on. A cost of the sale, not a cost
+  /// of running the place — see [milkBoughtInCategory].
+  bool get isMilkBoughtIn =>
+      type == TxnType.purchase && category == milkBoughtInCategory;
+
+  /// Whether this entry has to say which milking it was.
+  ///
+  /// Only milk, and only the two rows that carry litres. A payment against a
+  /// milk bill is not a milking, so it is not asked.
+  bool get needsShift => isMilkSale || isMilkBoughtIn;
 
   /// A co-founder's share of the profit, paid out when a period closed.
   ///
@@ -475,6 +688,7 @@ class Txn {
       orderId: m['orderId'] == null ? null : s(m['orderId']),
       settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
       capital: m['capital'] == null ? null : b(m['capital']),
+      shift: MilkShift.parse(m['shift']),
       paidOnCreate: m['paidOnCreate'] == null
           ? _wasPaidOnCreate(paid, paidAt, createdAt)
           : b(m['paidOnCreate']),

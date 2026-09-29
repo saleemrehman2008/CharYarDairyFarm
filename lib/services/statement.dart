@@ -189,6 +189,10 @@ String _detail(Txn t) {
   final parts = <String>[t.type.label, t.category];
   final line = t.qtyLine;
   if (line != null) parts.add(line);
+  // Which milking, where it was said. A milk line without it is one that
+  // predates the question being asked, and saying nothing is honest.
+  final shift = t.shift;
+  if (shift != null) parts.add(shift.label);
   if (t.handOverLine.isNotEmpty) parts.add(t.handOverLine);
   return parts.join(' · ');
 }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
+import '../../services/accounting.dart';
 import '../../services/db.dart';
 import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
@@ -171,6 +172,8 @@ class _ReportScreenState extends State<ReportScreen> {
               ],
             ),
           ),
+          const SizedBox(height: T.gap),
+          _MilkCard(book: MilkBook.from(live)),
           const SizedBox(height: T.gap),
           DayChart(days: dayTotals(live)),
           if (assets > 0) ...[
@@ -728,6 +731,203 @@ class _Cell extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Text(rs(value), style: T.bodyMid.copyWith(color: tone)),
         ),
+      ],
+    ),
+  );
+}
+
+/// The milk trade: the herd's own litres, the litres bought off another
+/// farm, and what the difference between the two rates came to.
+///
+/// The farm asked the question this answers — "we buy milk in at a hundred
+/// and eighty and sell it on at two hundred, how do we see that separately"
+/// — and until now the two ran through the same totals, so the month read as
+/// though the buffaloes had produced everything that left the gate.
+///
+/// The card changes shape depending on whether any milk was bought in. On a
+/// farm selling only its own there is no trade to report and no margin to
+/// quote, so it shows the day's split and stops.
+class _MilkCard extends StatelessWidget {
+  const _MilkCard({required this.book});
+
+  final MilkBook book;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    if (book.isEmpty) return const SizedBox.shrink();
+
+    final bought = book.boughtRate;
+    final sold = book.soldRate;
+
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(l.t('Milk')),
+          const SizedBox(height: 10),
+
+          _Litres(
+            label: l.t('Sold'),
+            litres: book.soldLitres,
+            note: sold == null
+                ? null
+                : l.t2('at Rs %s a litre on average', sold.round()),
+            tone: T.moneyIn,
+          ),
+          if (book.trades) ...[
+            _Litres(
+              label: l.t('Bought in from another farm'),
+              litres: book.boughtLitres,
+              note: bought == null
+                  ? null
+                  : l.t2('at Rs %s a litre on average', bought.round()),
+              tone: T.moneyOut,
+            ),
+            _Litres(
+              label: l.t('Our own herd'),
+              litres: book.ownLitres,
+              note: book.ownLitres < 0
+                  ? l.t('more was bought in than went out — check the entries')
+                  : null,
+              tone: book.ownLitres < 0 ? T.alert : T.accent700,
+              strong: true,
+            ),
+          ],
+
+          const Divider(height: 18),
+
+          // The day split. Shown on every farm, because it is the question
+          // the milking answers, and the unsaid litres are shown too rather
+          // than folded into one of the halves.
+          Row(
+            children: [
+              Expanded(
+                child: _Half(
+                  label: l.t('Morning'),
+                  litres: book.morningLitres,
+                  tone: T.moneyGet,
+                ),
+              ),
+              const SizedBox(width: T.gap),
+              Expanded(
+                child: _Half(
+                  label: l.t('Evening'),
+                  litres: book.eveningLitres,
+                  tone: T.accent700,
+                ),
+              ),
+            ],
+          ),
+          if (book.unsaidLitres > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              l.t2(
+                '%s L was entered before the app asked which milking. Those '
+                'litres are in the totals above but in neither half.',
+                qty(book.unsaidLitres),
+              ),
+              style: T.meta,
+            ),
+          ],
+
+          if (book.trades) ...[
+            const Divider(height: 18),
+            TotalRow(
+              label: l.t('Milk sold'),
+              value: book.soldPk,
+              tone: T.moneyIn,
+            ),
+            TotalRow(
+              label: l.t('Paid for milk bought in'),
+              value: book.boughtPk,
+              tone: T.moneyOut,
+            ),
+            const Divider(height: 14),
+            TotalRow(
+              label: l.t('Left on the milk'),
+              value: book.marginPk,
+              tone: book.marginPk < 0 ? T.moneyOut : T.moneyIn,
+              strong: true,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              l.t(
+                'What the milk itself left, before feed, salaries and '
+                'everything else the farm spends.',
+              ),
+              style: T.meta,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A line of litres with its rate underneath.
+class _Litres extends StatelessWidget {
+  const _Litres({
+    required this.label,
+    required this.litres,
+    required this.tone,
+    this.note,
+    this.strong = false,
+  });
+
+  final String label;
+  final num litres;
+  final Color tone;
+  final String? note;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: strong ? T.cardTitle : T.body),
+              if (note != null) Text(note!, style: T.meta),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          '${qty(litres)} L',
+          style: (strong ? T.num22 : T.bodyMid).copyWith(color: tone),
+        ),
+      ],
+    ),
+  );
+}
+
+/// One half of the day.
+class _Half extends StatelessWidget {
+  const _Half({required this.label, required this.litres, required this.tone});
+
+  final String label;
+  final num litres;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(11, 9, 11, 10),
+    decoration: BoxDecoration(
+      color: tone.withValues(alpha: T.isDark ? 0.16 : 0.09),
+      borderRadius: BorderRadius.circular(T.radiusSm),
+      border: Border.all(color: tone.withValues(alpha: 0.28)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: T.kicker),
+        const SizedBox(height: 3),
+        Text('${qty(litres)} L', style: T.num22.copyWith(color: tone)),
       ],
     ),
   );

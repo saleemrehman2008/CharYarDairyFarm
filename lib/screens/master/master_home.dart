@@ -157,11 +157,24 @@ class MasterHome extends StatelessWidget {
     L l,
     Features f,
   ) => [
+    // Two doors, not one. The old single "New entry" opened a form that
+    // then asked which of five kinds of entry this was — a question nobody
+    // outside a ledger can answer. Which way the money went is a question
+    // anybody can answer, so it is asked here, in the two colours money is
+    // written in everywhere else in the app.
     ActionTile(
-      icon: Icons.add,
-      label: l.t('New entry'),
-      tone: T.accent600,
-      onTap: () => _push(context, store, const NewEntryScreen()),
+      icon: Icons.south_west_rounded,
+      label: l.t('Money in'),
+      tone: T.moneyIn,
+      onTap: () =>
+          _push(context, store, const NewEntryScreen(flow: MoneyFlow.incoming)),
+    ),
+    ActionTile(
+      icon: Icons.north_east_rounded,
+      label: l.t('Money out'),
+      tone: T.moneyOut,
+      onTap: () =>
+          _push(context, store, const NewEntryScreen(flow: MoneyFlow.outgoing)),
     ),
     if (f.rider)
       ActionTile(

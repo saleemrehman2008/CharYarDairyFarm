@@ -31,13 +31,16 @@ class CategoryField extends StatefulWidget {
   const CategoryField({
     super.key,
     required this.label,
-    required this.type,
+    required this.flow,
     required this.value,
     required this.onChanged,
   });
 
   final String label;
-  final TxnType type;
+
+  /// Which way the money went. The headings on offer, and what the books
+  /// make of each, hang off this — see [MoneyFlow].
+  final MoneyFlow flow;
   final String value;
 
   /// The category, and what was said about it if it was typed. Null means it
@@ -61,8 +64,12 @@ class _CategoryFieldState extends State<CategoryField> {
 
     // The list, then whatever has been typed on this tab before — so a word
     // written once is a tap from then on and never gets spelled a second way.
-    final listed = widget.type.categories;
-    final seen = store.categoryBook[widget.type] ?? const <String>[];
+    final listed = widget.flow.categories;
+    // Whatever has been typed under this direction before, whichever kind of
+    // entry it ended up being booked as.
+    final seen = <String>[
+      for (final t in widget.flow.types) ...?store.categoryBook[t],
+    ];
     final extra =
         seen
             .where((c) => !listed.any((b) => partyKey(b) == partyKey(c)))
@@ -118,7 +125,7 @@ class _CategoryFieldState extends State<CategoryField> {
       // the whole sheet comes up blank.
       builder: (_) => ChangeNotifierProvider<FarmStore>.value(
         value: store,
-        child: _WriteOutSheet(type: widget.type),
+        child: _WriteOutSheet(flow: widget.flow),
       ),
     );
     if (!mounted || typed == null || typed.isEmpty) return;
@@ -126,8 +133,8 @@ class _CategoryFieldState extends State<CategoryField> {
     // Already on this tab, however it was spelled. Nothing to decide and
     // nothing to say: it is just that category.
     final here = [
-      ...widget.type.categories,
-      ...?store.categoryBook[widget.type],
+      ...widget.flow.categories,
+      for (final t in widget.flow.types) ...?store.categoryBook[t],
     ];
     final same = here.where((c) => partyKey(c) == partyKey(typed));
     if (same.isNotEmpty) {
@@ -135,29 +142,31 @@ class _CategoryFieldState extends State<CategoryField> {
       return;
     }
 
-    // On another tab. Worth stopping for, and worth saying which tab.
-    final elsewhere = store
-        .tabsUsing(typed)
-        .where((t) => t != widget.type)
-        .toList();
-    if (elsewhere.isNotEmpty && mounted) {
-      final goOn = await _alreadyThere(typed, elsewhere);
+    // Already in use the other way round. That is the one worth stopping
+    // for: "Rent" written under money coming in does not just look odd, it
+    // turns a cost into earnings and moves the profit twice over.
+    final other = widget.flow == MoneyFlow.incoming
+        ? MoneyFlow.outgoing
+        : MoneyFlow.incoming;
+    final elsewhere = store.tabsUsing(typed).any(other.types.contains);
+    if (elsewhere && mounted) {
+      final goOn = await _alreadyThere(typed, other);
       if (!mounted || !goOn) return;
     }
 
     // Money going out under a word that is on no list. Which it is cannot be
     // looked up, so it is asked — once, here, and kept on the entry.
     bool? capital;
-    if (widget.type == TxnType.purchase || widget.type == TxnType.expense) {
+    if (widget.flow == MoneyFlow.outgoing) {
       capital = await _keepsOrSpent(typed);
       if (!mounted || capital == null) return;
     }
     widget.onChanged(typed, capital);
   }
 
-  Future<bool> _alreadyThere(String typed, List<TxnType> tabs) async {
+  Future<bool> _alreadyThere(String typed, MoneyFlow other) async {
     final l = L.of(context);
-    final where = tabs.map((t) => l.t(t.label)).join(', ');
+    final where = l.t(other.label);
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -168,9 +177,10 @@ class _CategoryFieldState extends State<CategoryField> {
         ),
         content: Text(
           l.t2(
-            'It is on the %s tab. If that is where this belongs, go back and '
-            'write it there — the summary keeps one word in one place. Make '
-            'it here as well only if it is genuinely a different thing.',
+            'It is already in use under %s. If that is where this belongs, go '
+            'back and write it there — the summary keeps one word in one '
+            'place. Make it here as well only if it is genuinely a different '
+            'thing.',
             where,
           ),
           style: T.body,
@@ -235,9 +245,9 @@ class _CategoryFieldState extends State<CategoryField> {
 /// The door itself: a box to write in, with whatever the books already carry
 /// coming up underneath as it is typed.
 class _WriteOutSheet extends StatefulWidget {
-  const _WriteOutSheet({required this.type});
+  const _WriteOutSheet({required this.flow});
 
-  final TxnType type;
+  final MoneyFlow flow;
 
   @override
   State<_WriteOutSheet> createState() => _WriteOutSheetState();
@@ -263,7 +273,7 @@ class _WriteOutSheetState extends State<_WriteOutSheet> {
     // them is to stop a second spelling of one that already exists.
     final all =
         <String>{
-              for (final type in TxnType.values) ...type.categories,
+              for (final f in MoneyFlow.values) ...f.categories,
               for (final list in store.categoryBook.values) ...list,
             }
             .where(
@@ -299,7 +309,7 @@ class _WriteOutSheetState extends State<_WriteOutSheet> {
           Text(l.t('What is it for?'), style: T.cardTitle),
           const SizedBox(height: 4),
           Text(
-            l.t2('It will be filed under %s.', l.t(widget.type.label)),
+            l.t2('It will be filed under %s.', l.t(widget.flow.label)),
             style: T.meta,
           ),
           const SizedBox(height: 14),

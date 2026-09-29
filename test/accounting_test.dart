@@ -118,6 +118,9 @@ UdhaarAccount _khaataStop(String id, num litres) => UdhaarAccount(
 );
 
 void main() {
+  milkTests();
+  flowTests();
+
   group('money formatting', () {
     test('groups the Pakistani way', () {
       expect(groupPk(0), '0');
@@ -1471,6 +1474,442 @@ void main() {
       expect(OrderStatus.delivered.isOpen, isFalse);
       expect(OrderStatus.cancelled.isOpen, isFalse);
       expect(OrderStatus.cancelled.step, 0);
+    });
+  });
+}
+
+/// Milk in and milk out.
+///
+/// The farm took on a neighbouring farm's milk — bought at a hundred and
+/// eighty, sold on at two hundred — and asked how to see that apart from its
+/// own. Run through the ordinary totals the two vanish into each other: the
+/// rupees still come out right, but the month reads as one the buffaloes had,
+/// and some of it was somebody else's milk passing through.
+Txn _milk({
+  required TxnType type,
+  required num litres,
+  required num rate,
+  MilkShift? shift,
+  String? category,
+  String unit = 'L',
+}) => Txn(
+  id: 'milk${_seq++}',
+  date: DateTime(2026, 9, 10),
+  monthId: '2026-09',
+  type: type,
+  party: type == TxnType.sale ? 'Ali' : 'Sharif Dairy',
+  category:
+      category ?? (type == TxnType.sale ? milkCategory : milkBoughtInCategory),
+  qty: litres,
+  unit: unit,
+  rate: rate,
+  amount: litres * rate,
+  paid: true,
+  paidOnCreate: true,
+  note: '',
+  shift: shift,
+  createdBy: 'uid',
+  createdAt: DateTime(2026, 9, 10),
+);
+
+void milkTests() {
+  group('milk the farm produced itself', () {
+    final book = MilkBook.from([
+      _milk(
+        type: TxnType.sale,
+        litres: 100,
+        rate: 200,
+        shift: MilkShift.morning,
+      ),
+      _milk(
+        type: TxnType.sale,
+        litres: 60,
+        rate: 200,
+        shift: MilkShift.evening,
+      ),
+    ]);
+
+    test('all of it counts as the herd own milk', () {
+      expect(book.soldLitres, 160);
+      expect(book.ownLitres, 160);
+      expect(book.boughtLitres, 0);
+    });
+
+    test('and there is no trade to report', () {
+      expect(book.trades, isFalse);
+      // The margin is simply the milk income when nothing was bought in.
+      expect(book.marginPk, 32000);
+    });
+
+    test('the day splits where it was said to', () {
+      expect(book.morningLitres, 100);
+      expect(book.eveningLitres, 60);
+      expect(book.unsaidLitres, 0);
+    });
+  });
+
+  group('milk bought off another farm and sold on', () {
+    // A hundred litres in at 180, a hundred and eighty out at 200.
+    final rows = [
+      _milk(type: TxnType.purchase, litres: 100, rate: 180),
+      _milk(
+        type: TxnType.sale,
+        litres: 180,
+        rate: 200,
+        shift: MilkShift.morning,
+      ),
+    ];
+    final book = MilkBook.from(rows);
+
+    test('the two sides are counted apart', () {
+      expect(book.soldLitres, 180);
+      expect(book.boughtLitres, 100);
+      expect(book.soldPk, 36000);
+      expect(book.boughtPk, 18000);
+    });
+
+    test('the herd is credited only with what was actually its own', () {
+      // Eighty litres, not a hundred and eighty. This is the whole point.
+      expect(book.ownLitres, 80);
+    });
+
+    test('the margin is what the milk itself left', () {
+      expect(book.marginPk, 18000);
+      expect(book.trades, isTrue);
+    });
+
+    test('the rates read back as they were paid and charged', () {
+      expect(book.boughtRate, 180);
+      expect(book.soldRate, 200);
+    });
+
+    test('and the ledger still adds up the ordinary way', () {
+      // The split is a way of reading the same rows, not a second set of
+      // them: sales and costs are untouched by any of it.
+      final books = Books(
+        monthId: '2026-09',
+        openingCash: 0,
+        capital: 100000,
+        monthTxns: rows,
+        unpaidTxns: const [],
+      );
+      expect(books.sales, 36000);
+      expect(books.costs, 18000);
+      expect(books.profit, 18000);
+    });
+  });
+
+  group('what the split refuses to guess', () {
+    test('litres entered before the question was asked are held apart', () {
+      final book = MilkBook.from([
+        _milk(type: TxnType.sale, litres: 40, rate: 200),
+        _milk(
+          type: TxnType.sale,
+          litres: 60,
+          rate: 200,
+          shift: MilkShift.morning,
+        ),
+      ]);
+      expect(book.morningLitres, 60);
+      expect(book.eveningLitres, 0);
+      expect(book.unsaidLitres, 40);
+      // They are still milk, and still sold. Only the half is unknown.
+      expect(book.soldLitres, 100);
+    });
+
+    test('a bulk deal with no litres on it adds money but not milk', () {
+      // One figure, no quantity — working the litres back out of the rate
+      // would be inventing a number the farm never wrote down.
+      final book = MilkBook.from([
+        Txn(
+          id: 'bulk',
+          date: DateTime(2026, 9, 10),
+          monthId: '2026-09',
+          type: TxnType.sale,
+          party: 'Counter',
+          category: milkCategory,
+          amount: 5000,
+          paid: true,
+          paidOnCreate: true,
+          note: '',
+          createdBy: 'uid',
+          createdAt: DateTime(2026, 9, 10),
+        ),
+      ]);
+      expect(book.soldPk, 5000);
+      expect(book.soldLitres, 0);
+    });
+
+    test('milk measured in anything but litres is not counted as litres', () {
+      final book = MilkBook.from([
+        _milk(type: TxnType.sale, litres: 20, rate: 250, unit: 'kg'),
+      ]);
+      expect(book.soldLitres, 0);
+      expect(book.soldPk, 5000);
+    });
+
+    test('more bought in than sold is shown, not hidden', () {
+      // Milk still in the tank, or an entry somebody got wrong. Either way
+      // the farm should see it rather than have it clamped to nothing.
+      final book = MilkBook.from([
+        _milk(type: TxnType.purchase, litres: 100, rate: 180),
+        _milk(
+          type: TxnType.sale,
+          litres: 40,
+          rate: 200,
+          shift: MilkShift.evening,
+        ),
+      ]);
+      expect(book.ownLitres, -60);
+      expect(book.marginPk, 8000 - 18000);
+    });
+
+    test('a deleted row is not milk at all', () {
+      final live = _milk(
+        type: TxnType.sale,
+        litres: 50,
+        rate: 200,
+        shift: MilkShift.morning,
+      );
+      final gone = Txn(
+        id: 'gone',
+        date: DateTime(2026, 9, 10),
+        monthId: '2026-09',
+        type: TxnType.sale,
+        party: 'Ali',
+        category: milkCategory,
+        qty: 999,
+        unit: 'L',
+        rate: 200,
+        amount: 199800,
+        paid: true,
+        paidOnCreate: true,
+        note: '',
+        shift: MilkShift.morning,
+        createdBy: 'uid',
+        createdAt: DateTime(2026, 9, 10),
+        deletedAt: DateTime(2026, 9, 11),
+      );
+      expect(MilkBook.from([live, gone]).soldLitres, 50);
+    });
+
+    test('feed and medicine are not milk bought in', () {
+      final book = MilkBook.from([
+        _milk(
+          type: TxnType.purchase,
+          litres: 10,
+          rate: 100,
+          category: 'Fodder / feed',
+        ),
+      ]);
+      expect(book.boughtLitres, 0);
+      expect(book.trades, isFalse);
+    });
+
+    test('nothing at all is an empty book, and the card stays off', () {
+      expect(MilkBook.from(const []).isEmpty, isTrue);
+    });
+  });
+
+  group('which entries have to say the milking', () {
+    test('a milk sale does', () {
+      expect(
+        _milk(type: TxnType.sale, litres: 10, rate: 200).needsShift,
+        isTrue,
+      );
+    });
+
+    test('so does milk bought in', () {
+      expect(
+        _milk(type: TxnType.purchase, litres: 10, rate: 180).needsShift,
+        isTrue,
+      );
+    });
+
+    test('ghee does not, because it is not a milking', () {
+      expect(
+        _milk(
+          type: TxnType.sale,
+          litres: 2,
+          rate: 3000,
+          category: 'Ghee',
+          unit: 'kg',
+        ).needsShift,
+        isFalse,
+      );
+    });
+
+    test('and neither does money coming in against a milk bill', () {
+      expect(entry(type: TxnType.receipt, amount: 32000).needsShift, isFalse);
+    });
+  });
+}
+
+/// Two buttons instead of five.
+///
+/// The farm looked at Sale / Purchase / Expense / Receipt / Payment and said
+/// the words did not tell anybody what they did. They were right: the
+/// difference between them is not a difference between things that happen on
+/// a farm, it is a difference in what the books do afterwards. So the form
+/// now asks only which way the money went, and the heading decides the rest.
+///
+/// That shifts the whole burden onto the mapping below, which is why it is
+/// checked here heading by heading. Get one wrong and money lands in the
+/// profit that should not be there, or a cost disappears — silently, with
+/// nothing on screen to show for it.
+void flowTests() {
+  group('which way the money went', () {
+    test('every heading on offer maps to something', () {
+      for (final flow in MoneyFlow.values) {
+        for (final (name, type) in flow.choices) {
+          expect(flow.typeOf(name), type, reason: name);
+        }
+      }
+    });
+
+    test('money in is earnings, except the two that are not', () {
+      const flow = MoneyFlow.incoming;
+      expect(flow.typeOf(milkCategory), TxnType.sale);
+      expect(flow.typeOf('Cattle sale'), TxnType.sale);
+      // An advance is somebody else's money and a loan instalment is the
+      // farm's own coming back. Neither is a rupee earned.
+      expect(flow.typeOf(advanceCategory), TxnType.receipt);
+      expect(flow.typeOf(loanRepaidCategory), TxnType.receipt);
+    });
+
+    test('money out separates what is bought from what is used up', () {
+      const flow = MoneyFlow.outgoing;
+      expect(flow.typeOf('Cattle purchase'), TxnType.purchase);
+      expect(flow.typeOf('Equipment'), TxnType.purchase);
+      expect(flow.typeOf('Salaries'), TxnType.expense);
+      expect(flow.typeOf('Rent'), TxnType.expense);
+      expect(flow.typeOf(advanceReturnCategory), TxnType.payment);
+    });
+
+    test('a heading nobody listed counts, rather than slipping through', () {
+      // Money in under a typed word is earned; money out under one is spent.
+      // The other way round, cash would move and the profit would never
+      // notice, and the books would stop adding up by exactly that much.
+      expect(MoneyFlow.incoming.typeOf('Tubewell water sold'), TxnType.sale);
+      expect(MoneyFlow.outgoing.typeOf('Trolley repair'), TxnType.purchase);
+    });
+
+    test('no heading is offered in both directions', () {
+      // A word on both lists is a trap: the same heading would be earnings
+      // one day and a cost the next, and the summary would add them together.
+      final coming = MoneyFlow.incoming.categories.map(partyKey).toSet();
+      final going = MoneyFlow.outgoing.categories.map(partyKey).toSet();
+      expect(coming.intersection(going), isEmpty);
+    });
+
+    test('nothing the app posts for itself is on either list', () {
+      for (final flow in MoneyFlow.values) {
+        for (final c in flow.categories) {
+          expect(
+            appPostedCategories.any((own) => partyKey(own) == partyKey(c)),
+            isFalse,
+            reason: c,
+          );
+        }
+      }
+    });
+
+    test('paying a bill by hand is not on offer any more', () {
+      // It was, and it double-counted: the bill was already a cost when it
+      // was entered, and a payment typed loose against it is counted as a
+      // cost all over again while the bill stays open. Settling the entry in
+      // the ledger is the path, and taking this off the list is what stops
+      // the other one.
+      final out = MoneyFlow.outgoing.categories.map(partyKey);
+      expect(out, isNot(contains(partyKey('Supplier payment'))));
+    });
+  });
+
+  group('what the form promises, the books do', () {
+    /// One period holding a single entry, so the profit is entirely that
+    /// entry's doing.
+    num profitOf(TxnType type, String category, {required bool asset}) {
+      final row = Txn(
+        id: 'flow${_seq++}',
+        date: DateTime(2026, 9, 10),
+        monthId: '2026-09',
+        type: type,
+        party: 'Someone',
+        category: category,
+        amount: 1000,
+        paid: true,
+        paidOnCreate: true,
+        capital: asset,
+        note: '',
+        createdBy: 'uid',
+        createdAt: DateTime(2026, 9, 10),
+      );
+      return Books(
+        monthId: '2026-09',
+        openingCash: 0,
+        capital: 50000,
+        monthTxns: [row],
+        unpaidTxns: const [],
+      ).profit;
+    }
+
+    test('every heading on both lists', () {
+      for (final flow in MoneyFlow.values) {
+        for (final (name, type) in flow.choices) {
+          final asset = assetCategories.contains(name);
+          final says = entryMovesProfit(
+            type: type,
+            category: name,
+            isAsset: asset,
+          );
+          final did = profitOf(type, name, asset: asset) != 0;
+          expect(
+            did,
+            says,
+            reason:
+                '"$name" says the profit ${says ? "moves" : "does not move"}, '
+                'and the books ${did ? "moved" : "did not move"} it',
+          );
+        }
+      }
+    });
+
+    test('and the sentence on screen says the same thing', () {
+      // The words are a promise. If one is reworded into disagreeing with
+      // what the books do, that is worse than no sentence at all.
+      for (final flow in MoneyFlow.values) {
+        for (final (name, type) in flow.choices) {
+          final asset = assetCategories.contains(name);
+          final line = entryEffect(type: type, category: name, isAsset: asset);
+          final saysStill = line.contains('does not move');
+          final moves = entryMovesProfit(
+            type: type,
+            category: name,
+            isAsset: asset,
+          );
+          expect(saysStill, !moves, reason: '"$name": $line');
+        }
+      }
+    });
+
+    test('an advance raises the cash and leaves the profit alone', () {
+      expect(profitOf(TxnType.receipt, advanceCategory, asset: false), 0);
+    });
+
+    test('handing that advance back is not a cost', () {
+      expect(profitOf(TxnType.payment, advanceReturnCategory, asset: false), 0);
+    });
+
+    test('a buffalo is not a cost either', () {
+      expect(profitOf(TxnType.purchase, 'Cattle purchase', asset: true), 0);
+    });
+
+    test('but feed is', () {
+      expect(profitOf(TxnType.purchase, 'Fodder / feed', asset: false), -1000);
+    });
+
+    test('and milk sold is earnings', () {
+      expect(profitOf(TxnType.sale, milkCategory, asset: false), 1000);
     });
   });
 }

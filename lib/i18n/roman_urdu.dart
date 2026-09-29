@@ -116,6 +116,23 @@ const Map<String, String> romanUrdu = {
   'Returned': 'Wapas laya',
   'Cash collected': 'Cash wasool',
   'Left to deliver': 'Baqi delivery',
+  'Which milking?': 'Kaun sa waqt?',
+  'Bought in from another farm': 'Doosre farm se khareeda',
+  'Our own herd': 'Humara apna doodh',
+  'Milk sold': 'Doodh ki sale',
+  'Paid for milk bought in': 'Khareede hue doodh ki adaigi',
+  'Left on the milk': 'Doodh per bacha',
+  'at Rs %s a litre on average': 'ausatan Rs %s fi litre',
+  'more was bought in than went out — check the entries':
+      'gaya us se ziyada khareeda gaya — entries dekh lein',
+  'What the milk itself left, before feed, salaries and everything else the '
+          'farm spends.':
+      'Sirf doodh per kitna bacha — wanda, tankhwah aur baqi kharchon se '
+      'pehle.',
+  '%s L was entered before the app asked which milking. Those litres are in '
+          'the totals above but in neither half.':
+      '%s L us waqt likha gaya jab app waqt nahi poochti thi. Wo litre upar '
+      'ke total mein hain, magar subah ya sham kisi mein nahi.',
 
   // ---- The period ----
   'Month': 'Month',
@@ -788,8 +805,8 @@ const Map<String, String> romanUrdu = {
   'already there': 'pehle se maujood',
   'Use this': 'Yehi rakhen',
   '"%s" is already being used': '"%s" pehle se istemal ho raha hai',
-  'It is on the %s tab. If that is where this belongs, go back and write it there — the summary keeps one word in one place. Make it here as well only if it is genuinely a different thing.':
-      'Ye %s tab me hai. Agar is ka asal maqam wahi hai to wapas ja kar wahan likhen — summary ek lafz ko ek hi jagah rakhti hai. Yahan bhi tabhi banayen jab ye waqai alag cheez ho.',
+  'It is already in use under %s. If that is where this belongs, go back and write it there — the summary keeps one word in one place. Make it here as well only if it is genuinely a different thing.':
+      'Ye pehle se %s ke neeche istemal ho raha hai. Agar is ka asal maqam wahi hai to wapas ja kar wahan likhen — summary ek lafz ko ek hi jagah rakhti hai. Yahan bhi tabhi banayen jab ye waqai alag cheez ho.',
   'Make it here anyway': 'Phir bhi yahan banayen',
   'Is "%s" something the farm keeps?': 'Kya "%s" farm ke paas rahegi?',
   'A buffalo, a machine, a trolley — the farm still owns it afterwards, so the money moved but the profit did not. Feed, wages, bijli and repairs are spent and gone, and they do come off the profit.':

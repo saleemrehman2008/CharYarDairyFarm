@@ -21,6 +21,7 @@ class TxnRepo {
     required num amount,
     required bool paid,
     bool? capital,
+    MilkShift? shift,
     num? qty,
     String? unit,
     num? rate,
@@ -44,6 +45,8 @@ class TxnRepo {
       // Only written when somebody typed the category, because only then is
       // there no list to read the answer off.
       'capital': ?capital,
+      // Only on milk, and only when somebody said. See [MilkShift].
+      if (shift != null) 'shift': shift.name,
       if (!type.isSettlement && qty != null) 'qty': qty,
       if (!type.isSettlement && unit != null) 'unit': unit,
       if (!type.isSettlement && rate != null) 'rate': rate,
