@@ -18,21 +18,15 @@ class SplashScreen extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const FarmLogo(width: 132, mark: true),
-          const SizedBox(height: 20),
-          Text(
-            'CHAR YAR',
-            style: T.screenTitle.copyWith(
-              color: T.onHero,
-              letterSpacing: 6,
-              fontSize: 20,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'DAIRY FARM',
-            style: T.meta.copyWith(color: T.onHeroQuiet, letterSpacing: 4),
-          ),
+          // The whole lockup, not the head. This is the first thing anybody
+          // sees and there is a screen's worth of room for it; the head
+          // alone is for the places that have none — a 36 point top bar, a
+          // statement's corner.
+          //
+          // The farm's name used to be typed out underneath in the app's
+          // own font. The drawing already says it, in its own lettering,
+          // so it was the same words twice in two different hands.
+          const FarmLogo(width: 268),
           const SizedBox(height: 34),
           SizedBox(
             width: 96,

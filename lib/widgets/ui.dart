@@ -682,7 +682,11 @@ class FarmLogo extends StatelessWidget {
         horizontal: width * 0.07,
         vertical: width * 0.06,
       ),
-      decoration: BoxDecoration(color: T.accent900, borderRadius: T.roundSm),
+      // The farm's own navy, not a step off the accent ramp. The ramp runs
+      // the other way on a dark skin — accent900 there is a pale sky — so
+      // the lockup was sitting on a near-white card on two skins out of
+      // three, which is the one thing this ground exists to prevent.
+      decoration: BoxDecoration(color: T.brandDeep, borderRadius: T.roundSm),
       child: Image.asset('assets/logo.png', width: width, cacheWidth: cache),
     );
   }
