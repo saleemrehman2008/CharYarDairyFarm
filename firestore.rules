@@ -197,7 +197,11 @@ service cloud.firestore {
             && request.resource.data.state == 'asked');
 
       allow update: if isMaster();
-      allow delete: if false;
+
+      // The master may take an arrangement off the list. It is only the
+      // arrangement: the cash that actually moved lives in transactions and
+      // is removed there, like every other rupee.
+      allow delete: if isMaster();
     }
 
     // ---- The farm's room ----

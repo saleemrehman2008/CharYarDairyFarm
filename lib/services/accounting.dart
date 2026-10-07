@@ -200,6 +200,7 @@ class MoneySummary {
     this.otherIncome = 0,
     this.advancesHeld = 0,
     this.loansOut = 0,
+    this.advancesOut = 0,
     this.profitHeld = 0,
   });
 
@@ -233,6 +234,12 @@ class MoneySummary {
   /// waterfall and the holdings stop agreeing by exactly that much.
   final num loansOut;
 
+  /// Advances the farm has handed out and not had back. The farm's own
+  /// money, sitting in somebody else's pocket — so it counts towards what
+  /// the farm is worth, exactly as a loan to a co-founder does, and for the
+  /// same reason.
+  final num advancesOut;
+
   /// Profit the co-founders have earned and left in the farm.
   ///
   /// It is sitting in the cash, and it is not the farm's to spend freely —
@@ -265,7 +272,13 @@ class MoneySummary {
   /// What the farm is actually worth in money: cash, what a rider is carrying,
   /// and what is still to come in, less what it still owes.
   num get farmMoney =>
-      cash + withRider + receivable - payable - advancesHeld + loansOut;
+      cash +
+      withRider +
+      receivable -
+      payable -
+      advancesHeld +
+      loansOut +
+      advancesOut;
 
   /// The same figure read down the waterfall — every rupee that came in, less
   /// every rupee that went out or turned into an animal. It should equal
@@ -460,3 +473,18 @@ num advancesHeldIn(List<Txn> advanceRows) => advanceRows.fold<num>(
   0,
   (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount,
 );
+
+/// What one person is carrying of the farm's money as an advance.
+///
+/// The mirror of [advanceHeldForIn]: that is somebody else's money in the
+/// farm's box, this is the farm's money in somebody else's pocket. Peshgi to
+/// a labourer, a deposit left with a supplier. Never a cost — the farm has
+/// not spent it, it is owed it — and never below nothing, which is what the
+/// entry form checks a recovery against.
+num advanceOwedByIn(List<Txn> rows, String party) => rows
+    .where((t) => partyKey(t.party) == partyKey(party))
+    .fold<num>(0, (a, t) => t.isAdvancePaid ? a + t.amount : a - t.amount);
+
+/// The same across everybody.
+num advancesOutIn(List<Txn> rows) =>
+    rows.fold<num>(0, (a, t) => t.isAdvancePaid ? a + t.amount : a - t.amount);

@@ -192,6 +192,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       }
     }
 
+    // And the same the other way round: an advance the farm handed out can
+    // only come back as far as nothing. More than that and the farm is
+    // taking in money it was never owed, under a heading that keeps it out
+    // of the earnings — so it lands in the cash with nothing to account for
+    // it, which is the one shape of mistake the balance check cannot name.
+    if (_category == advanceBackCategory) {
+      final owed = context.read<FarmStore>().advanceOwedBy(party);
+      if (owed <= 0) {
+        toast(context, 'No advance is outstanding against that name.');
+        return;
+      }
+      if (_amount > owed) {
+        toast(context, 'Only ${rs(owed)} of advance is left with $party.');
+        return;
+      }
+    }
+
     final store = context.read<FarmStore>();
     final actor = context.read<Session>().actor;
     setState(() => _busy = true);
@@ -384,6 +401,59 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         compact: true,
                         onPressed: () {
                           _total.text = '${held.round()}';
+                          _fromTotal();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+          // Taking back an advance the farm handed out. Same courtesy as
+          // handing one back: what is outstanding is on the screen before
+          // anything is typed, and more than that is refused.
+          if (_category == advanceBackCategory) ...[
+            const SizedBox(height: 8),
+            Builder(
+              builder: (context) {
+                final name = _party.text.trim();
+                final owed = context.watch<FarmStore>().advanceOwedBy(name);
+                if (name.isEmpty) {
+                  return Text(
+                    'Put the name in and it will say what is outstanding.',
+                    style: T.meta,
+                  );
+                }
+                if (owed <= 0) {
+                  return Text(
+                    'No advance is outstanding against that name. Money '
+                    'taken in here comes off an advance the farm handed '
+                    'out — if this is something else, pick another heading.',
+                    style: T.meta.copyWith(color: T.moneyDue),
+                  );
+                }
+                return RegCard(
+                  wash: T.moneyGetWash,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$name · ${rs(owed)} still out', style: T.bodyMid),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Take back all of it or part of it — stopped out of '
+                        'wages or handed over. Nothing more than ${rs(owed)} '
+                        'can come back, because that is all that went out.',
+                        style: T.meta,
+                      ),
+                      const SizedBox(height: 8),
+                      GhostButton(
+                        label: 'Fill in ${rs(owed)}',
+                        icon: Icons.south_west,
+                        compact: true,
+                        onPressed: () {
+                          _total.text = '${owed.round()}';
                           _fromTotal();
                         },
                       ),

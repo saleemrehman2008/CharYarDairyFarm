@@ -613,8 +613,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
       context,
       title: 'Delete this entry?',
       body:
+          // What actually happens, which is not what this used to say. The
+          // Sheet's tabs are rewritten whole on every sync from the live
+          // books, and the live books leave deleted entries out — so the
+          // row goes, it is not flagged.
           '${txn.type.label} · ${txn.party} · ${rs(txn.amount)}\n\n'
-          'It disappears from the app and is marked deleted in the Sheet.',
+          'It goes from the app, and from the Google Sheet at the next '
+          'sync a few seconds later. Every figure that counted it — the '
+          'profit, the cash, this party\'s balance — is worked out again '
+          'without it.',
       confirmLabel: 'Delete',
     );
     if (!ok || !mounted) return;
@@ -1427,7 +1434,23 @@ class _LedgerRow extends StatelessWidget {
       ),
     );
 
-    return Padding(padding: const EdgeInsets.only(bottom: 9), child: card);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: () => showEntryDetail(
+            context,
+            txn: txn,
+            isMaster: isMaster,
+            onMarkPaid: onMarkPaid,
+            onDelete: onDelete,
+          ),
+          borderRadius: T.round,
+          child: card,
+        ),
+      ),
+    );
   }
 }
 
@@ -1483,4 +1506,254 @@ class _EntryButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Everything about one entry, opened by tapping it.
+///
+/// The list can only carry a line and a half — a name, what it was for, the
+/// figure — and the farm went looking for the rest of it and found that
+/// tapping did nothing at all. The rest is: what the books did with it,
+/// how much of the money has actually come, who handled it, who wrote it
+/// down and when, and whatever was typed in the note. All of it was already
+/// stored; none of it was ever shown.
+Future<void> showEntryDetail(
+  BuildContext context, {
+  required Txn txn,
+  required bool isMaster,
+  required VoidCallback onMarkPaid,
+  required VoidCallback onDelete,
+}) {
+  final l = L.read(context);
+  final kind = entryKindOf(
+    type: txn.type,
+    category: txn.category,
+    isAsset: txn.isCapitalAsset,
+  );
+  final (markIcon, markTone) = switch (kind) {
+    EntryKind.earnings => (Icons.trending_up, T.moneyIn),
+    EntryKind.cost => (Icons.trending_down, T.moneyOut),
+    EntryKind.owned => (Icons.inventory_2_outlined, T.accent700),
+    EntryKind.neither => (Icons.swap_horiz, T.moneyDue),
+  };
+
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: T.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
+    ),
+    builder: (sheet) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: T.n400,
+                  borderRadius: BorderRadius.circular(T.pill),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // The figure, and what the books did with it. Together, because
+            // one without the other is the thing that was missing.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        txn.party.isEmpty ? l.t(txn.category) : txn.party,
+                        style: T.screenTitle,
+                      ),
+                      Text(l.t(txn.category), style: T.meta),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  signedRs(txn.amount, incoming: txn.type.isIncoming),
+                  style: T.num26.copyWith(
+                    color: T.money(
+                      incoming: txn.type.isIncoming,
+                      settled: txn.paid,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            Container(
+              padding: const EdgeInsets.fromLTRB(11, 9, 11, 10),
+              decoration: BoxDecoration(
+                color: markTone.withValues(alpha: T.isDark ? 0.16 : 0.09),
+                borderRadius: T.roundSm,
+                border: Border.all(color: markTone.withValues(alpha: 0.32)),
+              ),
+              child: Row(
+                children: [
+                  Icon(markIcon, size: 17, color: markTone),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.t(kind.label),
+                          style: T.bodyMid.copyWith(color: markTone),
+                        ),
+                        Text(
+                          l.t(
+                            entryEffect(
+                              type: txn.type,
+                              category: txn.category,
+                              isAsset: txn.isCapitalAsset,
+                            ),
+                          ),
+                          style: T.meta,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: T.gap),
+
+            _DetailFact(label: l.t('Date'), value: fmtDateFull(txn.date)),
+            _DetailFact(label: l.t('Period'), value: monthName(txn.monthId)),
+            if (txn.qtyLine != null)
+              _DetailFact(label: l.t('Quantity'), value: txn.qtyLine!),
+            if (txn.shift != null)
+              _DetailFact(
+                label: l.t('Which milking?'),
+                value: l.t(txn.shift!.label),
+              ),
+
+            const Divider(height: 20),
+
+            // What has actually come, which is not the same as what was
+            // booked — the whole reason a ledger exists.
+            _DetailFact(
+              label: l.t('Settled'),
+              value: txn.paid
+                  ? l.t('Yes, in full')
+                  : txn.partlyPaid
+                  ? l.t2('%s so far', rs(txn.paidSoFar))
+                  : l.t('Not yet'),
+              tone: txn.paid
+                  ? T.moneyIn
+                  : txn.partlyPaid
+                  ? T.moneyDue
+                  : T.moneyGet,
+            ),
+            if (!txn.paid && txn.outstanding > 0)
+              _DetailFact(
+                label: txn.type.isIncoming
+                    ? l.t('Still to receive')
+                    : l.t('Still to pay'),
+                value: rs(txn.outstanding),
+                tone: txn.type.isIncoming ? T.moneyGet : T.moneyDue,
+              ),
+            if (txn.paid) ...[
+              _DetailFact(label: l.t('How'), value: txn.payVia.label),
+              if (txn.handledBy.trim().isNotEmpty)
+                _DetailFact(
+                  label: txn.type.isIncoming
+                      ? l.t('Received by')
+                      : l.t('Paid by'),
+                  value: txn.handledBy,
+                ),
+              if (txn.paidAt != null && !txn.paidOnCreate)
+                _DetailFact(
+                  label: l.t('Money moved on'),
+                  value: fmtDateFull(txn.paidAt!),
+                ),
+            ],
+
+            const Divider(height: 20),
+
+            _DetailFact(
+              label: l.t('Entered by'),
+              value: txn.createdByName.isEmpty
+                  ? l.t('Someone')
+                  : txn.createdByName,
+            ),
+            _DetailFact(
+              label: l.t('Written on'),
+              value: fmtStamp(txn.createdAt),
+            ),
+            if (txn.note.trim().isNotEmpty)
+              _DetailFact(label: l.t('Note'), value: txn.note),
+
+            const SizedBox(height: T.pad),
+
+            Row(
+              children: [
+                if (!txn.paid && !txn.type.isSettlement)
+                  Expanded(
+                    child: GhostButton(
+                      label: l.t('Mark paid'),
+                      icon: Icons.check,
+                      onPressed: () {
+                        Navigator.pop(sheet);
+                        onMarkPaid();
+                      },
+                    ),
+                  ),
+                if (!txn.paid && !txn.type.isSettlement && isMaster)
+                  const SizedBox(width: 8),
+                if (isMaster)
+                  Expanded(
+                    child: GhostButton(
+                      label: l.t('Delete'),
+                      icon: Icons.delete_outline,
+                      danger: true,
+                      onPressed: () {
+                        Navigator.pop(sheet);
+                        onDelete();
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// One label and its figure, down the sheet.
+class _DetailFact extends StatelessWidget {
+  const _DetailFact({required this.label, required this.value, this.tone});
+
+  final String label;
+  final String value;
+  final Color? tone;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 118, child: Text(label, style: T.meta)),
+        Expanded(
+          child: Text(value, style: T.bodyMid.copyWith(color: tone ?? T.text)),
+        ),
+      ],
+    ),
+  );
 }

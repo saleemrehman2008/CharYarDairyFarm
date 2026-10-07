@@ -282,19 +282,37 @@ class _PartnerCardState extends State<_PartnerCard> {
               ),
             ],
 
-            // A record no money has ever passed through can be removed. This
-            // is what clears the duplicates a second account leaves behind.
-            // A record with capital in it has no such button at all.
-            if (widget.canRemove && p.isEmpty) ...[
+            // Correcting a figure that went in wrong, and taking a record
+            // away. Both are the master's, both are written into the log
+            // with what changed, and neither is a quiet button: capital is
+            // what every share ratio is worked out from, so one of these
+            // moves all four slices.
+            if (widget.canRemove) ...[
               const SizedBox(height: 10),
+              if (p.isEmpty)
+                Text(
+                  'Nothing has ever gone through this record.',
+                  style: T.meta,
+                ),
+              const SizedBox(height: 6),
               Row(
                 children: [
+                  GhostButton(
+                    label: 'Name',
+                    icon: Icons.badge_outlined,
+                    compact: true,
+                    onPressed: _busy ? null : _editWho,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Nothing has ever gone through this record.',
-                      style: T.meta,
+                    child: GhostButton(
+                      label: 'Capital',
+                      icon: Icons.edit_outlined,
+                      compact: true,
+                      onPressed: _busy ? null : _correct,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   GhostButton(
                     label: 'Remove',
                     icon: Icons.delete_outline,
@@ -311,22 +329,160 @@ class _PartnerCardState extends State<_PartnerCard> {
     );
   }
 
-  Future<void> _remove() async {
+  /// Correct the name or the email on this record.
+  Future<void> _editWho() async {
     final p = widget.partner;
+    final name = TextEditingController(text: p.name);
+    final mail = TextEditingController(text: p.email);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: T.surface,
+        title: Text('Who this record is', style: T.cardTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Field(label: 'Name', controller: name),
+            const SizedBox(height: T.gap),
+            Field(
+              label: 'Email',
+              controller: mail,
+              keyboardType: TextInputType.emailAddress,
+              textCapitalization: TextCapitalization.none,
+              hint: 'The one they sign in with',
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'The email is what lets this person claim this record when '
+              'they first sign in — with its capital on it. Wrong, and the '
+              'app opens them an empty one instead.',
+              style: T.meta,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: T.bodyMid),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Save', style: T.bodyMid.copyWith(color: T.accent700)),
+          ),
+        ],
+      ),
+    );
+
+    final to = name.text.trim();
+    final toMail = mail.text.trim();
+    name.dispose();
+    mail.dispose();
+    if (ok != true || !mounted) return;
+    if (to.isEmpty) {
+      toast(context, 'A record needs a name.');
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await PartnerRepo.rename(
+        context.read<Session>().actor,
+        p,
+        name: to,
+        email: toMail,
+      );
+      if (mounted) toast(context, 'Saved');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not save it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Set the capital to a figure, rather than add to it.
+  ///
+  /// The box opens on what it is now, because this is a correction and the
+  /// person doing it should be looking at the figure they are about to
+  /// change rather than recalling it.
+  Future<void> _correct() async {
+    final p = widget.partner;
+    final said = await askForMoney(
+      context,
+      title: 'Capital for ${p.name}',
+      hint: '0',
+      starting: p.invested,
+      note:
+          'This replaces the figure rather than adding to it. Share ratios '
+          'are worked out from capital, so changing this changes what all '
+          'four of them get from every month closed after today. Months '
+          'already closed keep what they were closed with. It goes in the '
+          'log either way, with what it was before.',
+    );
+    if (said == null || !mounted || said == p.invested) return;
+    if (said < 0) {
+      toast(context, 'Capital cannot be less than nothing.');
+      return;
+    }
+
     final ok = await confirm(
       context,
-      title: 'Remove this record?',
+      title: 'Change the capital?',
       body:
-          '${p.name}${p.email.isEmpty ? '' : '\n${p.email}'}\n\n'
-          'No capital, nothing reinvested, nothing withdrawn — so there is '
-          'nothing to lose. The share ratios are worked out again without it.',
+          '${p.name}\n\n'
+          '${rs(p.invested)}  →  ${rs(said)}\n\n'
+          'Every co-founder\'s share of future months moves with this.',
+      confirmLabel: 'Change it',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await PartnerRepo.setInvested(context.read<Session>().actor, p, said);
+      if (mounted) toast(context, '${p.name} capital is now ${rs(said)}');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not change it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove() async {
+    final p = widget.partner;
+    final empty = p.isEmpty;
+
+    // An empty record is housekeeping — a duplicate left behind by a second
+    // account — and reads as such. One with money in it is a different act
+    // altogether, so it names every figure that goes with it rather than
+    // asking "are you sure" over a number nobody can see.
+    final ok = await confirm(
+      context,
+      title: empty
+          ? 'Remove this record?'
+          : 'Remove a record with money in it?',
+      body: empty
+          ? '${p.name}${p.email.isEmpty ? '' : '\n${p.email}'}\n\n'
+                'No capital, nothing reinvested, nothing withdrawn — so there '
+                'is nothing to lose. The share ratios are worked out again '
+                'without it.'
+          : '${p.name}${p.email.isEmpty ? '' : '\n${p.email}'}\n\n'
+                'Capital: ${rs(p.invested)}\n'
+                'Kept in the farm: ${rs(p.profitHeld)}\n'
+                'Taken out: ${rs(p.withdrawn)}\n\n'
+                'All of it goes. The other co-founders\' share ratios are '
+                'worked out again without this record, so every one of their '
+                'slices changes. Months already closed keep what they were '
+                'closed with.\n\n'
+                'The figures above are written into the activity log, and so '
+                'is your name. This cannot be undone.',
       confirmLabel: 'Remove',
     );
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
     try {
-      await PartnerRepo.remove(context.read<Session>().actor, p);
+      await PartnerRepo.remove(context.read<Session>().actor, p, force: !empty);
       if (mounted) toast(context, '${p.name} removed');
     } catch (e) {
       if (mounted) toast(context, 'Could not remove it. $e');

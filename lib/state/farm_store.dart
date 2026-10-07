@@ -516,6 +516,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// a contract ends it goes back out again.
   num get advancesHeld => advancesHeldIn(_advanceTxns);
 
+  /// Advances the farm has handed out and not had back — peshgi to a
+  /// labourer, a deposit with a supplier. The farm's own money, out of the
+  /// box, which is the exact mirror of an advance it is holding.
+  num get advancesOut => advancesOutIn(_advanceTxns);
+
   /// What the farm has lent its co-founders and not had back.
   ///
   /// Money the farm owns that is not in the box, which is the exact mirror of
@@ -589,6 +594,9 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// What one customer has left with the farm, and not had back.
   num advanceHeldFor(String party) => advanceHeldForIn(_advanceTxns, party);
 
+  /// What one person is carrying of the farm's money as an advance.
+  num advanceOwedBy(String party) => advanceOwedByIn(_advanceTxns, party);
+
   /// Profit the co-founders have taken out of the farm, across every close.
   ///
   /// Not a running cost — it is the farm's own earnings going to the people
@@ -647,6 +655,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     paidOut: paidToFounders,
     advancesHeld: advancesHeld,
     loansOut: loansOut,
+    advancesOut: advancesOut,
     profitHeld: profitHeldByFounders,
   );
 

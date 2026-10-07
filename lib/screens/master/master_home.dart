@@ -554,6 +554,17 @@ class _MoneyCard extends StatelessWidget {
               tone: T.moneyGet,
               outOf: capital,
             ),
+          // The same shape as a loan to a co-founder: the farm's own money,
+          // out of the box, waiting to come back. Peshgi to a labourer, a
+          // deposit left with a supplier.
+          if (money.advancesOut > 0)
+            _MoneyLine(
+              label: l.t('Advances paid out'),
+              value: money.advancesOut,
+              note: l.t('out of the cash, and still owed to the farm'),
+              tone: T.moneyGet,
+              outOf: capital,
+            ),
           // In the box, but not the farm's. It goes back when a contract
           // ends, so it is never counted as anything the farm has made.
           if (money.advancesHeld > 0)

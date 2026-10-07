@@ -402,6 +402,21 @@ const Map<String, String> romanUrdu = {
 
   // ---- Advances the farm is holding ----
   'Advances held': 'Advance jo rakha hua hai',
+  'Advances paid out': 'Advance jo diya hua hai',
+  // The four marks against the headings on the entry form. Reached through
+  // EntryKind.label, which the word checker cannot see, so they are written
+  // in here by hand.
+  'Earnings': 'Kamai',
+  'Cost': 'Kharcha',
+  'Only cash': 'Sirf cash',
+  'Remove': 'Hatayen',
+  'Removed.': 'Hata diya.',
+  'Remove this?': 'Ise hatayen?',
+  'Remove a loan that was handed over?': 'Jo loan de diya gaya, use hatayen?',
+  'No money ever went through this one, so there is nothing to lose.':
+      'Is mein se kabhi koi paisa guzra hi nahi, to khone ko kuch nahi.',
+  'This takes the arrangement off the list. The money is not touched — it really did leave the farm, and the ledger keeps saying so. If the whole thing was a mistake, delete those entries in Accounts instead.':
+      'Ye sirf arrangement list se hataata hai. Paise ko haath nahi lagta — wo waqai farm se gaya tha, aur ledger yehi kehta rahega. Agar poori baat hi ghalat thi to wo entries Accounts mein ja kar delete karen.',
   'money that belongs to customers, and goes back when a contract ends':
       'ye customer ka paisa hai, contract khatam hone per wapas jata hai',
   'Advance the farm is holding': 'Advance jo farm ke paas para hai',
@@ -444,12 +459,35 @@ const Map<String, String> romanUrdu = {
   'Send as picture': 'Tasveer bhejen',
   'Could not make the PDF. %s': 'PDF nahi ban saki. %s',
   'Could not make the picture. %s': 'Tasveer nahi ban saki. %s',
-  'Advance': 'Advance',
+  // Four advance headings, and the farm read two of them as the same thing
+  // because none of them said whose money it was. That is the whole
+  // difference: one pair is the customer's money the farm is holding, the
+  // other is the farm's money somebody else is holding. So each name says
+  // it — "customer ka" or "apna" — and the pairs cannot be mixed up.
+  // One entry opened out in full, tapped from the ledger.
+  'Settled': 'Paisa aaya ya nahi',
+  'Yes, in full': 'Haan, poora',
+  '%s so far': 'Ab tak %s',
+  'Still to receive': 'Abhi lena hai',
+  'How': 'Kis tarah',
+  'Received by': 'Kis ne liya',
+  'Paid by': 'Kis ne diya',
+  'Money moved on': 'Paisa hila',
+  'Written on': 'Likha gaya',
+  'Someone': 'Koi',
+  'Quantity': 'Miqdaar',
+  'Note': 'Note',
+  'Advance': 'Customer ka advance aaya',
+  'Advance returned': 'Customer ka advance wapas kiya',
+  'Advance paid': 'Apna advance diya',
+  'Advance recovered': 'Apna advance wapas mila',
   'entries': 'entries',
-  'One person’s account. Milk they took puts the balance up whether it is '
-          'paid for or not; money they hand over brings it down.':
-      'Ek bande ka khaata. Jo doodh gaya wo baqaya barhata hai, paisa aaya ho '
-      'ya nahi; jo paisa wo den wo baqaya ghatata hai.',
+  'One person’s account, and only theirs — nothing the farm did with anybody else is on it. What they took puts the balance up whether it is paid for or not; money they hand over brings it down. What the farm bought from them runs the other way, and when the balance ends up on that side the foot of the page says so.':
+      'Ek bande ka khaata, sirf usi ka — farm ne kisi aur ke saath jo kiya wo '
+      'is mein nahi aata. Jo unhon ne liya wo baqaya barhata hai, paisa '
+      'aaya ho ya nahi; jo paisa wo den wo baqaya ghatata hai. Jo farm ne '
+      'un se khareeda wo ulta chalta hai, aur jab baqaya us taraf nikle to '
+      'neeche likha aata hai.',
   'The farm’s cash book. Only what actually moved money is in it, so it opens '
           'at what the co-founders put in and closes at what is in the box today.':
       'Farm ka rozcha. Sirf wo cheezen jin me paisa asal me hila, is liye ye '

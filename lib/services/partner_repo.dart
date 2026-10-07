@@ -28,6 +28,72 @@ class PartnerRepo {
     );
   }
 
+  /// Master only. Corrects the name or the email on a capital record.
+  ///
+  /// The email is not decoration: a record carrying somebody's address is
+  /// claimed by that person the first time they sign in, name, capital and
+  /// all, instead of a second record starting up beside it. Typed wrong, the
+  /// co-founder signs in and the app opens them a fresh empty record while
+  /// their capital sits on the old one under nobody. Correcting it is how
+  /// that is undone, so it has to be correctable.
+  static Future<void> rename(
+    Actor actor,
+    Partner partner, {
+    required String name,
+    required String email,
+  }) async {
+    final to = name.trim();
+    final mail = email.trim().toLowerCase();
+    if (to.isEmpty) throw StateError('A record needs a name.');
+    if (to == partner.name && mail == partner.email.trim().toLowerCase()) {
+      return;
+    }
+    await Db.partners.doc(partner.id).update({'name': to, 'email': mail});
+    await Log.write(
+      actor,
+      LogKind.investment,
+      'changed the co-founder record "${partner.name}"'
+      '${partner.email.isEmpty ? '' : ' (${partner.email})'} to "$to"'
+      '${mail.isEmpty ? '' : ' ($mail)'}',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
+
+  /// Master only. Sets a partner's capital to a figure, rather than adding
+  /// to it — for correcting one that went in wrong.
+  ///
+  /// This is not a small button. Capital is the sole basis of the share
+  /// ratios, so moving one partner's figure moves all four partners' slices
+  /// of every month closed from here on. There is no way to make that
+  /// invisible and no attempt is made to: what it was and what it became
+  /// both go in the log, under the name of whoever did it, where the other
+  /// three can read it. A farm run by four friends can survive a figure
+  /// being corrected; it cannot survive one being corrected quietly.
+  ///
+  /// Months already closed keep the slices they were closed with. Those were
+  /// worked out on the day and written down, and this does not reach back
+  /// into them.
+  static Future<void> setInvested(
+    Actor actor,
+    Partner partner,
+    num amount,
+  ) async {
+    if (amount < 0) {
+      throw StateError('Capital cannot be less than nothing.');
+    }
+    final was = partner.invested;
+    if (was == amount) return;
+    await Db.partners.doc(partner.id).update({'invested': amount});
+    await Log.write(
+      actor,
+      LogKind.investment,
+      'changed ${partner.name} capital from ${rs(was)} to ${rs(amount)}',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
+
   /// Master only. Removes a capital record that no money has ever passed
   /// through.
   ///
@@ -36,8 +102,17 @@ class PartnerRepo {
   /// third. A record with nothing in it can go without anything being lost —
   /// no capital, no withdrawal, and no closed period's figures resting on it.
   /// A record with money in it is never deletable, whatever it is called.
-  static Future<void> remove(Actor actor, Partner partner) async {
-    if (!partner.isEmpty) {
+  /// A record with money in it can go too, but only when [force] says so —
+  /// which the screen only sets after naming every figure being lost. The
+  /// master asked to be able to, and the honest answer is that this is their
+  /// farm; the job here is to make sure nobody does it by accident and that
+  /// nobody can do it unseen.
+  static Future<void> remove(
+    Actor actor,
+    Partner partner, {
+    bool force = false,
+  }) async {
+    if (!partner.isEmpty && !force) {
       throw StateError(
         'That record holds money. Only an empty one can be removed.',
       );
@@ -59,8 +134,16 @@ class PartnerRepo {
     await Log.write(
       actor,
       LogKind.investment,
-      'removed the empty co-founder record for ${partner.name}'
-      '${partner.email.isEmpty ? '' : ' (${partner.email})'}',
+      partner.isEmpty
+          ? 'removed the empty co-founder record for ${partner.name}'
+                '${partner.email.isEmpty ? '' : ' (${partner.email})'}'
+          // Every figure that went with it, written down. The record is gone
+          // and this line is the only thing left that says what was in it.
+          : 'removed the co-founder record for ${partner.name}'
+                '${partner.email.isEmpty ? '' : ' (${partner.email})'} '
+                'holding ${rs(partner.invested)} capital, '
+                '${rs(partner.profitHeld)} profit kept in the farm and '
+                '${rs(partner.withdrawn)} taken out',
       refType: 'partner',
       refId: partner.id,
     );

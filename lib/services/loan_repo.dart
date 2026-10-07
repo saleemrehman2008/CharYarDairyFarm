@@ -112,6 +112,38 @@ class LoanRepo {
     );
   }
 
+  /// Master only. Takes the arrangement off the list.
+  ///
+  /// This removes the *arrangement*, not the money. A loan that was only
+  /// asked for, or turned down, never had any money behind it and goes
+  /// cleanly. One that was handed over did move cash out of the box, and
+  /// those rows stay in the ledger where every other rupee is — because
+  /// deleting an arrangement cannot un-hand somebody the notes, and a
+  /// delete that quietly put a lakh back in the cash would be the books
+  /// telling a lie to tidy a list.
+  ///
+  /// If the whole thing was a mistake, the ledger rows are deleted in
+  /// Accounts, the same way as every other entry. One place for removing
+  /// money, and it is not this one.
+  static Future<void> remove({
+    required Actor actor,
+    required FounderLoan loan,
+  }) async {
+    await Db.loans.doc(loan.id).delete();
+    await Log.write(
+      actor,
+      LogKind.investment,
+      loan.state == LoanState.given
+          ? 'removed the loan record for ${loan.name} — ${rs(loan.amount)} '
+                'over ${loan.months} months, ${rs(loan.left)} still out. '
+                'The ledger rows are untouched.'
+          : 'removed the ${loan.standing.name} loan record for ${loan.name} '
+                '(${rs(loan.amount)}), which no money ever went through',
+      refType: 'loan',
+      refId: loan.id,
+    );
+  }
+
   /// Money coming back — an instalment taken at a close, or the founder
   /// paying it in himself.
   ///

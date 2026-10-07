@@ -181,6 +181,22 @@ class _LoanCardState extends State<LoanCard> {
                 style: T.meta,
               ),
             ],
+
+            // Taking the arrangement off the list. The master's alone, and
+            // it never touches the money — see [LoanRepo.remove].
+            if (widget.canDecide) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: GhostButton(
+                  label: l.t('Remove'),
+                  icon: Icons.delete_outline,
+                  compact: true,
+                  danger: true,
+                  onPressed: _busy ? null : () => _remove(loan),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -217,6 +233,39 @@ class _LoanCardState extends State<LoanCard> {
     await _run(
       () => LoanRepo.refuse(actor: context.read<Session>().actor, loan: loan),
       l.t('Noted.'),
+    );
+  }
+
+  /// Take the arrangement off the list.
+  ///
+  /// A loan that was only asked for, or turned down, goes cleanly — no money
+  /// ever moved behind it. One that was handed over is a different thing and
+  /// says so: the cash did leave, and removing a card cannot un-hand
+  /// somebody the notes.
+  Future<void> _remove(FounderLoan loan) async {
+    final l = L.read(context);
+    final given = loan.state == LoanState.given;
+    final ok = await confirm(
+      context,
+      title: l.t(
+        given ? 'Remove a loan that was handed over?' : 'Remove this?',
+      ),
+      body: given
+          ? '${loan.name} · ${rs(loan.amount)}\n'
+                '${rs(loan.left)} still out\n\n'
+                '${l.t('This takes the arrangement off the list. The money is '
+                'not touched — it really did leave the farm, and the '
+                'ledger keeps saying so. If the whole thing was a '
+                'mistake, delete those entries in Accounts instead.')}'
+          : '${loan.name} · ${rs(loan.amount)}\n\n'
+                '${l.t('No money ever went through this one, so there is '
+                'nothing to lose.')}',
+      confirmLabel: l.t('Remove'),
+    );
+    if (!ok || !mounted) return;
+    await _run(
+      () => LoanRepo.remove(actor: context.read<Session>().actor, loan: loan),
+      l.t('Removed.'),
     );
   }
 

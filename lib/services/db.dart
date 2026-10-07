@@ -218,12 +218,27 @@ class Db {
   /// holding does not reset when the books are settled. A customer who left
   /// an advance in September is still owed it in March.
   static Stream<List<Txn>> watchAdvanceTxns() => transactions
-      .where('category', whereIn: [advanceCategory, advanceReturnCategory])
+      .where(
+        'category',
+        whereIn: [
+          advanceCategory,
+          advanceReturnCategory,
+          advancePaidCategory,
+          advanceBackCategory,
+        ],
+      )
       .snapshots()
       .map(
         (q) => q.docs
             .map(Txn.fromDoc)
-            .where((t) => !t.isDeleted && (t.isAdvanceIn || t.isAdvanceOut))
+            .where(
+              (t) =>
+                  !t.isDeleted &&
+                  (t.isAdvanceIn ||
+                      t.isAdvanceOut ||
+                      t.isAdvancePaid ||
+                      t.isAdvanceBack),
+            )
             .toList(),
       );
 

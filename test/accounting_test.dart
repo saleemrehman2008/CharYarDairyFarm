@@ -11,6 +11,7 @@ import 'package:char_yar_dairy_farm/services/bill_repo.dart';
 import 'package:char_yar_dairy_farm/services/delivery_repo.dart';
 import 'package:char_yar_dairy_farm/services/photo_store.dart';
 import 'package:char_yar_dairy_farm/services/rider_repo.dart';
+import 'package:char_yar_dairy_farm/services/statement.dart';
 import 'package:char_yar_dairy_farm/util/money.dart';
 import 'package:char_yar_dairy_farm/util/phone.dart';
 import 'package:char_yar_dairy_farm/widgets/app_shell.dart';
@@ -121,6 +122,7 @@ void main() {
   milkTests();
   flowTests();
   advanceTests();
+  advanceOutTests();
 
   group('money formatting', () {
     test('groups the Pakistani way', () {
@@ -2047,6 +2049,222 @@ void advanceTests() {
       );
       expect(books.profit, 0);
       expect(books.cash, 100000);
+    });
+  });
+}
+
+/// An advance the farm hands out, and gets back.
+///
+/// The mirror of the one it holds, and the farm had to enter one as an
+/// ordinary cash purchase before this existed. That read as "bought
+/// something for twenty-five thousand and paid cash": the profit dropped by
+/// the whole advance, and the man carrying the money showed a balance of
+/// nothing, so there was nothing on his account to say he had it.
+Txn _out({
+  required bool paying,
+  required num amount,
+  String who = 'Ghulam Ali',
+}) => Txn(
+  id: 'out${_seq++}',
+  date: DateTime(2026, 10, 6),
+  monthId: '2026-10',
+  type: paying ? TxnType.payment : TxnType.receipt,
+  party: who,
+  category: paying ? advancePaidCategory : advanceBackCategory,
+  amount: amount,
+  paid: true,
+  paidOnCreate: true,
+  note: '',
+  createdBy: 'uid',
+  createdAt: DateTime(2026, 10, 6),
+);
+
+Books _oct(List<Txn> rows) => Books(
+  monthId: '2026-10',
+  openingCash: 0,
+  capital: 100000,
+  monthTxns: rows,
+  unpaidTxns: const [],
+);
+
+void advanceOutTests() {
+  group('an advance the farm hands out', () {
+    final rows = [_out(paying: true, amount: 25000)];
+
+    test('is not a cost, however it looks', () {
+      // Entered as a purchase it took 25,000 off the month. It is not spent
+      // money — the farm is owed it.
+      expect(_oct(rows).costs, 0);
+      expect(_oct(rows).profit, 0);
+    });
+
+    test('but the cash really has gone', () {
+      expect(_oct(rows).cash, 75000);
+    });
+
+    test('and it sits against the person carrying it', () {
+      expect(advanceOwedByIn(rows, 'Ghulam Ali'), 25000);
+    });
+
+    test('counted towards what the farm is worth, like a loan out', () {
+      // Out of the box and still the farm's. Leave it out of the waterfall
+      // and the balance check is short by exactly this much.
+      final money = MoneySummary(
+        capital: 100000,
+        assets: 0,
+        runningCosts: 0,
+        sales: 0,
+        cash: 75000,
+        receivable: 0,
+        payable: 0,
+        advancesOut: 25000,
+      );
+      expect(money.farmMoney, 100000);
+      expect(money.reconciles, isTrue);
+    });
+
+    test('and the books would not balance without saying so', () {
+      final blind = MoneySummary(
+        capital: 100000,
+        assets: 0,
+        runningCosts: 0,
+        sales: 0,
+        cash: 75000,
+        receivable: 0,
+        payable: 0,
+      );
+      expect(blind.reconciles, isFalse);
+    });
+  });
+
+  group('and the same advance coming back', () {
+    final rows = [
+      _out(paying: true, amount: 25000),
+      _out(paying: false, amount: 25000),
+    ];
+
+    test('is not earnings', () {
+      expect(_oct(rows).sales, 0);
+      expect(_oct(rows).profit, 0);
+    });
+
+    test('the cash is back where it started', () {
+      expect(_oct(rows).cash, 100000);
+    });
+
+    test('and he is carrying nothing', () {
+      expect(advanceOwedByIn(rows, 'Ghulam Ali'), 0);
+      expect(advancesOutIn(rows), 0);
+    });
+
+    test('part of it is ordinary — stopped out of wages', () {
+      final part = [
+        _out(paying: true, amount: 25000),
+        _out(paying: false, amount: 10000),
+      ];
+      expect(advanceOwedByIn(part, 'Ghulam Ali'), 15000);
+      expect(_oct(part).profit, 0);
+    });
+
+    test('more than went out is what the form refuses', () {
+      final owed = advanceOwedByIn([
+        _out(paying: true, amount: 25000),
+      ], 'Ghulam Ali');
+      expect(30000 <= owed, isFalse);
+      expect(25000 <= owed, isTrue);
+    });
+
+    test('one person at a time', () {
+      final two = [
+        _out(paying: true, amount: 25000),
+        _out(paying: true, amount: 4000, who: 'Rafeeq'),
+      ];
+      expect(advanceOwedByIn(two, 'Ghulam Ali'), 25000);
+      expect(advanceOwedByIn(two, 'Rafeeq'), 4000);
+      expect(advancesOutIn(two), 29000);
+    });
+  });
+
+  group('on the person own statement', () {
+    test('the advance shows what he is carrying, not nothing', () {
+      // The farm's complaint, in one assertion: an advance paid out used to
+      // leave the balance at zero, so his account said he had none of it.
+      final st = buildStatement(
+        rows: [_out(paying: true, amount: 25000)],
+        party: 'Ghulam Ali',
+      );
+      expect(st.lines.length, 1);
+      expect(st.lines.single.debit, 25000);
+      expect(st.lines.single.credit, 0);
+      expect(st.closing, 25000, reason: 'he is carrying the farm money');
+    });
+
+    test('and goes to nothing when it comes back', () {
+      final st = buildStatement(
+        rows: [
+          _out(paying: true, amount: 25000),
+          _out(paying: false, amount: 25000),
+        ],
+        party: 'Ghulam Ali',
+      );
+      expect(st.lines.length, 2);
+      expect(st.closing, 0);
+    });
+
+    test('part back leaves the rest showing', () {
+      final st = buildStatement(
+        rows: [
+          _out(paying: true, amount: 25000),
+          _out(paying: false, amount: 10000),
+        ],
+        party: 'Ghulam Ali',
+      );
+      expect(st.closing, 15000);
+    });
+
+    test('both halves are on the one account, in order', () {
+      final st = buildStatement(
+        rows: [
+          _out(paying: true, amount: 25000),
+          _out(paying: false, amount: 25000),
+        ],
+        party: 'Ghulam Ali',
+      );
+      expect(st.lines.first.detail, contains(advancePaidCategory));
+      expect(st.lines.last.detail, contains(advanceBackCategory));
+    });
+  });
+
+  group('neither direction of either advance touches the profit', () {
+    test('all four headings', () {
+      final headings = <(TxnType, String)>[
+        (TxnType.receipt, advanceCategory),
+        (TxnType.payment, advanceReturnCategory),
+        (TxnType.payment, advancePaidCategory),
+        (TxnType.receipt, advanceBackCategory),
+      ];
+      for (final (type, category) in headings) {
+        expect(
+          entryMovesProfit(type: type, category: category, isAsset: false),
+          isFalse,
+          reason: category,
+        );
+        final row = Txn(
+          id: 'adv${_seq++}',
+          date: DateTime(2026, 10, 6),
+          monthId: '2026-10',
+          type: type,
+          party: 'Someone',
+          category: category,
+          amount: 5000,
+          paid: true,
+          paidOnCreate: true,
+          note: '',
+          createdBy: 'uid',
+          createdAt: DateTime(2026, 10, 6),
+        );
+        expect(_oct([row]).profit, 0, reason: category);
+      }
     });
   });
 }

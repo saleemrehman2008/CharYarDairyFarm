@@ -154,6 +154,7 @@ enum MoneyFlow {
       // Money in that the farm has not earned. Both raise the cash and
       // leave the profit exactly where it was.
       (advanceCategory, TxnType.receipt),
+      (advanceBackCategory, TxnType.receipt),
       (loanRepaidCategory, TxnType.receipt),
     ],
     MoneyFlow.outgoing => const [
@@ -170,8 +171,10 @@ enum MoneyFlow {
       // because the farm still has what it paid for.
       ('Cattle purchase', TxnType.purchase),
       ('Equipment', TxnType.purchase),
-      // Handing back money that was never the farm's.
+      // Handing back money that was never the farm's, and handing out money
+      // that still is. Neither is a cost.
       (advanceReturnCategory, TxnType.payment),
+      (advancePaidCategory, TxnType.payment),
       ('Other purchase', TxnType.purchase),
     ],
   };
@@ -199,24 +202,69 @@ enum MoneyFlow {
       : const [TxnType.purchase, TxnType.expense, TxnType.payment];
 }
 
-/// Whether an entry under this heading moves the profit at all.
+/// What an entry does to the books, in one word.
 ///
-/// The one fact both the sentence on the form and the books are built from,
-/// so a heading cannot promise one thing on screen and do another in the
-/// ledger. A test walks every heading on both lists and checks that a period
-/// containing one entry agrees with what this says.
+/// The farm asked for a mark beside every heading on the list, so that the
+/// answer to "will this change the profit" is visible before anything is
+/// picked rather than after. Four answers cover every heading there is.
+enum EntryKind {
+  /// The farm earned it. The profit goes up.
+  earnings('Earnings'),
+
+  /// The farm spent it. The profit goes down.
+  cost('Cost'),
+
+  /// The farm still has what it paid for — a buffalo, a machine. Cash out,
+  /// profit untouched.
+  owned('The farm keeps it'),
+
+  /// Money moving with nothing earned and nothing spent: an advance either
+  /// way, a loan instalment. Only the cash changes.
+  neither('Only cash');
+
+  const EntryKind(this.label);
+
+  final String label;
+}
+
+/// Which of the four a heading is.
+///
+/// The single fact the mark on the list, the sentence under the heading and
+/// the books are all built from — so a heading cannot carry one mark on
+/// screen and do something else in the ledger. A test walks every heading on
+/// both lists and checks a period holding one entry agrees with this.
+EntryKind entryKindOf({
+  required TxnType type,
+  required String category,
+  required bool isAsset,
+}) {
+  if (type == TxnType.sale) return EntryKind.earnings;
+  if (type == TxnType.receipt) {
+    return category == advanceCategory ||
+            category == advanceBackCategory ||
+            category == loanRepaidCategory
+        ? EntryKind.neither
+        : EntryKind.earnings;
+  }
+  if (isAsset) return EntryKind.owned;
+  if (type == TxnType.payment) {
+    return category == advanceReturnCategory ||
+            category == advancePaidCategory ||
+            category == profitShareCategory
+        ? EntryKind.neither
+        : EntryKind.cost;
+  }
+  return EntryKind.cost;
+}
+
+/// Whether an entry under this heading moves the profit at all.
 bool entryMovesProfit({
   required TxnType type,
   required String category,
   required bool isAsset,
 }) {
-  if (type == TxnType.sale) return true;
-  if (type == TxnType.receipt) {
-    return category != advanceCategory && category != loanRepaidCategory;
-  }
-  if (isAsset) return false;
-  if (type == TxnType.payment) return category != advanceReturnCategory;
-  return true;
+  final kind = entryKindOf(type: type, category: category, isAsset: isAsset);
+  return kind == EntryKind.earnings || kind == EntryKind.cost;
 }
 
 /// What an entry about to be saved will do to the books, in one line.
@@ -234,6 +282,10 @@ String entryEffect({
     return 'This counts as the farm earning money. It raises the profit.';
   }
   if (type == TxnType.receipt) {
+    if (category == advanceBackCategory) {
+      return 'Not earnings — the farm is getting back an advance it handed '
+          'out. The cash goes up and the profit does not move.';
+    }
     if (category == advanceCategory) {
       return 'Not earnings — the farm is only holding this money and owes it '
           'back. The cash goes up and the profit does not move.';
@@ -250,6 +302,10 @@ String entryEffect({
         'down; the profit does not move.';
   }
   if (type == TxnType.payment) {
+    if (category == advancePaidCategory) {
+      return 'Not a cost — the farm expects this back, so it goes onto their '
+          'account. The cash goes down and the profit does not move.';
+    }
     if (category == advanceReturnCategory) {
       return 'Handing back money the farm was holding. Not a cost — the cash '
           'goes down and the profit does not move.';
@@ -337,6 +393,27 @@ const khaataReceiptCategory = 'Khaata receipt';
 
 /// Handing that money back when the contract ends.
 const advanceReturnCategory = 'Advance returned';
+
+/// Money the farm hands somebody and expects back — peshgi to a labourer
+/// against his wages, a deposit with a supplier before the goods come.
+///
+/// The exact mirror of [advanceCategory], and it has to be read the same way
+/// round. Cash leaves the box and that is all that happens: it is not a cost,
+/// because the farm has not spent it — it is owed it. Booked as a purchase,
+/// which is how the farm first entered one, the month's profit drops by the
+/// whole advance and then climbs again when it comes back, so two months
+/// running say something untrue about how the farm is doing.
+///
+/// It puts the money on the other person's account, where an ordinary cash
+/// purchase would not: the farm wants to see that Ghulam Ali is carrying
+/// twenty-five thousand of its money until the day he is not.
+const advancePaidCategory = 'Advance paid';
+
+/// That advance coming back — handed over, or stopped out of wages.
+///
+/// Cash in and nothing else, for the same reason: the farm is not earning
+/// this, it is getting its own money back.
+const advanceBackCategory = 'Advance recovered';
 
 /// Money the farm lends one of its own co-founders.
 ///
@@ -602,6 +679,7 @@ class Txn {
       !settlesAnotherEntry &&
       !isProfitShare &&
       !isAdvanceOut &&
+      !isAdvancePaid &&
       !isLoanOut;
 
   /// An advance taken in against a standing order. Cash in, and nothing
@@ -614,6 +692,15 @@ class Txn {
   bool get isAdvanceOut =>
       type == TxnType.payment && category == advanceReturnCategory;
 
+  /// An advance the farm handed out and expects back. Cash out, and
+  /// nothing else — the farm has not spent it, it is owed it.
+  bool get isAdvancePaid =>
+      type == TxnType.payment && category == advancePaidCategory;
+
+  /// That advance coming back. Cash in, and nothing else.
+  bool get isAdvanceBack =>
+      type == TxnType.receipt && category == advanceBackCategory;
+
   /// A receipt that settles nothing — the other side of [isLoosePayment].
   ///
   /// Money came in and no sale anywhere accounts for it, so this row is the
@@ -625,6 +712,7 @@ class Txn {
       type == TxnType.receipt &&
       !settlesAnotherEntry &&
       !isAdvanceIn &&
+      !isAdvanceBack &&
       !isLoanBack;
 
   /// Money lent to a co-founder. Cash out, and nothing else.

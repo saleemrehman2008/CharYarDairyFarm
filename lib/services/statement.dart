@@ -147,11 +147,21 @@ bool _movedCash(Txn t) =>
 /// share, an advance — and so moves the running balance not at all. Which is
 /// what the farm means by an advance: a security it is holding, not a payment
 /// against anything.
+/// An advance the farm hands out is the one loose payment that must move
+/// the balance. Every other one squares itself off — rent handed over with
+/// no bill is both the cost and the paying of it — but this one is money the
+/// farm is owed, and the whole point of writing it down is to see it sitting
+/// on somebody's account until the day it comes back. Its recovery is the
+/// other half and takes the account to nothing.
 num _settledOnTheSpot(Txn t) => switch (t.type) {
   TxnType.sale ||
   TxnType.purchase ||
   TxnType.expense => t.paidOnCreate ? t.amount : 0,
-  TxnType.receipt || TxnType.payment => t.settlesAnotherEntry ? 0 : t.amount,
+  TxnType.receipt ||
+  TxnType.payment =>
+    t.settlesAnotherEntry || t.isAdvancePaid || t.isAdvanceBack
+        ? 0
+        : t.amount,
 };
 
 ({num debit, num credit}) _partySides(Txn t) {

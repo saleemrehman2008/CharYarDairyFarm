@@ -97,6 +97,11 @@ class _CategoryFieldState extends State<CategoryField> {
         (c) => partyKey(c) == partyKey(widget.value),
         orElse: () => options.first,
       ),
+      // A mark against every heading, so what it will do to the profit is
+      // on the list rather than discovered after picking. The farm asked
+      // for this after entering an advance as a purchase and losing
+      // twenty-five thousand of profit to money that was coming back.
+      markOf: (c) => c == _writeOne ? null : _markFor(l, c),
       items: [
         for (final c in options) (c, l.t(c)),
         (_writeOne, l.t('Something else — write it out')),
@@ -109,6 +114,44 @@ class _CategoryFieldState extends State<CategoryField> {
         }
       },
     );
+  }
+
+  /// The badge against one heading: what picking it will do to the books.
+  ///
+  /// Four marks and no more, because four is what a person can learn by
+  /// looking. An arrow up is money earned, an arrow down is money spent, a
+  /// box is something the farm still owns afterwards, and two arrows round
+  /// each other is money that only moved — an advance either way, a loan
+  /// instalment — where nothing was earned and nothing was spent.
+  ///
+  /// The colours are the money colours the rest of the app already uses, so
+  /// nothing new has to be learned to read them.
+  PickerMark _markFor(L l, String category) {
+    final type = widget.flow.typeOf(category);
+    final isAsset = assetCategories.contains(category);
+    final kind = entryKindOf(type: type, category: category, isAsset: isAsset);
+    return switch (kind) {
+      EntryKind.earnings => PickerMark(
+        icon: Icons.trending_up,
+        label: l.t(kind.label),
+        tone: T.moneyIn,
+      ),
+      EntryKind.cost => PickerMark(
+        icon: Icons.trending_down,
+        label: l.t(kind.label),
+        tone: T.moneyOut,
+      ),
+      EntryKind.owned => PickerMark(
+        icon: Icons.inventory_2_outlined,
+        label: l.t(kind.label),
+        tone: T.accent700,
+      ),
+      EntryKind.neither => PickerMark(
+        icon: Icons.swap_horiz,
+        label: l.t(kind.label),
+        tone: T.moneyDue,
+      ),
+    };
   }
 
   Future<void> _writeOut(FarmStore store) async {

@@ -954,12 +954,21 @@ class Picker<V> extends StatelessWidget {
     required this.value,
     required this.items,
     required this.onChanged,
+    this.markOf,
   });
 
   final String label;
   final V value;
   final List<(V, String)> items;
   final ValueChanged<V> onChanged;
+
+  /// A badge to put against a row, when the rows mean different things.
+  ///
+  /// The category list uses it to say which headings are earnings, which
+  /// are costs, which the farm keeps and which only move cash — so the
+  /// answer to "does this change the profit" is on the list rather than
+  /// found out afterwards.
+  final PickerMark? Function(V value)? markOf;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -974,11 +983,51 @@ class Picker<V> extends StatelessWidget {
         dropdownColor: T.bg,
         borderRadius: BorderRadius.circular(T.radius),
         icon: const Icon(Icons.expand_more, size: 18),
+        // The closed field shows the name on its own. The badge belongs
+        // with the choosing; once chosen, the line under the field says the
+        // same thing in words and at more length.
+        selectedItemBuilder: markOf == null
+            ? null
+            : (_) => [
+                for (final (_, label) in items)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: T.body,
+                    ),
+                  ),
+              ],
         items: [
           for (final (v, label) in items)
             DropdownMenuItem(
               value: v,
-              child: Text(label, overflow: TextOverflow.ellipsis),
+              child: Builder(
+                builder: (_) {
+                  final mark = markOf?.call(v);
+                  if (mark == null) {
+                    return Text(label, overflow: TextOverflow.ellipsis);
+                  }
+                  return Row(
+                    children: [
+                      Icon(mark.icon, size: 16, color: mark.tone),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(label, overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        mark.label,
+                        style: T.meta.copyWith(
+                          color: mark.tone,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
         ],
         onChanged: (v) {
@@ -987,6 +1036,19 @@ class Picker<V> extends StatelessWidget {
       ),
     ],
   );
+}
+
+/// The badge beside one row of a [Picker].
+class PickerMark {
+  const PickerMark({
+    required this.icon,
+    required this.label,
+    required this.tone,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color tone;
 }
 
 /// Section heading above a list.
@@ -1506,19 +1568,37 @@ Future<num?> askForMoney(
   BuildContext context, {
   required String title,
   String hint = '',
+  String? note,
+
+  /// What the box starts with. For correcting a figure rather than adding
+  /// one: the person should be able to see what it is now before they change
+  /// it, and change one digit rather than retype the lot.
+  num? starting,
 }) async {
-  final field = TextEditingController();
+  final field = TextEditingController(
+    text: starting == null ? '' : '${starting.round()}',
+  );
   final said = await showDialog<num>(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: T.surface,
       title: Text(title, style: T.cardTitle),
-      content: TextField(
-        controller: field,
-        autofocus: true,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(hintText: hint),
-        style: T.body,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: field,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(hintText: hint),
+            style: T.body,
+          ),
+          if (note != null) ...[
+            const SizedBox(height: 10),
+            Text(note, style: T.meta),
+          ],
+        ],
       ),
       actions: [
         TextButton(

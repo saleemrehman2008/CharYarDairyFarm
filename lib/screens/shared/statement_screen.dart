@@ -308,9 +308,13 @@ class _StatementScreenState extends State<StatementScreen> {
           Text(
             statement.forOneParty
                 ? l.t(
-                    'One person’s account. Milk they took puts the '
-                    'balance up whether it is paid for or not; money they '
-                    'hand over brings it down.',
+                    'One person’s account, and only theirs — nothing the '
+                    'farm did with anybody else is on it. What they took '
+                    'puts the balance up whether it is paid for or not; '
+                    'money they hand over brings it down. What the farm '
+                    'bought from them runs the other way, and when the '
+                    'balance ends up on that side the foot of the page '
+                    'says so.',
                   )
                 : l.t(
                     'The farm’s cash book. Only what actually moved '
@@ -596,12 +600,27 @@ class StatementSheet extends StatelessWidget {
                       tone: T.moneyIn,
                     ),
                     Divider(height: 14, color: T.accent300),
-                    _footLine(
-                      label: l.t(statement.kind.footLabel),
-                      value: rs(statement.closing),
-                      tone: T.accent800,
-                      big: true,
-                    ),
+                    // Which way round the debt runs, said in words rather
+                    // than with a minus sign. One person's account carries
+                    // both directions — a customer who owes for milk and a
+                    // supplier the farm owes for feed are the same document
+                    // with the sign flipped — and a sheet handed to a
+                    // supplier reading "Balance owed: Rs -3,600" is a bill
+                    // pointing the wrong way.
+                    if (statement.forOneParty && statement.closing < 0)
+                      _footLine(
+                        label: l.t('The farm owes'),
+                        value: rs(statement.closing.abs()),
+                        tone: T.moneyDue,
+                        big: true,
+                      )
+                    else
+                      _footLine(
+                        label: l.t(statement.kind.footLabel),
+                        value: rs(statement.closing),
+                        tone: T.accent800,
+                        big: true,
+                      ),
                     if (advanceHeld > 0)
                       _footLine(
                         label: l.t('Advance'),
