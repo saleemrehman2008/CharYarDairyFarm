@@ -464,6 +464,43 @@ const Map<String, String> romanUrdu = {
   // difference: one pair is the customer's money the farm is holding, the
   // other is the farm's money somebody else is holding. So each name says
   // it — "customer ka" or "apna" — and the pairs cannot be mixed up.
+  // ---- Every heading on the entry form ----
+  //
+  // The picker calls l.t(category) with the name arriving as a variable, so
+  // the word checker — which reads literals out of the source — never saw
+  // any of these. The whole vocabulary of the app's most-used screen was
+  // sitting in English in the middle of a Roman Urdu list. A test in
+  // categories_test.dart walks the lists themselves now, so it cannot
+  // happen again.
+  'Butter': 'Makhan',
+  'Cream': 'Balai',
+  'Khoya': 'Khoya',
+  'Paneer': 'Paneer',
+  'Dahi': 'Dahi',
+  'Lassi': 'Lassi',
+  'Cattle sale': 'Janwar ki sale',
+  'Dung / manure': 'Gobar aur khaad',
+  'Other sale': 'Koi aur sale',
+  'Fodder / feed': 'Wanda aur chara',
+  'Milk bought in': 'Doosre farm se doodh khareeda',
+  'Vet & medicine': 'Dawai aur daaktar',
+  'Food & kitchen': 'Khana aur kitchen',
+  'Salaries': 'Tankhwah',
+  'Rent': 'Kiraya',
+  'Utilities (bijli, gas, pani)': 'Bijli, gas, pani',
+  'Transport': 'Transport',
+  'Repairs': 'Marammat',
+  'Cattle purchase': 'Janwar ki khareed',
+  'Equipment': 'Machinery aur saman',
+  'Other purchase': 'Koi aur khareed',
+  'Loan repayment': 'Loan ki qist',
+  // Headings the app writes for itself. Never on the form, but they are
+  // read on statements, in the ledger and on the Sheet just as often.
+  'Khaata receipt': 'Khaate ki wasooli',
+  'Profit share': 'Munafe ka hissa',
+  'Cattle write-off': 'Janwar books se nikala',
+  'Founder loan': 'Founder ko diya loan',
+
   // One entry opened out in full, tapped from the ledger.
   'Settled': 'Paisa aaya ya nahi',
   'Yes, in full': 'Haan, poora',

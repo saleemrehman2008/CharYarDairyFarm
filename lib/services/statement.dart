@@ -157,11 +157,8 @@ num _settledOnTheSpot(Txn t) => switch (t.type) {
   TxnType.sale ||
   TxnType.purchase ||
   TxnType.expense => t.paidOnCreate ? t.amount : 0,
-  TxnType.receipt ||
-  TxnType.payment =>
-    t.settlesAnotherEntry || t.isAdvancePaid || t.isAdvanceBack
-        ? 0
-        : t.amount,
+  TxnType.receipt || TxnType.payment =>
+    t.settlesAnotherEntry || t.isAdvancePaid || t.isAdvanceBack ? 0 : t.amount,
 };
 
 ({num debit, num credit}) _partySides(Txn t) {

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:char_yar_dairy_farm/i18n/roman_urdu.dart';
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/categories.dart';
 
@@ -33,6 +34,8 @@ Txn _txn({
 );
 
 void main() {
+  categoryWordTests();
+
   group('categories the books already carry', () {
     test('a word written twice comes back once', () {
       final rows = [
@@ -208,6 +211,87 @@ void main() {
         ).isCapitalAsset,
         isFalse,
       );
+    });
+  });
+}
+
+/// Every heading the entry form offers, in Roman Urdu.
+///
+/// `tool/check_words.dart` reads `l.t('a literal')` out of the source, and
+/// the category list never goes through it that way — the picker calls
+/// `l.t(category)` with the name arriving as a variable. So the whole of
+/// the entry form's vocabulary sat outside the checker's reach, and "Milk
+/// bought in" shipped in English in the middle of a Roman Urdu list without
+/// anything noticing.
+///
+/// This walks the lists themselves, which is the only way to see them.
+void categoryWordTests() {
+  group('every heading on the entry form reads in Roman Urdu', () {
+    for (final flow in MoneyFlow.values) {
+      test('under ${flow.label.toLowerCase()}', () {
+        final missing = [
+          for (final c in flow.categories)
+            if (!romanUrdu.containsKey(c)) c,
+        ];
+        expect(missing, isEmpty, reason: 'no Roman Urdu for: $missing');
+      });
+    }
+
+    test('and so do the headings the app posts for itself', () {
+      // These never appear on the form, but they appear on statements, in
+      // the ledger and on the Sheet, where they are read just as often.
+      const own = [
+        khaataReceiptCategory,
+        profitShareCategory,
+        writeOffCategory,
+        founderLoanCategory,
+        loanRepaidCategory,
+        advanceCategory,
+        advanceReturnCategory,
+        advancePaidCategory,
+        advanceBackCategory,
+      ];
+      final missing = [
+        for (final c in own)
+          if (!romanUrdu.containsKey(c)) c,
+      ];
+      expect(missing, isEmpty, reason: 'no Roman Urdu for: $missing');
+    });
+
+    test('and the four marks against them', () {
+      final missing = [
+        for (final k in EntryKind.values)
+          if (!romanUrdu.containsKey(k.label)) k.label,
+      ];
+      expect(missing, isEmpty, reason: 'no Roman Urdu for: $missing');
+    });
+
+    test('and both directions, and the milkings', () {
+      for (final f in MoneyFlow.values) {
+        expect(romanUrdu.containsKey(f.label), isTrue, reason: f.label);
+      }
+      for (final s in MilkShift.values) {
+        expect(romanUrdu.containsKey(s.label), isTrue, reason: s.label);
+      }
+    });
+
+    test('and no heading is left saying the same as another', () {
+      // Two headings reading alike is what made the farm ask why an advance
+      // appeared twice: the names did not say whose money each one was.
+      final seen = <String, String>{};
+      for (final flow in MoneyFlow.values) {
+        for (final c in flow.categories) {
+          final said = romanUrdu[c];
+          if (said == null) continue;
+          final clash = seen[said];
+          expect(
+            clash,
+            isNull,
+            reason: '"$c" and "$clash" both read as "$said"',
+          );
+          seen[said] = c;
+        }
+      }
     });
   });
 }
