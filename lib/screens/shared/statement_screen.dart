@@ -497,47 +497,47 @@ class StatementSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Head
+              // The crest on the paper itself, the way a letterhead
+              // carries one. It used to sit on a band of the farm's
+              // navy, which was right for the silver lockup it was
+              // drawn for: that one vanished on anything pale. This
+              // crest is the other way round — near-black and gold —
+              // and it reads best on the paper it is printed on.
+              //
+              // The farm's name is drawn inside it, so it is not typed
+              // out beside it as well. The name is still at the top of
+              // every page after the first of a PDF, and on the file the
+              // statement is shared as.
               Container(
-                color: T.accent800,
-                padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
+                padding: const EdgeInsets.fromLTRB(15, 14, 15, 12),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // The whole lockup, the way a letterhead carries one.
-                    // The farm's name is drawn inside it, so it is not typed
-                    // out beside it as well — that was the same words twice
-                    // in two different hands. The name is still printed on
-                    // every page after the first of a PDF, and on the file
-                    // the statement is shared as.
+                    Image.asset(
+                      'assets/logo.png',
+                      width: 74,
+                      fit: BoxFit.contain,
+                      // The logo is going to be swapped again one day,
+                      // and a statement is not the place to find out the
+                      // file has moved. Without this the whole page
+                      // throws and draws nothing at all over a missing
+                      // picture.
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Image.asset(
-                            'assets/logo.png',
-                            width: 150,
-                            fit: BoxFit.contain,
-                            // The logo is going to be swapped again one day,
-                            // and a statement is not the place to find out
-                            // the file has moved. Without this the whole
-                            // page throws and draws nothing at all over a
-                            // missing picture — so it falls back to the name
-                            // in writing, which is what the drawing says.
-                            errorBuilder: (_, _, _) => Text(
-                              farmName,
-                              style: T.cardTitle.copyWith(
-                                color: Colors.white,
-                                fontSize: 15,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
                           Text(
-                            l.t(statement.kind.title),
-                            style: T.meta.copyWith(color: T.accent300),
+                            farmName,
+                            style: T.cardTitle.copyWith(
+                              color: T.accent800,
+                              fontSize: 16,
+                            ),
+                            maxLines: 2,
                           ),
+                          Text(l.t(statement.kind.title), style: T.meta),
                         ],
                       ),
                     ),
@@ -545,24 +545,18 @@ class StatementSheet extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          l.t('Issued').toUpperCase(),
-                          style: T.kicker.copyWith(color: T.accent300),
-                        ),
+                        Text(l.t('Issued').toUpperCase(), style: T.kicker),
                         const SizedBox(height: 2),
                         Text(
                           fmtDateFull(DateTime.now()),
-                          style: T.bodyMid.copyWith(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
+                          style: T.bodyMid.copyWith(fontSize: 12),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-
+              Container(height: 1.6, color: T.accent800),
               // Who, when, and where the balance started
               Container(
                 color: T.n100,

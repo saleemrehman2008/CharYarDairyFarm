@@ -642,11 +642,13 @@ class GhostButton extends StatelessWidget {
 
 enum TagTone { neutral, accent, good, warn, bad }
 
-/// The farm's logo, on the navy it was drawn for.
+/// The farm crest.
 ///
-/// The lockup is silver and white on a dark ground — put it straight onto the
-/// app's pale pages and half of it disappears. So it keeps its own ground
-/// wherever it is shown, which is also what a logo is supposed to have.
+/// A round emblem, dark with gold, so it needs no ground of its own — it
+/// reads on a pale page and on a black one alike. [mark] is the same crest
+/// on a tile of its own colour, for the two places that cannot give it a
+/// background: a 36 point top bar, and the home screen of a phone whose
+/// wallpaper nobody chose.
 class FarmLogo extends StatelessWidget {
   const FarmLogo({super.key, this.width = 180, this.mark = false});
 
@@ -677,18 +679,12 @@ class FarmLogo extends StatelessWidget {
         ),
       );
     }
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: width * 0.07,
-        vertical: width * 0.06,
-      ),
-      // The farm's own navy, not a step off the accent ramp. The ramp runs
-      // the other way on a dark skin — accent900 there is a pale sky — so
-      // the lockup was sitting on a near-white card on two skins out of
-      // three, which is the one thing this ground exists to prevent.
-      decoration: BoxDecoration(color: T.brandDeep, borderRadius: T.roundSm),
-      child: Image.asset('assets/logo.png', width: width, cacheWidth: cache),
-    );
+    // No card behind it. The crest is a complete emblem with its own
+    // ring, and the ring is near-black: a navy tile behind it reads as a
+    // second rectangle round a circle. The lockup before this one was
+    // silver line-work that disappeared on anything pale and genuinely
+    // needed a dark ground; swapping the drawing swapped the rule.
+    return Image.asset('assets/logo.png', width: width, cacheWidth: cache);
   }
 }
 

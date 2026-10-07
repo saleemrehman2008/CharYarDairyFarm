@@ -5,21 +5,17 @@ import 'package:image/image.dart' as img;
 
 /// Cuts the farm's logo into the shapes the app needs.
 ///
-/// One drawing arrives — a wide lockup on a transparent ground — and the app
-/// shows it in three quite different places, each wanting something else:
+/// One drawing arrives and the app shows it in three places: whole on the
+/// splash and the sign-in page and at the head of a statement; small in the
+/// top bar, where there is room for about thirty-six points of it; and as
+/// the launcher icon, which Android wants in five sizes.
 ///
-///  * the whole lockup, on the splash and the sign-in page, where there is
-///    room for it;
-///  * a square mark at 38 points on a statement and in the top bar, where
-///    the lockup would be a smudge and only the bull's head survives;
-///  * the launcher icon, which Android wants in five sizes and which has to
-///    read at the size of a fingernail.
-///
-/// The transparent ground is the other half of the job. The bull is silver
-/// and drawn in black outline: on a pale page the silver vanishes, on a dark
-/// one the outline does. So everything this writes carries its own deep navy
-/// behind it — the same colour the app already puts behind the lockup — and
-/// then it reads the same on every skin and on a sheet of paper.
+/// The farm's crest is a round emblem, so all three are the same picture at
+/// different sizes — there is nothing to crop out. The lockup before it was
+/// wide with the bull at one end, and the small shapes had to be cut from
+/// the head alone, which is why this file used to be full of boxes and
+/// fractions and still took three goes to stop clipping the muzzle. A round
+/// mark is simply easier to be.
 ///
 /// Run: dart run tool/make_logo.dart <source image>
 void main(List<String> args) {
@@ -34,66 +30,49 @@ void main(List<String> args) {
   }
   stdout.writeln('source ${src.width}x${src.height}');
 
-  // The farm's deep navy, the same value the app uses behind the lockup.
-  final navy = img.ColorRgb8(0x0B, 0x24, 0x38);
+  // The crest's own dark, so an icon reads as the crest on a tile of its
+  // own colour rather than the crest on somebody else's. The farm's navy
+  // was right behind the silver lockup that came before and is wrong here:
+  // this emblem is brown and gold.
+  final ground = img.ColorRgb8(0x17, 0x12, 0x0E);
 
   // The drawing as it arrived, kept in the repo so the next recut needs
-  // nothing but this file — not a hunt back through a chat for the
-  // original.
+  // nothing but this file.
   _write('assets/logo-source.png', src);
 
-  final whole = _trim(src);
-  stdout.writeln('lockup trimmed to ${whole.width}x${whole.height}');
+  final crest = _trim(src);
+  stdout.writeln('crest trimmed to ${crest.width}x${crest.height}');
 
-  // ---- The lockup ----
+  // ---- The crest, whole ----
   //
-  // Kept transparent: the app draws it over its own navy card, and a baked
-  // ground would show as a second rectangle inside the first.
+  // Transparent: the app puts it on whatever the page under it is.
   _write(
     'assets/logo.png',
-    img.copyResize(whole, width: 900, interpolation: img.Interpolation.cubic),
+    img.copyResize(crest, width: 900, interpolation: img.Interpolation.cubic),
   );
 
-  // ---- The bull's head ----
+  // ---- The small mark, and the launcher ----
   //
-  // Taken as a fraction of the trimmed lockup rather than by pixel, so a
-  // redrawn logo of another size still lands in the right place.
-  //
-  // The box stops short of the head on every side on purpose. Out to a
-  // third of the width and the first blue of the splash comes with it, which
-  // at this size is a stray mark nobody can read; down past the muzzle and
-  // the ribbon that sweeps out from under the chin comes too, and reads as
-  // a smear under the face. So: the head, and nothing that touches it.
-  // There is no rectangle that holds the whole head and nothing else. The
-  // horns reach out to the right as far as the C of CHAR reaches in under
-  // the chin, so any box wide enough for the horn tips takes a blue sliver
-  // of the C with it — and at this size a stray mark is all anybody sees.
-  // So the C's corner is rubbed out of the copy first, and then the box can
-  // be as wide as the horns need.
-  final clean = whole.clone();
-  _erase(
-    clean,
-    x0: (clean.width * 0.310).round(),
-    y0: (clean.height * 0.400).round(),
-    x1: (clean.width * 0.360).round(),
-    y1: (clean.height * 0.640).round(),
+  // Both on a ground, for the same reason: a transparent icon with dark
+  // edges disappears into a dark wallpaper, and the one place the farm
+  // cannot choose the background is somebody's home screen.
+  // The small mark is the crest centre, not the whole crest. At
+  // thirty-six points in a top bar the ring, the crown, the wheat and the
+  // two lines of lettering are all one brown smudge; the bull is still a
+  // bull. The launcher keeps the whole crest, because a home screen icon
+  // is big enough for it.
+  final face = _trim(
+    img.copyCrop(
+      crest,
+      x: (crest.width * 0.26).round(),
+      y: (crest.height * 0.26).round(),
+      width: (crest.width * 0.48).round(),
+      height: (crest.height * 0.42).round(),
+    ),
   );
-  final head = img.copyCrop(
-    clean,
-    x: 0,
-    y: (clean.height * 0.055).round(),
-    width: (clean.width * 0.350).round(),
-    height: (clean.height * 0.560).round(),
-  );
-  final tight = _trim(head);
-  stdout.writeln('head trimmed to ${tight.width}x${tight.height}');
+  stdout.writeln('face trimmed to ${face.width}x${face.height}');
+  _write('assets/mark.png', _onGround(face, 192, ground));
 
-  _write('assets/mark.png', _onNavy(tight, 192, navy));
-
-  // ---- The launcher icon ----
-  //
-  // Android asks for five. Written from the same square so the icon on the
-  // home screen and the mark in the app are one picture.
   const sizes = {
     'mdpi': 48,
     'hdpi': 72,
@@ -104,32 +83,16 @@ void main(List<String> args) {
   sizes.forEach((bucket, px) {
     _write(
       'android/app/src/main/res/mipmap-$bucket/ic_launcher.png',
-      _onNavy(tight, px, navy),
+      _onGround(crest, px, ground),
     );
   });
 }
 
-/// Rubs a rectangle out of [im], leaving it fully transparent.
-void _erase(
-  img.Image im, {
-  required int x0,
-  required int y0,
-  required int x1,
-  required int y1,
-}) {
-  final clear = img.ColorRgba8(0, 0, 0, 0);
-  for (var y = y0; y < y1 && y < im.height; y++) {
-    for (var x = x0; x < x1 && x < im.width; x++) {
-      im.setPixel(x, y, clear);
-    }
-  }
-}
-
 /// Drops the empty border round a drawing.
 ///
-/// The logo arrives on a two-thousand-point square with most of it air. Left
-/// alone, every size below is computed from the air rather than the drawing,
-/// and the bull ends up a third of the size it should be.
+/// The logo arrives on a two-thousand-point square with air around it. Left
+/// alone, every size below is worked out from the air rather than the
+/// drawing, and the crest ends up smaller than it should be.
 img.Image _trim(img.Image src) {
   var top = src.height, left = src.width, right = -1, bottom = -1;
   for (var y = 0; y < src.height; y++) {
@@ -155,8 +118,12 @@ img.Image _trim(img.Image src) {
 }
 
 /// A square of [ground] with [src] sat in the middle of it, [size] a side.
-img.Image _onNavy(img.Image src, int size, img.Color ground) {
-  final pad = (size * 0.10).round();
+///
+/// Barely any padding: a round crest already carries its own margin in the
+/// ring, and adding more only makes it smaller on the home screen, where it
+/// is competing with every other icon to be recognised.
+img.Image _onGround(img.Image src, int size, img.Color ground) {
+  final pad = (size * 0.03).round();
   final room = size - pad * 2;
   final scale = math.min(room / src.width, room / src.height);
   final fit = img.copyResize(

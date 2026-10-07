@@ -54,10 +54,6 @@ class StatementPaper {
     const blue = PdfColor.fromInt(0xFF175C8C);
     const faint = PdfColor.fromInt(0xFF8B96A2);
     const rule = PdfColor.fromInt(0xFFE6EAEE);
-    // The head band, and what reads on it.
-    const headBand = PdfColor.fromInt(0xFF0F3F63);
-    const paper = PdfColor.fromInt(0xFFFFFFFF);
-    const pale = PdfColor.fromInt(0xFFA6D2EE);
 
     pw.Widget cell(String text, {bool head = false, bool right = false}) =>
         pw.Padding(
@@ -113,60 +109,60 @@ class StatementPaper {
           ),
         ),
         build: (context) => [
-          // The head, as a band of the farm's navy with the lockup on it.
+          // The crest on the paper, the way a letterhead carries one.
           //
-          // On white paper the lockup is half invisible: the bull is silver
-          // drawn in black outline, so the outline reads and the body of it
-          // washes out. On the farm's navy it reads whole — and the picture
-          // the app shares and the PDF it prints then look like one
-          // document rather than two.
-          pw.Container(
-            color: headBand,
-            padding: const pw.EdgeInsets.fromLTRB(14, 12, 14, 12),
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      // The farm's name is drawn inside the lockup, so it is
-                      // not set in type beside it as well. It is still at
-                      // the top of every page after this one.
-                      pw.SizedBox(width: 168, child: pw.Image(logo)),
-                      pw.SizedBox(height: 6),
-                      pw.Text(
-                        statement.kind.title,
-                        style: const pw.TextStyle(fontSize: 9, color: pale),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(width: 10),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+          // It sat on a band of the farm's navy for a day, which was
+          // right for the silver lockup it was drawn for — that one
+          // washed out on white. This crest is near-black and gold and
+          // reads best on the page it is printed on, which also means a
+          // printed statement no longer starts with a block of ink.
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.SizedBox(width: 56, child: pw.Image(logo)),
+              pw.SizedBox(width: 12),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'ISSUED',
+                      farmName,
                       style: pw.TextStyle(
-                        fontSize: 6.5,
-                        color: pale,
+                        fontSize: 15,
                         fontWeight: pw.FontWeight.bold,
+                        color: blue,
                       ),
                     ),
-                    pw.SizedBox(height: 2),
                     pw.Text(
-                      fmtDateFull(now),
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        color: paper,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
+                      statement.kind.title,
+                      style: const pw.TextStyle(fontSize: 9, color: faint),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              pw.SizedBox(width: 10),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    'ISSUED',
+                    style: pw.TextStyle(
+                      fontSize: 6.5,
+                      color: faint,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    fmtDateFull(now),
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           pw.SizedBox(height: 14),
           pw.Container(height: 1.5, color: blue),
