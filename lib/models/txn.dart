@@ -41,11 +41,9 @@ enum TxnType {
     TxnType.sale => const [
       milkCategory,
       'Dahi',
-      'Butter',
       'Ghee',
       'Lassi',
       'Paneer',
-      'Cream',
       'Khoya',
       'Cattle sale',
       'Dung / manure',
@@ -142,11 +140,9 @@ enum MoneyFlow {
     MoneyFlow.incoming => const [
       (milkCategory, TxnType.sale),
       ('Dahi', TxnType.sale),
-      ('Butter', TxnType.sale),
       ('Ghee', TxnType.sale),
       ('Lassi', TxnType.sale),
       ('Paneer', TxnType.sale),
-      ('Cream', TxnType.sale),
       ('Khoya', TxnType.sale),
       ('Cattle sale', TxnType.sale),
       ('Dung / manure', TxnType.sale),

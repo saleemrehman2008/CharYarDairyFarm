@@ -472,6 +472,9 @@ const Map<String, String> romanUrdu = {
   // sitting in English in the middle of a Roman Urdu list. A test in
   // categories_test.dart walks the lists themselves now, so it cannot
   // happen again.
+  // Butter and cream came off the list — the farm does not trade them.
+  // Their words stay, because an old entry written under either of them
+  // still has to read in Roman Urdu wherever it is shown.
   'Butter': 'Makhan',
   'Cream': 'Balai',
   'Khoya': 'Khoya',
