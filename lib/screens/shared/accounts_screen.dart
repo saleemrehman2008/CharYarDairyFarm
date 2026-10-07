@@ -170,7 +170,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   rows: everything,
                   party: _party,
                 ).closing,
-                advanceHeld: store.advanceHeldFor(_party!),
+                securityHeld: store.securityHeldFrom(_party!),
                 tone: _filter.tone,
               )
             else
@@ -233,7 +233,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               _PartyCard(
                 party: _party!,
                 ledger: everything,
-                advanceHeld: store.advanceHeldFor(_party!),
+                securityHeld: store.securityHeldFrom(_party!),
               ),
               const SizedBox(height: 12),
             ],
@@ -939,7 +939,7 @@ class _PartyHead extends StatelessWidget {
     required this.shown,
     required this.count,
     required this.balance,
-    required this.advanceHeld,
+    required this.securityHeld,
     required this.tone,
   });
 
@@ -948,7 +948,7 @@ class _PartyHead extends StatelessWidget {
   final String shown;
   final int count;
   final num balance;
-  final num advanceHeld;
+  final num securityHeld;
   final Color tone;
 
   @override
@@ -1014,7 +1014,7 @@ class _PartyHead extends StatelessWidget {
                 ),
               ],
             ),
-            if (advanceHeld > 0) ...[
+            if (securityHeld > 0) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -1036,7 +1036,7 @@ class _PartyHead extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      rs(advanceHeld),
+                      rs(securityHeld),
                       style: T.bodyMid.copyWith(color: T.onHero),
                     ),
                   ],
@@ -1062,14 +1062,14 @@ class _PartyCard extends StatelessWidget {
   const _PartyCard({
     required this.party,
     required this.ledger,
-    required this.advanceHeld,
+    required this.securityHeld,
   });
 
   final String party;
   final List<Txn> ledger;
 
   /// What this person has left with the farm and not had back.
-  final num advanceHeld;
+  final num securityHeld;
 
   @override
   Widget build(BuildContext context) {
@@ -1143,11 +1143,11 @@ class _PartyCard extends StatelessWidget {
             ),
           if (owesUs == 0 && weOwe == 0)
             Text(l.t('Nothing outstanding either way.'), style: T.meta),
-          if (advanceHeld > 0) ...[
+          if (securityHeld > 0) ...[
             const Divider(height: 18),
             _PartyLine(
               label: l.t('Advance the farm is holding'),
-              value: advanceHeld,
+              value: securityHeld,
               tone: T.moneyDue,
               strong: true,
             ),

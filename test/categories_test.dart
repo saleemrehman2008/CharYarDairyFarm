@@ -129,8 +129,8 @@ void main() {
     test('an advance is not one of them, and neither is an instalment', () {
       // Both are ordinary things somebody does at a counter, and both are
       // safe to type: neither can ever be read as income or as a cost.
-      expect(appPostedCategories, isNot(contains(advanceCategory)));
-      expect(appPostedCategories, isNot(contains(advanceReturnCategory)));
+      expect(appPostedCategories, isNot(contains(securityInCategory)));
+      expect(appPostedCategories, isNot(contains(securityBackCategory)));
       expect(appPostedCategories, isNot(contains(loanRepaidCategory)));
     });
 
@@ -246,10 +246,10 @@ void categoryWordTests() {
         writeOffCategory,
         founderLoanCategory,
         loanRepaidCategory,
-        advanceCategory,
-        advanceReturnCategory,
-        advancePaidCategory,
-        advanceBackCategory,
+        securityInCategory,
+        securityBackCategory,
+        securityOutCategory,
+        securityRefundCategory,
       ];
       final missing = [
         for (final c in own)

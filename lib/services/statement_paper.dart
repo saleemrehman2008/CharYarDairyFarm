@@ -41,7 +41,8 @@ class StatementPaper {
     required String farmName,
     required String forWhom,
     required String period,
-    num advanceHeld = 0,
+    num securityHeld = 0,
+    num securityOut = 0,
   }) async {
     final doc = pw.Document();
     final logo = pw.MemoryImage(await _logo());
@@ -253,14 +254,31 @@ class StatementPaper {
                     pw.SizedBox(height: 4),
                     pw.Container(height: 1, color: blue),
                     pw.SizedBox(height: 6),
-                    _sum(
-                      statement.kind.footLabel,
-                      rs(statement.closing),
-                      big: true,
-                    ),
-                    if (advanceHeld > 0) ...[
+                    // Which way round the debt runs, said in words rather
+                    // than with a minus sign. A sheet handed to a supplier
+                    // reading "Balance owed: Rs -3,600" is a bill pointing
+                    // the wrong way.
+                    if (statement.forOneParty && statement.closing < 0)
+                      _sum(
+                        'The farm owes',
+                        rs(statement.closing.abs()),
+                        big: true,
+                      )
+                    else
+                      _sum(
+                        statement.kind.footLabel,
+                        rs(statement.closing),
+                        big: true,
+                      ),
+                    // The securities, each on its own line and neither
+                    // part of what is owed for goods.
+                    if (securityHeld > 0) ...[
                       pw.SizedBox(height: 6),
-                      _sum('Advance', rs(advanceHeld)),
+                      _sum('Security we are holding', rs(securityHeld)),
+                    ],
+                    if (securityOut > 0) ...[
+                      pw.SizedBox(height: 6),
+                      _sum('Security we have with them', rs(securityOut)),
                     ],
                   ],
                 ),

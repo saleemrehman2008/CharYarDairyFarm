@@ -1777,7 +1777,7 @@ void flowTests() {
       expect(flow.typeOf('Cattle sale'), TxnType.sale);
       // An advance is somebody else's money and a loan instalment is the
       // farm's own coming back. Neither is a rupee earned.
-      expect(flow.typeOf(advanceCategory), TxnType.receipt);
+      expect(flow.typeOf(securityInCategory), TxnType.receipt);
       expect(flow.typeOf(loanRepaidCategory), TxnType.receipt);
     });
 
@@ -1787,7 +1787,7 @@ void flowTests() {
       expect(flow.typeOf('Equipment'), TxnType.purchase);
       expect(flow.typeOf('Salaries'), TxnType.expense);
       expect(flow.typeOf('Rent'), TxnType.expense);
-      expect(flow.typeOf(advanceReturnCategory), TxnType.payment);
+      expect(flow.typeOf(securityBackCategory), TxnType.payment);
     });
 
     test('a heading nobody listed counts, rather than slipping through', () {
@@ -1897,11 +1897,11 @@ void flowTests() {
     });
 
     test('an advance raises the cash and leaves the profit alone', () {
-      expect(profitOf(TxnType.receipt, advanceCategory, asset: false), 0);
+      expect(profitOf(TxnType.receipt, securityInCategory, asset: false), 0);
     });
 
     test('handing that advance back is not a cost', () {
-      expect(profitOf(TxnType.payment, advanceReturnCategory, asset: false), 0);
+      expect(profitOf(TxnType.payment, securityBackCategory, asset: false), 0);
     });
 
     test('a buffalo is not a cost either', () {
@@ -1936,7 +1936,7 @@ Txn _advance({required bool coming, required num amount, String who = 'Ali'}) =>
       monthId: '2026-09',
       type: coming ? TxnType.receipt : TxnType.payment,
       party: who,
-      category: coming ? advanceCategory : advanceReturnCategory,
+      category: coming ? securityInCategory : securityBackCategory,
       amount: amount,
       paid: true,
       paidOnCreate: true,
@@ -1947,7 +1947,7 @@ Txn _advance({required bool coming, required num amount, String who = 'Ali'}) =>
 
 /// The very function the entry form checks a return against, so this is
 /// the rule itself being tested and not a second copy of it.
-num _heldFor(List<Txn> rows, String who) => advanceHeldForIn(rows, who);
+num _heldFor(List<Txn> rows, String who) => securityHeldFromIn(rows, who);
 
 void advanceTests() {
   group('what the farm is holding for somebody', () {
@@ -2071,7 +2071,7 @@ Txn _out({
   monthId: '2026-10',
   type: paying ? TxnType.payment : TxnType.receipt,
   party: who,
-  category: paying ? advancePaidCategory : advanceBackCategory,
+  category: paying ? securityOutCategory : securityRefundCategory,
   amount: amount,
   paid: true,
   paidOnCreate: true,
@@ -2089,7 +2089,7 @@ Books _oct(List<Txn> rows) => Books(
 );
 
 void advanceOutTests() {
-  group('an advance the farm hands out', () {
+  group('a security the farm leaves with somebody', () {
     final rows = [_out(paying: true, amount: 25000)];
 
     test('is not a cost, however it looks', () {
@@ -2104,7 +2104,7 @@ void advanceOutTests() {
     });
 
     test('and it sits against the person carrying it', () {
-      expect(advanceOwedByIn(rows, 'Ghulam Ali'), 25000);
+      expect(securityOutWithIn(rows, 'Ghulam Ali'), 25000);
     });
 
     test('counted towards what the farm is worth, like a loan out', () {
@@ -2118,7 +2118,7 @@ void advanceOutTests() {
         cash: 75000,
         receivable: 0,
         payable: 0,
-        advancesOut: 25000,
+        securitiesOut: 25000,
       );
       expect(money.farmMoney, 100000);
       expect(money.reconciles, isTrue);
@@ -2138,7 +2138,7 @@ void advanceOutTests() {
     });
   });
 
-  group('and the same advance coming back', () {
+  group('and the same security coming back', () {
     final rows = [
       _out(paying: true, amount: 25000),
       _out(paying: false, amount: 25000),
@@ -2154,8 +2154,8 @@ void advanceOutTests() {
     });
 
     test('and he is carrying nothing', () {
-      expect(advanceOwedByIn(rows, 'Ghulam Ali'), 0);
-      expect(advancesOutIn(rows), 0);
+      expect(securityOutWithIn(rows, 'Ghulam Ali'), 0);
+      expect(securitiesOutIn(rows), 0);
     });
 
     test('part of it is ordinary — stopped out of wages', () {
@@ -2163,12 +2163,12 @@ void advanceOutTests() {
         _out(paying: true, amount: 25000),
         _out(paying: false, amount: 10000),
       ];
-      expect(advanceOwedByIn(part, 'Ghulam Ali'), 15000);
+      expect(securityOutWithIn(part, 'Ghulam Ali'), 15000);
       expect(_oct(part).profit, 0);
     });
 
     test('more than went out is what the form refuses', () {
-      final owed = advanceOwedByIn([
+      final owed = securityOutWithIn([
         _out(paying: true, amount: 25000),
       ], 'Ghulam Ali');
       expect(30000 <= owed, isFalse);
@@ -2180,27 +2180,26 @@ void advanceOutTests() {
         _out(paying: true, amount: 25000),
         _out(paying: true, amount: 4000, who: 'Rafeeq'),
       ];
-      expect(advanceOwedByIn(two, 'Ghulam Ali'), 25000);
-      expect(advanceOwedByIn(two, 'Rafeeq'), 4000);
-      expect(advancesOutIn(two), 29000);
+      expect(securityOutWithIn(two, 'Ghulam Ali'), 25000);
+      expect(securityOutWithIn(two, 'Rafeeq'), 4000);
+      expect(securitiesOutIn(two), 29000);
     });
   });
 
   group('on the person own statement', () {
-    test('the advance shows what he is carrying, not nothing', () {
-      // The farm's complaint, in one assertion: an advance paid out used to
-      // leave the balance at zero, so his account said he had none of it.
+    test('a security stays off what is owed for goods', () {
+      // Urooj leaves a deposit and then buys milk on credit. Fold the
+      // deposit into his balance and the sheet says he owes less for
+      // milk than he does, which is the one thing it must not say.
       final st = buildStatement(
         rows: [_out(paying: true, amount: 25000)],
         party: 'Ghulam Ali',
       );
-      expect(st.lines.length, 1);
-      expect(st.lines.single.debit, 25000);
-      expect(st.lines.single.credit, 0);
-      expect(st.closing, 25000, reason: 'he is carrying the farm money');
+      expect(st.lines.length, 1, reason: 'the deposit is still on the page');
+      expect(st.closing, 0, reason: 'but it is not owed for anything');
     });
 
-    test('and goes to nothing when it comes back', () {
+    test('and so does it coming back', () {
       final st = buildStatement(
         rows: [
           _out(paying: true, amount: 25000),
@@ -2212,37 +2211,63 @@ void advanceOutTests() {
       expect(st.closing, 0);
     });
 
-    test('part back leaves the rest showing', () {
-      final st = buildStatement(
-        rows: [
-          _out(paying: true, amount: 25000),
-          _out(paying: false, amount: 10000),
-        ],
+    test('both directions behave alike, which is what was asked for', () {
+      final held = buildStatement(
+        rows: [_advance(coming: true, amount: 50000)],
+        party: 'Ali',
+      );
+      final out = buildStatement(
+        rows: [_out(paying: true, amount: 50000)],
         party: 'Ghulam Ali',
       );
-      expect(st.closing, 15000);
+      expect(held.closing, out.closing);
+      expect(held.closing, 0);
     });
 
-    test('both halves are on the one account, in order', () {
-      final st = buildStatement(
-        rows: [
-          _out(paying: true, amount: 25000),
-          _out(paying: false, amount: 25000),
-        ],
-        party: 'Ghulam Ali',
-      );
-      expect(st.lines.first.detail, contains(advancePaidCategory));
-      expect(st.lines.last.detail, contains(advanceBackCategory));
+    test('what is outstanding is reported on its own, not in the balance', () {
+      // The figure the foot of the page prints, and the one the entry
+      // form caps a refund against.
+      final rows = [
+        _out(paying: true, amount: 25000),
+        _out(paying: false, amount: 10000),
+      ];
+      expect(securityOutWithIn(rows, 'Ghulam Ali'), 15000);
+      expect(buildStatement(rows: rows, party: 'Ghulam Ali').closing, 0);
+    });
+
+    test('milk owed is untouched by a deposit sitting beside it', () {
+      // The whole point, in one case: a shop with a deposit and an
+      // unpaid milk bill owes the milk bill, all of it.
+      final rows = [
+        _advance(coming: true, amount: 50000, who: 'Urooj Dairy'),
+        Txn(
+          id: 'milkbill',
+          date: DateTime(2026, 10, 2),
+          monthId: '2026-10',
+          type: TxnType.sale,
+          party: 'Urooj Dairy',
+          category: milkCategory,
+          qty: 38,
+          unit: 'L',
+          rate: 200,
+          amount: 7600,
+          paid: false,
+          note: '',
+          createdBy: 'u',
+          createdAt: DateTime(2026, 10, 2),
+        ),
+      ];
+      expect(buildStatement(rows: rows, party: 'Urooj Dairy').closing, 7600);
+      expect(securityHeldFromIn(rows, 'Urooj Dairy'), 50000);
     });
   });
-
-  group('neither direction of either advance touches the profit', () {
+  group('neither direction of either security touches the profit', () {
     test('all four headings', () {
       final headings = <(TxnType, String)>[
-        (TxnType.receipt, advanceCategory),
-        (TxnType.payment, advanceReturnCategory),
-        (TxnType.payment, advancePaidCategory),
-        (TxnType.receipt, advanceBackCategory),
+        (TxnType.receipt, securityInCategory),
+        (TxnType.payment, securityBackCategory),
+        (TxnType.payment, securityOutCategory),
+        (TxnType.receipt, securityRefundCategory),
       ];
       for (final (type, category) in headings) {
         expect(
@@ -2286,11 +2311,11 @@ void owingAgreesTests() {
       expect(onPaper, card.owesUs - card.weOwe, reason: about);
     }
 
-    test('about an advance the farm handed out', () {
+    test('about a security the farm left with somebody', () {
       agree(
         [_out(paying: true, amount: 25000)],
         'Ghulam Ali',
-        about: 'he is carrying the farm money and both have to say so',
+        about: 'a deposit is owed for nothing, on the card or the page',
       );
     });
 

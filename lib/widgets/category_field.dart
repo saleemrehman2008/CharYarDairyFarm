@@ -246,8 +246,19 @@ class _CategoryFieldState extends State<CategoryField> {
     return yes ?? false;
   }
 
-  /// Keeps it, or spent it. The whole of the difference between an investment
-  /// and a cost, asked in one tap.
+  /// Which of the marks a typed heading wears.
+  ///
+  /// Every heading on the list carries one — earnings, cost, the farm keeps
+  /// it, only cash — and a word nobody listed has to get one too, or the
+  /// books have nothing to go on. Money in is settled without asking: a
+  /// typed word that brings money in is earnings, and the two headings that
+  /// are not (a security, a loan instalment) are both on the list already.
+  ///
+  /// Money out is the one the app genuinely cannot work out from a word.
+  /// "Trolley" could be a trolley the farm bought and still owns, or a
+  /// trolley it hired for a morning. Nobody can tell from the word, so it
+  /// is asked once, in the same two words the marks use, and kept on the
+  /// entry from then on.
   Future<bool?> _keepsOrSpent(String typed) {
     final l = L.of(context);
     return showDialog<bool>(
@@ -255,27 +266,30 @@ class _CategoryFieldState extends State<CategoryField> {
       builder: (ctx) => AlertDialog(
         backgroundColor: T.surface,
         title: Text(
-          l.t2('Is "%s" something the farm keeps?', typed),
+          l.t2('What kind of thing is "%s"?', typed),
           style: T.cardTitle,
         ),
         content: Text(
           l.t(
-            'A buffalo, a machine, a trolley — the farm still owns it '
-            'afterwards, so the money moved but the profit did not. Feed, '
-            'wages, bijli and repairs are spent and gone, and they do come '
-            'off the profit.',
+            'A buffalo, a machine, a trolley the farm bought — it still owns '
+            'them afterwards, so the cash moved and the profit did not. '
+            'Wanda, tankhwah, bijli and marammat are spent and gone, and '
+            'they do come off the profit.',
           ),
           style: T.body,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.t('Spent and gone'), style: T.bodyMid),
+            child: Text(
+              l.t(EntryKind.cost.label),
+              style: T.bodyMid.copyWith(color: T.moneyOut),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              l.t('The farm keeps it'),
+              l.t(EntryKind.owned.label),
               style: T.bodyMid.copyWith(color: T.accent700),
             ),
           ),

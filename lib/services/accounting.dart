@@ -198,9 +198,9 @@ class MoneySummary {
     this.withRider = 0,
     this.paidOut = 0,
     this.otherIncome = 0,
-    this.advancesHeld = 0,
+    this.securitiesHeld = 0,
     this.loansOut = 0,
-    this.advancesOut = 0,
+    this.securitiesOut = 0,
     this.profitHeld = 0,
   });
 
@@ -224,7 +224,7 @@ class MoneySummary {
   /// In the cash, but not the farm's. It comes off what the farm is worth
   /// the same way an unpaid bill does — both are money the farm is holding
   /// and owes to somebody else.
-  final num advancesHeld;
+  final num securitiesHeld;
 
   /// What the farm has lent its own co-founders and not had back.
   ///
@@ -238,7 +238,7 @@ class MoneySummary {
   /// money, sitting in somebody else's pocket — so it counts towards what
   /// the farm is worth, exactly as a loan to a co-founder does, and for the
   /// same reason.
-  final num advancesOut;
+  final num securitiesOut;
 
   /// Profit the co-founders have earned and left in the farm.
   ///
@@ -276,9 +276,9 @@ class MoneySummary {
       withRider +
       receivable -
       payable -
-      advancesHeld +
+      securitiesHeld +
       loansOut +
-      advancesOut;
+      securitiesOut;
 
   /// The same figure read down the waterfall — every rupee that came in, less
   /// every rupee that went out or turned into an animal. It should equal
@@ -464,27 +464,47 @@ class MilkBook {
 /// Lives here rather than on the store so the rule the form enforces is the
 /// same code a test can run, instead of a second copy of it that agrees
 /// until the day it does not.
-num advanceHeldForIn(List<Txn> advanceRows, String party) => advanceRows
+num securityHeldFromIn(List<Txn> rows, String party) => rows
     .where((t) => partyKey(t.party) == partyKey(party))
-    .fold<num>(0, (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount);
+    .fold<num>(0, (a, t) => a + _heldBy(t));
 
 /// The same across every customer.
-num advancesHeldIn(List<Txn> advanceRows) => advanceRows.fold<num>(
-  0,
-  (a, t) => t.isAdvanceIn ? a + t.amount : a - t.amount,
-);
+num securitiesHeldIn(List<Txn> rows) =>
+    rows.fold<num>(0, (a, t) => a + _heldBy(t));
 
-/// What one person is carrying of the farm's money as an advance.
+/// What one person is holding of the farm own money as a security.
 ///
-/// The mirror of [advanceHeldForIn]: that is somebody else's money in the
-/// farm's box, this is the farm's money in somebody else's pocket. Peshgi to
-/// a labourer, a deposit left with a supplier. Never a cost — the farm has
-/// not spent it, it is owed it — and never below nothing, which is what the
-/// entry form checks a recovery against.
-num advanceOwedByIn(List<Txn> rows, String party) => rows
+/// The mirror of [securityHeldFromIn]: that is somebody else money in the
+/// farm box, this is the farm money in somebody else pocket — a deposit on
+/// a rented yard. Never a cost, because the farm has not spent it, and
+/// never below nothing, which is what the entry form checks a refund
+/// against.
+num securityOutWithIn(List<Txn> rows, String party) => rows
     .where((t) => partyKey(t.party) == partyKey(party))
-    .fold<num>(0, (a, t) => t.isAdvancePaid ? a + t.amount : a - t.amount);
+    .fold<num>(0, (a, t) => a + _outWith(t));
 
 /// The same across everybody.
-num advancesOutIn(List<Txn> rows) =>
-    rows.fold<num>(0, (a, t) => t.isAdvancePaid ? a + t.amount : a - t.amount);
+num securitiesOutIn(List<Txn> rows) =>
+    rows.fold<num>(0, (a, t) => a + _outWith(t));
+
+/// What one row does to a security figure: adds to it, takes from it, or —
+/// and this is the case that bit — leaves it entirely alone.
+///
+/// These were written as "is it the one that adds? then add, otherwise
+/// subtract", which is right only while the list handed in holds nothing
+/// but securities. The store passes exactly that, so it read correctly for
+/// months. Hand one the whole ledger and every sale and every bag of feed
+/// comes off the deposit: a shop with fifty thousand on deposit and a
+/// seven-thousand-six-hundred milk bill showed forty-two thousand four
+/// hundred of deposit, which is a figure from nowhere.
+num _heldBy(Txn t) => t.isSecurityIn
+    ? t.amount
+    : t.isSecurityBack
+    ? -t.amount
+    : 0;
+
+num _outWith(Txn t) => t.isSecurityOut
+    ? t.amount
+    : t.isSecurityRefund
+    ? -t.amount
+    : 0;

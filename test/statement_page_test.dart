@@ -122,7 +122,7 @@ void main() {
           farmName: 'Char Yar Dairy Farm',
           forWhom: 'Ali',
           period: 'Everything, from the start',
-          advanceHeld: 0,
+          securityHeld: 0,
         ),
       );
       expectItFits(tester);
@@ -136,7 +136,7 @@ void main() {
           farmName: 'Char Yar Dairy Farm',
           forWhom: 'Ali',
           period: 'Everything, from the start',
-          advanceHeld: 0,
+          securityHeld: 0,
         ),
       );
 
@@ -174,7 +174,7 @@ void main() {
           farmName: 'Char Yar Dairy Farm',
           forWhom: 'Ali',
           period: 'Everything, from the start',
-          advanceHeld: 0,
+          securityHeld: 0,
         ),
       );
 
@@ -194,7 +194,7 @@ void main() {
           farmName: 'Char Yar Dairy Farm',
           forWhom: 'The whole farm',
           period: 'Everything, from the start',
-          advanceHeld: 0,
+          securityHeld: 0,
         ),
       );
       expectItFits(tester);

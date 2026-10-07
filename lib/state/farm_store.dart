@@ -514,12 +514,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Somebody else's money, sitting in the farm's cash. It is not income, it
   /// is not profit, and it has to come off what the farm is worth — the day
   /// a contract ends it goes back out again.
-  num get advancesHeld => advancesHeldIn(_advanceTxns);
+  num get securitiesHeld => securitiesHeldIn(_advanceTxns);
 
   /// Advances the farm has handed out and not had back — peshgi to a
   /// labourer, a deposit with a supplier. The farm's own money, out of the
   /// box, which is the exact mirror of an advance it is holding.
-  num get advancesOut => advancesOutIn(_advanceTxns);
+  num get securitiesOut => securitiesOutIn(_advanceTxns);
 
   /// What the farm has lent its co-founders and not had back.
   ///
@@ -592,10 +592,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
       .fold<num>(0, (a, t) => t.isLoanOut ? a + t.amount : a - t.amount);
 
   /// What one customer has left with the farm, and not had back.
-  num advanceHeldFor(String party) => advanceHeldForIn(_advanceTxns, party);
+  num securityHeldFrom(String party) => securityHeldFromIn(_advanceTxns, party);
 
   /// What one person is carrying of the farm's money as an advance.
-  num advanceOwedBy(String party) => advanceOwedByIn(_advanceTxns, party);
+  num securityOutWith(String party) => securityOutWithIn(_advanceTxns, party);
 
   /// Profit the co-founders have taken out of the farm, across every close.
   ///
@@ -653,9 +653,9 @@ class FarmStore extends ChangeNotifier implements RoundData {
     payable: books.payable,
     withRider: cashWithRiders,
     paidOut: paidToFounders,
-    advancesHeld: advancesHeld,
+    securitiesHeld: securitiesHeld,
     loansOut: loansOut,
-    advancesOut: advancesOut,
+    securitiesOut: securitiesOut,
     profitHeld: profitHeldByFounders,
   );
 
@@ -853,12 +853,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
         ('Capital the co-founders put in', capitalIn),
         ('Cattle & equipment owned', assetsOwned),
         ('Paid out to co-founders', paidToFounders),
-        ('Advances held for customers', advancesHeld),
+        ('Advances held for customers', securitiesHeld),
         // The mirror of the line above, and it has to be here for the same
         // reason: without it the Sheet's summary is short by whatever the
         // farm has handed out and not had back, and the one place the farm
         // goes to check a figure disagrees with the app.
-        ('Advances the farm paid out', advancesOut),
+        ('Advances the farm paid out', securitiesOut),
         ('Lent to co-founders', loansOut),
         ('Sold since day one', lifetimeSales),
         ('Other money in since day one', lifetimeOtherIncome),

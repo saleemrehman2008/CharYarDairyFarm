@@ -320,13 +320,13 @@ void main() {
 
   group('the advances', () {
     test('they were held, then handed back, and never earned', () {
-      expect(farm.advancesHeld, 0, reason: 'both returned in month four');
+      expect(farm.securitiesHeld, 0, reason: 'both returned in month four');
 
       final taken = farm.ledger
-          .where((t) => t.isAdvanceIn)
+          .where((t) => t.isSecurityIn)
           .fold<num>(0, (a, t) => a + t.amount);
       final given = farm.ledger
-          .where((t) => t.isAdvanceOut)
+          .where((t) => t.isSecurityBack)
           .fold<num>(0, (a, t) => a + t.amount);
       expect(taken, 80000);
       expect(given, 80000);

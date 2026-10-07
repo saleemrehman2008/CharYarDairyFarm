@@ -145,9 +145,15 @@ class _StatementScreenState extends State<StatementScreen> {
             category: _category,
             everything: _everything,
           );
-    final advance = _party == null || founder != null
+    // The two securities, each its own figure. One is the farm holding
+    // somebody's money, the other is somebody holding the farm's, and
+    // neither is part of what is owed for goods.
+    final held = _party == null || founder != null
         ? 0
-        : store.advanceHeldFor(_party!);
+        : store.securityHeldFrom(_party!);
+    final out = _party == null || founder != null
+        ? 0
+        : store.securityOutWith(_party!);
 
     return FarmScaffold(
       title: l.t('Statement'),
@@ -163,7 +169,8 @@ class _StatementScreenState extends State<StatementScreen> {
               farmName: l.t('Char Yar Dairy Farm'),
               forWhom: _party ?? l.t('The whole farm'),
               period: _periodLine(l),
-              advanceHeld: advance,
+              securityHeld: held,
+              securityOut: out,
             ),
           ),
           const SizedBox(height: T.pad),
@@ -417,7 +424,8 @@ class _StatementScreenState extends State<StatementScreen> {
         farmName: l.t('Char Yar Dairy Farm'),
         forWhom: _party ?? l.t('The whole farm'),
         period: _periodLine(l),
-        advanceHeld: _party == null ? 0 : store.advanceHeldFor(_party!),
+        securityHeld: _party == null ? 0 : store.securityHeldFrom(_party!),
+        securityOut: _party == null ? 0 : store.securityOutWith(_party!),
       );
     } catch (e) {
       if (mounted) toast(context, l.t2('Could not make the PDF. %s', e));
@@ -455,14 +463,20 @@ class StatementSheet extends StatelessWidget {
     required this.farmName,
     required this.forWhom,
     required this.period,
-    required this.advanceHeld,
+    required this.securityHeld,
+    this.securityOut = 0,
   });
 
   final Statement statement;
   final String farmName;
   final String forWhom;
   final String period;
-  final num advanceHeld;
+
+  /// A deposit this party left with the farm, still held.
+  final num securityHeld;
+
+  /// A deposit the farm left with this party, still out.
+  final num securityOut;
 
   @override
   Widget build(BuildContext context) {
@@ -625,11 +639,17 @@ class StatementSheet extends StatelessWidget {
                         tone: T.accent800,
                         big: true,
                       ),
-                    if (advanceHeld > 0)
+                    if (securityHeld > 0)
                       _footLine(
-                        label: l.t('Advance'),
-                        value: rs(advanceHeld),
+                        label: l.t('Security we are holding'),
+                        value: rs(securityHeld),
                         tone: T.moneyDue,
+                      ),
+                    if (securityOut > 0)
+                      _footLine(
+                        label: l.t('Security we have with them'),
+                        value: rs(securityOut),
+                        tone: T.moneyGet,
                       ),
                   ],
                 ),

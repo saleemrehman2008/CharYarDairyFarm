@@ -520,7 +520,7 @@ void _cashTrade() {
           amount: 50000,
           party: 'Ali',
           day: 1,
-          category: advanceCategory,
+          category: securityInCategory,
         ),
         _txn(
           type: TxnType.sale,

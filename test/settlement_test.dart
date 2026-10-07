@@ -266,7 +266,7 @@ void main() {
         isNot(contains(khaataReceiptCategory)),
         reason: 'money in against an entry is taken in from the ledger',
       );
-      expect(TxnType.receipt.categories, contains(advanceCategory));
+      expect(TxnType.receipt.categories, contains(securityInCategory));
       expect(TxnType.receipt.categories, contains('Other receipt'));
     });
 

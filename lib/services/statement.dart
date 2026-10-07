@@ -144,21 +144,20 @@ bool _movedCash(Txn t) =>
 /// A receipt or a payment tied to another entry leaves this at nothing: the
 /// entry it settles carries the other side. One tied to nothing carries both
 /// — rent handed over with no bill, scrap sold with no invoice, a profit
-/// share, an advance — and so moves the running balance not at all. Which is
-/// what the farm means by an advance: a security it is holding, not a payment
-/// against anything.
-/// An advance the farm hands out is the one loose payment that must move
-/// the balance. Every other one squares itself off — rent handed over with
-/// no bill is both the cost and the paying of it — but this one is money the
-/// farm is owed, and the whole point of writing it down is to see it sitting
-/// on somebody's account until the day it comes back. Its recovery is the
-/// other half and takes the account to nothing.
+/// share, a security deposit — and so moves the running balance not at all.
+///
+/// A security deposit is the clearest case and it runs both ways. A shop
+/// leaves a deposit against a year of milk and then buys milk on credit:
+/// the deposit is not a payment against the milk, it sits where it is until
+/// the contract ends, and folding it into his balance would say he owes
+/// less for milk than he does. The farm leaves a deposit on a rented yard
+/// and it is the same from the other side. Both are shown on their own line
+/// at the foot of the page instead, where they read as what they are.
 num _settledOnTheSpot(Txn t) => switch (t.type) {
   TxnType.sale ||
   TxnType.purchase ||
   TxnType.expense => t.paidOnCreate ? t.amount : 0,
-  TxnType.receipt || TxnType.payment =>
-    t.settlesAnotherEntry || t.isAdvancePaid || t.isAdvanceBack ? 0 : t.amount,
+  TxnType.receipt || TxnType.payment => t.settlesAnotherEntry ? 0 : t.amount,
 };
 
 ({num debit, num credit}) _partySides(Txn t) {
@@ -339,14 +338,11 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
 /// because Ali and ali are one man and his account has to add up to what he
 /// actually owes.
 ///
-/// An advance the farm handed out counts here too, and nothing else that
-/// settles on the spot does. Every other loose payment squares itself off —
-/// rent handed over with no bill is both the cost and the paying of it — but
-/// this one is money the farm is owed, and the whole reason for writing it
-/// down is to see it sitting on somebody's account until it comes back. The
-/// statement shows it that way; this has to agree, or the card in Accounts
-/// and the sheet handed to the man say different things about the same
-/// twenty-five thousand.
+/// A security deposit is not in here, either way round. It is not owed for
+/// anything that was bought or sold: it sits until a contract ends. Putting
+/// it in would tell the farm a shop owes less for its milk than it does,
+/// which is the mistake this whole figure exists to avoid. It is reported
+/// on its own, beside this one.
 ({num owesUs, num weOwe}) partyOwing(List<Txn> ledger, String party) {
   final key = partyKey(party);
   num owesUs = 0, weOwe = 0;
@@ -354,8 +350,6 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
     if (partyKey(t.party) != key) continue;
     if (t.isReceivable) owesUs += t.outstanding;
     if (t.isPayable) weOwe += t.outstanding;
-    if (t.isAdvancePaid) owesUs += t.amount;
-    if (t.isAdvanceBack) owesUs -= t.amount;
   }
   return (owesUs: owesUs, weOwe: weOwe);
 }

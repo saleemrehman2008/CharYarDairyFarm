@@ -221,10 +221,10 @@ class Db {
       .where(
         'category',
         whereIn: [
-          advanceCategory,
-          advanceReturnCategory,
-          advancePaidCategory,
-          advanceBackCategory,
+          securityInCategory,
+          securityBackCategory,
+          securityOutCategory,
+          securityRefundCategory,
         ],
       )
       .snapshots()
@@ -234,10 +234,10 @@ class Db {
             .where(
               (t) =>
                   !t.isDeleted &&
-                  (t.isAdvanceIn ||
-                      t.isAdvanceOut ||
-                      t.isAdvancePaid ||
-                      t.isAdvanceBack),
+                  (t.isSecurityIn ||
+                      t.isSecurityBack ||
+                      t.isSecurityOut ||
+                      t.isSecurityRefund),
             )
             .toList(),
       );

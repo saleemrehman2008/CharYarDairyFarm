@@ -347,8 +347,8 @@ void main() {
           'Other payment',
           'Khaata receipt',
           'Supplier payment',
-          advanceCategory,
-          advanceReturnCategory,
+          securityInCategory,
+          securityBackCategory,
           writeOffCategory,
           profitShareCategory,
           'Tubewell repair',
@@ -491,7 +491,7 @@ void main() {
       // Taken on day one, given back in the last month, and in between it
       // moved his balance not at all.
       final held = farm.ledger
-          .where((t) => t.isAdvanceIn && partyKey(t.party) == 'ali')
+          .where((t) => t.isSecurityIn && partyKey(t.party) == 'ali')
           .fold<num>(0, (a, t) => a + t.amount);
       expect(held, 50000);
 

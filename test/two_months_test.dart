@@ -544,7 +544,7 @@ void main() {
     final advance = _e(
       type: TxnType.receipt,
       amount: 50000,
-      category: advanceCategory,
+      category: securityInCategory,
       party: 'Kashif',
       monthId: '2026-10',
       day: 1,
@@ -573,9 +573,9 @@ void main() {
         .where((t) => t.party == 'Kashif')
         .fold<num>(
           0,
-          (a, t) => t.isAdvanceIn
+          (a, t) => t.isSecurityIn
               ? a + t.amount
-              : t.isAdvanceOut
+              : t.isSecurityBack
               ? a - t.amount
               : a,
         );
@@ -624,7 +624,7 @@ void main() {
         cash: b.cash,
         receivable: 0,
         payable: 0,
-        advancesHeld: 50000,
+        securitiesHeld: 50000,
       );
       expect(m.expected, 180000, reason: 'what the farm actually made');
       expect(m.farmMoney, 180000, reason: 'the 50,000 belongs to Kashif');
@@ -635,7 +635,7 @@ void main() {
       final returned = _e(
         type: TxnType.payment,
         amount: 50000,
-        category: advanceReturnCategory,
+        category: securityBackCategory,
         party: 'Kashif',
         monthId: '2026-10',
         day: 28,

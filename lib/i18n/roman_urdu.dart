@@ -459,11 +459,6 @@ const Map<String, String> romanUrdu = {
   'Send as picture': 'Tasveer bhejen',
   'Could not make the PDF. %s': 'PDF nahi ban saki. %s',
   'Could not make the picture. %s': 'Tasveer nahi ban saki. %s',
-  // Four advance headings, and the farm read two of them as the same thing
-  // because none of them said whose money it was. That is the whole
-  // difference: one pair is the customer's money the farm is holding, the
-  // other is the farm's money somebody else is holding. So each name says
-  // it — "customer ka" or "apna" — and the pairs cannot be mixed up.
   // ---- Every heading on the entry form ----
   //
   // The picker calls l.t(category) with the name arriving as a variable, so
@@ -517,10 +512,24 @@ const Map<String, String> romanUrdu = {
   'Someone': 'Koi',
   'Quantity': 'Miqdaar',
   'Note': 'Note',
-  'Advance': 'Customer ka advance aaya',
-  'Advance returned': 'Customer ka advance wapas kiya',
-  'Advance paid': 'Apna advance diya',
-  'Advance recovered': 'Apna advance wapas mila',
+  // The four security headings. Not "advance": the farm has two real
+  // uses for this and both are a deposit against a contract — one it
+  // leaves on a rented yard, one a dairy shop leaves with it against a
+  // year of milk. Each name says whose money it is, because the farm read
+  // two of the old ones as the same thing, and fairly: not one of them
+  // said.
+  'Security taken': 'Security mili (customer se)',
+  'Security given back': 'Customer ki security wapas ki',
+  'Security paid': 'Security di (kiraye wali)',
+  'Security got back': 'Apni security wapas mili',
+  // The words these four used to carry, so an entry written before the
+  // change still reads in Roman Urdu wherever it is shown.
+  'Advance': 'Advance',
+  'Advance returned': 'Advance wapas kiya',
+  'Advance paid': 'Advance diya',
+  'Advance recovered': 'Advance wasool',
+  'Security we are holding': 'Security jo humare paas hai',
+  'Security we have with them': 'Security jo un ke paas hai',
   'entries': 'entries',
   'One person’s account, and only theirs — nothing the farm did with anybody else is on it. What they took puts the balance up whether it is paid for or not; money they hand over brings it down. What the farm bought from them runs the other way, and when the balance ends up on that side the foot of the page says so.':
       'Ek bande ka khaata, sirf usi ka — farm ne kisi aur ke saath jo kiya wo '
@@ -886,9 +895,9 @@ const Map<String, String> romanUrdu = {
   'It is already in use under %s. If that is where this belongs, go back and write it there — the summary keeps one word in one place. Make it here as well only if it is genuinely a different thing.':
       'Ye pehle se %s ke neeche istemal ho raha hai. Agar is ka asal maqam wahi hai to wapas ja kar wahan likhen — summary ek lafz ko ek hi jagah rakhti hai. Yahan bhi tabhi banayen jab ye waqai alag cheez ho.',
   'Make it here anyway': 'Phir bhi yahan banayen',
-  'Is "%s" something the farm keeps?': 'Kya "%s" farm ke paas rahegi?',
-  'A buffalo, a machine, a trolley — the farm still owns it afterwards, so the money moved but the profit did not. Feed, wages, bijli and repairs are spent and gone, and they do come off the profit.':
-      'Bhains, machine, trolley — baad me bhi farm ki milkiyat rehti hai, is liye paisa nikla magar profit kam nahi hua. Wanda, tankhwah, bijli aur marammat kharch ho kar khatam — ye profit se kat-ti hain.',
+  'What kind of thing is "%s"?': '"%s" kis kism ki cheez hai?',
+  'A buffalo, a machine, a trolley the farm bought — it still owns them afterwards, so the cash moved and the profit did not. Wanda, tankhwah, bijli and marammat are spent and gone, and they do come off the profit.':
+      'Bhains, machine, ya trolley jo farm ne khareedi — baad me bhi farm ki milkiyat rehti hai, is liye cash nikla magar profit kam nahi hua. Wanda, tankhwah, bijli aur marammat kharch ho kar khatam — ye profit se kat-ti hain.',
   'The farm keeps it': 'Farm ke paas rahegi',
   'Spent and gone': 'Kharch ho gaya',
   // ---- Settling up, version 2 ----

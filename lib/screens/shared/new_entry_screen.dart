@@ -180,8 +180,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     // Past that point the advances held come out negative, which reads as
     // the farm being owed money by a man who is owed money by the farm, and
     // it takes the whole balance check down with it.
-    if (_category == advanceReturnCategory) {
-      final held = context.read<FarmStore>().advanceHeldFor(party);
+    if (_category == securityBackCategory) {
+      final held = context.read<FarmStore>().securityHeldFrom(party);
       if (held <= 0) {
         toast(context, 'No advance is being held for that name.');
         return;
@@ -197,8 +197,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     // taking in money it was never owed, under a heading that keeps it out
     // of the earnings — so it lands in the cash with nothing to account for
     // it, which is the one shape of mistake the balance check cannot name.
-    if (_category == advanceBackCategory) {
-      final owed = context.read<FarmStore>().advanceOwedBy(party);
+    if (_category == securityRefundCategory) {
+      final owed = context.read<FarmStore>().securityOutWith(party);
       if (owed <= 0) {
         toast(context, 'No advance is outstanding against that name.');
         return;
@@ -360,12 +360,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           // Less than the whole is ordinary: a contract winding down in
           // stages, or somebody taking part of it and leaving the rest
           // against next month. More is not, and save refuses it.
-          if (_category == advanceReturnCategory) ...[
+          if (_category == securityBackCategory) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
                 final name = _party.text.trim();
-                final held = context.watch<FarmStore>().advanceHeldFor(name);
+                final held = context.watch<FarmStore>().securityHeldFrom(name);
                 if (name.isEmpty) {
                   return Text(
                     'Put the name in and it will say what is being held.',
@@ -413,12 +413,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           // Taking back an advance the farm handed out. Same courtesy as
           // handing one back: what is outstanding is on the screen before
           // anything is typed, and more than that is refused.
-          if (_category == advanceBackCategory) ...[
+          if (_category == securityRefundCategory) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
                 final name = _party.text.trim();
-                final owed = context.watch<FarmStore>().advanceOwedBy(name);
+                final owed = context.watch<FarmStore>().securityOutWith(name);
                 if (name.isEmpty) {
                   return Text(
                     'Put the name in and it will say what is outstanding.',

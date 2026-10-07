@@ -40,9 +40,6 @@ enum TxnType {
   List<String> get categories => switch (this) {
     TxnType.sale => const [
       milkCategory,
-      'Dahi',
-      'Ghee',
-      'Lassi',
       'Paneer',
       'Khoya',
       'Cattle sale',
@@ -87,7 +84,7 @@ enum TxnType {
     // worst a mistake can do here is put a figure in the wrong person's row,
     // which is visible and correctable.
     TxnType.receipt => const [
-      advanceCategory,
+      securityInCategory,
       loanRepaidCategory,
       'Other receipt',
     ],
@@ -98,7 +95,7 @@ enum TxnType {
     // ever counting it as a cost — so the profit never moved.
     TxnType.payment => const [
       'Supplier payment',
-      advanceReturnCategory,
+      securityBackCategory,
       'Other payment',
     ],
   };
@@ -139,9 +136,6 @@ enum MoneyFlow {
   List<(String, TxnType)> get choices => switch (this) {
     MoneyFlow.incoming => const [
       (milkCategory, TxnType.sale),
-      ('Dahi', TxnType.sale),
-      ('Ghee', TxnType.sale),
-      ('Lassi', TxnType.sale),
       ('Paneer', TxnType.sale),
       ('Khoya', TxnType.sale),
       ('Cattle sale', TxnType.sale),
@@ -149,8 +143,8 @@ enum MoneyFlow {
       ('Other sale', TxnType.sale),
       // Money in that the farm has not earned. Both raise the cash and
       // leave the profit exactly where it was.
-      (advanceCategory, TxnType.receipt),
-      (advanceBackCategory, TxnType.receipt),
+      (securityInCategory, TxnType.receipt),
+      (securityRefundCategory, TxnType.receipt),
       (loanRepaidCategory, TxnType.receipt),
     ],
     MoneyFlow.outgoing => const [
@@ -169,8 +163,8 @@ enum MoneyFlow {
       ('Equipment', TxnType.purchase),
       // Handing back money that was never the farm's, and handing out money
       // that still is. Neither is a cost.
-      (advanceReturnCategory, TxnType.payment),
-      (advancePaidCategory, TxnType.payment),
+      (securityBackCategory, TxnType.payment),
+      (securityOutCategory, TxnType.payment),
       ('Other purchase', TxnType.purchase),
     ],
   };
@@ -236,16 +230,16 @@ EntryKind entryKindOf({
 }) {
   if (type == TxnType.sale) return EntryKind.earnings;
   if (type == TxnType.receipt) {
-    return category == advanceCategory ||
-            category == advanceBackCategory ||
+    return category == securityInCategory ||
+            category == securityRefundCategory ||
             category == loanRepaidCategory
         ? EntryKind.neither
         : EntryKind.earnings;
   }
   if (isAsset) return EntryKind.owned;
   if (type == TxnType.payment) {
-    return category == advanceReturnCategory ||
-            category == advancePaidCategory ||
+    return category == securityBackCategory ||
+            category == securityOutCategory ||
             category == profitShareCategory
         ? EntryKind.neither
         : EntryKind.cost;
@@ -278,11 +272,11 @@ String entryEffect({
     return 'This counts as the farm earning money. It raises the profit.';
   }
   if (type == TxnType.receipt) {
-    if (category == advanceBackCategory) {
+    if (category == securityRefundCategory) {
       return 'Not earnings — the farm is getting back an advance it handed '
           'out. The cash goes up and the profit does not move.';
     }
-    if (category == advanceCategory) {
+    if (category == securityInCategory) {
       return 'Not earnings — the farm is only holding this money and owes it '
           'back. The cash goes up and the profit does not move.';
     }
@@ -298,11 +292,11 @@ String entryEffect({
         'down; the profit does not move.';
   }
   if (type == TxnType.payment) {
-    if (category == advancePaidCategory) {
+    if (category == securityOutCategory) {
       return 'Not a cost — the farm expects this back, so it goes onto their '
           'account. The cash goes down and the profit does not move.';
     }
-    if (category == advanceReturnCategory) {
+    if (category == securityBackCategory) {
       return 'Handing back money the farm was holding. Not a cost — the cash '
           'goes down and the profit does not move.';
     }
@@ -366,19 +360,20 @@ const profitShareCategory = 'Profit share';
 /// bought; this is the farm admitting it no longer has what it bought.
 const writeOffCategory = 'Cattle write-off';
 
-/// Money a customer leaves with the farm to hold, against a standing
-/// order.
+/// A security a customer leaves with the farm against a contract.
 ///
-/// Not a payment for anything, and never the farm's earnings. A contract
-/// for 80 litres a day starts with the customer handing over an advance;
-/// a fortnight later they pay that fortnight's milk bill on top, and the
-/// advance is untouched. It sits there until one side ends the contract
-/// and the farm hands it back.
+/// Urooj Dairy signs for a year of milk and leaves a deposit first. The
+/// milk then goes out and is billed every week or ten days, and those
+/// bills are paid on their own; the deposit is not touched by any of it.
+/// It sits where it is until one side ends the contract and the farm
+/// hands it back.
 ///
 /// So it raises the cash and nothing else: not the sales, not the profit,
-/// and not one rupee of what the co-founders share out. The farm is
-/// holding somebody else's money.
-const advanceCategory = 'Advance';
+/// not one rupee of what the co-founders share out, and — this is the part
+/// that is easy to get wrong — not what the shop owes for its milk either.
+/// Fold it into his balance and the statement says he owes less for milk
+/// than he does. It is reported on its own line instead.
+const securityInCategory = 'Security taken';
 
 /// What the app books money in against an entry as.
 ///
@@ -387,29 +382,30 @@ const advanceCategory = 'Advance';
 /// earned all over again.
 const khaataReceiptCategory = 'Khaata receipt';
 
-/// Handing that money back when the contract ends.
-const advanceReturnCategory = 'Advance returned';
+/// Handing that security back when the contract ends.
+const securityBackCategory = 'Security given back';
 
-/// Money the farm hands somebody and expects back — peshgi to a labourer
-/// against his wages, a deposit with a supplier before the goods come.
+/// A security the farm leaves with somebody else, and expects back.
 ///
-/// The exact mirror of [advanceCategory], and it has to be read the same way
-/// round. Cash leaves the box and that is all that happens: it is not a cost,
-/// because the farm has not spent it — it is owed it. Booked as a purchase,
-/// which is how the farm first entered one, the month's profit drops by the
-/// whole advance and then climbs again when it comes back, so two months
+/// The yard is rented and the landlord wants a deposit before the keys; it
+/// comes back when the lease ends. The exact mirror of
+/// [securityInCategory], and the farm asked for the two to behave alike.
+///
+/// Cash leaves the box and that is all that happens: not a cost, because
+/// the farm has not spent it — it is owed it. Booked as a purchase, which
+/// is how the farm first had to enter one, the month profit drops by the
+/// whole deposit and climbs again when it comes back, so two months
 /// running say something untrue about how the farm is doing.
 ///
-/// It puts the money on the other person's account, where an ordinary cash
-/// purchase would not: the farm wants to see that Ghulam Ali is carrying
-/// twenty-five thousand of its money until the day he is not.
-const advancePaidCategory = 'Advance paid';
+/// Like the one it is holding, it stays off what that party owes for
+/// goods, and is reported on its own line.
+const securityOutCategory = 'Security paid';
 
-/// That advance coming back — handed over, or stopped out of wages.
+/// That deposit coming back when the lease or the arrangement ends.
 ///
-/// Cash in and nothing else, for the same reason: the farm is not earning
-/// this, it is getting its own money back.
-const advanceBackCategory = 'Advance recovered';
+/// Cash in and nothing else: the farm is not earning this, it is getting
+/// its own money back.
+const securityRefundCategory = 'Security got back';
 
 /// Money the farm lends one of its own co-founders.
 ///
@@ -674,28 +670,28 @@ class Txn {
       type == TxnType.payment &&
       !settlesAnotherEntry &&
       !isProfitShare &&
-      !isAdvanceOut &&
-      !isAdvancePaid &&
+      !isSecurityBack &&
+      !isSecurityOut &&
       !isLoanOut;
 
   /// An advance taken in against a standing order. Cash in, and nothing
   /// else: the farm is holding this money, not earning it.
-  bool get isAdvanceIn =>
-      type == TxnType.receipt && category == advanceCategory;
+  bool get isSecurityIn =>
+      type == TxnType.receipt && category == securityInCategory;
 
   /// That advance handed back when the contract ends. Cash out, and
   /// nothing else: it was never the farm's to spend.
-  bool get isAdvanceOut =>
-      type == TxnType.payment && category == advanceReturnCategory;
+  bool get isSecurityBack =>
+      type == TxnType.payment && category == securityBackCategory;
 
   /// An advance the farm handed out and expects back. Cash out, and
   /// nothing else — the farm has not spent it, it is owed it.
-  bool get isAdvancePaid =>
-      type == TxnType.payment && category == advancePaidCategory;
+  bool get isSecurityOut =>
+      type == TxnType.payment && category == securityOutCategory;
 
   /// That advance coming back. Cash in, and nothing else.
-  bool get isAdvanceBack =>
-      type == TxnType.receipt && category == advanceBackCategory;
+  bool get isSecurityRefund =>
+      type == TxnType.receipt && category == securityRefundCategory;
 
   /// A receipt that settles nothing — the other side of [isLoosePayment].
   ///
@@ -707,8 +703,8 @@ class Txn {
   bool get isLooseReceipt =>
       type == TxnType.receipt &&
       !settlesAnotherEntry &&
-      !isAdvanceIn &&
-      !isAdvanceBack &&
+      !isSecurityIn &&
+      !isSecurityRefund &&
       !isLoanBack;
 
   /// Money lent to a co-founder. Cash out, and nothing else.

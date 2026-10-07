@@ -266,7 +266,7 @@ class Farm {
     on: on,
     type: TxnType.payment,
     party: to,
-    category: advancePaidCategory,
+    category: securityOutCategory,
     amount: amount,
     paid: true,
   );
@@ -280,7 +280,7 @@ class Farm {
     on: on,
     type: TxnType.receipt,
     party: from,
-    category: advanceBackCategory,
+    category: securityRefundCategory,
     amount: amount,
     paid: true,
   );
@@ -294,7 +294,7 @@ class Farm {
     on: on,
     type: TxnType.receipt,
     party: from,
-    category: advanceCategory,
+    category: securityInCategory,
     amount: amount,
     paid: true,
   );
@@ -307,7 +307,7 @@ class Farm {
     on: on,
     type: TxnType.payment,
     party: to,
-    category: advanceReturnCategory,
+    category: securityBackCategory,
     amount: amount,
     paid: true,
   );
@@ -411,19 +411,20 @@ class Farm {
         t.isCapitalAsset ? a + t.amount : (t.isWriteOff ? a - t.amount : a),
   );
 
-  num get advancesHeld => _live.fold<num>(
+  num get securitiesHeld => _live.fold<num>(
     0,
     (a, t) =>
-        t.isAdvanceIn ? a + t.amount : (t.isAdvanceOut ? a - t.amount : a),
+        t.isSecurityIn ? a + t.amount : (t.isSecurityBack ? a - t.amount : a),
   );
 
   /// Advances the farm has handed out and not had back. The mirror of
-  /// [advancesHeld], and it has to be on the summary or the balance check
+  /// [securitiesHeld], and it has to be on the summary or the balance check
   /// goes out by exactly this much the first time one is paid.
-  num get advancesOut => _live.fold<num>(
+  num get securitiesOut => _live.fold<num>(
     0,
-    (a, t) =>
-        t.isAdvancePaid ? a + t.amount : (t.isAdvanceBack ? a - t.amount : a),
+    (a, t) => t.isSecurityOut
+        ? a + t.amount
+        : (t.isSecurityRefund ? a - t.amount : a),
   );
 
   num get paidToFounders =>
@@ -452,8 +453,8 @@ class Farm {
     receivable: books.receivable,
     payable: books.payable,
     paidOut: paidToFounders,
-    advancesHeld: advancesHeld,
-    advancesOut: advancesOut,
+    securitiesHeld: securitiesHeld,
+    securitiesOut: securitiesOut,
   );
 
   /// The four of them, as they stand now.
@@ -604,11 +605,11 @@ void audit(Farm farm, String when) {
 
   // 6. An advance is never income and never a cost.
   final advanceIn = farm.ledger
-      .where((t) => t.isAdvanceIn)
+      .where((t) => t.isSecurityIn)
       .fold<num>(0, (a, t) => a + t.amount);
   if (advanceIn > 0) {
     expect(
-      farm.ledger.where((t) => t.isAdvanceIn).every((t) => !t.isLooseReceipt),
+      farm.ledger.where((t) => t.isSecurityIn).every((t) => !t.isLooseReceipt),
       isTrue,
       reason: '$when — an advance has crept into income',
     );
