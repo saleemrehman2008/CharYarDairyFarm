@@ -338,6 +338,15 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
 /// for money it has already had. Every spelling of the name is folded in,
 /// because Ali and ali are one man and his account has to add up to what he
 /// actually owes.
+///
+/// An advance the farm handed out counts here too, and nothing else that
+/// settles on the spot does. Every other loose payment squares itself off —
+/// rent handed over with no bill is both the cost and the paying of it — but
+/// this one is money the farm is owed, and the whole reason for writing it
+/// down is to see it sitting on somebody's account until it comes back. The
+/// statement shows it that way; this has to agree, or the card in Accounts
+/// and the sheet handed to the man say different things about the same
+/// twenty-five thousand.
 ({num owesUs, num weOwe}) partyOwing(List<Txn> ledger, String party) {
   final key = partyKey(party);
   num owesUs = 0, weOwe = 0;
@@ -345,6 +354,8 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
     if (partyKey(t.party) != key) continue;
     if (t.isReceivable) owesUs += t.outstanding;
     if (t.isPayable) weOwe += t.outstanding;
+    if (t.isAdvancePaid) owesUs += t.amount;
+    if (t.isAdvanceBack) owesUs -= t.amount;
   }
   return (owesUs: owesUs, weOwe: weOwe);
 }

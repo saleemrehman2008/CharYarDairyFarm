@@ -120,6 +120,7 @@ UdhaarAccount _khaataStop(String id, num litres) => UdhaarAccount(
 
 void main() {
   milkTests();
+  owingAgreesTests();
   flowTests();
   advanceTests();
   advanceOutTests();
@@ -2265,6 +2266,123 @@ void advanceOutTests() {
         );
         expect(_oct([row]).profit, 0, reason: category);
       }
+    });
+  });
+}
+
+/// The card in Accounts and the sheet handed to the man.
+///
+/// Two pieces of code answer "what does this person owe" — `partyOwing`
+/// draws the card, `buildStatement` draws the page that gets printed — and
+/// the six-month run caught them disagreeing by twenty-five thousand the
+/// first time an advance went out. The statement counted it; the card did
+/// not. Whichever is wrong, the farm is handed two figures for the same
+/// money, which is the one thing a book kept by four friends cannot do.
+void owingAgreesTests() {
+  group('the card and the statement say the same thing', () {
+    void agree(List<Txn> rows, String party, {required String about}) {
+      final onPaper = buildStatement(rows: rows, party: party).closing;
+      final card = partyOwing(rows, party);
+      expect(onPaper, card.owesUs - card.weOwe, reason: about);
+    }
+
+    test('about an advance the farm handed out', () {
+      agree(
+        [_out(paying: true, amount: 25000)],
+        'Ghulam Ali',
+        about: 'he is carrying the farm money and both have to say so',
+      );
+    });
+
+    test('about part of it coming back', () {
+      agree(
+        [_out(paying: true, amount: 25000), _out(paying: false, amount: 10000)],
+        'Ghulam Ali',
+        about: 'fifteen thousand still out',
+      );
+    });
+
+    test('about all of it coming back', () {
+      agree(
+        [_out(paying: true, amount: 25000), _out(paying: false, amount: 25000)],
+        'Ghulam Ali',
+        about: 'nothing left on either',
+      );
+    });
+
+    test('about an advance the farm is holding', () {
+      // The other direction, which deliberately does not move the balance —
+      // a security is not a payment against anything. Both still agree.
+      agree(
+        [_advance(coming: true, amount: 50000)],
+        'Ali',
+        about: 'a security sits off the running balance on both',
+      );
+    });
+
+    test('about milk sold on credit and milk bought in', () {
+      agree(
+        [
+          _milk(type: TxnType.sale, litres: 38, rate: 200),
+          _milk(type: TxnType.purchase, litres: 20, rate: 180),
+        ],
+        'Ali',
+        about: 'nothing here is the same party, so neither side moves',
+      );
+    });
+
+    test('about one name that both buys and sells', () {
+      // The farm buys milk off a shop and sells it milk as well. One
+      // account carries both and the balance is the net of them.
+      final both = [
+        Txn(
+          id: 'a1',
+          date: DateTime(2026, 10, 1),
+          monthId: '2026-10',
+          type: TxnType.purchase,
+          party: 'Urooj Dairy',
+          category: milkBoughtInCategory,
+          qty: 20,
+          unit: 'L',
+          rate: 180,
+          amount: 3600,
+          paid: false,
+          note: '',
+          createdBy: 'u',
+          createdAt: DateTime(2026, 10, 1),
+        ),
+        Txn(
+          id: 'a2',
+          date: DateTime(2026, 10, 2),
+          monthId: '2026-10',
+          type: TxnType.sale,
+          party: 'Urooj Dairy',
+          category: milkCategory,
+          qty: 38,
+          unit: 'L',
+          rate: 200,
+          amount: 7600,
+          paid: false,
+          note: '',
+          createdBy: 'u',
+          createdAt: DateTime(2026, 10, 2),
+        ),
+      ];
+      agree(both, 'Urooj Dairy', about: 'one account, both directions');
+      final card = partyOwing(both, 'Urooj Dairy');
+      expect(card.owesUs, 7600);
+      expect(card.weOwe, 3600);
+    });
+
+    test('and the name is folded, so one man is not two accounts', () {
+      agree(
+        [
+          _out(paying: true, amount: 25000, who: 'Ghulam Ali'),
+          _out(paying: false, amount: 5000, who: 'ghulam ali'),
+        ],
+        'GHULAM ALI',
+        about: 'two spellings, one man',
+      );
     });
   });
 }

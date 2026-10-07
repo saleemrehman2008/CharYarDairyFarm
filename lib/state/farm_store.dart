@@ -854,6 +854,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
         ('Cattle & equipment owned', assetsOwned),
         ('Paid out to co-founders', paidToFounders),
         ('Advances held for customers', advancesHeld),
+        // The mirror of the line above, and it has to be here for the same
+        // reason: without it the Sheet's summary is short by whatever the
+        // farm has handed out and not had back, and the one place the farm
+        // goes to check a figure disagrees with the app.
+        ('Advances the farm paid out', advancesOut),
+        ('Lent to co-founders', loansOut),
         ('Sold since day one', lifetimeSales),
         ('Other money in since day one', lifetimeOtherIncome),
         ('Spent since day one', lifetimeRunningCosts),

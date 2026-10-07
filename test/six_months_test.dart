@@ -232,6 +232,60 @@ void main() {
           farm.sellAnimal(on: on, tag: 'B-09', price: 110000, cost: 150000);
         }
 
+        // ---- milk bought off the farm next door, and sold on ----
+        //
+        // Twenty litres in at a hundred and eighty every morning from the
+        // second month, on top of what the herd gives. The farm sells the
+        // lot, so the sales above already carry it — what is being checked
+        // here is that the buying is a cost of the selling and not a cost
+        // of running the place, and that nothing counts it twice.
+        if (month >= 1 && day % 2 == 0) {
+          farm.buyMilkIn(
+            on: on,
+            from: 'Sharif Dairy',
+            litres: 20,
+            rate: 180,
+            // Half of it on credit, settled later, so the cash and the cost
+            // part company for a while — which is where a figure counted on
+            // the wrong day shows up.
+            paid: day % 4 == 0,
+          );
+        }
+        if (month >= 1 && day == 26) {
+          // Everything owed to them, cleared in one payment.
+          final owed = farm.ledger
+              .where(
+                (t) =>
+                    partyKey(t.party) == partyKey('Sharif Dairy') &&
+                    t.isPayable,
+              )
+              .fold<num>(0, (a, t) => a + t.outstanding);
+          if (owed > 0) {
+            farm.settleWith(
+              on: on,
+              party: 'Sharif Dairy',
+              amount: owed,
+              theyOweUs: false,
+            );
+          }
+        }
+
+        // ---- peshgi out to a labourer, and stopped out of his wages ----
+        //
+        // The mirror of the securities above: the farm's own money in
+        // somebody else's pocket. Neither the paying nor the recovering is
+        // earnings or a cost, and both have to leave the profit alone while
+        // moving the cash.
+        if (month == 1 && day == 6) {
+          farm.payAdvance(on: on, to: 'Ghulam Ali', amount: 25000);
+        }
+        if (month == 2 && day == 6) {
+          farm.recoverAdvance(on: on, from: 'Ghulam Ali', amount: 10000);
+        }
+        if (month == 3 && day == 6) {
+          farm.recoverAdvance(on: on, from: 'Ghulam Ali', amount: 15000);
+        }
+
         // ---- the securities go back ----
         if (month == 5 && day == 20) {
           farm.giveAdvanceBack(on: on, to: 'Ali', amount: 50000);

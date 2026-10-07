@@ -54,6 +54,7 @@ class Farm {
     num? litres,
     String? settles,
     bool? capital,
+    MilkShift? shift,
   }) {
     final txn = Txn(
       id: 'e${_seq++}',
@@ -67,6 +68,7 @@ class Farm {
       rate: litres == null ? null : amount / litres,
       amount: amount,
       capital: capital,
+      shift: shift,
       paid: paid,
       paidSoFar: paid ? amount : 0,
       paidAt: paid ? on : null,
@@ -227,6 +229,62 @@ class Farm {
     paid: true,
   );
 
+  /// Milk bought off another farm to sell on.
+  ///
+  /// A cost of the sale rather than a cost of running the place, and the
+  /// thing the farm wanted apart: without it the month reads as one the
+  /// buffaloes had, and some of the milk was somebody else's passing
+  /// through.
+  void buyMilkIn({
+    required DateTime on,
+    required String from,
+    required num litres,
+    required num rate,
+    MilkShift shift = MilkShift.morning,
+    bool paid = true,
+  }) => _write(
+    on: on,
+    type: TxnType.purchase,
+    party: from,
+    category: milkBoughtInCategory,
+    amount: litres * rate,
+    paid: paid,
+    litres: litres,
+    shift: shift,
+  );
+
+  /// An advance the farm hands somebody and expects back — peshgi to a
+  /// labourer, a deposit with a supplier.
+  ///
+  /// Cash out of the box and not a cost: the farm has not spent it, it is
+  /// owed it. The mirror of [takeAdvance].
+  void payAdvance({
+    required DateTime on,
+    required String to,
+    required num amount,
+  }) => _write(
+    on: on,
+    type: TxnType.payment,
+    party: to,
+    category: advancePaidCategory,
+    amount: amount,
+    paid: true,
+  );
+
+  /// That advance coming back — handed over, or stopped out of wages.
+  void recoverAdvance({
+    required DateTime on,
+    required String from,
+    required num amount,
+  }) => _write(
+    on: on,
+    type: TxnType.receipt,
+    party: from,
+    category: advanceBackCategory,
+    amount: amount,
+    paid: true,
+  );
+
   /// Money a customer leaves with the farm against a standing order.
   void takeAdvance({
     required DateTime on,
@@ -359,6 +417,15 @@ class Farm {
         t.isAdvanceIn ? a + t.amount : (t.isAdvanceOut ? a - t.amount : a),
   );
 
+  /// Advances the farm has handed out and not had back. The mirror of
+  /// [advancesHeld], and it has to be on the summary or the balance check
+  /// goes out by exactly this much the first time one is paid.
+  num get advancesOut => _live.fold<num>(
+    0,
+    (a, t) =>
+        t.isAdvancePaid ? a + t.amount : (t.isAdvanceBack ? a - t.amount : a),
+  );
+
   num get paidToFounders =>
       _live.where((t) => t.isProfitShare).fold<num>(0, (a, t) => a + t.amount);
 
@@ -386,6 +453,7 @@ class Farm {
     payable: books.payable,
     paidOut: paidToFounders,
     advancesHeld: advancesHeld,
+    advancesOut: advancesOut,
   );
 
   /// The four of them, as they stand now.
