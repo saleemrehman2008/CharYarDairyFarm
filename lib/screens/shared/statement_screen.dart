@@ -487,36 +487,39 @@ class StatementSheet extends StatelessWidget {
                 color: T.accent800,
                 padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(T.radiusXs),
-                      child: Image.asset(
-                        'assets/mark.png',
-                        width: 38,
-                        height: 38,
-                        fit: BoxFit.cover,
-                        // The farm's mark is going to be swapped one day, and
-                        // a statement is not the place to find out the file has
-                        // moved. Without this the whole page throws and draws
-                        // nothing at all over a missing picture.
-                        errorBuilder: (_, _, _) =>
-                            const SizedBox(width: 38, height: 38),
-                      ),
-                    ),
-                    const SizedBox(width: 11),
+                    // The whole lockup, the way a letterhead carries one.
+                    // The farm's name is drawn inside it, so it is not typed
+                    // out beside it as well — that was the same words twice
+                    // in two different hands. The name is still printed on
+                    // every page after the first of a PDF, and on the file
+                    // the statement is shared as.
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            farmName,
-                            style: T.cardTitle.copyWith(
-                              color: Colors.white,
-                              fontSize: 15,
+                          Image.asset(
+                            'assets/logo.png',
+                            width: 150,
+                            fit: BoxFit.contain,
+                            // The logo is going to be swapped again one day,
+                            // and a statement is not the place to find out
+                            // the file has moved. Without this the whole
+                            // page throws and draws nothing at all over a
+                            // missing picture — so it falls back to the name
+                            // in writing, which is what the drawing says.
+                            errorBuilder: (_, _, _) => Text(
+                              farmName,
+                              style: T.cardTitle.copyWith(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 7),
                           Text(
                             l.t(statement.kind.title),
                             style: T.meta.copyWith(color: T.accent300),
@@ -524,6 +527,7 @@ class StatementSheet extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
