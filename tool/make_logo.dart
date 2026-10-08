@@ -56,22 +56,13 @@ void main(List<String> args) {
   // Both on a ground, for the same reason: a transparent icon with dark
   // edges disappears into a dark wallpaper, and the one place the farm
   // cannot choose the background is somebody's home screen.
-  // The small mark is the crest centre, not the whole crest. At
-  // thirty-six points in a top bar the ring, the crown, the wheat and the
-  // two lines of lettering are all one brown smudge; the bull is still a
-  // bull. The launcher keeps the whole crest, because a home screen icon
-  // is big enough for it.
-  final face = _trim(
-    img.copyCrop(
-      crest,
-      x: (crest.width * 0.26).round(),
-      y: (crest.height * 0.26).round(),
-      width: (crest.width * 0.48).round(),
-      height: (crest.height * 0.42).round(),
-    ),
-  );
-  stdout.writeln('face trimmed to ${face.width}x${face.height}');
-  _write('assets/mark.png', _onGround(face, 192, ground));
+  // The small mark is the whole crest, the same as the launcher. It was
+  // cut down to the bull alone for a while, on the grounds that at
+  // thirty-six points the ring and the lettering go to a smudge — which
+  // they do. The farm looked at the two side by side and chose the whole
+  // crest anyway: one mark everywhere beats a sharper one that is a
+  // different picture.
+  _write('assets/mark.png', _onGround(crest, 192, ground));
 
   const sizes = {
     'mdpi': 48,
