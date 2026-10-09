@@ -89,6 +89,44 @@ class Farm {
     ledger[ledger.indexOf(old)] = fresh;
   }
 
+  /// An entry corrected after the fact — what the master would be doing
+  /// with an edit button.
+  ///
+  /// Everything else about the row stays as it was, including the period it
+  /// was booked into. That is the whole question: a row booked into a month
+  /// that has since been closed cannot be corrected without the period and
+  /// the shares worked out from it going out of step with it, and nothing
+  /// in the app re-reads a closed period to find out.
+  Txn correct(Txn old, {num? amount, bool? paid}) {
+    final to = amount ?? old.amount;
+    final settled = paid ?? old.paid;
+    final fresh = Txn(
+      id: old.id,
+      date: old.date,
+      monthId: old.monthId,
+      type: old.type,
+      party: old.party,
+      category: old.category,
+      qty: old.qty,
+      unit: old.unit,
+      rate: old.qty == null || old.qty == 0 ? old.rate : to / old.qty!,
+      amount: to,
+      capital: old.capital,
+      shift: old.shift,
+      paid: settled,
+      paidSoFar: settled ? to : 0,
+      paidAt: settled ? old.paidAt ?? old.date : null,
+      note: old.note,
+      settlesTxnId: old.settlesTxnId,
+      paidOnCreate: old.paidOnCreate,
+      createdBy: old.createdBy,
+      createdByName: old.createdByName,
+      createdAt: old.createdAt,
+    );
+    _replace(old, fresh);
+    return fresh;
+  }
+
   Txn sell({
     required DateTime on,
     required String to,
