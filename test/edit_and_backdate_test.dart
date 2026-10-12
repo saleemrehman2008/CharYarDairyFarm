@@ -227,4 +227,127 @@ void main() {
       audit(farm, 'after back-dating within the open month');
     });
   });
+
+  group('what an edit is allowed to touch', () {
+    late Txn entry;
+
+    setUp(() {
+      entry = Txn(
+        id: 'e1',
+        date: DateTime(2026, 10, 8),
+        monthId: '2026-10',
+        type: TxnType.sale,
+        party: 'Ali',
+        category: milkCategory,
+        qty: 40,
+        unit: 'L',
+        rate: 200,
+        amount: 8000,
+        paid: true,
+        paidSoFar: 8000,
+        paidOnCreate: true,
+        note: '',
+        shift: MilkShift.morning,
+        createdBy: 'u1',
+        createdByName: 'Saleem Rehman',
+        createdAt: DateTime(2026, 10, 8),
+      );
+    });
+
+    test('the date stays where the trade happened', () {
+      // Corrected on the ninth, the entry is still the eighth's. The milk
+      // went out on the eighth and moving it would take it off that day's
+      // books and put it on a day it did not happen.
+      expect(entry.date, DateTime(2026, 10, 8));
+      final edit = TxnEdit(
+        at: DateTime(2026, 10, 9),
+        byUid: 'u1',
+        byName: 'Saleem Rehman',
+        changes: const [(field: 'Amount', from: '8,000', to: '9,000')],
+      );
+      expect(edit.at.day, 9, reason: 'the correction happened on the ninth');
+      expect(entry.date.day, 8, reason: 'the trade did not');
+    });
+
+    test('a correction reads back in the words it was shown in', () {
+      // Years from now, after the rates and the headings have moved on, a
+      // record of a correction still has to be readable.
+      final e = TxnEdit(
+        at: DateTime(2026, 10, 9),
+        byUid: 'u1',
+        byName: 'Saleem Rehman',
+        changes: const [
+          (field: 'Amount', from: '8,000', to: '9,000'),
+          (field: 'Which milking', from: 'Morning', to: 'Evening'),
+        ],
+      );
+      final back = TxnEdit.listFrom([e.toMap()]).single;
+      expect(back.byName, 'Saleem Rehman');
+      expect(back.changes.length, 2);
+      expect(back.changes.first.from, '8,000');
+      expect(back.changes.last.to, 'Evening');
+    });
+
+    test('an entry nobody has touched carries no history', () {
+      expect(entry.edits, isEmpty);
+    });
+
+    test('and one that has been shows every correction, oldest first', () {
+      final withEdits = Txn(
+        id: entry.id,
+        date: entry.date,
+        monthId: entry.monthId,
+        type: entry.type,
+        party: entry.party,
+        category: entry.category,
+        amount: 9000,
+        paid: true,
+        note: '',
+        createdBy: 'u1',
+        createdAt: entry.createdAt,
+        edits: [
+          TxnEdit(
+            at: DateTime(2026, 10, 9),
+            byUid: 'u2',
+            byName: 'Ghulam Ali',
+            changes: const [(field: 'Party', from: 'Ali', to: 'Ali Raza')],
+          ),
+          TxnEdit(
+            at: DateTime(2026, 10, 10),
+            byUid: 'u1',
+            byName: 'Saleem Rehman',
+            changes: const [(field: 'Amount', from: '8,000', to: '9,000')],
+          ),
+        ],
+      );
+      expect(withEdits.edits.length, 2);
+      expect(withEdits.edits.first.byName, 'Ghulam Ali');
+      expect(withEdits.edits.last.changes.single.to, '9,000');
+    });
+  });
+
+  group('which period an entry may be corrected in', () {
+    /// The rule the form and the rules both run: open, and only open.
+    bool open(FarmMonth m) => m.isOpen;
+
+    FarmMonth month(String id, String status) => FarmMonth(
+      id: id,
+      status: status,
+      openingCash: 0,
+      from: DateTime(2026, 10, 1),
+    );
+
+    test('the one being written, yes', () {
+      expect(open(month('2026-10', 'open')), isTrue);
+    });
+
+    test('one that is sealed and waiting on the co-founders, no', () {
+      // Its figures are already in front of four people to agree to.
+      expect(open(month('2026-09', 'sealed')), isFalse);
+    });
+
+    test('one that is closed and shared out, no', () {
+      expect(open(month('2026-08', 'closed')), isFalse);
+    });
+  });
 }

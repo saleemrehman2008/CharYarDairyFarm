@@ -205,6 +205,155 @@ class TxnRepo {
   /// Any receipt or payment that "Mark paid" posted against this entry goes
   /// with it — leaving that behind would keep taking the money out of the
   /// balance for an entry that no longer exists.
+  /// Correct an entry that was written wrong.
+  ///
+  /// Two people may do this and they may do different amounts of it. Anybody
+  /// who keeps the books can fix what was typed — a name, a heading, a
+  /// quantity, a rate, the figure, the note. Only the master may move the
+  /// date, because moving a date moves where the entry sits in everybody's
+  /// account and in every statement printed from it.
+  ///
+  /// Neither may touch two things. The period it was booked into never
+  /// changes: that is the field closed months are built on, and an entry that
+  /// could walk between periods could take profit out of one that has already
+  /// been shared. And an entry in a period that is sealed or closed cannot be
+  /// corrected at all — its month's figures were frozen on the day and four
+  /// people were paid out of them. A correction to one of those is a fresh
+  /// entry in the period that is open, which is what a book of accounts has
+  /// always done.
+  ///
+  /// What changed is kept on the entry itself, in the words it was shown as,
+  /// so that opening the entry answers "has this been touched, and by whom"
+  /// without going to look anywhere else.
+  static Future<void> edit({
+    required Actor actor,
+    required Txn txn,
+    required bool isMaster,
+    required bool periodIsOpen,
+    String? party,
+    String? category,
+    bool? capital,
+    MilkShift? shift,
+    num? qty,
+    String? unit,
+    num? rate,
+    num? amount,
+    String? note,
+    PayVia? payVia,
+    String? handledBy,
+    DateTime? date,
+  }) async {
+    if (!periodIsOpen) {
+      throw StateError(
+        'That entry belongs to a period that is already settled. Put the '
+        'correction in the open period instead.',
+      );
+    }
+    if (date != null && !isMaster) {
+      throw StateError('Only the master can change the date of an entry.');
+    }
+
+    final fresh = <String, dynamic>{};
+    final changes = <({String field, String from, String to})>[];
+
+    void moved(String field, Object? was, Object? now, String key) {
+      if (was == now) return;
+      fresh[key] = now;
+      changes.add((field: field, from: _said(was), to: _said(now)));
+    }
+
+    moved('Party', txn.party, party?.trim(), 'party');
+    moved('What for', txn.category, category, 'category');
+    moved('Quantity', txn.qty, qty, 'qty');
+    moved('Unit', txn.unit, unit, 'unit');
+    moved('Rate', txn.rate, rate, 'rate');
+    moved('Note', txn.note, note?.trim(), 'note');
+    moved('Handled by', txn.handledBy, handledBy?.trim(), 'handledBy');
+
+    if (amount != null && amount != txn.amount) {
+      if (amount <= 0) throw StateError('An entry needs an amount.');
+      fresh['amount'] = amount;
+      // What has been settled against it cannot be more than it is worth.
+      // Lowering a part-paid entry below what has already come in would
+      // leave the farm owing money on something it has been overpaid for.
+      if (txn.paidSoFar > amount) {
+        throw StateError(
+          'Rs ${amount.round()} is less than the Rs ${txn.paidSoFar.round()} '
+          'already settled against this entry.',
+        );
+      }
+      if (txn.paid) fresh['paidSoFar'] = amount;
+      changes.add((
+        field: 'Amount',
+        from: _said(txn.amount),
+        to: _said(amount),
+      ));
+    }
+
+    if (capital != null && capital != txn.capital) {
+      fresh['capital'] = capital;
+      changes.add((
+        field: 'What kind of thing',
+        from: txn.isCapitalAsset ? 'The farm keeps it' : 'Cost',
+        to: capital ? 'The farm keeps it' : 'Cost',
+      ));
+    }
+
+    if (shift != null && shift != txn.shift) {
+      fresh['shift'] = shift.name;
+      changes.add((
+        field: 'Which milking',
+        from: txn.shift?.label ?? '—',
+        to: shift.label,
+      ));
+    }
+
+    if (payVia != null && payVia != txn.payVia) {
+      fresh['payVia'] = payVia.name;
+      changes.add((field: 'How', from: txn.payVia.label, to: payVia.label));
+    }
+
+    if (date != null && !_sameDay(date, txn.date)) {
+      fresh['date'] = Timestamp.fromDate(date);
+      changes.add((
+        field: 'Date',
+        from: fmtDateFull(txn.date),
+        to: fmtDateFull(date),
+      ));
+    }
+
+    if (changes.isEmpty) return;
+
+    final record = TxnEdit(
+      at: DateTime.now(),
+      byUid: actor.uid,
+      byName: actor.name,
+      changes: changes,
+    );
+    fresh['edits'] = FieldValue.arrayUnion([record.toMap()]);
+
+    await Db.transactions.doc(txn.id).update(fresh);
+    await Log.write(
+      actor,
+      LogKind.transaction,
+      'corrected ${txn.party} ${txn.category} — '
+      '${changes.map((c) => '${c.field} ${c.from} to ${c.to}').join(', ')}',
+      refType: 'txn',
+      refId: txn.id,
+    );
+  }
+
+  /// A value as it should read in a record somebody opens years from now.
+  static String _said(Object? v) {
+    if (v == null) return '—';
+    if (v is num) return groupPk(v);
+    final text = v.toString().trim();
+    return text.isEmpty ? '—' : text;
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   static Future<void> softDelete(Actor actor, Txn txn) async {
     await Db.transactions.doc(txn.id).update({
       'deletedAt': FieldValue.serverTimestamp(),

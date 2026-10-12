@@ -60,6 +60,20 @@ service cloud.firestore {
       return hasProfile() && me().status == 'active';
     }
 
+    // Whether a period is still being written. A month document that does
+    // not exist yet is open: the first entry of a period is written before
+    // anything opens it.
+    // Money landing on an entry that was booked on credit. Not a change to
+    // what the entry says, so it is not held to the open-period rule.
+    function settlingOnly() {
+      return isPartner()
+        && changedKeys().hasOnly(['paid', 'paidSoFar', 'paidAt', 'payVia',
+                                  'handledBy']);
+    }
+    function openPeriod(id) {
+      return !exists(/databases/$(database)/documents/months/$(id))
+        || get(/databases/$(database)/documents/months/$(id)).data.get('status', 'open') == 'open';
+    }
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -270,10 +284,34 @@ service cloud.firestore {
         || (isDelivery()
             && request.resource.data.type in ['sale', 'receipt']);
 
-      // Marking an entry deleted rewrites what the farm earned, so it is the
-      // master's alone. Everything else about an entry a partner may correct.
-      allow update: if isMaster()
-        || (isPartner() && !changedKeys().hasAny(['deletedAt']));
+      // Correcting an entry.
+      //
+      // `monthId` never moves, for anybody including the master. It is the
+      // field every closed month's frozen figures were worked out from, and
+      // an entry that could walk between periods could take profit out of
+      // one that has already been shared between four people.
+      //
+      // A correction may only be made while the entry's period is still
+      // open. Those months are settled on the day and the co-founders are
+      // paid out of them; a correction to a settled one is a fresh entry in
+      // the open period, which is what a book of accounts has always done.
+      //
+      // Settling is not a correction and is allowed whenever. A September
+      // sale on credit is paid in October, and the money lands on the
+      // September row — the period being closed is exactly when this
+      // happens, so a rule that stopped it would stop the farm collecting.
+      //
+      // The date is the master's: moving it moves where the entry sits in
+      // somebody's account and in every statement printed from it. Anybody
+      // who keeps the books may fix what was typed. Marking an entry
+      // deleted rewrites what the farm earned, so it stays the master's.
+      allow update: if !changedKeys().hasAny(['monthId'])
+        && (settlingOnly()
+            || (openPeriod(resource.data.monthId)
+                && (isMaster()
+                    || (isPartner()
+                        && !changedKeys().hasAny(['deletedAt', 'date']))))
+            || (isMaster() && changedKeys().hasOnly(['deletedAt'])));
 
       allow delete: if false;
     }

@@ -343,6 +343,17 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<FarmMonth> get closedMonths =>
       _periods.where((m) => m.isClosed).toList();
 
+  /// Whether the period an entry was booked into is still being written.
+  ///
+  /// A period nobody has opened a document for yet counts as open: the
+  /// first entry of a month is written before anything opens it.
+  bool periodIsOpen(String monthId) {
+    for (final m in _periods) {
+      if (m.id == monthId) return m.isOpen;
+    }
+    return true;
+  }
+
   /// Every period including the open one, newest first.
   List<FarmMonth> get periods => _periods;
 

@@ -499,6 +499,28 @@ const Map<String, String> romanUrdu = {
   'Cattle write-off': 'Janwar books se nikala',
   'Founder loan': 'Founder ko diya loan',
 
+  // Correcting an entry that was written wrong.
+  'Correct this entry': 'Is entry ko theek karen',
+  'Corrections': 'Durustiyan',
+  'Save the correction': 'Durusti mehfooz karen',
+  'Entry corrected': 'Entry theek kar di',
+  'What was written down, not what happened. Everything you change is kept on the entry with your name against it.':
+      'Jo likha gaya tha wo, na ke jo hua tha. Aap jo bhi badlen wo '
+      'entry par aap ke naam ke saath mehfooz rehta hai.',
+  '%s — only the master can move a date.':
+      '%s — tareekh sirf master badal sakta hai.',
+  'This entry belongs to %s, which is already settled. Nothing in a settled period can be corrected — the profit was worked out from it and shared. Put the correction in the open period as a new entry.':
+      'Ye entry %s ki hai, jo band ho chuka hai. Band mahine mein kuch '
+      'theek nahi ho sakta — us ka munafa nikal kar bant chuka hai. '
+      'Durusti khule mahine mein nayi entry ke taur par daalen.',
+  // Shared with the entry form, which the word checker cannot see into.
+  'Qty': 'Miqdaar',
+  'Rate / unit': 'Rate fi unit',
+  'Total amount (Rs)': 'Kul raqam (Rs)',
+  'What for': 'Kis cheez ka',
+  'Add the total amount.': 'Kul raqam daalen.',
+  'Who is this entry for? Add a party name.':
+      'Ye entry kis ke liye hai? Naam daalen.',
   // One entry opened out in full, tapped from the ledger.
   'Settled': 'Paisa aaya ya nahi',
   'Yes, in full': 'Haan, poora',

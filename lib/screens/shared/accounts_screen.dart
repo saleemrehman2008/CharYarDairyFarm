@@ -13,6 +13,8 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/category_field.dart';
+import '../../widgets/party_field.dart';
 import '../../widgets/pick_sheet.dart';
 import '../../widgets/ui.dart';
 import 'new_entry_screen.dart';
@@ -395,6 +397,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
           busy: _busyId == txn.id,
           onMarkPaid: () => _markPaid(txn),
           onDelete: () => _delete(txn),
+          onEdit: () => _edit(txn),
+          // A settled period's figures are what four people were paid out
+          // of, so nothing in one can be corrected.
+          canEdit:
+              periods.where((p) => p.id == txn.monthId).firstOrNull?.isOpen ??
+              true,
           // Marked by the money, not by a finger.
           showMark: _canTick && txn.outstanding > 0,
           reached: reach[txn.id] ?? 0,
@@ -606,6 +614,26 @@ class _AccountsScreenState extends State<AccountsScreen> {
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
+  }
+
+  /// Open the correction sheet for one entry.
+  Future<void> _edit(Txn txn) async {
+    final store = context.read<FarmStore>();
+    final isMaster = context.read<Session>().role == Role.master;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: T.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
+      ),
+      // The sheet is built from the navigator context, which sits above the
+      // provider this screen was pushed with, so the store is handed down.
+      builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+        value: store,
+        child: EditEntrySheet(txn: txn, isMaster: isMaster),
+      ),
+    );
   }
 
   Future<void> _delete(Txn txn) async {
@@ -1241,6 +1269,8 @@ class _LedgerRow extends StatelessWidget {
     required this.busy,
     required this.onMarkPaid,
     required this.onDelete,
+    required this.onEdit,
+    required this.canEdit,
     this.showMark = false,
     this.reached = 0,
   });
@@ -1250,6 +1280,10 @@ class _LedgerRow extends StatelessWidget {
   final bool busy;
   final VoidCallback onMarkPaid;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
+
+  /// False once this entry's period has been settled.
+  final bool canEdit;
 
   /// Whether this row shows a mark at all — only while a name is picked and
   /// there is something left to settle on it.
@@ -1445,6 +1479,8 @@ class _LedgerRow extends StatelessWidget {
             isMaster: isMaster,
             onMarkPaid: onMarkPaid,
             onDelete: onDelete,
+            onEdit: onEdit,
+            canEdit: canEdit,
           ),
           borderRadius: T.round,
           child: card,
@@ -1522,6 +1558,12 @@ Future<void> showEntryDetail(
   required bool isMaster,
   required VoidCallback onMarkPaid,
   required VoidCallback onDelete,
+  required VoidCallback onEdit,
+
+  /// False once the entry's period has been settled. The figures of a
+  /// closed month were what four people were paid out of, so nothing in
+  /// it is correctable — the correction goes in the open period instead.
+  required bool canEdit,
 }) {
   final l = L.read(context);
   final kind = entryKindOf(
@@ -1697,10 +1739,88 @@ Future<void> showEntryDetail(
             if (txn.note.trim().isNotEmpty)
               _DetailFact(label: l.t('Note'), value: txn.note),
 
+            // Every correction ever made to it, oldest first, in the words
+            // it was shown as at the time. The farm asked for this before
+            // the edit button was built: a figure that can be changed
+            // without a trace is worth less than one that cannot be
+            // changed at all.
+            if (txn.edits.isNotEmpty) ...[
+              const Divider(height: 20),
+              Kicker(l.t('Corrections')),
+              const SizedBox(height: 8),
+              for (final e in txn.edits)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${fmtStamp(e.at)} · ${e.byName}',
+                        style: T.meta.copyWith(color: T.accent700),
+                      ),
+                      for (final c in e.changes)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text.rich(
+                            TextSpan(
+                              style: T.body.copyWith(fontSize: 13),
+                              children: [
+                                TextSpan(text: '${l.t(c.field)}: '),
+                                TextSpan(
+                                  text: c.from,
+                                  style: TextStyle(
+                                    color: T.n600,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                                const TextSpan(text: '  →  '),
+                                TextSpan(
+                                  text: c.to,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+
             const SizedBox(height: T.pad),
 
+            // Correcting it, and the reason when it cannot be.
+            if (!canEdit)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  l.t2(
+                    'This entry belongs to %s, which is already settled. '
+                    'Nothing in a settled period can be corrected — the '
+                    'profit was worked out from it and shared. Put the '
+                    'correction in the open period as a new entry.',
+                    monthName(txn.monthId),
+                  ),
+                  style: T.meta.copyWith(color: T.moneyDue),
+                ),
+              ),
             Row(
               children: [
+                if (canEdit)
+                  Expanded(
+                    child: GhostButton(
+                      label: l.t('Edit'),
+                      icon: Icons.edit_outlined,
+                      onPressed: () {
+                        Navigator.pop(sheet);
+                        onEdit();
+                      },
+                    ),
+                  ),
+                if (canEdit && !txn.paid && !txn.type.isSettlement)
+                  const SizedBox(width: 8),
                 if (!txn.paid && !txn.type.isSettlement)
                   Expanded(
                     child: GhostButton(
@@ -1756,4 +1876,286 @@ class _DetailFact extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Correcting an entry that was written wrong.
+///
+/// Opened from the entry's own page. Anybody who keeps the books may fix
+/// what was typed — a name, a heading, a quantity, a rate, the figure, the
+/// note. The date is the master's alone, because moving it moves where the
+/// entry sits in every account and every statement printed from it.
+///
+/// The whole thing is shut once the entry's period has been settled. Those
+/// months were closed on figures the four of them were paid out of, and a
+/// correction afterwards would leave the ledger saying one thing and the
+/// period another with nothing to notice it. That correction goes in as a
+/// fresh entry in the period that is open.
+class EditEntrySheet extends StatefulWidget {
+  const EditEntrySheet({super.key, required this.txn, required this.isMaster});
+
+  final Txn txn;
+  final bool isMaster;
+
+  @override
+  State<EditEntrySheet> createState() => _EditEntrySheetState();
+}
+
+class _EditEntrySheetState extends State<EditEntrySheet> {
+  late final _party = TextEditingController(text: widget.txn.party);
+  late final _qty = TextEditingController(
+    text: widget.txn.qty == null ? '' : qty(widget.txn.qty!),
+  );
+  late final _rate = TextEditingController(
+    text: widget.txn.rate == null ? '' : qty(widget.txn.rate!),
+  );
+  late final _total = TextEditingController(
+    text: '${widget.txn.amount.round()}',
+  );
+  late final _note = TextEditingController(text: widget.txn.note);
+  late final _handledBy = TextEditingController(text: widget.txn.handledBy);
+
+  late String _category = widget.txn.category;
+  bool? _capital;
+  late MilkShift? _shift = widget.txn.shift;
+  late DateTime _date = widget.txn.date;
+  bool _busy = false;
+
+  /// Which way the money went, so the heading list offers the right side.
+  /// It is not changeable here: a sale that should have been a purchase is
+  /// not a typing slip, it is the wrong entry, and the honest fix is to
+  /// delete it and write the right one.
+  MoneyFlow get _flow =>
+      widget.txn.type.isIncoming ? MoneyFlow.incoming : MoneyFlow.outgoing;
+
+  bool get _measured => !widget.txn.type.isSettlement;
+
+  @override
+  void dispose() {
+    _party.dispose();
+    _qty.dispose();
+    _rate.dispose();
+    _total.dispose();
+    _note.dispose();
+    _handledBy.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(_date.year - 2),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && mounted) setState(() => _date = picked);
+  }
+
+  Future<void> _save() async {
+    final l = L.read(context);
+    final store = context.read<FarmStore>();
+    final amount = num.tryParse(_total.text.trim()) ?? 0;
+    if (_party.text.trim().isEmpty) {
+      toast(context, l.t('Who is this entry for? Add a party name.'));
+      return;
+    }
+    if (amount <= 0) {
+      toast(context, l.t('Add the total amount.'));
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await TxnRepo.edit(
+        actor: context.read<Session>().actor,
+        txn: widget.txn,
+        isMaster: widget.isMaster,
+        periodIsOpen: store.periodIsOpen(widget.txn.monthId),
+        party: _party.text,
+        category: _category,
+        capital: _capital,
+        shift: _shift,
+        qty: num.tryParse(_qty.text.trim()),
+        rate: num.tryParse(_rate.text.trim()),
+        amount: amount,
+        note: _note.text,
+        handledBy: _handledBy.text,
+        date: widget.isMaster ? _date : null,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      toast(context, l.t('Entry corrected'));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final t = widget.txn;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: T.n400,
+                    borderRadius: BorderRadius.circular(T.pill),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(l.t('Correct this entry'), style: T.screenTitle),
+              const SizedBox(height: 4),
+              Text(
+                l.t(
+                  'What was written down, not what happened. Everything you '
+                  'change is kept on the entry with your name against it.',
+                ),
+                style: T.meta,
+              ),
+              const SizedBox(height: T.pad),
+
+              PartyField(
+                label: l.t(
+                  t.type.isIncoming ? 'Who it came from' : 'Who it went to',
+                ),
+                controller: _party,
+                hint: l.t(
+                  t.type.isIncoming
+                      ? 'Who paid, or who bought it'
+                      : 'Who you paid',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: T.gap),
+
+              CategoryField(
+                label: l.t('What for'),
+                flow: _flow,
+                value: _category,
+                onChanged: (c, capital) => setState(() {
+                  _category = c;
+                  _capital = capital;
+                }),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                l.t(
+                  entryEffect(
+                    type: _flow.typeOf(_category),
+                    category: _category,
+                    isAsset: _capital ?? assetCategories.contains(_category),
+                  ),
+                ),
+                style: T.meta,
+              ),
+
+              if (_shift != null || _needsShift) ...[
+                const SizedBox(height: T.pad),
+                Kicker(l.t('Which milking?')),
+                const SizedBox(height: 6),
+                Segmented<MilkShift?>(
+                  value: _shift,
+                  options: [
+                    for (final s in MilkShift.values) (s, l.t(s.label)),
+                  ],
+                  onChanged: (v) => setState(() => _shift = v),
+                ),
+              ],
+
+              if (_measured) ...[
+                const SizedBox(height: T.gap),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Field(
+                        label: l.t('Qty'),
+                        controller: _qty,
+                        keyboardType: TextInputType.number,
+                        hint: '0',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Field(
+                        label: l.t('Rate / unit'),
+                        controller: _rate,
+                        keyboardType: TextInputType.number,
+                        hint: '0',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: T.gap),
+              Field(
+                label: l.t('Total amount (Rs)'),
+                controller: _total,
+                keyboardType: TextInputType.number,
+                hint: '0',
+              ),
+
+              const SizedBox(height: T.gap),
+              Field(
+                label: t.type.isIncoming ? l.t('Received by') : l.t('Paid by'),
+                controller: _handledBy,
+              ),
+
+              const SizedBox(height: T.gap),
+              Field(label: l.t('Note'), controller: _note, maxLines: 2),
+
+              // The date, and only for the master. It is the one field that
+              // moves the entry rather than correcting it.
+              const SizedBox(height: T.pad),
+              Kicker(l.t('Date')),
+              const SizedBox(height: 6),
+              if (widget.isMaster)
+                GhostButton(
+                  label: fmtDateFull(_date),
+                  icon: Icons.event_outlined,
+                  onPressed: _busy ? null : _pickDate,
+                )
+              else
+                Text(
+                  l.t2(
+                    '%s — only the master can move a date.',
+                    fmtDateFull(_date),
+                  ),
+                  style: T.meta,
+                ),
+
+              const SizedBox(height: T.pad),
+              PrimaryButton(
+                label: l.t('Save the correction'),
+                icon: Icons.check,
+                busy: _busy,
+                onPressed: _busy ? null : _save,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Milk wants its milking said, the same as a new entry does.
+  bool get _needsShift =>
+      _category == milkCategory || _category == milkBoughtInCategory;
 }

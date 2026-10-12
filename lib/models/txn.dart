@@ -488,6 +488,65 @@ enum PayVia {
 /// held out of the profit and reported as what the farm owns.
 const assetCategories = {'Cattle purchase', 'Equipment'};
 
+/// One correction made to an entry after it was written.
+///
+/// The farm asked for this before the edit button was built: whoever changes
+/// a figure, what it was and what it became both stay on the entry, where
+/// anybody who opens it can read them. Four people keep these books between
+/// them, and a figure that can be changed without a trace is worth less than
+/// one that cannot be changed at all.
+///
+/// Held on the entry rather than only in the activity log, because the log
+/// is a list of everything that ever happened and this is a question asked
+/// about one row: "has this been touched, and by whom?"
+///
+/// The values are kept as the words they were shown as, not as numbers. A
+/// record of a correction has to still read in five years, after the rates
+/// and the categories and the way money is printed have all moved on.
+class TxnEdit {
+  const TxnEdit({
+    required this.at,
+    required this.byUid,
+    required this.byName,
+    required this.changes,
+  });
+
+  final DateTime at;
+  final String byUid;
+  final String byName;
+
+  /// What moved, in order: the field as it is labelled on screen, what it
+  /// said before, and what it says now.
+  final List<({String field, String from, String to})> changes;
+
+  bool get isEmpty => changes.isEmpty;
+
+  Map<String, dynamic> toMap() => {
+    'at': Timestamp.fromDate(at),
+    'byUid': byUid,
+    'byName': byName,
+    'changes': [
+      for (final c in changes) {'field': c.field, 'from': c.from, 'to': c.to},
+    ],
+  };
+
+  static List<TxnEdit> listFrom(Object? value) => ((value as List?) ?? const [])
+      .map((e) => (e as Map?)?.cast<String, dynamic>() ?? const {})
+      .map(
+        (m) => TxnEdit(
+          at: dtOr(m['at']),
+          byUid: s(m['byUid']),
+          byName: s(m['byName']),
+          changes: [
+            for (final c in (m['changes'] as List?) ?? const [])
+              if (c is Map)
+                (field: s(c['field']), from: s(c['from']), to: s(c['to'])),
+          ],
+        ),
+      )
+      .toList();
+}
+
 class Txn {
   Txn({
     required this.id,
@@ -509,6 +568,7 @@ class Txn {
     this.settlesTxnId,
     this.capital,
     this.shift,
+    this.edits = const [],
     this.paidOnCreate = false,
     this.payVia = PayVia.cash,
     this.handledBy = '',
@@ -548,6 +608,10 @@ class Txn {
   /// the app asked. Null is "nobody said", never a guess — a litre put in
   /// the wrong half of the day is worse than one that admits it is unknown.
   final MilkShift? shift;
+
+  /// Every correction made to this entry since it was written, oldest
+  /// first. Empty on an entry nobody has touched.
+  final List<TxnEdit> edits;
 
   /// How much of [amount] has actually been taken against this entry.
   ///
@@ -769,6 +833,7 @@ class Txn {
       settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
       capital: m['capital'] == null ? null : b(m['capital']),
       shift: MilkShift.parse(m['shift']),
+      edits: TxnEdit.listFrom(m['edits']),
       paidOnCreate: m['paidOnCreate'] == null
           ? _wasPaidOnCreate(paid, paidAt, createdAt)
           : b(m['paidOnCreate']),
