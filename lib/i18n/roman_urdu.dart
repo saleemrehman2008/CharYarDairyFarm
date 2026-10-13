@@ -511,6 +511,28 @@ const Map<String, String> romanUrdu = {
       'Ye entry %s ki hai, jo band ho chuka hai. Band mahine mein kuch '
       'theek nahi ho sakta — us ka munafa nikal kar bant chuka hai. '
       'Durusti khule mahine mein nayi entry ke taur par daalen.',
+  // The activity log, and the list inside it that answers who has been
+  // back over the books. The kind of each line is passed as a variable,
+  // which the word checker cannot see — a test walks the enum instead.
+  'Changes to entries': 'Entriyon mein tabdeeliyan',
+  'Who has changed what': 'Kis ne kya badla',
+  '%s in all': 'kul %s',
+  '%s times': '%s bar',
+  'Counted out of the lines below. Every one of them says which entry it was and what moved.':
+      'Neeche wali lines se gina gaya. Har line batati hai kaun si entry '
+      'thi aur us mein kya badla.',
+  'Nobody has gone back over an entry. Everything on the books is as it was first written.':
+      'Kisi ne koi entry dobara nahi chhui. Kitaab mein sab waisa hi hai '
+      'jaisa pehle likha gaya tha.',
+  'Nothing has been changed after it was written.':
+      'Likhe jaane ke baad kuch nahi badla gaya.',
+  'Nothing logged yet.': 'Abhi tak kuch record nahi hua.',
+  'Login': 'Login',
+  'Transaction': 'Entry',
+  'Correction': 'Durusti',
+  'Entry deleted': 'Entry hatai gayi',
+  'Month close': 'Mahina band',
+  'Udhaar': 'Udhaar',
   // Which day an entry is for, and who may move it.
   'Any day up to today, back or forward. Where it ends up is kept on the entry with the day it came from.':
       'Aaj tak koi bhi din, aage ya peechhe. Jahan jaye wo aur '

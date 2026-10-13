@@ -6,6 +6,17 @@ enum LogKind {
   login,
   order,
   transaction,
+
+  /// An entry changed after it was written, and an entry taken out.
+  ///
+  /// Apart from [transaction], which is an entry being made, because these
+  /// two are the ones the four of them will want to read on their own: who
+  /// has gone back over the books, how often, and what they moved. Writing
+  /// an entry is the ordinary work of the farm; changing one that was
+  /// already written is the thing that has to be answerable.
+  correction,
+  entryDeleted,
+
   monthClose,
   investment,
   user,
@@ -17,6 +28,8 @@ enum LogKind {
   static LogKind parse(Object? v) => switch (s(v)) {
     'login' => LogKind.login,
     'order' => LogKind.order,
+    'correction' => LogKind.correction,
+    'entryDeleted' => LogKind.entryDeleted,
     'monthClose' => LogKind.monthClose,
     'investment' => LogKind.investment,
     'user' => LogKind.user,
@@ -30,6 +43,8 @@ enum LogKind {
   String get label => switch (this) {
     LogKind.login => 'Login',
     LogKind.order => 'Order',
+    LogKind.correction => 'Correction',
+    LogKind.entryDeleted => 'Entry deleted',
     LogKind.transaction => 'Transaction',
     LogKind.monthClose => 'Month close',
     LogKind.investment => 'Investment',
@@ -39,6 +54,10 @@ enum LogKind {
     LogKind.cattle => 'Cattle',
     LogKind.settings => 'Settings',
   };
+
+  /// Whether this line is something done to an entry that already existed.
+  bool get changedAnEntry =>
+      this == LogKind.correction || this == LogKind.entryDeleted;
 }
 
 class LogEntry {

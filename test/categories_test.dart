@@ -266,6 +266,17 @@ void categoryWordTests() {
       expect(missing, isEmpty, reason: 'no Roman Urdu for: $missing');
     });
 
+    test('and every line the activity log can tag', () {
+      // The log shows its kind through a variable, which the word checker
+      // cannot see into — the same blind spot that left twenty-seven
+      // headings in English. So the enum is walked here instead.
+      final missing = [
+        for (final k in LogKind.values)
+          if (!romanUrdu.containsKey(k.label)) k.label,
+      ];
+      expect(missing, isEmpty, reason: 'no Roman Urdu for: $missing');
+    });
+
     test('and both directions, and the milkings', () {
       for (final f in MoneyFlow.values) {
         expect(romanUrdu.containsKey(f.label), isTrue, reason: f.label);

@@ -387,8 +387,12 @@ class TxnRepo {
     await Db.transactions.doc(txn.id).update(fresh);
     await Log.write(
       actor,
-      LogKind.transaction,
-      'corrected ${txn.party} ${txn.category} — '
+      LogKind.correction,
+      // Which entry, and every field that moved, written out. The entry's
+      // own date is in here because the log is read long after the entry
+      // has scrolled away — "corrected Urooj Dairy Shop" names a man the
+      // farm deals with every day and no particular trade.
+      'corrected ${txn.party} · ${txn.category} of ${fmtDateFull(txn.date)} — '
       '${changes.map((c) => '${c.field} ${c.from} to ${c.to}').join(', ')}',
       refType: 'txn',
       refId: txn.id,
@@ -423,8 +427,9 @@ class TxnRepo {
     }
     await Log.write(
       actor,
-      LogKind.transaction,
-      'deleted ${txn.type.label.toLowerCase()} "${txn.party}" ${rs(txn.amount)}',
+      LogKind.entryDeleted,
+      'deleted ${txn.type.label.toLowerCase()} "${txn.party}" '
+      '${rs(txn.amount)} of ${fmtDateFull(txn.date)}',
       refType: 'transaction',
       refId: txn.id,
     );

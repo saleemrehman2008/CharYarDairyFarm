@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/log_service.dart';
 import 'package:char_yar_dairy_farm/services/statement.dart';
 import 'package:char_yar_dairy_farm/services/txn_repo.dart';
 
@@ -613,6 +614,60 @@ void main() {
           .where((t) => !movedCashIn(t) && !movedCashOut(t))
           .map((t) => t.id);
       expect(neither, ['b', 'd']);
+    });
+  });
+
+  group('who has been back over the books', () {
+    /// The count the four of them read at the head of the log. It is the
+    /// answer to the question that would sour a farm run by friends — not
+    /// "was a figure changed", which happens and has to, but "who has been
+    /// changing them, and how often".
+    LogEntry line(String who, LogKind kind, [int day = 1]) => LogEntry(
+      id: 'l$day$who',
+      at: DateTime(2026, 10, day),
+      uid: who.toLowerCase(),
+      who: who,
+      kind: kind,
+      what: 'did something',
+    );
+
+    test('corrections and deletions both count', () {
+      final tally = correctionTally([
+        line('Saleem Rehman', LogKind.correction, 1),
+        line('Saleem Rehman', LogKind.entryDeleted, 2),
+      ]);
+      expect(tally.single.who, 'Saleem Rehman');
+      expect(tally.single.times, 2);
+    });
+
+    test('writing an entry, or logging in, is not a change to one', () {
+      // The whole point of the list. An evening of ordinary work must not
+      // read as an evening of going back over things.
+      final tally = correctionTally([
+        line('Ghulam Ali', LogKind.transaction, 1),
+        line('Ghulam Ali', LogKind.login, 1),
+        line('Ghulam Ali', LogKind.monthClose, 2),
+      ]);
+      expect(tally, isEmpty);
+    });
+
+    test('busiest first, and alphabetical between equals', () {
+      // So the list does not reshuffle itself every time it is opened.
+      final tally = correctionTally([
+        line('Ghulam Ali', LogKind.correction, 1),
+        line('Saleem Rehman', LogKind.correction, 1),
+        line('Saleem Rehman', LogKind.correction, 2),
+        line('Saleem Rehman', LogKind.correction, 3),
+        line('Bilal', LogKind.correction, 4),
+      ]);
+      expect(tally.map((t) => t.who), ['Saleem Rehman', 'Bilal', 'Ghulam Ali']);
+      expect(tally.map((t) => t.times), [3, 1, 1]);
+    });
+
+    test('a line with no name against it still has to be counted', () {
+      final tally = correctionTally([line('', LogKind.correction)]);
+      expect(tally.single.who, 'Someone');
+      expect(tally.single.times, 1);
     });
   });
 }
