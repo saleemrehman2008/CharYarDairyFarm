@@ -138,9 +138,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// evening one stay in the order they happened. A day gone by is stamped at
   /// noon: the hour is not known and pretending to it would put a back-dated
   /// entry either side of entries written at the time for no reason.
-  DateTime get _when => _isToday
-      ? DateTime.now()
-      : DateTime(_day.year, _day.month, _day.day, 12);
+  DateTime get _when =>
+      _isToday ? DateTime.now() : DateTime(_day.year, _day.month, _day.day, 12);
 
   /// How far back this person may date an entry.
   ///

@@ -527,13 +527,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// books still hold it in October, so the line that marks where a period
   /// ended would be drawn twice and in the wrong place. The period is what
   /// the figures are built on, so the period leads.
-  static List<Txn> _ordered(List<Txn> rows) =>
-      rows.toList()..sort((a, b) {
-        final byPeriod = b.monthId.compareTo(a.monthId);
-        if (byPeriod != 0) return byPeriod;
-        final byDate = b.date.compareTo(a.date);
-        return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
-      });
+  static List<Txn> _ordered(List<Txn> rows) => rows.toList()
+    ..sort((a, b) {
+      final byPeriod = b.monthId.compareTo(a.monthId);
+      if (byPeriod != 0) return byPeriod;
+      final byDate = b.date.compareTo(a.date);
+      return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
+    });
 
   // ---- settling a stack of credit entries together ----
 

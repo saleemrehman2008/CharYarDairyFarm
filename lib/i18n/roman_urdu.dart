@@ -514,13 +514,13 @@ const Map<String, String> romanUrdu = {
   // Which day an entry is for, and who may move it.
   'Any day up to today, back or forward. Where it ends up is kept on the entry with the day it came from.':
       'Aaj tak koi bhi din, aage ya peechhe. Jahan jaye wo aur '
-          'jahan se aayi thi, dono entry par mehfooz rehte hain.',
+      'jahan se aayi thi, dono entry par mehfooz rehte hain.',
   'Anywhere inside this period — %s to today, back or forward. Both days are kept on the entry.':
       'Isi period ke andar kahin bhi — %s se aaj tak, aage ya '
-          'peechhe. Dono tareekhen entry par mehfooz rehti hain.',
+      'peechhe. Dono tareekhen entry par mehfooz rehti hain.',
   'Written in later, on %s. Every figure reads the day above — this is only the day somebody typed it.':
       'Baad mein likhi gayi, %s ko. Har hisab uper wale din se '
-          'chalta hai — ye sirf wo din hai jab kisi ne type ki.',
+      'chalta hai — ye sirf wo din hai jab kisi ne type ki.',
   'For this day · written %s': 'Isi din ki · likhi %s',
 
   // The two lists that carry one row per rupee.
