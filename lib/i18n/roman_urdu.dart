@@ -452,7 +452,7 @@ const Map<String, String> romanUrdu = {
   'Credit': 'Credit',
   'Total debit': 'Kul debit',
   'Total credit': 'Kul credit',
-  'Balance owed': 'Baqaya',
+  // 'Balance' is in the common words at the top of this table.
   'The farm owes': 'Farm ko dena hai',
   'Nothing in these days.': 'In dinon me kuch nahi.',
   'Send as PDF': 'PDF bhejen',
@@ -507,12 +507,33 @@ const Map<String, String> romanUrdu = {
   'What was written down, not what happened. Everything you change is kept on the entry with your name against it.':
       'Jo likha gaya tha wo, na ke jo hua tha. Aap jo bhi badlen wo '
       'entry par aap ke naam ke saath mehfooz rehta hai.',
-  '%s — only the master can move a date.':
-      '%s — tareekh sirf master badal sakta hai.',
   'This entry belongs to %s, which is already settled. Nothing in a settled period can be corrected — the profit was worked out from it and shared. Put the correction in the open period as a new entry.':
       'Ye entry %s ki hai, jo band ho chuka hai. Band mahine mein kuch '
       'theek nahi ho sakta — us ka munafa nikal kar bant chuka hai. '
       'Durusti khule mahine mein nayi entry ke taur par daalen.',
+  // Which day an entry is for, and who may move it.
+  'Any day up to today, back or forward. Where it ends up is kept on the entry with the day it came from.':
+      'Aaj tak koi bhi din, aage ya peechhe. Jahan jaye wo aur '
+          'jahan se aayi thi, dono entry par mehfooz rehte hain.',
+  'Anywhere inside this period — %s to today, back or forward. Both days are kept on the entry.':
+      'Isi period ke andar kahin bhi — %s se aaj tak, aage ya '
+          'peechhe. Dono tareekhen entry par mehfooz rehti hain.',
+  'Written in later, on %s. Every figure reads the day above — this is only the day somebody typed it.':
+      'Baad mein likhi gayi, %s ko. Har hisab uper wale din se '
+          'chalta hai — ye sirf wo din hai jab kisi ne type ki.',
+  'For this day · written %s': 'Isi din ki · likhi %s',
+
+  // The two lists that carry one row per rupee.
+  'Money received': 'Jo paisa mila',
+  'Money paid out': 'Jo paisa diya',
+  'Money against an entry written earlier': 'Pehli likhi entry ka paisa',
+  'balance owed': 'balance baqaya',
+  'balance to pay': 'balance dena hai',
+
+  // Security deposits, called that everywhere now.
+  'Security the farm is holding': 'Security jo farm ke paas rakhi hai',
+  'Security held': 'Security rakhi hui',
+  'Security paid out': 'Security jo di hui hai',
   // Shared with the entry form, which the word checker cannot see into.
   'Qty': 'Miqdaar',
   'Rate / unit': 'Rate fi unit',

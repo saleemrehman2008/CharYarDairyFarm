@@ -559,7 +559,7 @@ class _MoneyCard extends StatelessWidget {
           // deposit left with a supplier.
           if (money.securitiesOut > 0)
             _MoneyLine(
-              label: l.t('Advances paid out'),
+              label: l.t('Security paid out'),
               value: money.securitiesOut,
               note: l.t('out of the cash, and still owed to the farm'),
               tone: T.moneyGet,
@@ -569,7 +569,7 @@ class _MoneyCard extends StatelessWidget {
           // ends, so it is never counted as anything the farm has made.
           if (money.securitiesHeld > 0)
             _MoneyLine(
-              label: l.t('Advances held'),
+              label: l.t('Security held'),
               value: -money.securitiesHeld,
               note: l.t(
                 'money that belongs to customers, and goes back when a '

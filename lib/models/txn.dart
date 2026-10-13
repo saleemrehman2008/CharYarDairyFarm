@@ -693,6 +693,23 @@ class Txn {
 
   bool get isDeleted => deletedAt != null;
 
+  /// Written down after the day it happened on.
+  ///
+  /// Both days are kept and neither is guessed: [date] is the day the trade
+  /// happened, which every figure is read off, and [createdAt] is the evening
+  /// somebody sat down and typed it. On almost every entry they are the same
+  /// day. Where they are not, the ledger says so out loud — an entry that
+  /// turns up inside a day four people have already read has to be
+  /// recognisable as a late one, or the figures appear to have moved on their
+  /// own.
+  bool get wasDatedBack => _day(date).isBefore(_day(createdAt));
+
+  /// Somebody has moved this entry's date since it was written.
+  bool get dateWasMoved =>
+      edits.any((e) => e.changes.any((c) => c.field == 'Date'));
+
+  static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
+
   /// Cattle and equipment the farm now owns, rather than money it spent.
   bool get isCapitalAsset =>
       (type == TxnType.purchase || type == TxnType.expense) &&

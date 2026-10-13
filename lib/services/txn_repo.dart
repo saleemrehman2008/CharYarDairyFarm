@@ -7,6 +7,47 @@ import 'db.dart';
 import 'month_repo.dart';
 import 'log_service.dart';
 
+/// Whether this person may put an entry on this day, and why not.
+///
+/// Null means yes; anything else is a sentence to put in front of somebody.
+/// It lives out here, apart from the writing, because three different things
+/// ask the same question: the form, deciding what the date picker may offer;
+/// the repo, before it writes; and a test, which has neither.
+///
+/// Two rules, and both of them are about days other people have already read:
+///
+///  * Nothing is dated forward of today. Milk that has not been sold is not
+///    an entry, and a date in the future leaves every figure short until it
+///    arrives.
+///  * Nobody but the master goes back past the day the open period began.
+///    Inside the period is the ordinary correction — the 8th that was the
+///    6th — and the farm is still writing those days. The day before it is a
+///    period whose figures have been sent round, agreed and shared out.
+String? dateMoveRefusal({
+  required bool isMaster,
+  required DateTime to,
+  DateTime? periodStart,
+  DateTime? now,
+}) {
+  final day = DateTime(to.year, to.month, to.day);
+  final today = now ?? DateTime.now();
+  if (day.isAfter(DateTime(today.year, today.month, today.day))) {
+    return 'An entry cannot be dated later than today.';
+  }
+  if (!isMaster && periodStart != null) {
+    final floor = DateTime(
+      periodStart.year,
+      periodStart.month,
+      periodStart.day,
+    );
+    if (day.isBefore(floor)) {
+      return 'That is before this period started. Only the master can move '
+          'an entry out of the period it was written in.';
+    }
+  }
+  return null;
+}
+
 /// Writes to the ledger. Cloud Functions mirror every change to the
 /// Transactions tab of the Google Sheet, so nothing here talks to Sheets.
 class TxnRepo {
@@ -209,9 +250,10 @@ class TxnRepo {
   ///
   /// Two people may do this and they may do different amounts of it. Anybody
   /// who keeps the books can fix what was typed — a name, a heading, a
-  /// quantity, a rate, the figure, the note. Only the master may move the
-  /// date, because moving a date moves where the entry sits in everybody's
-  /// account and in every statement printed from it.
+  /// quantity, a rate, the figure, the note — and can move the date anywhere
+  /// inside the period that is open, back or forward, as far as today. Only
+  /// the master may take it out of that period, because an earlier day has
+  /// already been read and printed on somebody's statement.
   ///
   /// Neither may touch two things. The period it was booked into never
   /// changes: that is the field closed months are built on, and an entry that
@@ -242,6 +284,11 @@ class TxnRepo {
     PayVia? payVia,
     String? handledBy,
     DateTime? date,
+
+    /// The first day somebody who is not the master may date this entry to —
+    /// the day the open period began. Null leaves the date unguarded at this
+    /// end, which is what the tests of the other rules want.
+    DateTime? earliest,
   }) async {
     if (!periodIsOpen) {
       throw StateError(
@@ -249,8 +296,13 @@ class TxnRepo {
         'correction in the open period instead.',
       );
     }
-    if (date != null && !isMaster) {
-      throw StateError('Only the master can change the date of an entry.');
+    if (date != null && !_sameDay(date, txn.date)) {
+      final refused = dateMoveRefusal(
+        isMaster: isMaster,
+        to: date,
+        periodStart: earliest,
+      );
+      if (refused != null) throw StateError(refused);
     }
 
     final fresh = <String, dynamic>{};

@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
+import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/services/statement.dart';
+import 'package:char_yar_dairy_farm/services/txn_repo.dart';
 
 import 'support/farm_sim.dart';
 
@@ -348,6 +350,269 @@ void main() {
 
     test('one that is closed and shared out, no', () {
       expect(open(month('2026-08', 'closed')), isFalse);
+    });
+  });
+
+  group('the day it happened and the day it was typed', () {
+    /// An entry carries both, always, and neither is worked out from the
+    /// other: [Txn.date] is the day the milk went out, [Txn.createdAt] is
+    /// the evening somebody sat down with the phone. The books read the
+    /// first; the second is how anybody can tell a late entry from one that
+    /// was there all along.
+    Txn written({required DateTime on, required DateTime typed}) => Txn(
+      id: 't1',
+      date: on,
+      monthId: '2026-10',
+      type: TxnType.sale,
+      party: 'Urooj Dairy Shop',
+      category: milkCategory,
+      amount: 8000,
+      paid: true,
+      note: '',
+      createdBy: 'u1',
+      createdAt: typed,
+    );
+
+    test('written the same day, there is nothing to say', () {
+      final t = written(
+        on: DateTime(2026, 10, 13, 7),
+        typed: DateTime(2026, 10, 13, 21),
+      );
+      expect(t.wasDatedBack, isFalse);
+    });
+
+    test('written two days later, the entry says so', () {
+      final t = written(
+        on: DateTime(2026, 10, 11, 12),
+        typed: DateTime(2026, 10, 13, 21),
+      );
+      expect(t.wasDatedBack, isTrue);
+      expect(t.date.day, 11, reason: 'the milk went out on the eleventh');
+      expect(t.createdAt.day, 13, reason: 'it was typed on the thirteenth');
+    });
+
+    test('a back-dated entry still belongs to the open period', () {
+      // The one thing back-dating must never do. The date moves where the
+      // entry is read; the period is what a closed month's profit was
+      // worked out from, and it stays where it was written.
+      final t = written(
+        on: DateTime(2026, 10, 2),
+        typed: DateTime(2026, 10, 13),
+      );
+      expect(t.monthId, '2026-10');
+    });
+
+    test('a correction to the date is kept with both days on it', () {
+      final moved = TxnEdit(
+        at: DateTime(2026, 10, 13, 19, 40),
+        byUid: 'u2',
+        byName: 'Ghulam Ali',
+        changes: const [
+          (field: 'Date', from: '11 Oct 2026', to: '12 Oct 2026'),
+        ],
+      );
+      final back = TxnEdit.listFrom([moved.toMap()]).single;
+      expect(back.byName, 'Ghulam Ali');
+      expect(back.at.hour, 19, reason: 'when the correction was made');
+      expect(back.changes.single.from, '11 Oct 2026');
+      expect(back.changes.single.to, '12 Oct 2026');
+    });
+  });
+
+  group('how far a date may move', () {
+    final periodStart = DateTime(2026, 9, 25, 19, 30);
+    final today = DateTime(2026, 10, 13, 11, 56);
+
+    String? refusal({
+      required bool isMaster,
+      required DateTime to,
+      DateTime? start,
+    }) => dateMoveRefusal(
+      isMaster: isMaster,
+      to: to,
+      periodStart: start ?? periodStart,
+      now: today,
+    );
+
+    test('a founder may go back inside the period', () {
+      // The 8th that was really the 6th. This is the whole reason the
+      // date can be touched at all.
+      expect(refusal(isMaster: false, to: DateTime(2026, 10, 6)), isNull);
+    });
+
+    test('and forward inside it, as far as today', () {
+      expect(refusal(isMaster: false, to: DateTime(2026, 10, 13)), isNull);
+    });
+
+    test('as far back as the day the period opened', () {
+      // The period began at half past seven in the evening, because that is
+      // when the one before it was sealed. An entry for the morning of that
+      // same day is inside the period, and has to be allowed.
+      expect(refusal(isMaster: false, to: DateTime(2026, 9, 25, 6)), isNull);
+    });
+
+    test('but not the day before it', () {
+      // That day belongs to a period that has been sealed, agreed and
+      // shared out.
+      expect(refusal(isMaster: false, to: DateTime(2026, 9, 24)), isNotNull);
+    });
+
+    test('the master may reach back past it', () {
+      expect(refusal(isMaster: true, to: DateTime(2026, 9, 24)), isNull);
+    });
+
+    test('nobody dates an entry tomorrow', () {
+      expect(refusal(isMaster: false, to: DateTime(2026, 10, 14)), isNotNull);
+      expect(refusal(isMaster: true, to: DateTime(2026, 10, 14)), isNotNull);
+    });
+
+    test('a period nobody has opened a document for holds nobody back', () {
+      // The first entry of a period is written before anything opens it.
+      expect(
+        dateMoveRefusal(
+          isMaster: false,
+          to: DateTime(2026, 10, 1),
+          periodStart: null,
+          now: today,
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('one row per rupee', () {
+    /// The two cash lists on the ledger page, which exist because the farm
+    /// read its own books and found the same money twice: a sale on credit,
+    /// and the receipt that settled it weeks later. Both rows are right.
+    /// Counting both is not.
+    late List<Txn> ledger;
+
+    setUp(() {
+      ledger = [
+        // Paid at the door. Counted on itself.
+        Txn(
+          id: 'a',
+          date: DateTime(2026, 10, 2),
+          monthId: '2026-10',
+          type: TxnType.sale,
+          party: 'Counter',
+          category: milkCategory,
+          amount: 5000,
+          paid: true,
+          paidOnCreate: true,
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 2),
+        ),
+        // Sold on credit on the 5th and settled on the 20th. The sale row
+        // moved no cash on the 5th; the receipt did on the 20th.
+        Txn(
+          id: 'b',
+          date: DateTime(2026, 10, 5),
+          monthId: '2026-10',
+          type: TxnType.sale,
+          party: 'Urooj Dairy Shop',
+          category: milkCategory,
+          amount: 38000,
+          paid: true,
+          paidSoFar: 38000,
+          paidOnCreate: false,
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 5),
+        ),
+        Txn(
+          id: 'b-settles',
+          date: DateTime(2026, 10, 20),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Urooj Dairy Shop',
+          category: khaataReceiptCategory,
+          amount: 38000,
+          paid: true,
+          paidOnCreate: true,
+          settlesTxnId: 'b',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 20),
+        ),
+        // Feed paid for at the mandi.
+        Txn(
+          id: 'c',
+          date: DateTime(2026, 10, 7),
+          monthId: '2026-10',
+          type: TxnType.purchase,
+          party: 'Feed store',
+          category: 'Wanda / feed',
+          amount: 12000,
+          paid: true,
+          paidOnCreate: true,
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 7),
+        ),
+        // A buffalo written off. A real cost and not a rupee of cash.
+        Txn(
+          id: 'd',
+          date: DateTime(2026, 10, 9),
+          monthId: '2026-10',
+          type: TxnType.expense,
+          party: 'Herd',
+          category: writeOffCategory,
+          amount: 300000,
+          paid: true,
+          paidOnCreate: true,
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 9),
+        ),
+      ];
+    });
+
+    num sum(Iterable<Txn> rows) => rows.fold<num>(0, (a, t) => a + t.amount);
+
+    test('the credit sale is counted on the day the money came, once', () {
+      final inRows = ledger.where(movedCashIn).toList();
+      expect(inRows.map((t) => t.id), ['a', 'b-settles']);
+      expect(sum(inRows), 43000);
+    });
+
+    test('and what went out leaves the write-off alone', () {
+      final outRows = ledger.where(movedCashOut).toList();
+      expect(outRows.map((t) => t.id), ['c']);
+      expect(sum(outRows), 12000);
+    });
+
+    test('the two lists come to what the balance card says', () {
+      // The point of the whole exercise: a person adding up what is on
+      // screen gets the farm's own figure, not something near it.
+      final books = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        monthTxns: ledger,
+        unpaidTxns: const [],
+      );
+      final cashIn = sum(ledger.where(movedCashIn));
+      final cashOut = sum(ledger.where(movedCashOut));
+      expect(cashIn - cashOut, books.operatingCash);
+    });
+
+    test('nothing is in both lists, and no rupee is in neither', () {
+      for (final t in ledger) {
+        expect(
+          movedCashIn(t) && movedCashOut(t),
+          isFalse,
+          reason: '${t.id} cannot be both',
+        );
+      }
+      // The two rows that moved no cash are the credit sale before it was
+      // settled, and the write-off. Everything else is on one list or the
+      // other.
+      final neither = ledger
+          .where((t) => !movedCashIn(t) && !movedCashOut(t))
+          .map((t) => t.id);
+      expect(neither, ['b', 'd']);
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'package:char_yar_dairy_farm/screens/shared/new_entry_screen.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/theme/tokens.dart';
 import 'package:char_yar_dairy_farm/widgets/balance_check.dart';
@@ -275,6 +276,49 @@ void main() {
       final texts = tester.widgetList<Text>(find.byType(Text)).toList();
       expect(texts.first.style!.color, T.moneyGet);
       expect(texts.last.style!.color, T.moneyIn);
+    });
+  });
+
+  group('the day an entry is for', () {
+    testWidgets('opens on today and says so', (tester) async {
+      final today = DateTime.now();
+      await inAList(tester, [
+        DayPicker(
+          day: today,
+          isToday: true,
+          floor: DateTime(today.year, today.month),
+          period: 'October 2026',
+          onPick: () {},
+          onToday: () {},
+        ),
+      ]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('today'), findsWidgets);
+      expect(find.text('Change'), findsOneWidget);
+      // Nothing to go back to while it is already today.
+      expect(find.text('Back to today'), findsNothing);
+    });
+
+    testWidgets('a day gone by says what will happen and offers the way '
+        'back', (tester) async {
+      await inAList(tester, [
+        DayPicker(
+          day: DateTime(2026, 10, 11),
+          isToday: false,
+          floor: DateTime(2026, 9, 25),
+          period: 'October 2026',
+          onPick: () {},
+          onToday: () {},
+        ),
+      ]);
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('not today'), findsOneWidget);
+      expect(find.text('Back to today'), findsOneWidget);
+      // Which period it lands in, which is the thing back-dating must not
+      // move and so the thing the form has to say out loud.
+      expect(find.textContaining('October 2026'), findsOneWidget);
     });
   });
 }

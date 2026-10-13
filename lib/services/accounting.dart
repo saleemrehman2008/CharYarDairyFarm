@@ -180,6 +180,29 @@ class Books {
   );
 }
 
+/// Rows where money actually came in, and rows where it actually went out —
+/// every rupee exactly once.
+///
+/// The farm went looking at its own ledger for "what has come in" and found
+/// the same money written twice: a sale on credit, and then the receipt that
+/// settled it weeks later. Both rows are right and both have to stay — one
+/// is the trade, the other is the day the money arrived — but a list that
+/// counts both says the farm took twice what it took.
+///
+/// So these two pick the rows the cash moved on and nothing else. An entry
+/// settled as it was written is counted on itself; one booked on credit is
+/// counted on the settlement row instead, which may well be in a later
+/// month. Add either list up and it comes to the same figure the balance
+/// card shows — a test holds them to that.
+///
+/// A write-off is the one row that looks like money going out and is not.
+/// The rupees left when the animal was bought; nothing moves on the day she
+/// is written off.
+bool movedCashIn(Txn t) => t.type.isIncoming && t.paidOnCreate;
+
+bool movedCashOut(Txn t) =>
+    !t.type.isIncoming && t.paidOnCreate && !t.isWriteOff;
+
 /// Where every rupee the farm has ever handled currently sits.
 ///
 /// The dashboard used to show only the closing figure, which left the farm

@@ -253,6 +253,20 @@ String periodDates(FarmMonth period) {
   return '${fmtDateFull(from)} — ${fmtDateFull(to)}';
 }
 
+/// The first day a period will take an entry for.
+///
+/// The floor on how far back an ordinary entry may be dated. A period that
+/// says when it began is taken at its word; one that does not is read off
+/// its own name, so `2026-10` opens on the first of October. The last
+/// fallback is the far past, which lets the entry through rather than
+/// refusing one because a period document is missing.
+DateTime periodFirstDay(FarmMonth period) {
+  final from = period.from;
+  if (from != null) return DateTime(from.year, from.month, from.day);
+  final named = _parseMonthId(period.id);
+  return named ?? DateTime(2000);
+}
+
 /// What to call a period on screen.
 ///
 /// A whole calendar month is just its name. Anything shorter is named by the

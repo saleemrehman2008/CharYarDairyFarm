@@ -70,6 +70,23 @@ service cloud.firestore {
         && changedKeys().hasOnly(['paid', 'paidSoFar', 'paidAt', 'payVia',
                                   'handledBy']);
     }
+    // The new date of an entry lands inside the period it is booked into,
+    // and not in the future.
+    //
+    // A day's slack at each end, deliberately. The period's `from` is the
+    // moment the first entry was written rather than midnight — an entry on
+    // the morning of that same day is inside the period and would fail a
+    // strict comparison. And the far end is a phone's own clock, which can
+    // be a few minutes ahead of the server's. Neither slack reaches another
+    // period's figures, which is what this is guarding.
+    function datedInside(id) {
+      return request.resource.data.date <= request.time + duration.value(1, 'd')
+        && (!exists(/databases/$(database)/documents/months/$(id))
+            || !('from' in get(/databases/$(database)/documents/months/$(id)).data)
+            || request.resource.data.date >=
+               get(/databases/$(database)/documents/months/$(id)).data.from
+               - duration.value(1, 'd'));
+    }
     function openPeriod(id) {
       return !exists(/databases/$(database)/documents/months/$(id))
         || get(/databases/$(database)/documents/months/$(id)).data.get('status', 'open') == 'open';
@@ -280,7 +297,11 @@ service cloud.firestore {
       // Delivery staff may write the money they took in — a sale at the door
       // or a receipt against a khaata — and nothing else. They cannot read the
       // ledger back, so a delivery phone can never show the farm's books.
-      allow create: if isPartner()
+      // A new entry may be dated back inside the period it is booked into —
+      // the milk nobody wrote down on Tuesday — and no further. Reaching
+      // past that is the master's, the same as moving an existing entry.
+      allow create: if (isPartner()
+            && (isMaster() || datedInside(request.resource.data.monthId)))
         || (isDelivery()
             && request.resource.data.type in ['sale', 'receipt']);
 
@@ -301,16 +322,21 @@ service cloud.firestore {
       // September row — the period being closed is exactly when this
       // happens, so a rule that stopped it would stop the farm collecting.
       //
-      // The date is the master's: moving it moves where the entry sits in
-      // somebody's account and in every statement printed from it. Anybody
-      // who keeps the books may fix what was typed. Marking an entry
-      // deleted rewrites what the farm earned, so it stays the master's.
+      // The date may move inside the period and no further. Anybody who
+      // keeps the books can put an entry on the right day of the period
+      // being written — that is where the mistakes are. Taking it out of
+      // that period is the master's, because an earlier day has been read,
+      // agreed and printed on somebody's statement. Nothing is dated
+      // forward of today either way. Marking an entry deleted rewrites what
+      // the farm earned, so that stays the master's.
       allow update: if !changedKeys().hasAny(['monthId'])
         && (settlingOnly()
             || (openPeriod(resource.data.monthId)
                 && (isMaster()
                     || (isPartner()
-                        && !changedKeys().hasAny(['deletedAt', 'date']))))
+                        && !changedKeys().hasAny(['deletedAt'])
+                        && (!changedKeys().hasAny(['date'])
+                            || datedInside(resource.data.monthId)))))
             || (isMaster() && changedKeys().hasOnly(['deletedAt'])));
 
       allow delete: if false;

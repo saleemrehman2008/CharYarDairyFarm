@@ -55,6 +55,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   PayVia _payVia = PayVia.cash;
   bool _busy = false;
 
+  /// Which day the entry is for. Today unless somebody says otherwise.
+  ///
+  /// Two dates are kept on every entry and this is the one that matters to
+  /// the books: the day the milk went out or the feed came in. The other is
+  /// the moment this form was saved, which the app writes itself and nobody
+  /// can type over — so an entry put in two days late reads as what it is,
+  /// Monday's trade written on Wednesday.
+  DateTime _day = DateTime.now();
+
   final _party = TextEditingController();
   final _qty = TextEditingController();
   final _rate = TextEditingController();
@@ -116,6 +125,52 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         ? rate.toInt().toString()
         : rate.toStringAsFixed(2);
     _syncing = false;
+  }
+
+  bool get _isToday => _sameDay(_day, DateTime.now());
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// The day the entry carries, with a time of day on it.
+  ///
+  /// Today's entries are stamped with the clock, so a morning sale and an
+  /// evening one stay in the order they happened. A day gone by is stamped at
+  /// noon: the hour is not known and pretending to it would put a back-dated
+  /// entry either side of entries written at the time for no reason.
+  DateTime get _when => _isToday
+      ? DateTime.now()
+      : DateTime(_day.year, _day.month, _day.day, 12);
+
+  /// How far back this person may date an entry.
+  ///
+  /// A founder may go back to the start of the period that is open — far
+  /// enough for the milk nobody wrote down on Tuesday, and no further. The
+  /// day before that belongs to a period whose figures have been sent round
+  /// and agreed, and an entry appearing inside it would change a statement
+  /// four people have already read. The master can go further back, because
+  /// somebody has to be able to.
+  DateTime _floor(FarmStore store, bool isMaster) {
+    if (isMaster) {
+      final now = DateTime.now();
+      return DateTime(now.year - 2, now.month, now.day);
+    }
+    return periodFirstDay(store.month);
+  }
+
+  Future<void> _pickDay(FarmStore store, bool isMaster) async {
+    final now = DateTime.now();
+    final floor = _floor(store, isMaster);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _day.isBefore(floor) ? floor : _day,
+      firstDate: floor,
+      // Nothing is dated forward. Milk that has not been sold is not an
+      // entry.
+      lastDate: now,
+      helpText: 'Which day is this for?',
+    );
+    if (picked != null && mounted) setState(() => _day = picked);
   }
 
   void _setCategory(String category, bool? capital) {
@@ -211,6 +266,20 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
     final store = context.read<FarmStore>();
     final actor = context.read<Session>().actor;
+
+    // The same rule the correction sheet runs and the server enforces. The
+    // picker already keeps the days it offers inside it; this is for the
+    // entry left sitting open across midnight, or across a period close.
+    final refused = dateMoveRefusal(
+      isMaster: context.read<Session>().role == Role.master,
+      to: _day,
+      periodStart: periodFirstDay(store.month),
+    );
+    if (refused != null) {
+      toast(context, refused);
+      return;
+    }
+
     setState(() => _busy = true);
     try {
       await MonthRepo.ensureOpen(store.month.id);
@@ -230,6 +299,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         note: _note.text.trim(),
         payVia: _payVia,
         handledBy: _handledBy.text.trim(),
+        // The day the trade happened. The moment it was typed is written
+        // alongside it by the server, and neither can be had without the
+        // other.
+        date: _when,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -259,6 +332,27 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           // wrong one goes back rather than discovering halfway down a
           // filled-in form that everything under it has quietly changed.
           _Heading(flow: widget.flow, tone: tone),
+          const SizedBox(height: T.pad),
+
+          // Which day the entry is for, which is today unless somebody says
+          // otherwise. The milk nobody wrote down on Tuesday is still
+          // Tuesday's milk, and before this it could only be entered as
+          // today's — so a day's sales were wrong in both directions at once
+          // and the only record of why was in somebody's head.
+          DayPicker(
+            day: _day,
+            isToday: _isToday,
+            floor: _floor(
+              context.watch<FarmStore>(),
+              context.watch<Session>().role == Role.master,
+            ),
+            period: monthName(context.watch<FarmStore>().month.id),
+            onPick: () => _pickDay(
+              context.read<FarmStore>(),
+              context.read<Session>().role == Role.master,
+            ),
+            onToday: () => setState(() => _day = DateTime.now()),
+          ),
           const SizedBox(height: T.pad),
 
           // Names come off the books as they are typed, so one customer
@@ -599,9 +693,106 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             busy: _busy,
             onPressed: _save,
           ),
-          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+/// Which day the entry is for.
+///
+/// Today, until somebody taps the date. It matters that this is one tap away
+/// rather than hidden: the entry that gets written late is the one nobody had
+/// a hand free for at the time — the morning milk, the feed that arrived
+/// while the round was out — and a form that can only say "today" moves that
+/// trade onto the wrong day and takes the other day's figures down with it.
+///
+/// Both dates are kept. This one is the trade; the other is the moment the
+/// form was saved, which the server writes and nobody can type over. The
+/// period the entry is booked into is a third thing again and does not move:
+/// it is always the period that is open, which is what keeps a settled
+/// month's profit settled.
+class DayPicker extends StatelessWidget {
+  const DayPicker({
+    super.key,
+    required this.day,
+    required this.isToday,
+    required this.floor,
+    required this.period,
+    required this.onPick,
+    required this.onToday,
+  });
+
+  final DateTime day;
+  final bool isToday;
+
+  /// The earliest day this person may pick, so the form can say so before
+  /// the picker refuses it.
+  final DateTime floor;
+
+  /// The period the entry will be booked into, whatever its date.
+  final String period;
+
+  final VoidCallback onPick;
+  final VoidCallback onToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = isToday ? T.accent600 : T.moneyDue;
+    return RegCard(
+      stripe: tone,
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.event_outlined, size: 18, color: tone),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Kicker('Which day is this for?'),
+                    const SizedBox(height: 3),
+                    Text(
+                      isToday
+                          ? '${fmtDateFull(day)} · today'
+                          : fmtDateFull(day),
+                      style: T.bodyMid,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              GhostButton(
+                label: 'Change',
+                icon: Icons.edit_calendar_outlined,
+                compact: true,
+                onPressed: onPick,
+              ),
+            ],
+          ),
+          if (!isToday) ...[
+            const SizedBox(height: 9),
+            Text(
+              'This entry will show on ${fmtDateFull(day)}, not today. Both '
+              'days are kept on it: the day it happened, and the day it was '
+              'typed in.',
+              style: T.meta.copyWith(color: T.moneyDue),
+            ),
+            const SizedBox(height: 8),
+            GhostButton(
+              label: 'Back to today',
+              icon: Icons.today_outlined,
+              compact: true,
+              onPressed: onToday,
+            ),
+          ],
+          const SizedBox(height: 8),
           Text(
-            'Booked into ${monthName(context.watch<FarmStore>().month.id)}.',
+            'Booked into $period either way. Nothing can be dated before '
+            '${fmtDateFull(floor)}.',
             style: T.meta,
           ),
         ],

@@ -29,10 +29,23 @@ import 'new_entry_screen.dart';
 /// is pale.
 enum AccountsFilter {
   all('All'),
-  sales('Sales'),
-  expenses('Expenses'),
+
+  /// The two cash views: rows where the money actually moved.
+  ///
+  /// These are the answer to the farm's own complaint about this page. A milk
+  /// sale on credit and the receipt that settles it three weeks later are two
+  /// rows, and on the "All" list they sit there looking like two sales. They
+  /// have to both be there — one is the trade, the other is the day the money
+  /// came — but a person counting what has come in should not have to know
+  /// which of them to skip. So these two lists carry one row per rupee: an
+  /// entry settled on the spot, or the settlement of one that was not.
+  received('Received'),
+  paidOut('Paid'),
+
   receivable('To receive'),
-  payable('To pay');
+  payable('To pay'),
+  sales('Sales'),
+  expenses('Expenses');
 
   const AccountsFilter(this.label);
 
@@ -42,8 +55,8 @@ enum AccountsFilter {
   /// three skins — a red that reads on paper is a bruise on a black page.
   Color get tone => switch (this) {
     AccountsFilter.all => T.accent600,
-    AccountsFilter.sales => T.moneyIn,
-    AccountsFilter.expenses => T.moneyOut,
+    AccountsFilter.sales || AccountsFilter.received => T.moneyIn,
+    AccountsFilter.expenses || AccountsFilter.paidOut => T.moneyOut,
     AccountsFilter.receivable => T.moneyGet,
     AccountsFilter.payable => T.moneyDue,
   };
@@ -53,6 +66,8 @@ enum AccountsFilter {
     AccountsFilter.all => books.cash,
     AccountsFilter.sales => books.sales,
     AccountsFilter.expenses => books.costs,
+    AccountsFilter.received => books.paidSales + books.receipts,
+    AccountsFilter.paidOut => books.paidOut,
     AccountsFilter.receivable => books.receivable,
     AccountsFilter.payable => books.payable,
   };
@@ -61,9 +76,16 @@ enum AccountsFilter {
     AccountsFilter.all => 'Cash in hand',
     AccountsFilter.sales => 'Sales this period',
     AccountsFilter.expenses => 'Running costs',
+    AccountsFilter.received => 'Money received',
+    AccountsFilter.paidOut => 'Money paid out',
     AccountsFilter.receivable => 'Still to collect',
     AccountsFilter.payable => 'Still to pay',
   };
+
+  /// True on the two lists that carry one row per rupee, where a figure at
+  /// the top of the page is a total of money and not of entries.
+  bool get isCashView =>
+      this == AccountsFilter.received || this == AccountsFilter.paidOut;
 }
 
 /// The farm ledger: everything bought and sold, and what is still outstanding.
@@ -142,7 +164,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         final periods = periodSnap.data ?? const <FarmMonth>[];
         final everything = store.ledger;
         final loading = !store.ready;
-        final rows = _narrow(_rows(everything, store));
+        final rows = _ordered(_narrow(_rows(everything, store)));
         // Split where the work is. Anything still owing goes above the
         // settle bar; anything finished with goes below it.
         final open = rows.where((t) => t.outstanding > 0).toList();
@@ -489,9 +511,29 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 t.isLoosePayment,
           )
           .toList(),
+    // One row per rupee. See [AccountsFilter.received].
+    AccountsFilter.received => monthTxns.where(movedCashIn).toList(),
+    AccountsFilter.paidOut => monthTxns.where(movedCashOut).toList(),
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
   };
+
+  /// The order the ledger is read in: period by period, newest first, and
+  /// inside a period by day.
+  ///
+  /// By date alone was enough while every entry was written on the day it
+  /// happened. It is not now that an entry can be dated back: one written in
+  /// October for a day in September sorts in among September's rows while the
+  /// books still hold it in October, so the line that marks where a period
+  /// ended would be drawn twice and in the wrong place. The period is what
+  /// the figures are built on, so the period leads.
+  static List<Txn> _ordered(List<Txn> rows) =>
+      rows.toList()..sort((a, b) {
+        final byPeriod = b.monthId.compareTo(a.monthId);
+        if (byPeriod != 0) return byPeriod;
+        final byDate = b.date.compareTo(a.date);
+        return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
+      });
 
   // ---- settling a stack of credit entries together ----
 
@@ -853,9 +895,12 @@ class _SettleBar extends StatelessWidget {
                   label: l.t('milk'),
                   tone: T.accent700,
                 ),
+              // "owed" on its own was read as a word about ownership rather
+              // than about a balance. It is the same figure the card at the
+              // top of the page calls a balance, so it says balance too.
               _Figure(
                 value: rs(owed),
-                label: incoming ? l.t('owed') : l.t('to pay'),
+                label: incoming ? l.t('balance owed') : l.t('balance to pay'),
                 tone: incoming ? T.moneyIn : T.moneyOut,
               ),
             ],
@@ -1059,7 +1104,7 @@ class _PartyHead extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        l.t('Advance'),
+                        l.t('Security we are holding'),
                         style: T.meta.copyWith(color: T.onHeroQuiet),
                       ),
                     ),
@@ -1174,7 +1219,7 @@ class _PartyCard extends StatelessWidget {
           if (securityHeld > 0) ...[
             const Divider(height: 18),
             _PartyLine(
-              label: l.t('Advance the farm is holding'),
+              label: l.t('Security the farm is holding'),
               value: securityHeld,
               tone: T.moneyDue,
               strong: true,
@@ -1314,8 +1359,18 @@ class _LedgerRow extends StatelessWidget {
         ? T.moneyDue
         : T.money(incoming: txn.type.isIncoming, settled: txn.paid);
 
+    // Money paid against an entry written earlier — the second of the two
+    // rows the farm was reading as two sales. It is set in from the margin
+    // and wears the farm's own blue rather than a money colour, so a page of
+    // the ledger can be read down the left edge: the rows flush with the
+    // margin are the trades, the ones stepped in are the money arriving
+    // afterwards. The figure on it keeps its money colour, because that part
+    // is real.
+    final settling = txn.settlesAnotherEntry;
+
     final card = RegCard(
-      stripe: tone,
+      stripe: settling ? T.accent600 : tone,
+      wash: settling ? T.accent100 : null,
       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1339,6 +1394,26 @@ class _LedgerRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (settling)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.subdirectory_arrow_right,
+                          size: 14,
+                          color: T.accent600,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            l.t('Money against an entry written earlier'),
+                            style: T.meta.copyWith(color: T.accent600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Text(
                   txn.party.isEmpty ? txn.category : txn.party,
                   style: T.bodyMid,
@@ -1356,6 +1431,18 @@ class _LedgerRow extends StatelessWidget {
                   style: T.meta,
                   maxLines: 2,
                 ),
+                // An entry for a day gone by, written later. Said on the row
+                // itself rather than only inside it, because the farm reads
+                // this list down a day at a time and an entry that was not
+                // there yesterday has to explain itself.
+                if (txn.wasDatedBack)
+                  Text(
+                    l.t2('For this day · written %s', fmtDate(txn.createdAt)),
+                    style: T.meta.copyWith(
+                      color: T.moneyDue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 // When the money actually moved, on an entry that was
                 // booked on credit and settled later. One entry, two dates:
                 // the row is not written twice, it is the same row with the
@@ -1469,7 +1556,9 @@ class _LedgerRow extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
+      // Stepped in from the margin when it is money against an earlier
+      // entry, so the two are not read as two trades.
+      padding: EdgeInsets.only(left: settling ? 22 : 0, bottom: 9),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -1674,6 +1763,20 @@ Future<void> showEntryDetail(
             const SizedBox(height: T.gap),
 
             _DetailFact(label: l.t('Date'), value: fmtDateFull(txn.date)),
+            // The two dates, where they differ, and which of them the books
+            // use. Both are kept on every entry; only here are both shown.
+            if (txn.wasDatedBack)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  l.t2(
+                    'Written in later, on %s. Every figure reads the day '
+                    'above — this is only the day somebody typed it.',
+                    fmtDateFull(txn.createdAt),
+                  ),
+                  style: T.meta.copyWith(color: T.moneyDue),
+                ),
+              ),
             _DetailFact(label: l.t('Period'), value: monthName(txn.monthId)),
             if (txn.qtyLine != null)
               _DetailFact(label: l.t('Quantity'), value: txn.qtyLine!),
@@ -1882,8 +1985,10 @@ class _DetailFact extends StatelessWidget {
 ///
 /// Opened from the entry's own page. Anybody who keeps the books may fix
 /// what was typed — a name, a heading, a quantity, a rate, the figure, the
-/// note. The date is the master's alone, because moving it moves where the
-/// entry sits in every account and every statement printed from it.
+/// note — and may move the date anywhere inside the period that is open,
+/// back or forward, as far as today. Taking it out of that period is the
+/// master's alone, because an earlier period has already been read, agreed
+/// and printed on somebody's statement.
 ///
 /// The whole thing is shut once the entry's period has been settled. Those
 /// months were closed on figures the four of them were paid out of, and a
@@ -1940,12 +2045,50 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
     super.dispose();
   }
 
+  /// The period this entry sits in, which is the one still open — nothing in
+  /// a settled period reaches this sheet at all.
+  FarmMonth _period(FarmStore store) {
+    for (final p in store.periods) {
+      if (p.id == widget.txn.monthId) return p;
+    }
+    return store.month;
+  }
+
+  /// The earliest day this person may move the entry to.
+  ///
+  /// A founder may move it anywhere inside the period that is open — back a
+  /// few days or forward, as far as today. That covers what actually goes
+  /// wrong: a day typed as the 8th that was the 6th, or the other way about.
+  /// What it does not cover is the day before the period began, because that
+  /// day belongs to figures four people have already agreed. The master can
+  /// reach further back, because somebody has to be able to.
+  DateTime _floor(FarmStore store) {
+    final floor = widget.isMaster
+        ? DateTime(widget.txn.date.year - 2, widget.txn.date.month)
+        : periodFirstDay(_period(store));
+    // An entry already dated before that floor — one the master moved back,
+    // or one from before any of this — keeps its own date reachable, so
+    // opening the picker on it cannot throw.
+    return floor.isAfter(widget.txn.date)
+        ? DateTime(
+            widget.txn.date.year,
+            widget.txn.date.month,
+            widget.txn.date.day,
+          )
+        : floor;
+  }
+
   Future<void> _pickDate() async {
+    final now = DateTime.now();
+    // An entry already dated later than today — there should be none, but a
+    // ledger outlives the rules it was written under — cannot be made worse
+    // by this picker, and it must not crash on it either.
+    final last = _date.isAfter(now) ? _date : now;
     final picked = await showDatePicker(
       context: context,
       initialDate: _date,
-      firstDate: DateTime(_date.year - 2),
-      lastDate: DateTime.now(),
+      firstDate: _floor(context.read<FarmStore>()),
+      lastDate: last,
     );
     if (picked != null && mounted) setState(() => _date = picked);
   }
@@ -1979,7 +2122,10 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
         amount: amount,
         note: _note.text,
         handledBy: _handledBy.text,
-        date: widget.isMaster ? _date : null,
+        // Sent whoever is editing. How far it may move is the repo's rule
+        // and the server's, not this sheet's — see [TxnRepo.edit].
+        date: _date,
+        earliest: periodFirstDay(_period(store)),
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -2121,25 +2267,31 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
               const SizedBox(height: T.gap),
               Field(label: l.t('Note'), controller: _note, maxLines: 2),
 
-              // The date, and only for the master. It is the one field that
-              // moves the entry rather than correcting it.
+              // The date. It is the one field that moves the entry rather
+              // than correcting it, so what each person may do with it is
+              // said on the page before they try.
               const SizedBox(height: T.pad),
               Kicker(l.t('Date')),
               const SizedBox(height: 6),
-              if (widget.isMaster)
-                GhostButton(
-                  label: fmtDateFull(_date),
-                  icon: Icons.event_outlined,
-                  onPressed: _busy ? null : _pickDate,
-                )
-              else
-                Text(
-                  l.t2(
-                    '%s — only the master can move a date.',
-                    fmtDateFull(_date),
-                  ),
-                  style: T.meta,
-                ),
+              GhostButton(
+                label: fmtDateFull(_date),
+                icon: Icons.event_outlined,
+                onPressed: _busy ? null : _pickDate,
+              ),
+              const SizedBox(height: 5),
+              Text(
+                widget.isMaster
+                    ? l.t(
+                        'Any day up to today, back or forward. Where it ends '
+                        'up is kept on the entry with the day it came from.',
+                      )
+                    : l.t2(
+                        'Anywhere inside this period — %s to today, back or '
+                        'forward. Both days are kept on the entry.',
+                        fmtDateFull(_floor(context.watch<FarmStore>())),
+                      ),
+                style: T.meta,
+              ),
 
               const SizedBox(height: T.pad),
               PrimaryButton(

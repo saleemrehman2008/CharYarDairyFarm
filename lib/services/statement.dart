@@ -7,7 +7,12 @@ import '../models/models.dart';
 /// customer's balance is what he owes; the cash book's is what is in the box;
 /// a co-founder's is what they own of the farm.
 enum StatementKind {
-  party('Statement of account', 'Balance owed'),
+  /// The figure at the foot of a person's account is called what every bank
+  /// in the country calls it, and nothing more. It was "Balance owed", which
+  /// is a true description and one word too many: the farm reads the column
+  /// heading and the foot of the page as the same figure, and they have to
+  /// say the same word.
+  party('Statement of account', 'Balance'),
   cashBook('Cash book', 'Cash in hand'),
   capital('Profit account', 'Kept in the farm'),
 
