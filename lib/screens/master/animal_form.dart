@@ -6,12 +6,42 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/animal_repo.dart';
+import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
+import 'cattle_entry_pick.dart';
+
+/// Where the money for this animal already is, or is about to go.
+///
+/// The farm bought four cows and three calves on one day, entered the money
+/// once under Accounts as it should, and then registered seven animals — and
+/// the register booked the price again for every one of them. Seven entries
+/// out of a farm that had paid once.
+///
+/// The fault was a checkbox that defaulted to "book it", sitting below the
+/// fold on a long form, with no way of saying the only thing that was true:
+/// this money is already in the books, on that entry there. So the question
+/// is asked plainly instead, and the answer that keeps the books straight is
+/// the one offered first.
+enum _Money {
+  /// Tied to an entry that is already in the ledger. Nothing is written.
+  linked('Already entered'),
+
+  /// The register writes the entry, which is right when the animal is being
+  /// bought and recorded in one go.
+  book('Book it now'),
+
+  /// Neither — an animal the farm had before any of this was written down.
+  none('Not in the books');
+
+  const _Money(this.label);
+
+  final String label;
+}
 
 /// Registering an animal, whether it was bought or born here.
 ///
@@ -52,7 +82,12 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
   late DateTime? _bornOn = widget.bornOn;
   DateTime? _boughtOn;
   PayVia _payVia = PayVia.cash;
-  bool _book = true;
+
+  /// Null until somebody chooses, so the choice can open on whichever answer
+  /// is right for this farm today — tied to an entry when there is one with
+  /// money left on it, and booked here when there is not.
+  _Money? _money;
+  Txn? _entry;
   File? _photo;
   bool _busy = false;
 
@@ -67,6 +102,39 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
   File? _calfPhoto;
 
   bool get _isCalf => widget.mother != null;
+
+  /// Entries with money still unspoken for, newest first.
+  List<Txn> _entries(FarmStore store) =>
+      cattleEntries(store.ledger, store.animals);
+
+  _Money _moneyNow(List<Txn> entries) =>
+      _money ?? (entries.isEmpty ? _Money.book : _Money.linked);
+
+  /// What is left on the chosen entry once the other animals on it have had
+  /// their share.
+  num _left(FarmStore store) {
+    final entry = _entry;
+    return entry == null ? 0 : cattleLeftOn(entry, store.animals);
+  }
+
+  Future<void> _pickEntry(List<Txn> entries, FarmStore store) async {
+    final picked = await pickCattleEntry(
+      context,
+      entries: entries,
+      animals: store.animals,
+      current: _entry,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _entry = picked;
+        // The share fills itself with whatever is left, which is the whole
+        // of it for a single animal and a starting point for a pair.
+        if (_price.text.trim().isEmpty) {
+          _price.text = '${cattleLeftOn(picked, store.animals).round()}';
+        }
+      });
+    }
+  }
 
   /// Only worth asking about an animal that gives milk, and only when she is
   /// being bought rather than born here.
@@ -132,9 +200,27 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
       toast(context, 'That price does not look right.');
       return;
     }
-    if (price > 0 && _book && _handledBy.text.trim().isEmpty) {
-      toast(context, 'Who paid for it? Fill that in first.');
-      return;
+    final store = context.read<FarmStore>();
+    final money = _moneyNow(_entries(store));
+    if (price > 0 && !_isCalf) {
+      if (money == _Money.book && _handledBy.text.trim().isEmpty) {
+        toast(context, 'Who paid for it? Fill that in first.');
+        return;
+      }
+      if (money == _Money.linked) {
+        if (_entry == null) {
+          toast(context, 'Which entry was this paid on? Pick it first.');
+          return;
+        }
+        // More than is left on the entry would be the farm owning more
+        // cattle than it paid for — the same money twice, which is the
+        // whole thing this choice exists to stop.
+        final left = _left(store);
+        if (price > left) {
+          toast(context, 'Only ${rs(left)} is left on that entry.');
+          return;
+        }
+      }
     }
     // The calf gets the same treatment as her mother, because she is on the
     // register the same way: her own tag, her own picture, her own age. A
@@ -179,7 +265,8 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
               price: price,
               note: _note.text.trim(),
               dailyLitres: num.tryParse(_litres.text.trim()) ?? 0,
-              bookPurchase: _book,
+              bookPurchase: money == _Money.book,
+              purchaseTxnId: money == _Money.linked ? _entry?.id : null,
               payVia: _payVia,
               handledBy: _handledBy.text.trim(),
             );
@@ -224,6 +311,10 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
   @override
   Widget build(BuildContext context) {
     final price = num.tryParse(_price.text.trim()) ?? 0;
+    final store = context.watch<FarmStore>();
+    final entries = _entries(store);
+    final money = _moneyNow(entries);
+    final left = _left(store);
 
     return FarmScaffold(
       title: _isCalf ? 'Register the calf' : 'Add an animal',
@@ -440,7 +531,13 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                   const Kicker('Bought'),
                   const SizedBox(height: 8),
                   Field(
-                    label: 'Price paid (Rs)',
+                    // Tied to an entry, this figure is not what was paid —
+                    // it is this animal's share of what was paid for
+                    // several, and the label has to say so or four cows get
+                    // the whole price each.
+                    label: money == _Money.linked && _entry != null
+                        ? "This one's share of that entry (Rs)"
+                        : 'Price paid (Rs)',
                     controller: _price,
                     keyboardType: TextInputType.number,
                     hint: 'Leave empty if it was born here',
@@ -457,23 +554,85 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                           ? null
                           : () => setState(() => _boughtOn = null),
                     ),
-                    const SizedBox(height: T.gap),
-                    CheckboxListTile(
-                      value: _book,
-                      onChanged: (v) => setState(() => _book = v ?? true),
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                      activeColor: T.accent700,
-                      title: Text('Book it in the accounts', style: T.body),
-                      subtitle: Text(
-                        'Goes in as a cattle purchase — something the farm '
-                        'owns, not money spent. Turn this off if you have '
-                        'already entered it under Accounts.',
+                    const SizedBox(height: T.pad),
+                    const Kicker('Where is this money in the books?'),
+                    const SizedBox(height: 6),
+                    Segmented<_Money>(
+                      value: money,
+                      compact: true,
+                      options: [for (final m in _Money.values) (m, m.label)],
+                      onChanged: (v) => setState(() => _money = v),
+                    ),
+                    const SizedBox(height: 7),
+
+                    if (money == _Money.linked) ...[
+                      if (entries.isEmpty)
+                        Text(
+                          'No cattle purchase in the books has anything left '
+                          'on it. Enter the money under Accounts first, or '
+                          'let the register book it now.',
+                          style: T.meta.copyWith(color: T.moneyDue),
+                        )
+                      else ...[
+                        Text(
+                          'Four cows on one entry is one payment and four '
+                          'animals. Pick the entry and give this one its '
+                          'share of it — nothing is booked again.',
+                          style: T.meta,
+                        ),
+                        const SizedBox(height: 8),
+                        GhostButton(
+                          label: _entry == null
+                              ? 'Pick the entry'
+                              : '${fmtDateFull(_entry!.date)} · '
+                                    '${rs(_entry!.amount)}',
+                          icon: Icons.receipt_long_outlined,
+                          compact: true,
+                          onPressed: _busy
+                              ? null
+                              : () => _pickEntry(entries, store),
+                        ),
+                        if (_entry != null) ...[
+                          const SizedBox(height: 8),
+                          RegCard(
+                            wash: T.moneyInWash,
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_entry!.party.isEmpty ? _entry!.category : _entry!.party}'
+                                  ' · ${rs(_entry!.amount)}',
+                                  style: T.bodyMid,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${rs(left)} of it is still unspoken for. '
+                                  'This animal cannot take more than that.',
+                                  style: T.meta,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+
+                    if (money == _Money.none)
+                      Text(
+                        'Nothing goes into the books and nothing is tied to '
+                        'anything. Only for an animal the farm already had '
+                        'before any of this was written down.',
+                        style: T.meta.copyWith(color: T.moneyDue),
+                      ),
+
+                    if (money == _Money.book) ...[
+                      Text(
+                        'The register writes the entry: a cattle purchase, '
+                        'which the books treat as something the farm owns '
+                        'rather than money spent.',
                         style: T.meta,
                       ),
-                    ),
-                    if (_book) ...[
                       const SizedBox(height: 6),
                       const Kicker('How it was paid'),
                       const SizedBox(height: 6),

@@ -21,6 +21,42 @@ import 'txn_repo.dart';
 /// is written into the farm's books as a real expense, and the animal keeps
 /// the id of that entry, so the ledger and the register can always be checked
 /// against each other.
+/// What of a cattle purchase has already been given to animals on the
+/// register, and what is left of it.
+///
+/// Four cows and three calves come home on one day for one price. That is
+/// one entry in the books and seven animals in the register, and the thing
+/// that goes wrong — the farm hit it on the first week — is that registering
+/// each of the seven books the money again. Seven times over, out of a farm
+/// that paid once.
+///
+/// So the money is entered once, and each animal takes a share of that one
+/// entry. These two say how much of it is spoken for and how much is not, and
+/// the form refuses a share larger than what is left. It matters beyond the
+/// register: when an animal dies or is sold she comes off the books at what
+/// she cost, so the shares have to add up to the entry or the asset never
+/// comes back to nothing.
+num cattleAssigned(List<Animal> animals, String txnId) => animals
+    .where((a) => a.purchaseTxnId == txnId)
+    .fold<num>(0, (a, animal) => a + animal.price);
+
+num cattleLeftOn(Txn entry, List<Animal> animals, {Animal? except}) {
+  final taken = animals
+      .where((a) => a.purchaseTxnId == entry.id && a.id != except?.id)
+      .fold<num>(0, (a, animal) => a + animal.price);
+  final left = entry.amount - taken;
+  return left > 0 ? left : 0;
+}
+
+/// The entries an animal can be registered against: cattle and equipment
+/// bought, newest first, the ones with nothing left on them dropped.
+List<Txn> cattleEntries(List<Txn> ledger, List<Animal> animals) =>
+    ledger
+        .where((t) => !t.isDeleted && t.isCapitalAsset)
+        .where((t) => cattleLeftOn(t, animals) > 0)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
 class AnimalRepo {
   AnimalRepo._();
 
@@ -60,6 +96,11 @@ class AnimalRepo {
   /// books treat as something the farm owns rather than money burnt — unless
   /// the purchase was already entered by hand, in which case pass
   /// [bookPurchase] false.
+  ///
+  /// Better than that: pass [purchaseTxnId] and the animal is tied to the
+  /// entry the money actually went out on. Nothing is booked, [price] is read
+  /// as this animal's share of that entry, and the register and the ledger
+  /// can be read back against each other afterwards. See [cattleLeftOn].
   static Future<Animal> add(
     Actor actor, {
     required Species species,
@@ -73,6 +114,7 @@ class AnimalRepo {
     String note = '',
     num dailyLitres = 0,
     bool bookPurchase = true,
+    String? purchaseTxnId,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
   }) async {
@@ -91,6 +133,7 @@ class AnimalRepo {
       'price': price,
       'motherId': ?mother?.id,
       'motherTag': ?mother?.tag,
+      'purchaseTxnId': ?purchaseTxnId,
       'note': note,
       'createdBy': actor.uid,
       'createdAt': FieldValue.serverTimestamp(),
@@ -98,8 +141,10 @@ class AnimalRepo {
 
     await doc.update({'thumb': await _putPhoto(doc.id, photo)});
 
-    String? txnId;
-    if (price > 0 && bookPurchase) {
+    // Tied to an entry that is already in the books: nothing is written to
+    // the ledger, because the money left the farm once and is already there.
+    var txnId = purchaseTxnId;
+    if (price > 0 && bookPurchase && purchaseTxnId == null) {
       final on = boughtOn ?? DateTime.now();
       txnId = await TxnRepo.add(
         actor: actor,
@@ -118,6 +163,12 @@ class AnimalRepo {
       );
     }
 
+    // An entry written here belongs on the animal too, so the register and
+    // the ledger point at each other from both ends.
+    if (purchaseTxnId == null && txnId != null) {
+      await doc.update({'purchaseTxnId': txnId});
+    }
+
     if (price > 0) {
       await _writeEvent(
         actor,
@@ -125,7 +176,10 @@ class AnimalRepo {
         animalTag: tag,
         kind: EventKind.bought,
         date: boughtOn ?? DateTime.now(),
-        what: 'Bought for ${rs(price)}',
+        what: purchaseTxnId == null
+            ? 'Bought for ${rs(price)}'
+            : 'Bought for ${rs(price)} — part of one entry already in the '
+                  'books, not booked again',
         cost: price,
         txnId: txnId,
       );
@@ -182,6 +236,128 @@ class AnimalRepo {
       refId: animal.id,
     );
   }
+
+  /// Correcting the record of an animal, which is the master's.
+  ///
+  /// The farm's own case: somebody registered a cow as a buffalo. Every
+  /// figure built on a kind of animal is then wrong, and so is the letter on
+  /// her ear — a cow tagged B-05 is a cow nobody can look up.
+  ///
+  /// So the species can be corrected, and with [retag] she is given a tag out
+  /// of the right letter's run. Her old tag is kept in what is written to her
+  /// history, because the number is painted on her ear and somebody has to be
+  /// able to work out which animal this used to be.
+  ///
+  /// What is not here is the price, when the money is in the books. That
+  /// figure belongs to a ledger entry and is corrected there, under the same
+  /// rules as every other entry — a price changed in two places is a price
+  /// that will disagree with itself by the end of the month.
+  static Future<Animal> correct(
+    Actor actor,
+    Animal animal, {
+    String? name,
+    Species? species,
+    Sex? sex,
+    DateTime? bornOn,
+    DateTime? boughtOn,
+    num? price,
+    num? dailyLitres,
+    String? note,
+    bool retag = false,
+
+    /// Tie her to the ledger entry her price was really paid on.
+    ///
+    /// For the animals registered before the register could say so — the
+    /// four cows and three calves whose one payment got booked seven times.
+    /// The duplicate entries are deleted under Accounts; this is what puts
+    /// the animals back on the one that is left.
+    String? linkTo,
+  }) async {
+    final changes = <String>[];
+    final fresh = <String, dynamic>{};
+
+    void moved(String what, Object? was, Object? now, String key) {
+      if (now == null || was == now) return;
+      fresh[key] = now;
+      changes.add('$what ${_said(was)} to ${_said(now)}');
+    }
+
+    moved('Name', animal.name, name?.trim(), 'name');
+    moved('Note', animal.note, note?.trim(), 'note');
+    moved('Price', animal.price, price, 'price');
+    moved('Milk a day', animal.dailyLitres, dailyLitres, 'dailyLitres');
+
+    if (species != null && species != animal.species) {
+      fresh['species'] = species.name;
+      changes.add('Kind ${animal.species.label} to ${species.label}');
+    }
+    if (sex != null && sex != animal.sex) {
+      fresh['sex'] = sex.name;
+      changes.add('Sex ${animal.sex.label} to ${sex.label}');
+    }
+    if (bornOn != null && bornOn != animal.bornOn) {
+      fresh['bornOn'] = Timestamp.fromDate(bornOn);
+      changes.add('Born ${_day(animal.bornOn)} to ${fmtDateFull(bornOn)}');
+    }
+    if (boughtOn != null && boughtOn != animal.boughtOn) {
+      fresh['boughtOn'] = Timestamp.fromDate(boughtOn);
+      changes.add(
+        'Bought ${_day(animal.boughtOn)} to ${fmtDateFull(boughtOn)}',
+      );
+    }
+
+    if (linkTo != null && linkTo != animal.purchaseTxnId) {
+      fresh['purchaseTxnId'] = linkTo;
+      changes.add('Tied to the entry it was paid on');
+    }
+
+    // A new tag out of the corrected letter's run. The old number is not
+    // handed back: it is on an ear somewhere in the farm's photographs, and
+    // giving it to a second animal would make the register unreadable.
+    var tag = animal.tag;
+    final kind = species ?? animal.species;
+    if (retag && kind.tagLetter != animal.tag.split('-').first) {
+      tag = await nextTag(kind);
+      fresh['tag'] = tag;
+      changes.add('Tag ${animal.tag} to $tag');
+    }
+
+    if (changes.isEmpty) return animal;
+
+    await Db.animals.doc(animal.id).update(fresh);
+
+    // On her own page as well as in the log, because the question "why does
+    // this say cow when the ear says B" is asked standing in the shed.
+    await _writeEvent(
+      actor,
+      animalId: animal.id,
+      animalTag: tag,
+      kind: EventKind.note,
+      date: DateTime.now(),
+      what: 'Record corrected — ${changes.join(', ')}',
+      cost: 0,
+    );
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      'corrected ${animal.tag} — ${changes.join(', ')}',
+      refType: 'animal',
+      refId: animal.id,
+    );
+
+    final snap = await Db.animals.doc(animal.id).get();
+    return Animal.fromDoc(snap);
+  }
+
+  static String _said(Object? v) {
+    if (v == null) return '—';
+    if (v is num) return groupPk(v);
+    final text = v.toString().trim();
+    return text.isEmpty ? '—' : text;
+  }
+
+  static String _day(DateTime? d) => d == null ? '—' : fmtDateFull(d);
 
   /// An animal leaves the farm: sold, died, or slaughtered.
   ///

@@ -83,6 +83,7 @@ class Animal {
     this.price = 0,
     this.motherId,
     this.motherTag,
+    this.purchaseTxnId,
     this.note = '',
     this.lastEventAt,
     this.nextDueOn,
@@ -121,6 +122,20 @@ class Animal {
   /// Born on the farm out of another animal in this register.
   final String? motherId;
   final String? motherTag;
+
+  /// The ledger entry this animal's price was paid on.
+  ///
+  /// Four cows and three calves bought on one day are one entry in the books
+  /// and seven animals in the register, and the money must not be counted
+  /// seven times over. So an animal registered against an entry that is
+  /// already in the books points at it and books nothing of its own; what it
+  /// carries in [price] is its share of that one entry, and the shares cannot
+  /// add up to more than the entry was for.
+  ///
+  /// Also set on an animal whose registration booked the entry itself, so
+  /// the two can always be read back against each other. Null on an animal
+  /// born here, and on one registered before any of this.
+  final String? purchaseTxnId;
 
   final String note;
   final DateTime createdAt;
@@ -203,6 +218,7 @@ class Animal {
       price: n(m['price']),
       motherId: m['motherId'] == null ? null : s(m['motherId']),
       motherTag: m['motherTag'] == null ? null : s(m['motherTag']),
+      purchaseTxnId: m['purchaseTxnId'] == null ? null : s(m['purchaseTxnId']),
       note: s(m['note']),
       createdAt: dtOr(m['createdAt']),
       lastEventAt: dt(m['lastEventAt']),

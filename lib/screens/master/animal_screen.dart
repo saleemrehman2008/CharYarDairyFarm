@@ -14,6 +14,7 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
+import 'animal_correct_sheet.dart';
 import 'animal_event_form.dart';
 import 'animal_form.dart';
 
@@ -78,6 +79,25 @@ class _Header extends StatefulWidget {
 class _HeaderState extends State<_Header> {
   bool _busy = false;
 
+  /// The master's correction sheet, carrying the store down with it — the
+  /// sheet is built from the navigator's context, above the provider this
+  /// page was pushed with.
+  Future<void> _correct() async {
+    final store = context.read<FarmStore>();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: T.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
+      ),
+      builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+        value: store,
+        child: AnimalCorrectSheet(animal: widget.animal),
+      ),
+    );
+  }
+
   Future<void> _changePhoto() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.camera,
@@ -133,11 +153,26 @@ class _HeaderState extends State<_Header> {
                     if (a.motherTag != null)
                       Text('Out of ${a.motherTag}', style: T.meta),
                     const SizedBox(height: 8),
-                    GhostButton(
-                      label: 'Change photo',
-                      icon: Icons.photo_camera_outlined,
-                      compact: true,
-                      onPressed: _busy ? null : _changePhoto,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        GhostButton(
+                          label: 'Change photo',
+                          icon: Icons.photo_camera_outlined,
+                          compact: true,
+                          onPressed: _busy ? null : _changePhoto,
+                        ),
+                        // Correcting what she is, which until now could only
+                        // be got right on the day she was registered.
+                        if (context.watch<Session>().role == Role.master)
+                          GhostButton(
+                            label: 'Correct the record',
+                            icon: Icons.edit_outlined,
+                            compact: true,
+                            onPressed: _busy ? null : _correct,
+                          ),
+                      ],
                     ),
                   ],
                 ),
