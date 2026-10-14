@@ -310,6 +310,12 @@ class AnimalRepo {
     /// The duplicate entries are deleted under Accounts; this is what puts
     /// the animals back on the one that is left.
     String? linkTo,
+
+    /// Whose calf she is. For the calves registered on their own, which the
+    /// register then had no way of tying to their mother — so her page said
+    /// nothing about them and theirs said nothing about her.
+    Animal? mother,
+    bool clearMother = false,
   }) async {
     final changes = <String>[];
     final fresh = <String, dynamic>{};
@@ -342,6 +348,21 @@ class AnimalRepo {
       changes.add(
         'Bought ${_day(animal.boughtOn)} to ${fmtDateFull(boughtOn)}',
       );
+    }
+
+    if (clearMother && animal.motherId != null) {
+      fresh['motherId'] = FieldValue.delete();
+      fresh['motherTag'] = FieldValue.delete();
+      changes.add('Out of ${animal.motherTag} to nobody');
+    } else if (mother != null && mother.id != animal.motherId) {
+      // Nothing is its own mother, and a register that says otherwise is one
+      // nobody can draw a line through.
+      if (mother.id == animal.id) {
+        throw StateError('An animal cannot be its own mother.');
+      }
+      fresh['motherId'] = mother.id;
+      fresh['motherTag'] = mother.tag;
+      changes.add('Out of ${animal.motherTag ?? 'nobody'} to ${mother.tag}');
     }
 
     if (linkTo != null && linkTo != animal.purchaseTxnId) {

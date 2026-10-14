@@ -2,6 +2,7 @@ import 'package:char_yar_dairy_farm/screens/shared/new_entry_screen.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/theme/tokens.dart';
 import 'package:char_yar_dairy_farm/widgets/balance_check.dart';
+import 'package:char_yar_dairy_farm/widgets/photo.dart';
 import 'package:char_yar_dairy_farm/widgets/pick_sheet.dart';
 import 'package:char_yar_dairy_farm/widgets/day_chart.dart';
 import 'package:char_yar_dairy_farm/widgets/farm_icons.dart';
@@ -319,6 +320,39 @@ void main() {
       // Which period it lands in, which is the thing back-dating must not
       // move and so the thing the form has to say out loud.
       expect(find.textContaining('October 2026'), findsOneWidget);
+    });
+  });
+
+  group('a picture opened out', () {
+    testWidgets('fills the screen, and closes again', (tester) async {
+      // Every photo in the app was a thumbnail and nothing more. The register
+      // exists so one black buffalo can be told from the next, and at a
+      // hundred pixels it cannot.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showFarmPhoto(context, title: 'B-05 Kaali'),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('B-05 Kaali'), findsOneWidget);
+      // Pinch to go closer — the marks that identify an animal are small.
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      expect(find.text('B-05 Kaali'), findsNothing);
     });
   });
 }

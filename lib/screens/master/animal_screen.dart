@@ -18,6 +18,24 @@ import 'animal_correct_sheet.dart';
 import 'animal_event_form.dart';
 import 'animal_form.dart';
 
+/// Opens another animal's page from a link on this one — her mother, or one
+/// of her calves. The store is carried through, the same as everywhere else
+/// a page is pushed from inside the register.
+void _openAnimal(BuildContext context, String id) {
+  final store = context.read<FarmStore>();
+  final animal = store.animalById(id);
+  if (animal == null) return;
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+        value: store,
+        child: AnimalScreen(animal: animal),
+      ),
+    ),
+  );
+}
+
 /// One animal: its picture, its tag, and everything that has happened to it.
 class AnimalScreen extends StatelessWidget {
   const AnimalScreen({super.key, required this.animal});
@@ -150,8 +168,30 @@ class _HeaderState extends State<_Header> {
                     if (a.name.isNotEmpty) Text(a.name, style: T.cardTitle),
                     const SizedBox(height: 4),
                     Text(a.summary, style: T.meta),
+                    // Her mother, and a way through to her. The register
+                    // knew the link and only ever printed it.
                     if (a.motherTag != null)
-                      Text('Out of ${a.motherTag}', style: T.meta),
+                      InkWell(
+                        onTap: () => _openAnimal(context, a.motherId!),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Out of ${a.motherTag}',
+                                style: T.meta.copyWith(color: T.accent700),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 14,
+                                color: T.accent700,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -235,10 +275,67 @@ class _BigPhotoState extends State<_BigPhoto> {
   }
 
   @override
-  Widget build(BuildContext context) => FarmPhotoView(
-    data: _full ?? widget.animal.thumb,
-    url: widget.animal.photoUrl,
-    size: 110,
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: InkWell(
+      // Opened out to fill the screen. A hundred-pixel square of a black
+      // buffalo tells nobody which buffalo it is, and telling them apart is
+      // what the picture is on the record for.
+      onTap: () => showFarmPhoto(
+        context,
+        data: _full ?? widget.animal.thumb,
+        url: widget.animal.photoUrl,
+        title: widget.animal.label,
+      ),
+      child: FarmPhotoView(
+        data: _full ?? widget.animal.thumb,
+        url: widget.animal.photoUrl,
+        size: 110,
+      ),
+    ),
+  );
+}
+
+/// One of her calves, with its own picture on it — which is the point of the
+/// register: the answer to "whose calf is that" should look like the calf.
+class _CalfChip extends StatelessWidget {
+  const _CalfChip({required this.calf, required this.onTap});
+
+  final Animal calf;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(T.pill),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
+        decoration: BoxDecoration(
+          color: T.accent100,
+          borderRadius: BorderRadius.circular(T.pill),
+          border: Border.all(color: T.accent300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipOval(
+              child: FarmPhotoView(
+                data: calf.thumb,
+                url: calf.photoUrl,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              calf.label,
+              style: T.bodyMid.copyWith(fontSize: 12.5, color: T.accent700),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -284,13 +381,22 @@ class _Figures extends StatelessWidget {
             rs(spent - animal.price < 0 ? 0 : spent - animal.price),
             note: 'Vet, medicine, insemination — everything booked here',
           ),
+          // Her calves, each one a way through to its own page rather than a
+          // list of numbers to go and look up.
           if (calves.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _Line(
-              calves.length == 1 ? 'Calf' : 'Calves',
-              calves.map((c) => c.tag).join(', '),
-              note: 'Registered out of her',
+            Text(calves.length == 1 ? 'Calf' : 'Calves', style: T.meta),
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final c in calves)
+                  _CalfChip(calf: c, onTap: () => _openAnimal(context, c.id)),
+              ],
             ),
+            const SizedBox(height: 3),
+            Text('Registered out of her', style: T.meta),
           ],
           if (animal.nextDueOn != null && animal.status.isHere) ...[
             const SizedBox(height: 10),
@@ -590,7 +696,21 @@ class _EventRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (e.photoUrl.isNotEmpty) ...[
-            FarmPhotoView(data: e.thumb, url: e.photoUrl, size: 46),
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                // A vet's slip or a wound photographed at the time. At 46
+                // pixels it is a smudge; the whole reason it was taken is
+                // that somebody would want to look at it later.
+                onTap: () => showFarmPhoto(
+                  context,
+                  data: e.thumb,
+                  url: e.photoUrl,
+                  title: '${e.what} · ${fmtDate(e.date)}',
+                ),
+                child: FarmPhotoView(data: e.thumb, url: e.photoUrl, size: 46),
+              ),
+            ),
             const SizedBox(width: 10),
           ],
           Expanded(

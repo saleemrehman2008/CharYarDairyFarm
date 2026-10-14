@@ -71,6 +71,64 @@ class FarmPhotoView extends StatelessWidget {
   }
 }
 
+/// A picture opened out to fill the screen.
+///
+/// Every photo in the app was a thumbnail and nothing more, which is half of
+/// what a photo is for here: the register exists so an animal can be told
+/// apart from the one standing next to her, and a hundred-pixel square of a
+/// black buffalo tells nobody anything. Pinch to go closer — the marks that
+/// identify an animal are small ones.
+Future<void> showFarmPhoto(
+  BuildContext context, {
+  String? data,
+  String url = '',
+  String title = '',
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    fullscreenDialog: true,
+    builder: (page) => Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: T.cardTitle.copyWith(color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(page),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Close',
+                ),
+              ],
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Center(
+                  child: FarmPhotoView(
+                    data: data,
+                    url: url,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);
+
 class _Mark extends StatelessWidget {
   const _Mark(this.icon);
 

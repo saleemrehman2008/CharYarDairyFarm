@@ -51,6 +51,12 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
   /// A different entry to tie her price to, once somebody picks one.
   Txn? _linkTo;
 
+  /// Whose calf she is, once somebody says. Null means untouched; the flag
+  /// below is how "nobody" is told apart from "not asked".
+  Animal? _mother;
+  bool _motherPicked = false;
+  bool _clearMother = false;
+
   /// Whether to give her a tag out of the corrected letter's run. Offered
   /// only when the letter actually changes, and on by default when it does:
   /// a cow carrying a buffalo's number is a cow nobody can look up.
@@ -104,6 +110,33 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
     final others = store.animals.where((a) => a.id != widget.animal.id);
     if (cattleAssigned(others.toList(), found.id) > 0) return null;
     return found;
+  }
+
+  /// The mother as she stands in this sheet: the one just picked, or the one
+  /// the record already carries.
+  Animal? _motherNow(FarmStore store) {
+    if (_motherPicked) return _mother;
+    final id = widget.animal.motherId;
+    if (id == null) return null;
+    for (final a in store.animals) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  Future<void> _pickMother(FarmStore store) async {
+    final picked = await pickMother(
+      context,
+      animals: store.animals,
+      forAnimal: widget.animal,
+      current: _motherNow(store),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _mother = picked.mother;
+      _motherPicked = true;
+      _clearMother = picked.mother == null;
+    });
   }
 
   Future<void> _tie(FarmStore store) async {
@@ -201,6 +234,8 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
         note: _note.text,
         retag: _retag,
         linkTo: _linkTo?.id,
+        mother: _mother,
+        clearMother: _clearMother,
       );
 
       // Her record points at the right entry now, so the one the register
@@ -327,6 +362,26 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
                 label: 'Name (if it has one)',
                 controller: _name,
                 hint: 'Optional',
+              ),
+
+              // Whose calf she is. The question a dairy asks standing in the
+              // shed, and one the register could not answer for any calf
+              // that was registered on its own.
+              const SizedBox(height: T.gap),
+              const Kicker('Out of'),
+              const SizedBox(height: 6),
+              GhostButton(
+                label: _motherNow(store)?.label ?? 'Nobody',
+                icon: Icons.pets_outlined,
+                compact: true,
+                onPressed: _busy ? null : () => _pickMother(store),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Her mother, if she was born here or came with her. Tying '
+                'the two together puts this one on her mother\'s page and '
+                'her mother\'s number on this one.',
+                style: T.meta,
               ),
 
               const SizedBox(height: T.gap),
