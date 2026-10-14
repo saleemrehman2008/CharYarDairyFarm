@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/animal_repo.dart';
+import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
@@ -32,6 +33,7 @@ class AnimalCorrectSheet extends StatefulWidget {
 }
 
 class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
+  late final _tag = TextEditingController(text: widget.animal.tag);
   late final _name = TextEditingController(text: widget.animal.name);
   late final _note = TextEditingController(text: widget.animal.note);
   late final _price = TextEditingController(
@@ -60,8 +62,13 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
 
   String get _tagLetter => widget.animal.tag.split('-').first;
 
+  /// Whether to take the register's own duplicate entry out of the books
+  /// when this is saved. Only ever offered when one is found.
+  bool _dropDouble = true;
+
   @override
   void dispose() {
+    _tag.dispose();
     _name.dispose();
     _note.dispose();
     _price.dispose();
@@ -80,6 +87,23 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
       if (t.id == id) return t;
     }
     return null;
+  }
+
+  /// The duplicate the old register wrote for this animal, when she is being
+  /// tied to the entry the money really went out on.
+  ///
+  /// Not offered while she is still tied to that duplicate and nothing else
+  /// — that would be taking her price out of the books altogether. It appears
+  /// once there is somewhere else for her money to live.
+  Txn? _double(FarmStore store) {
+    final found = registerWrittenEntry(store.ledger, widget.animal);
+    if (found == null) return null;
+    final tiedTo = _entry(store);
+    if (tiedTo == null || tiedTo.id == found.id) return null;
+    // Somebody else is leaning on it, so it is not a duplicate of hers.
+    final others = store.animals.where((a) => a.id != widget.animal.id);
+    if (cattleAssigned(others.toList(), found.id) > 0) return null;
+    return found;
   }
 
   Future<void> _tie(FarmStore store) async {
@@ -140,11 +164,33 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
       }
     }
 
+    // Taking a row of money out of the books is never done quietly, however
+    // sure the app is that it is a duplicate.
+    final double = _dropDouble ? _double(store) : null;
+    if (double != null) {
+      final ok = await confirm(
+        context,
+        title: 'Take the double entry out?',
+        body:
+            '${fmtDateFull(double.date)} · ${double.party} · '
+            '${rs(double.amount)}\n\n'
+            'The register wrote this itself when ${widget.animal.tag} was '
+            'added, and the same money is already in the entry she is being '
+            'tied to. It goes from the app and from the Google Sheet at the '
+            'next sync. Everything that counted it is worked out again '
+            'without it.',
+        confirmLabel: 'Take it out',
+      );
+      if (!ok || !mounted) return;
+    }
+
+    final actor = context.read<Session>().actor;
     setState(() => _busy = true);
     try {
       await AnimalRepo.correct(
-        context.read<Session>().actor,
+        actor,
         widget.animal,
+        tag: _tag.text,
         name: _name.text,
         species: _species,
         sex: _sex,
@@ -156,9 +202,21 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
         retag: _retag,
         linkTo: _linkTo?.id,
       );
+
+      // Her record points at the right entry now, so the one the register
+      // wrote for her is the one that has to go.
+      if (double != null) {
+        await TxnRepo.softDelete(actor, double);
+      }
+
       if (!mounted) return;
       Navigator.pop(context);
-      toast(context, 'Record corrected');
+      toast(
+        context,
+        double == null
+            ? 'Record corrected'
+            : 'Record corrected · ${rs(double.amount)} double entry taken out',
+      );
     } catch (e) {
       if (mounted) toast(context, 'Could not correct it. $e');
     } finally {
@@ -170,6 +228,7 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
   Widget build(BuildContext context) {
     final store = context.watch<FarmStore>();
     final entry = _entry(store);
+    final doubled = _double(store);
 
     return SafeArea(
       top: false,
@@ -214,7 +273,10 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
 
               // The ear tag. Its letter is the kind of animal, so correcting
               // one without the other leaves a number that lies.
-              if (_letterChanges) ...[
+              // Only while the number has been left as it was. Somebody who
+              // has typed one out by hand has already answered this.
+              if (_letterChanges &&
+                  _tag.text.trim().toUpperCase() == widget.animal.tag) ...[
                 const SizedBox(height: 8),
                 CheckboxListTile(
                   value: _retag,
@@ -243,6 +305,21 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
                 compact: true,
                 options: [for (final s in Sex.values) (s, s.label)],
                 onChanged: (v) => setState(() => _sex = v),
+              ),
+
+              const SizedBox(height: T.gap),
+              Field(
+                label: 'Tag number',
+                controller: _tag,
+                hint: 'C-04',
+                textCapitalization: TextCapitalization.characters,
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'What is written on her ear. Type the number you want her to '
+                'carry — it has to be one no other animal has.',
+                style: T.meta,
               ),
 
               const SizedBox(height: T.gap),
@@ -316,6 +393,51 @@ class _AnimalCorrectSheetState extends State<AnimalCorrectSheet> {
                 compact: true,
                 onPressed: _busy ? null : () => _tie(store),
               ),
+
+              // The duplicate the old register wrote for her, and the way out
+              // of it without going to Accounts to hunt for it.
+              if (doubled != null) ...[
+                const SizedBox(height: 10),
+                RegCard(
+                  stripe: T.moneyOut,
+                  wash: T.moneyOutWash,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This money is in the books twice',
+                        style: T.bodyMid.copyWith(color: T.moneyOut),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'The register wrote its own entry for '
+                        '${widget.animal.tag} when she was added: '
+                        '${fmtDateFull(doubled.date)} · '
+                        '${rs(doubled.amount)}. She is now tied to the entry '
+                        'the money really went out on, so this one is a '
+                        'second copy of the same rupees.',
+                        style: T.meta,
+                      ),
+                      const SizedBox(height: 4),
+                      CheckboxListTile(
+                        value: _dropDouble,
+                        onChanged: (v) =>
+                            setState(() => _dropDouble = v ?? false),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        dense: true,
+                        activeColor: T.moneyOut,
+                        title: Text('Take it out when I save', style: T.body),
+                        subtitle: Text(
+                          'You will be asked once more before it goes.',
+                          style: T.meta,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: T.gap),
               Field(

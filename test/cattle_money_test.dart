@@ -170,4 +170,83 @@ void main() {
       expect(books.costs, 0);
     });
   });
+
+  group('the duplicate the old register wrote', () {
+    /// The seven animals registered before any of this existed. Each of them
+    /// had its price written into the ledger a second time under its own
+    /// tag, so the money is in the books twice — and the farm should not
+    /// have to go hunting for the copies by hand.
+    ///
+    /// Deleting money on a guess is worse than leaving it, so a row has to
+    /// answer for itself on three counts before it is offered.
+    Txn written({
+      String id = 'auto',
+      String party = 'C-01',
+      num amount = 250000,
+      String category = 'Cattle purchase',
+      String note = 'Cow C-01',
+    }) => Txn(
+      id: id,
+      date: DateTime(2026, 10, 8),
+      monthId: '2026-10',
+      type: TxnType.purchase,
+      party: party,
+      category: category,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      note: note,
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 8),
+    );
+
+    final her = _animal(price: 250000, tag: 'C-01');
+
+    test('named after her, for exactly what she cost', () {
+      expect(registerWrittenEntry([written()], her)?.id, 'auto');
+    });
+
+    test('found by the note as well, for an animal with a name', () {
+      final named = written(party: 'C-01 Kaali', note: 'Cow C-01');
+      expect(registerWrittenEntry([named], her)?.id, 'auto');
+    });
+
+    test('the mandi bill for the whole lot is not hers to delete', () {
+      // Same heading, same day, and twelve lakh for seven animals. The
+      // figure is what tells them apart: the register writes one animal,
+      // one price.
+      final lot = written(id: 'real', party: 'Mandi', amount: 1200000);
+      expect(registerWrittenEntry([lot], her), isNull);
+    });
+
+    test('nor is a feed bill that happens to match the figure', () {
+      final feed = written(id: 'feed', category: 'Wanda / feed');
+      expect(registerWrittenEntry([feed], her), isNull);
+    });
+
+    test('nor one already deleted', () {
+      final gone = Txn(
+        id: 'auto',
+        date: DateTime(2026, 10, 8),
+        monthId: '2026-10',
+        type: TxnType.purchase,
+        party: 'C-01',
+        category: 'Cattle purchase',
+        amount: 250000,
+        paid: true,
+        paidOnCreate: true,
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 8),
+        deletedAt: DateTime(2026, 10, 9),
+      );
+      expect(registerWrittenEntry([gone], her), isNull);
+    });
+
+    test('an animal that cost nothing has no entry to find', () {
+      // Born here, or one that came with her mother.
+      final calf = _animal(price: 0, tag: 'C-02');
+      expect(registerWrittenEntry([written()], calf), isNull);
+    });
+  });
 }

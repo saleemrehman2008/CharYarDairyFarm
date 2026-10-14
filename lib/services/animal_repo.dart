@@ -48,6 +48,38 @@ num cattleLeftOn(Txn entry, List<Animal> animals, {Animal? except}) {
   return left > 0 ? left : 0;
 }
 
+/// The entry the register wrote for this animal all by itself, if there is
+/// one, and if it can be told apart from a real one.
+///
+/// This is the cleanup for the seven animals registered before any of this
+/// existed. Each of them had its price written into the ledger a second time
+/// under its own tag, so the money is in the books twice and the farm should
+/// not have to go hunting for the duplicates by hand.
+///
+/// Three things have to hold together before a row is offered for deletion,
+/// because deleting money on a guess is worse than leaving it:
+///
+///  * it is a cattle or equipment purchase, not a feed bill;
+///  * it is for exactly what this animal cost, which is how the register
+///    wrote it — one animal, one price;
+///  * and it is named after this animal, under her tag.
+///
+/// On top of that the caller checks no other animal is leaning on it. A row
+/// that fails any of these is somebody's own entry and is left alone.
+Txn? registerWrittenEntry(List<Txn> ledger, Animal animal) {
+  if (animal.price <= 0) return null;
+  final tag = animal.tag;
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isCapitalAsset) continue;
+    if (t.amount != animal.price) continue;
+    final party = t.party.trim();
+    if (party == tag || party == animal.label || t.note.trim().endsWith(tag)) {
+      return t;
+    }
+  }
+  return null;
+}
+
 /// The entries an animal can be registered against: cattle and equipment
 /// bought, newest first, the ones with nothing left on them dropped.
 List<Txn> cattleEntries(List<Txn> ledger, List<Animal> animals) =>
@@ -263,6 +295,12 @@ class AnimalRepo {
     num? price,
     num? dailyLitres,
     String? note,
+
+    /// A number typed out by hand — `C-04` — for when the farm wants this
+    /// animal to carry a particular one. Refused if another animal already
+    /// has it: two animals under one number is a register that cannot be
+    /// read, and the ear tag is the whole point of the thing.
+    String? tag,
     bool retag = false,
 
     /// Tie her to the ledger entry her price was really paid on.
@@ -311,15 +349,29 @@ class AnimalRepo {
       changes.add('Tied to the entry it was paid on');
     }
 
-    // A new tag out of the corrected letter's run. The old number is not
-    // handed back: it is on an ear somewhere in the farm's photographs, and
-    // giving it to a second animal would make the register unreadable.
-    var tag = animal.tag;
+    // The number on her ear. Either one typed out by hand, or the next one
+    // out of the corrected letter's run. The old number is not handed back:
+    // it is on an ear somewhere in the farm's photographs, and giving it to a
+    // second animal would make the register unreadable.
+    var current = animal.tag;
     final kind = species ?? animal.species;
-    if (retag && kind.tagLetter != animal.tag.split('-').first) {
-      tag = await nextTag(kind);
-      fresh['tag'] = tag;
-      changes.add('Tag ${animal.tag} to $tag');
+    final typed = tag?.trim().toUpperCase();
+
+    if (typed != null && typed.isNotEmpty && typed != animal.tag) {
+      // Asked of the register itself rather than of whatever this phone has
+      // loaded, because two people can be correcting two animals at once.
+      final taken = await Db.animals.where('tag', isEqualTo: typed).get();
+      final clash = taken.docs.where((d) => d.id != animal.id);
+      if (clash.isNotEmpty) {
+        throw StateError('$typed is already on another animal.');
+      }
+      fresh['tag'] = typed;
+      changes.add('Tag ${animal.tag} to $typed');
+      current = typed;
+    } else if (retag && kind.tagLetter != animal.tag.split('-').first) {
+      current = await nextTag(kind);
+      fresh['tag'] = current;
+      changes.add('Tag ${animal.tag} to $current');
     }
 
     if (changes.isEmpty) return animal;
@@ -331,7 +383,7 @@ class AnimalRepo {
     await _writeEvent(
       actor,
       animalId: animal.id,
-      animalTag: tag,
+      animalTag: current,
       kind: EventKind.note,
       date: DateTime.now(),
       what: 'Record corrected — ${changes.join(', ')}',
