@@ -360,6 +360,36 @@ const profitShareCategory = 'Profit share';
 /// bought; this is the farm admitting it no longer has what it bought.
 const writeOffCategory = 'Cattle write-off';
 
+/// Money owed to the farm that is not coming back.
+///
+/// A shop pays a year of milk bills and leaves a thousand rupees of the last
+/// one unpaid; everybody knows it is gone. Chasing it costs more than it is
+/// worth, and leaving the entry part settled is worse than either — the
+/// account says a thousand is owed for ever, and the first co-founder to read
+/// it will go and ask for it.
+///
+/// So it is given up on, in writing. A cost of the period it was given up in,
+/// because a sale that is never paid for is a sale the farm did not make; not
+/// cash, because nothing moves on the day. The entry it settles is marked
+/// paid, so the balance goes to nothing and stays there.
+const badDebtCategory = 'Given up on — not coming back';
+
+/// Cash moving from one co-founder's hands to another's.
+///
+/// Four friends run this farm with no accountant. Jalbani takes the money
+/// from Urooj Dairy at the gate, and hands it to Rafeeq that evening because
+/// Rafeeq keeps the cash. Not a rupee enters or leaves the farm — the total
+/// is the same before and after — and yet it is the most common thing that
+/// happens to money here, and until now the books had no way of saying it.
+///
+/// So it is two rows: handed over by one, taken in by the other. The cash
+/// cancels exactly, the profit never sees it, and what each of them is
+/// holding moves by what was passed. They are posted as a pair by the app
+/// and are deliberately not on the entry form, because half a transfer would
+/// be worse than none.
+const handoverOutCategory = 'Handed to a co-founder';
+const handoverInCategory = 'Taken from a co-founder';
+
 /// A security a customer leaves with the farm against a contract.
 ///
 /// Urooj Dairy signs for a year of milk and leaves a deposit first. The
@@ -742,6 +772,27 @@ class Txn {
   bool get isWriteOff =>
       type == TxnType.expense && category == writeOffCategory;
 
+  /// A debt given up on. See [badDebtCategory].
+  bool get isBadDebt => type == TxnType.expense && category == badDebtCategory;
+
+  /// Rows that cost the farm something and move no cash at all.
+  ///
+  /// Two of them, and they are the same shape: an animal taken off the books
+  /// at what she cost, and a debt nobody is going to pay. Both are real
+  /// losses in the period they are written, and on neither day does a rupee
+  /// move — the money went when she was bought, and the money never came.
+  /// Every figure built out of cash has to step over them.
+  bool get movedNoCash => isWriteOff || isBadDebt;
+
+  /// One half of cash passing between two co-founders.
+  bool get isHandoverOut =>
+      type == TxnType.payment && category == handoverOutCategory;
+
+  bool get isHandoverIn =>
+      type == TxnType.receipt && category == handoverInCategory;
+
+  bool get isHandover => isHandoverOut || isHandoverIn;
+
   /// A payment that settles nothing.
   ///
   /// Money went out and no purchase or expense anywhere accounts for it, so
@@ -753,7 +804,10 @@ class Txn {
       !isProfitShare &&
       !isSecurityBack &&
       !isSecurityOut &&
-      !isLoanOut;
+      !isLoanOut &&
+      // Handed to another co-founder, not spent. The other half of the
+      // pair takes it straight back in.
+      !isHandoverOut;
 
   /// An advance taken in against a standing order. Cash in, and nothing
   /// else: the farm is holding this money, not earning it.
@@ -786,7 +840,8 @@ class Txn {
       !settlesAnotherEntry &&
       !isSecurityIn &&
       !isSecurityRefund &&
-      !isLoanBack;
+      !isLoanBack &&
+      !isHandoverIn;
 
   /// Money lent to a co-founder. Cash out, and nothing else.
   bool get isLoanOut =>

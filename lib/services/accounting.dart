@@ -32,7 +32,7 @@ class Books {
        paidExpenses = monthTxns
            .where(
              (t) =>
-                 t.type == TxnType.expense && t.paidOnCreate && !t.isWriteOff,
+                 t.type == TxnType.expense && t.paidOnCreate && !t.movedNoCash,
            )
            .fold<num>(0, (a, t) => a + t.amount),
        writeOffs = monthTxns
@@ -198,10 +198,123 @@ class Books {
 /// A write-off is the one row that looks like money going out and is not.
 /// The rupees left when the animal was bought; nothing moves on the day she
 /// is written off.
-bool movedCashIn(Txn t) => t.type.isIncoming && t.paidOnCreate;
+bool movedCashIn(Txn t) =>
+    t.type.isIncoming && t.paidOnCreate && !t.movedNoCash;
 
 bool movedCashOut(Txn t) =>
-    !t.type.isIncoming && t.paidOnCreate && !t.isWriteOff;
+    !t.type.isIncoming && t.paidOnCreate && !t.movedNoCash;
+
+/// What one pair of hands has taken in, handed out, and is left holding.
+class HandsOn {
+  const HandsOn({
+    required this.who,
+    required this.received,
+    required this.paid,
+    required this.rows,
+  });
+
+  /// The name as the farm writes it most often.
+  final String who;
+
+  final num received;
+  final num paid;
+
+  /// How many entries their name is on, so a figure can be looked into.
+  final int rows;
+
+  /// What they should have in their hand.
+  ///
+  /// Below nothing means the opposite and is just as useful: they have paid
+  /// more of the farm's costs than they have taken in, out of their own
+  /// pocket, and the farm owes them the difference.
+  num get holding => received - paid;
+
+  bool get outOfPocket => holding < 0;
+}
+
+/// Who is holding the farm's cash, read off the ledger.
+///
+/// Four friends run this place and none of them is an accountant. Money
+/// comes in at the gate to whoever is standing there, feed gets paid for out
+/// of whoever's pocket is nearest, and at the end of the week nobody can say
+/// what is owed to whom without an argument. Every entry already carries the
+/// name of the person who actually handled the money — it is asked for on
+/// the form and has been from the start — so the answer was in the books the
+/// whole time and was never once added up.
+///
+/// Only rows where cash really moved are counted, so a credit sale lands on
+/// the person who collected it rather than the person who wrote it down, and
+/// a debt given up on lands on nobody. Money passed from one of them to
+/// another moves the holding and nothing else: it is a payment out of one
+/// pair of hands and a receipt into the other, and the two cancel in every
+/// figure except these.
+///
+/// Spellings are folded together — Jalbani and jalbani are one man — and the
+/// name that comes back is whichever he is written as most often. Entries
+/// with nobody's name on them are gathered under one heading rather than
+/// dropped, because money that moved with no name against it is exactly what
+/// a farm needs to be told about.
+List<HandsOn> cashInHands(List<Txn> ledger, {String unnamed = 'Not recorded'}) {
+  final received = <String, num>{};
+  final paid = <String, num>{};
+  final rows = <String, int>{};
+  final spellings = <String, Map<String, int>>{};
+
+  void note(Txn t, {required bool incoming}) {
+    final said = t.handledBy.trim();
+    final key = said.isEmpty ? '' : partyKey(said);
+    (incoming ? received : paid).update(
+      key,
+      (v) => v + t.amount,
+      ifAbsent: () => t.amount,
+    );
+    rows.update(key, (v) => v + 1, ifAbsent: () => 1);
+    if (said.isNotEmpty) {
+      spellings
+          .putIfAbsent(key, () => <String, int>{})
+          .update(said, (v) => v + 1, ifAbsent: () => 1);
+    }
+  }
+
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+    if (movedCashIn(t)) {
+      note(t, incoming: true);
+    } else if (movedCashOut(t)) {
+      note(t, incoming: false);
+    }
+  }
+
+  final out = [
+    for (final key in {...received.keys, ...paid.keys})
+      HandsOn(
+        who: key.isEmpty ? unnamed : _mostWritten(spellings[key]) ?? key,
+        received: received[key] ?? 0,
+        paid: paid[key] ?? 0,
+        rows: rows[key] ?? 0,
+      ),
+  ];
+
+  // Whoever is holding the most first, because that is the person the farm
+  // is relying on. Anything unnamed goes last whatever it comes to.
+  out.sort((a, b) {
+    if ((a.who == unnamed) != (b.who == unnamed)) {
+      return a.who == unnamed ? 1 : -1;
+    }
+    final byHeld = b.holding.compareTo(a.holding);
+    return byHeld != 0 ? byHeld : a.who.compareTo(b.who);
+  });
+  return out;
+}
+
+String? _mostWritten(Map<String, int>? spellings) {
+  if (spellings == null || spellings.isEmpty) return null;
+  var best = spellings.keys.first;
+  for (final e in spellings.entries) {
+    if (e.value > (spellings[best] ?? 0)) best = e.key;
+  }
+  return best;
+}
 
 /// Where every rupee the farm has ever handled currently sits.
 ///

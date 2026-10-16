@@ -11,6 +11,7 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/loan_card.dart';
 import '../../widgets/ui.dart';
+import 'cash_hands.dart';
 
 /// Capital, share ratios and the record of closed months.
 class CofoundersScreen extends StatelessWidget {
@@ -45,6 +46,12 @@ class CofoundersScreen extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: T.pad),
+
+        // Whose hands the farm's cash is in. Above the cards rather than
+        // below them, because it is the question the four of them ask each
+        // other most often and the one the books could never answer.
+        const CashHands(),
         const SizedBox(height: T.pad),
 
         if (isMaster) ...[

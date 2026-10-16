@@ -127,7 +127,7 @@ class Statement {
 /// bought — nothing moves on the day she dies. Counting it here had the cash
 /// book short by the price of every dead and sold animal.
 bool _movedCash(Txn t) =>
-    !t.isWriteOff && (t.type.isSettlement || t.paidOnCreate);
+    !t.movedNoCash && (t.type.isSettlement || t.paidOnCreate);
 
 /// Which side of a person's account an entry falls on.
 ///
@@ -158,12 +158,23 @@ bool _movedCash(Txn t) =>
 /// less for milk than he does. The farm leaves a deposit on a rented yard
 /// and it is the same from the other side. Both are shown on their own line
 /// at the foot of the page instead, where they read as what they are.
-num _settledOnTheSpot(Txn t) => switch (t.type) {
-  TxnType.sale ||
-  TxnType.purchase ||
-  TxnType.expense => t.paidOnCreate ? t.amount : 0,
-  TxnType.receipt || TxnType.payment => t.settlesAnotherEntry ? 0 : t.amount,
-};
+/// A debt given up on is the one row that settles the other side without a
+/// rupee behind it. The shop's account has to come down by it — that is the
+/// whole point of writing it off — so it credits him and debits nobody.
+///
+/// Deliberately not every row that moves no cash. An animal taken off the
+/// books is written against her own tag rather than against a person, and
+/// she has no account to move: both sides of that row cancel and her page
+/// stays at nothing, which is where it belongs.
+num _settledOnTheSpot(Txn t) => t.isBadDebt
+    ? 0
+    : switch (t.type) {
+        TxnType.sale ||
+        TxnType.purchase ||
+        TxnType.expense => t.paidOnCreate ? t.amount : 0,
+        TxnType.receipt ||
+        TxnType.payment => t.settlesAnotherEntry ? 0 : t.amount,
+      };
 
 ({num debit, num credit}) _partySides(Txn t) {
   final settled = _settledOnTheSpot(t);

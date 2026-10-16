@@ -241,6 +241,133 @@ class TxnRepo {
     return finished;
   }
 
+  /// Gives up on what is still owed on an entry.
+  ///
+  /// The farm's own case: a shop pays a year of milk bills and leaves a
+  /// thousand rupees of the last one unpaid. Everybody knows it is not
+  /// coming. Chasing it costs more than it is worth — and leaving it on the
+  /// books is worse than either, because the account then says a thousand is
+  /// owed for ever and the next co-founder to read it goes and asks for it.
+  ///
+  /// So the entry is marked settled and the shortfall is booked as a cost of
+  /// the period it was given up in. That is what it is: a sale that is never
+  /// paid for is a sale the farm did not make, and the profit has to know.
+  /// No cash moves — see [badDebtCategory] — so the balance check stays
+  /// level: the receivable comes off one side and the cost off the other.
+  ///
+  /// The master's alone. Every other correction can be argued about
+  /// afterwards; this one hands somebody else the farm's money.
+  static Future<void> giveUpOn(
+    Actor actor,
+    Txn txn, {
+    num? amount,
+    String note = '',
+  }) async {
+    final left = txn.outstanding;
+    if (left <= 0) throw StateError('Nothing is outstanding on that entry.');
+    final given = amount == null || amount > left ? left : amount;
+    if (given <= 0) throw StateError('There is nothing to give up on.');
+
+    final now = DateTime.now();
+    final settledInFull = txn.paidSoFar + given >= txn.amount;
+
+    await Db.transactions.doc(txn.id).update({
+      'paidSoFar': txn.paidSoFar + given,
+      'paid': settledInFull,
+      if (settledInFull) 'paidAt': Timestamp.fromDate(now),
+    });
+
+    await add(
+      actor: actor,
+      monthId: MonthRepo.bookingId,
+      type: TxnType.expense,
+      party: txn.party,
+      category: badDebtCategory,
+      amount: given,
+      paid: true,
+      note: note.isEmpty
+          ? 'Given up on — ${txn.type.label.toLowerCase()} of '
+                '${fmtDate(txn.date)}'
+          : note,
+      settlesTxnId: txn.id,
+      customerId: txn.customerId,
+      date: now,
+    );
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      'gave up on ${rs(given)} owed by "${txn.party}" on the '
+      '${txn.type.label.toLowerCase()} of ${fmtDateFull(txn.date)}',
+      refType: 'transaction',
+      refId: txn.id,
+    );
+  }
+
+  /// Cash passing from one co-founder's hands to another's.
+  ///
+  /// Not a rupee enters or leaves the farm. Jalbani takes the money from
+  /// Urooj Dairy at the gate and hands it to Rafeeq that evening because
+  /// Rafeeq keeps the cash; the farm has exactly as much before and after.
+  /// What changes is who is answerable for it, and that was the one thing
+  /// the books could not say.
+  ///
+  /// Written as a pair, both rows at once, so it can never be half recorded:
+  /// one hands over, the other takes in. The two cancel in the cash, neither
+  /// touches the profit — see [handoverOutCategory] — and the only figures
+  /// that move are what each of them is holding.
+  static Future<void> handOver(
+    Actor actor, {
+    required String from,
+    required String to,
+    required num amount,
+    PayVia payVia = PayVia.cash,
+    String note = '',
+    DateTime? date,
+  }) async {
+    if (amount <= 0) throw StateError('How much is being handed over?');
+    if (partyKey(from) == partyKey(to)) {
+      throw StateError('Those are the same person.');
+    }
+    final on = date ?? DateTime.now();
+    final monthId = MonthRepo.bookingId;
+
+    await add(
+      actor: actor,
+      monthId: monthId,
+      type: TxnType.payment,
+      party: to,
+      category: handoverOutCategory,
+      amount: amount,
+      paid: true,
+      note: note.isEmpty ? 'Handed to $to' : note,
+      payVia: payVia,
+      handledBy: from,
+      date: on,
+    );
+
+    await add(
+      actor: actor,
+      monthId: monthId,
+      type: TxnType.receipt,
+      party: from,
+      category: handoverInCategory,
+      amount: amount,
+      paid: true,
+      note: note.isEmpty ? 'Taken from $from' : note,
+      payVia: payVia,
+      handledBy: to,
+      date: on,
+    );
+
+    await Log.write(
+      actor,
+      LogKind.transaction,
+      '$from handed ${rs(amount)} to $to',
+      refType: 'handover',
+    );
+  }
+
   /// Master only. Soft delete keeps the row in the Sheet marked `deleted`.
   ///
   /// Any receipt or payment that "Mark paid" posted against this entry goes

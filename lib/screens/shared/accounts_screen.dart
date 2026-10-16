@@ -420,6 +420,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           onMarkPaid: () => _markPaid(txn),
           onDelete: () => _delete(txn),
           onEdit: () => _edit(txn),
+          onGiveUp: () => _giveUp(txn),
           // A settled period's figures are what four people were paid out
           // of, so nothing in one can be corrected.
           canEdit:
@@ -676,6 +677,36 @@ class _AccountsScreenState extends State<AccountsScreen> {
         child: EditEntrySheet(txn: txn, isMaster: isMaster),
       ),
     );
+  }
+
+  /// Give up on what is still owed on one entry.
+  Future<void> _giveUp(Txn txn) async {
+    final l = L.read(context);
+    final left = txn.outstanding;
+    final ok = await confirm(
+      context,
+      title: l.t('Give up on this money?'),
+      body: l.t3(
+        '%s · %s\n\n'
+        'The entry is marked settled and this becomes a cost of the open '
+        'period, so the profit drops by it. No cash moves — it never came. '
+        'It cannot be undone except by entering it again as a fresh sale.',
+        txn.party,
+        rs(left),
+      ),
+      confirmLabel: l.t('Give up on it'),
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busyId = txn.id);
+    try {
+      await TxnRepo.giveUpOn(context.read<Session>().actor, txn);
+      if (mounted) toast(context, l.t2('%s written off', rs(left)));
+    } catch (e) {
+      if (mounted) toast(context, l.t2('Could not write it off. %s', e));
+    } finally {
+      if (mounted) setState(() => _busyId = null);
+    }
   }
 
   Future<void> _delete(Txn txn) async {
@@ -1315,6 +1346,7 @@ class _LedgerRow extends StatelessWidget {
     required this.onMarkPaid,
     required this.onDelete,
     required this.onEdit,
+    required this.onGiveUp,
     required this.canEdit,
     this.showMark = false,
     this.reached = 0,
@@ -1326,6 +1358,10 @@ class _LedgerRow extends StatelessWidget {
   final VoidCallback onMarkPaid;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+
+  /// Giving up on what is still owed — the master's, and only while
+  /// something is still owed.
+  final VoidCallback onGiveUp;
 
   /// False once this entry's period has been settled.
   final bool canEdit;
@@ -1569,6 +1605,7 @@ class _LedgerRow extends StatelessWidget {
             onMarkPaid: onMarkPaid,
             onDelete: onDelete,
             onEdit: onEdit,
+            onGiveUp: onGiveUp,
             canEdit: canEdit,
           ),
           borderRadius: T.round,
@@ -1648,6 +1685,9 @@ Future<void> showEntryDetail(
   required VoidCallback onMarkPaid,
   required VoidCallback onDelete,
   required VoidCallback onEdit,
+
+  /// Giving up on what is still owed on it. The master's.
+  required VoidCallback onGiveUp,
 
   /// False once the entry's period has been settled. The figures of a
   /// closed month were what four people were paid out of, so nothing in
@@ -1951,6 +1991,31 @@ Future<void> showEntryDetail(
                   ),
               ],
             ),
+
+            // Money that is owed and is not coming. Left on the books it
+            // says it is owed for ever, and the next co-founder to read the
+            // account goes and asks for it.
+            if (isMaster && txn.outstanding > 0 && !txn.type.isSettlement) ...[
+              const SizedBox(height: 8),
+              GhostButton(
+                label: l.t2('Give up on %s', rs(txn.outstanding)),
+                icon: Icons.money_off_csred_outlined,
+                danger: true,
+                onPressed: () {
+                  Navigator.pop(sheet);
+                  onGiveUp();
+                },
+              ),
+              const SizedBox(height: 5),
+              Text(
+                l.t(
+                  'For money nobody is going to pay. The entry is settled '
+                  'and what is left of it becomes a cost — the profit drops '
+                  'by it, and no cash moves.',
+                ),
+                style: T.meta,
+              ),
+            ],
           ],
         ),
       ),

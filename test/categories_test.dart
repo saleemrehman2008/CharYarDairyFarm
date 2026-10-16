@@ -266,6 +266,23 @@ void categoryWordTests() {
       expect(missing, isEmpty, reason: 'no Roman Urdu for: $missing');
     });
 
+    test('and the headings the app writes for itself', () {
+      // Never on the form, so the checker cannot see them — and read on
+      // every ledger row and every statement all the same.
+      final missing = [
+        for (final c in [
+          profitShareCategory,
+          writeOffCategory,
+          badDebtCategory,
+          handoverOutCategory,
+          handoverInCategory,
+          khaataReceiptCategory,
+          founderLoanCategory,
+        ])
+          if (!romanUrdu.containsKey(c)) c,
+      ];
+      expect(missing, isEmpty, reason: 'no Roman Urdu for: ');
+    });
     test('and every line the activity log can tag', () {
       // The log shows its kind through a variable, which the word checker
       // cannot see into — the same blind spot that left twenty-seven

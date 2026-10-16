@@ -498,6 +498,9 @@ const Map<String, String> romanUrdu = {
   'Profit share': 'Munafe ka hissa',
   'Cattle write-off': 'Janwar books se nikala',
   'Founder loan': 'Founder ko diya loan',
+  'Given up on — not coming back': 'Chhor diya — ab nahi aana',
+  'Handed to a co-founder': 'Co-founder ko diya',
+  'Taken from a co-founder': 'Co-founder se liya',
 
   // Correcting an entry that was written wrong.
   'Correct this entry': 'Is entry ko theek karen',
@@ -533,6 +536,58 @@ const Map<String, String> romanUrdu = {
   'Entry deleted': 'Entry hatai gayi',
   'Month close': 'Mahina band',
   'Udhaar': 'Udhaar',
+  // Giving up on money that is not coming back.
+  'Give up on %s': '%s chhor dein',
+  'Give up on it': 'Chhor dein',
+  'Give up on this money?': 'Ye paisa chhor dena hai?',
+  '%s written off': '%s chhor diya',
+  'Could not write it off. %s': 'Chhora nahi ja saka. %s',
+  'For money nobody is going to pay. The entry is settled and what is left of it becomes a cost — the profit drops by it, and no cash moves.':
+      'Us paise ke liye jo koi nahi dene wala. Entry poori ho jati hai aur '
+      'jo bacha wo kharcha ban jata hai — munafa utna kam, aur cash hilta '
+      'bilkul nahi.',
+  '%s · %s\n\nThe entry is marked settled and this becomes a cost of the open period, so the profit drops by it. No cash moves — it never came. It cannot be undone except by entering it again as a fresh sale.':
+      '%s · %s\n\nEntry poori likh di jaegi aur ye khule mahine ka kharcha '
+      'ban jaega, to munafa utna kam ho jaega. Cash nahi hilta — wo aaya hi '
+      'nahi tha. Wapas sirf nayi sale daal kar hi ho sakta hai.',
+
+  // Whose hands the farm's cash is in.
+  'Who is holding the money': 'Paisa kis ke paas hai',
+  '%s people': '%s log',
+  '%s taken in · %s handed out': '%s liya · %s diya',
+  'in their hand': 'un ke paas hai',
+  'farm owes them': 'farm ne dena hai',
+  'In their hands': 'Un ke haath mein',
+  'Out of their pockets': 'Un ki apni jeb se',
+  'Nobody named': 'Naam nahi likha',
+  'Nobody has handled any money yet. Every entry asks who took it in or handed it over, and that is what this is counted from.':
+      'Abhi tak kisi ne paisa handle nahi kiya. Har entry poochhti hai kis '
+      'ne liya ya diya, isi se ye hisab banta hai.',
+  'Taken in, less handed out, for every entry with a name against it. Below nothing means they have paid the farm\'s costs out of their own pocket and the farm owes them.':
+      'Jitna liya, us mein se jitna diya — har us entry ka jis par naam '
+      'likha hai. Sifar se neeche ka matlab hai ke unhon ne farm ka kharcha '
+      'apni jeb se kiya aur farm ne un ko dena hai.',
+  'Hand cash to somebody': 'Kisi ko paisa dena',
+  'Hand cash over': 'Paisa hawale karen',
+  'Money passing between the four of them: taken at the gate by one and kept by another. The farm has exactly as much before and after, so nothing moves except who is answerable for it.':
+      'Aapas mein paisa idhar se udhar: gate par ek ne liya, rakha dusre ne. '
+      'Farm ke paas pehle bhi utna hi tha aur baad mein bhi — sirf ye badalta '
+      'hai ke ab zimmedar kaun hai.',
+  'Nothing is earned and nothing is spent. The farm has the same money before and after — this only says whose hands it is in now.':
+      'Na kuch kamaya na kuch kharch hua. Farm ke paas paisa utna hi hai — ye '
+      'sirf batata hai ke ab kis ke haath mein hai.',
+  'Handed over by': 'Kis ne diya',
+  'Taken by': 'Kis ne liya',
+  'How much (Rs)': 'Kitna (Rs)',
+  'Who handed it over, and who took it?': 'Kis ne diya, aur kis ne liya?',
+  'How much was handed over?': 'Kitna diya gaya?',
+  '%s has %s in hand.': '%s ke paas %s hai.',
+  '%s is not holding anything the books know about. That is fine if the money has only just come in.':
+      '%s ke paas kitaab ke mutabiq kuch nahi hai. Agar paisa abhi abhi aaya '
+      'hai to koi baat nahi.',
+  '%s handed to %s': '%s, %s ko de diya',
+  'Save the handover': 'Mehfooz karen',
+  'Anything worth remembering': 'Jo yaad rakhne layak ho',
   // Which day an entry is for, and who may move it.
   'Any day up to today, back or forward. Where it ends up is kept on the entry with the day it came from.':
       'Aaj tak koi bhi din, aage ya peechhe. Jahan jaye wo aur '
