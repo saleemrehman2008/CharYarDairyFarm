@@ -384,6 +384,7 @@ class SheetBooks {
     required this.txns,
     required this.periods,
     required this.partners,
+    required this.contributions,
     required this.ratios,
     required this.khaata,
     required this.deliveries,
@@ -397,6 +398,7 @@ class SheetBooks {
   final List<Txn> txns;
   final List<FarmMonth> periods;
   final List<Partner> partners;
+  final List<Contribution> contributions;
   final Map<String, double> ratios;
   final List<UdhaarAccount> khaata;
   final List<Delivery> deliveries;
@@ -492,7 +494,9 @@ class SheetBooks {
       [
         'Name',
         'Email',
+        'In for',
         'Put in',
+        'Still to come',
         'Left in from profit',
         'Capital',
         'Share %',
@@ -502,11 +506,40 @@ class SheetBooks {
         [
           p.name,
           p.email,
+          _n(p.pledged),
           _n(p.invested),
+          _n(p.stillToPayIn),
           _n(p.profitHeld),
           _n(p.inTheFarm),
           ((ratios[p.id] ?? 0) * 100).toStringAsFixed(1),
           _n(p.withdrawn),
+        ],
+    ],
+
+    // Every rupee of the four of them's own money, line by line. The tab
+    // the farm will read when somebody asks what he has put in: the card's
+    // total is the sum of these and of nothing else.
+    'Money in': [
+      [
+        'Date',
+        'Who',
+        'Amount',
+        'Kind',
+        'How it went in',
+        'Taken by',
+        'How',
+        'Note',
+      ],
+      for (final c in contributions)
+        [
+          _date(c.date),
+          c.partnerName,
+          _n(c.amount),
+          c.kind.label,
+          c.source.label,
+          c.receivedBy,
+          c.payVia.label,
+          c.note,
         ],
     ],
 

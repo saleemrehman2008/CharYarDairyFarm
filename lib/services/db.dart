@@ -20,6 +20,13 @@ class Db {
   /// because a loan is an arrangement with a term, and the ledger only knows
   /// about the rupees moving on the days they move.
   static Col get loans => fs.collection('founder_loans');
+
+  /// Every payment of a co-founder's own money into the farm, one line each.
+  ///
+  /// Apart from the ledger because none of it is trading: it is the four of
+  /// them funding the place. What each has put in is the sum of his lines,
+  /// so no figure on a co-founder's card can move without one.
+  static Col get contributions => fs.collection('contributions');
   static Col get products => fs.collection('products');
   static Col get transactions => fs.collection('transactions');
   static Col get orders => fs.collection('orders');
@@ -74,6 +81,19 @@ class Db {
       .orderBy('createdAt')
       .snapshots()
       .map((q) => q.docs.map(Partner.fromDoc).toList());
+
+  /// Every co-founder's money in, newest first, the deleted lines left out.
+  ///
+  /// Not ordered in the query: an `orderBy` on a field some older line might
+  /// be missing drops that line silently, and a line of somebody's money
+  /// going missing is the one thing this collection exists to prevent. There
+  /// are a few dozen of these in a year, so Dart sorts them.
+  static Stream<List<Contribution>> watchContributions() =>
+      contributions.snapshots().map(
+        (q) =>
+            q.docs.map(Contribution.fromDoc).where((c) => !c.isDeleted).toList()
+              ..sort((a, b) => b.date.compareTo(a.date)),
+      );
 
   /// The shop catalogue, in shop order.
   ///

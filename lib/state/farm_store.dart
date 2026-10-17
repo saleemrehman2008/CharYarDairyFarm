@@ -99,6 +99,13 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _loans = v;
         notifyListeners();
       }),
+      // Every rupee the four of them have put in, line by line. Held here
+      // because three screens ask the same question of it: what has each
+      // put in, what is the farm holding for them, and who paid for that.
+      Db.watchContributions().listen((v) {
+        _contributions = v;
+        notifyListeners();
+      }),
       // The whole running account. Held here rather than opened again by
       // every screen that wants it: Accounts reads it, and so does the name
       // suggestion on a new entry, which needs every customer the farm has
@@ -244,6 +251,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _ledger = const [];
   List<Txn> _loanTxns = const [];
   List<FounderLoan> _loans = const [];
+  List<Contribution> _contributions = const [];
 
   /// Every period, newest first.
   List<FarmMonth> _periods = const [];
@@ -389,6 +397,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
     monthId: month.id,
     openingCash: month.openingCash,
     capital: capitalIn,
+    // Co-founders' money the farm is holding and owes back. It is in the
+    // box and it can be spent, exactly like a customer's security, so the
+    // cash has to see it — and the farm's worth has to take it off again.
+    founderFloat: owedToFounders,
     monthTxns: _monthTxns,
     unpaidTxns: _unpaidTxns,
     withRider: cashWithRiders,
@@ -469,6 +481,37 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Money the partners actually put in, which is cash the farm can spend.
   /// Reinvested profit is left out: it never left the farm in the first place.
   num get capitalIn => _partners.fold<num>(0, (a, p) => a + p.invested);
+
+  /// Every line of co-founders' money going in, newest first.
+  List<Contribution> get contributions => _contributions;
+
+  /// One person's lines.
+  List<Contribution> contributionsOf(String partnerId) =>
+      _contributions.where((c) => c.partnerId == partnerId).toList();
+
+  /// Who paid for one entry, and how much each of them paid.
+  List<Contribution> paidForEntry(String txnId) =>
+      paidFor(_contributions, txnId);
+
+  /// Co-founders' own money the farm is holding and has to give back.
+  ///
+  /// The mirror of a customer's security, and it sits on the same side of
+  /// the books: it is in the cash and it is not the farm's. Jalbani buys a
+  /// load of feed out of his own pocket on Tuesday — until the four of them
+  /// say otherwise, the farm owes him for it.
+  num get owedToFounders => _contributions
+      .where((c) => c.isLoan)
+      .fold<num>(0, (a, c) => a + c.amount);
+
+  num owedToFounder(String partnerId) => owedToFrom(_contributions, partnerId);
+
+  /// What is still to come in against what the four of them promised.
+  num get pledgedStillToCome =>
+      _partners.fold<num>(0, (a, p) => a + p.stillToPayIn);
+
+  /// Everything promised has arrived.
+  bool get fundingComplete =>
+      _partners.any((p) => p.pledged > 0) && pledgedStillToCome == 0;
 
   /// Everything the farm owns — cattle and equipment, across every month,
   /// less whatever has been sold, died or been slaughtered since.
@@ -665,6 +708,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     withRider: cashWithRiders,
     paidOut: paidToFounders,
     securitiesHeld: securitiesHeld,
+    owedToFounders: owedToFounders,
     loansOut: loansOut,
     securitiesOut: securitiesOut,
     profitHeld: profitHeldByFounders,
@@ -852,6 +896,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
       txns: ledger.where((t) => !t.isDeleted).toList(),
       periods: _periods,
       partners: _partners,
+      contributions: _contributions,
       ratios: ratios,
       khaata: _udhaar,
       deliveries: rounds,
@@ -865,6 +910,8 @@ class FarmStore extends ChangeNotifier implements RoundData {
         ('Cattle & equipment owned', assetsOwned),
         ('Paid out to co-founders', paidToFounders),
         ('Security held for customers', securitiesHeld),
+        ('Owed back to co-founders', owedToFounders),
+        ('Promised and not yet in', pledgedStillToCome),
         // The mirror of the line above, and it has to be here for the same
         // reason: without it the Sheet's summary is short by whatever the
         // farm has handed out and not had back, and the one place the farm

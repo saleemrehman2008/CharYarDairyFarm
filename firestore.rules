@@ -207,6 +207,24 @@ service cloud.firestore {
       allow delete: if isMaster();
     }
 
+    // ---- The four of them funding the farm ----
+    //
+    // One line for every rupee of a co-founder's own money going in: what
+    // day, whose, how much, and whether it was handed over or spent
+    // straight on something the farm bought.
+    //
+    // Writing one moves the capital on a partner record, and capital has
+    // always been the master's alone to enter, so these are too. All four
+    // read them — the whole purpose of keeping them is that none of these
+    // four has to take any other's word for what he has put in.
+    match /contributions/{id} {
+      allow read: if isPartner();
+      allow create, update: if isMaster();
+      // Taken out by marking it deleted, the same as a ledger entry, so
+      // the line survives in the Sheet instead of vanishing from both.
+      allow delete: if false;
+    }
+
     // ---- Money the farm has lent its own ----
     //
     // A co-founder asks for their own, and only for themselves. Handing it

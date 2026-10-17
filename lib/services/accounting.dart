@@ -10,6 +10,7 @@ class Books {
     required List<Txn> monthTxns,
     required List<Txn> unpaidTxns,
     this.withRider = 0,
+    this.founderFloat = 0,
   }) : sales = _sum(monthTxns, TxnType.sale),
        purchases = _sum(monthTxns, TxnType.purchase),
        expenses = _sum(monthTxns, TxnType.expense),
@@ -72,6 +73,18 @@ class Books {
   /// and shown on its own until a founder takes it in.
   final num withRider;
 
+  /// Co-founders' own money the farm is holding and has to give back.
+  ///
+  /// A founder pays for a load of feed out of his own pocket. The feed is
+  /// the farm's cost and the rupees left the farm's books — but they were
+  /// never the farm's rupees, and without this the cash reads short by
+  /// exactly what he laid out, every time any of them does it.
+  ///
+  /// So it goes in the cash, because it is in the box and can be spent, and
+  /// it comes off what the farm is worth, because it is owed. The same two
+  /// places a customer's security sits, for the same reason.
+  final num founderFloat;
+
   /// Booked this month, paid or not.
   final num sales;
   final num purchases;
@@ -128,7 +141,7 @@ class Books {
   num get profit => sales + otherIncome - costs;
 
   /// Everything the farm has trading with, including what the partners put in.
-  num get cash => capital + operatingCash - withRider;
+  num get cash => capital + founderFloat + operatingCash - withRider;
 
   /// Cash the farm can actually put its hand on, plus what a rider is still
   /// carrying. This is every rupee the sales have brought in.
@@ -254,7 +267,17 @@ class HandsOn {
 /// with nobody's name on them are gathered under one heading rather than
 /// dropped, because money that moved with no name against it is exactly what
 /// a farm needs to be told about.
-List<HandsOn> cashInHands(List<Txn> ledger, {String unnamed = 'Not recorded'}) {
+List<HandsOn> cashInHands(
+  List<Txn> ledger, {
+  String unnamed = 'Not recorded',
+
+  /// Co-founders' own money coming in. Only the part that was handed to
+  /// somebody counts here: money one of them spent straight on a load of
+  /// feed never passed through the farm's hands, so no holding moves for
+  /// it. Without this the card would read short by every rupee of capital
+  /// that has been paid in, which is most of what the farm has.
+  List<Contribution> putIn = const [],
+}) {
   final received = <String, num>{};
   final paid = <String, num>{};
   final rows = <String, int>{};
@@ -283,6 +306,16 @@ List<HandsOn> cashInHands(List<Txn> ledger, {String unnamed = 'Not recorded'}) {
     } else if (movedCashOut(t)) {
       note(t, incoming: false);
     }
+  }
+
+  for (final c in putIn) {
+    if (c.isDeleted || !c.wasHandedOver) continue;
+    final key = partyKey(c.receivedBy);
+    received.update(key, (v) => v + c.amount, ifAbsent: () => c.amount);
+    rows.update(key, (v) => v + 1, ifAbsent: () => 1);
+    spellings
+        .putIfAbsent(key, () => <String, int>{})
+        .update(c.receivedBy, (v) => v + 1, ifAbsent: () => 1);
   }
 
   final out = [
@@ -338,6 +371,7 @@ class MoneySummary {
     this.loansOut = 0,
     this.securitiesOut = 0,
     this.profitHeld = 0,
+    this.owedToFounders = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -361,6 +395,14 @@ class MoneySummary {
   /// the same way an unpaid bill does — both are money the farm is holding
   /// and owes to somebody else.
   final num securitiesHeld;
+
+  /// Co-founders' own money in the farm's box that the farm owes back.
+  ///
+  /// Counted exactly as a customer's security is, and for the same reason:
+  /// it is money the farm is holding and not money the farm has. A founder
+  /// who pays for the feed himself has lent the farm that much until the
+  /// four of them either pay him back or agree it comes off his promise.
+  final num owedToFounders;
 
   /// What the farm has lent its own co-founders and not had back.
   ///
@@ -412,7 +454,8 @@ class MoneySummary {
       withRider +
       receivable -
       payable -
-      securitiesHeld +
+      securitiesHeld -
+      owedToFounders +
       loansOut +
       securitiesOut;
 

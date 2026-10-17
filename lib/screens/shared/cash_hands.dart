@@ -32,7 +32,11 @@ class CashHands extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final store = context.watch<FarmStore>();
-    final hands = cashInHands(store.ledger, unnamed: l.t('Nobody named'));
+    final hands = cashInHands(
+      store.ledger,
+      unnamed: l.t('Nobody named'),
+      putIn: store.contributions,
+    );
 
     if (hands.isEmpty) {
       return RegCard(
@@ -247,7 +251,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
     for (final p in store.partners) {
       names[partyKey(p.name)] = p.name;
     }
-    for (final h in cashInHands(store.ledger)) {
+    for (final h in cashInHands(store.ledger, putIn: store.contributions)) {
       names.putIfAbsent(partyKey(h.who), () => h.who);
     }
     final out = names.values.toList()..sort();
@@ -295,7 +299,8 @@ class _HandoverSheetState extends State<_HandoverSheet> {
     final store = context.watch<FarmStore>();
     final people = _people(store);
     final hands = {
-      for (final h in cashInHands(store.ledger)) partyKey(h.who): h,
+      for (final h in cashInHands(store.ledger, putIn: store.contributions))
+        partyKey(h.who): h,
     };
 
     return SafeArea(

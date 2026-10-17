@@ -588,6 +588,93 @@ const Map<String, String> romanUrdu = {
   '%s handed to %s': '%s, %s ko de diya',
   'Save the handover': 'Mehfooz karen',
   'Anything worth remembering': 'Jo yaad rakhne layak ho',
+  // The four of them funding the farm: what each is in for, what has
+  // arrived, and whose money paid for what.
+  'To be returned': 'Wapas dena hai',
+  'Handed over': 'Haath mein diya',
+  'Paid for something': 'Kisi cheez ki adaigi',
+  'Already recorded': 'Pehle se darj',
+  'Corrected': 'Durusti',
+  'In for': 'Wada',
+  'Still to come': 'Abhi baqi',
+  'Over': 'Zyada diya',
+  'Profit kept': 'Munafa rakha',
+  'Farm owes him': 'Farm ne dena hai',
+  'He put in': 'Us ne diya',
+  'His lines': 'Us ki lines',
+  'Money in from %s': '%s ka paisa aaya',
+  '%s in from %s': '%s, %s se aaya',
+  '%s — money in': '%s — jo paisa diya',
+  'He has put in %s so far.': 'Ab tak %s de chuka hai.',
+  'He is in for %s and has put in %s.': 'Wada %s ka hai aur %s de chuka hai.',
+  'In for %s · put in %s': 'Wada %s · diya %s',
+  'Put in %s': 'Diya %s',
+  '%s still to come': '%s abhi baqi',
+  'The farm owes him %s': 'Farm ne us ko %s dena hai',
+  'Fill in %s': '%s daal dein',
+  'Who took the money?': 'Paisa kis ne liya?',
+  'How much went in?': 'Kitna gaya?',
+  'Whoever is keeping the farm\'s cash, usually. It goes into their hands on the co-founders page.':
+      'Aam tor par wohi jo farm ka cash rakhta hai. Co-founders wale safhe '
+      'par us ke haath mein jama ho jata hai.',
+  'This money was': 'Ye paisa tha',
+  'Which day': 'Kis din',
+  'Save it': 'Mehfooz karen',
+  'Put in: %s → %s': 'Diya: %s → %s',
+  'Put in so far: %s': 'Ab tak diya: %s',
+  'Put in %s · still to come %s': 'Diya %s · baqi %s',
+  'What %s is in for': '%s ka wada',
+  'In for (Rs)': 'Wada (Rs)',
+  '%s is in for %s': '%s ka wada %s',
+  'His share would be %s%, from %s': 'Us ka hissa %s% hoga, %s par',
+  'The share is worked out from this, not from what has arrived — the four of them chose it that way so a share is settled once rather than creeping up with every instalment. Raise it and the share moves from today.':
+      'Hissa isi se banta hai, aaye hue paise se nahi — chaaron ne yehi tay '
+      'kiya tha, taake hissa ek bar tay ho aur har qist ke saath barhta na '
+      'rahe. Barhayenge to hissa aaj se badal jaega.',
+  'He has already put in more than that. The share follows his %s, because nobody is given a smaller share than his own money is paying for.':
+      'Wo is se zyada de chuka hai. Hissa us ke %s par chalega, kyunki kisi '
+      'ko us ke apne paise se kam hissa nahi milta.',
+  'Nothing written down yet. Money he hands over, and his share of anything the farm buys, both appear here.':
+      'Abhi kuch darj nahi. Jo paisa wo haath mein de, aur farm ki kisi bhi '
+      'kharidari mein us ka hissa — dono yahan aate hain.',
+  'What this record said before every rupee was given a line of its own. Nobody wrote it; it is what is left over.':
+      'Jo is record par pehle se likha tha, jab har rupay ki apni line nahi '
+      'rakhi jati thi. Ye kisi ne likha nahi — ye bas bacha hua hai.',
+  'taken by %s': '%s ne liya',
+  'The farm owes this back': 'Farm ne ye wapas dena hai',
+  'Count as investment': 'Investment mein ginen',
+  'Counted as his investment': 'Us ki investment mein gin liya',
+  'The farm owes it': 'Farm ne dena hai',
+  'The farm owes it back now': 'Ab farm ne ye wapas dena hai',
+  'Take this line out?': 'Ye line hata dein?',
+  'Take it out': 'Hata dein',
+  '%s · %s\n\nIt comes off what he has put in, and off the farm\'s cash with it.':
+      '%s · %s\n\nJo us ne diya us mein se kam ho jaega, aur saath hi farm '
+      'ke cash mein se bhi.',
+
+  // Who paid for one entry.
+  'Who paid for this?': 'Is ka paisa kis ne diya?',
+  'Paid for by': 'Paisa kis ne diya',
+  'Split it between the co-founders in rupees. The entry is not touched — what each of them paid goes onto what he has put into the farm.':
+      'Founders ke darmiyan rupayon mein baant dein. Entry ko kuch nahi hota '
+      '— har ek ne jo diya wo us ki investment mein chala jata hai.',
+  'The farm owes back whatever is marked so.':
+      'Jis par likha hai, wo farm ne wapas dena hai.',
+  '%s · %s. The entry does not change and is never split — what is written here is whose money paid it.':
+      '%s · %s. Entry badalti nahi aur kabhi tooti nahi — yahan sirf ye '
+      'likha jata hai ke paisa kis ka tha.',
+  'No co-founders on the record yet. Add them first.':
+      'Abhi koi co-founder darj nahi. Pehle un ko daalen.',
+  'Put against it': 'Is par lagaya',
+  'Adds up to the entry exactly.': 'Entry ke barabar poora baith gaya.',
+  '%s more than the entry. Take it down before saving.':
+      'Entry se %s zyada hai. Mehfooz karne se pehle kam karen.',
+  '%s of it is left — that part came out of the farm\'s own cash.':
+      '%s abhi bacha hai — wo hissa farm ke apne cash se gaya.',
+  'Share it equally': 'Barabar baant dein',
+  'Save who paid': 'Kis ne diya, mehfooz karen',
+  'Split saved · %s': 'Taqseem mehfooz · %s',
+  'The farm would owe him %s': 'Farm ne us ko %s dena hoga',
   // Which day an entry is for, and who may move it.
   'Any day up to today, back or forward. Where it ends up is kept on the entry with the day it came from.':
       'Aaj tak koi bhi din, aage ya peechhe. Jahan jaye wo aur '

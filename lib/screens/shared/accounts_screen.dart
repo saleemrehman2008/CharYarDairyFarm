@@ -18,6 +18,7 @@ import '../../widgets/party_field.dart';
 import '../../widgets/pick_sheet.dart';
 import '../../widgets/ui.dart';
 import 'new_entry_screen.dart';
+import 'split_sheet.dart';
 
 /// The five ways of looking at the ledger, each with its own colour.
 ///
@@ -421,6 +422,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           onDelete: () => _delete(txn),
           onEdit: () => _edit(txn),
           onGiveUp: () => _giveUp(txn),
+          onSplit: () => showSplitSheet(context, txn),
           // A settled period's figures are what four people were paid out
           // of, so nothing in one can be corrected.
           canEdit:
@@ -1347,6 +1349,7 @@ class _LedgerRow extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onGiveUp,
+    required this.onSplit,
     required this.canEdit,
     this.showMark = false,
     this.reached = 0,
@@ -1362,6 +1365,9 @@ class _LedgerRow extends StatelessWidget {
   /// Giving up on what is still owed — the master's, and only while
   /// something is still owed.
   final VoidCallback onGiveUp;
+
+  /// Writing down which co-founders found the money for it.
+  final VoidCallback onSplit;
 
   /// False once this entry's period has been settled.
   final bool canEdit;
@@ -1606,6 +1612,7 @@ class _LedgerRow extends StatelessWidget {
             onDelete: onDelete,
             onEdit: onEdit,
             onGiveUp: onGiveUp,
+            onSplit: onSplit,
             canEdit: canEdit,
           ),
           borderRadius: T.round,
@@ -1688,6 +1695,9 @@ Future<void> showEntryDetail(
 
   /// Giving up on what is still owed on it. The master's.
   required VoidCallback onGiveUp,
+
+  /// Writing down which co-founders paid for it.
+  required VoidCallback onSplit,
 
   /// False once the entry's period has been settled. The figures of a
   /// closed month were what four people were paid out of, so nothing in
@@ -1882,6 +1892,45 @@ Future<void> showEntryDetail(
             if (txn.note.trim().isNotEmpty)
               _DetailFact(label: l.t('Note'), value: txn.note),
 
+            // Whose money paid for it, where the four of them clubbed
+            // together. In rupees, as they paid it.
+            Builder(
+              builder: (context) {
+                final split = context.watch<FarmStore>().paidForEntry(txn.id);
+                if (split.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Divider(height: 20),
+                    Kicker(l.t('Paid for by')),
+                    const SizedBox(height: 8),
+                    for (final c in split)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(c.partnerName, style: T.body)),
+                            Text(
+                              rs(c.amount),
+                              style: T.bodyMid.copyWith(
+                                color: c.isInvestment
+                                    ? T.accent700
+                                    : T.moneyDue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (split.any((c) => c.isLoan))
+                      Text(
+                        l.t('The farm owes back whatever is marked so.'),
+                        style: T.meta.copyWith(color: T.moneyDue),
+                      ),
+                  ],
+                );
+              },
+            ),
+
             // Every correction ever made to it, oldest first, in the words
             // it was shown as at the time. The farm asked for this before
             // the edit button was built: a figure that can be changed
@@ -1991,6 +2040,31 @@ Future<void> showEntryDetail(
                   ),
               ],
             ),
+
+            // Whose money paid for it. Offered on anything the farm bought,
+            // because the big purchases are the ones two or three of them
+            // club together for — and those are exactly the entries nobody
+            // could account for afterwards.
+            if (!txn.type.isIncoming && !txn.type.isSettlement) ...[
+              const SizedBox(height: 8),
+              GhostButton(
+                label: l.t('Who paid for this?'),
+                icon: Icons.groups_outlined,
+                onPressed: () {
+                  Navigator.pop(sheet);
+                  onSplit();
+                },
+              ),
+              const SizedBox(height: 5),
+              Text(
+                l.t(
+                  'Split it between the co-founders in rupees. The entry is '
+                  'not touched — what each of them paid goes onto what he '
+                  'has put into the farm.',
+                ),
+                style: T.meta,
+              ),
+            ],
 
             // Money that is owed and is not coming. Left on the books it
             // says it is owed for ever, and the next co-founder to read the

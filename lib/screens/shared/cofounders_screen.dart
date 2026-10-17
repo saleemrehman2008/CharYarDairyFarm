@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
+import '../../services/contribution_repo.dart';
 import '../../services/db.dart';
 import '../../services/partner_repo.dart';
 import '../../state/farm_store.dart';
@@ -12,6 +13,7 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/loan_card.dart';
 import '../../widgets/ui.dart';
 import 'cash_hands.dart';
+import 'founder_money.dart';
 
 /// Capital, share ratios and the record of closed months.
 class CofoundersScreen extends StatelessWidget {
@@ -38,11 +40,55 @@ class CofoundersScreen extends StatelessWidget {
               _StackedRatioBar(partners: partners, ratios: ratios),
               const SizedBox(height: 10),
               Text(
-                'The share ratio follows what each of them has put in out of '
-                'their own pocket. Profit kept in the farm is theirs and is '
-                'listed on their own card — it does not move the ratio.',
+                'The share ratio follows what each of them is in for. Profit '
+                'kept in the farm is theirs and is listed on their own card '
+                '— it does not move the ratio.',
                 style: T.meta,
               ),
+              // How much of what the four of them promised has actually
+              // arrived. None of them could put his whole share in at once,
+              // and this is the line that says where that stands.
+              if (store.pledgedStillToCome > 0) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: Text('Still to be paid in', style: T.meta)),
+                    Text(
+                      rs(store.pledgedStillToCome),
+                      style: T.num22.copyWith(color: T.moneyDue),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Promised and not yet arrived. Everybody\'s share is '
+                  'already worked out as though it had.',
+                  style: T.meta,
+                ),
+              ] else if (store.fundingComplete) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: 17,
+                      color: T.moneyIn,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Everything promised is in. From here the farm runs '
+                        'on what it earns.',
+                        style: T.meta.copyWith(color: T.moneyIn),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -181,38 +227,12 @@ class _PartnerCard extends StatefulWidget {
 }
 
 class _PartnerCardState extends State<_PartnerCard> {
-  final _amount = TextEditingController();
   bool _busy = false;
 
-  @override
-  void dispose() {
-    _amount.dispose();
-    super.dispose();
-  }
-
-  Future<void> _add() async {
-    final amount = num.tryParse(_amount.text.trim()) ?? 0;
-    if (amount <= 0) {
-      toast(context, 'Enter how much was invested.');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await PartnerRepo.addInvestment(
-        context.read<Session>().actor,
-        widget.partner,
-        amount,
-      );
-      _amount.clear();
-      if (mounted) {
-        toast(context, '${rs(amount)} added for ${widget.partner.name}');
-      }
-    } catch (e) {
-      if (mounted) toast(context, 'Could not add it. $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  // Money in used to be a box and an Add button right here, which typed a
+  // number straight onto the card: no day against it, no name, nothing to
+  // say where it came from. It is a sheet now — see [showMoneyInSheet] —
+  // because every rupee gets a line of its own.
 
   @override
   Widget build(BuildContext context) {
@@ -259,35 +279,72 @@ class _PartnerCardState extends State<_PartnerCard> {
               ],
             ),
             const SizedBox(height: 12),
+            // What he is in for, and how much of it has arrived. The first
+            // two are the pair the farm asks about: none of the four could
+            // put his whole share in at once, and until this was on the
+            // card nobody could say who was behind.
             Row(
               children: [
-                _Stat(label: 'Invested', value: rs(p.invested)),
-                _Stat(label: 'Reinvested', value: rs(p.profitHeld)),
-                _Stat(label: 'Withdrawn', value: rs(p.withdrawn)),
+                _Stat(
+                  label: 'In for',
+                  value: p.pledged > 0 ? rs(p.pledged) : '—',
+                ),
+                _Stat(label: 'Put in', value: rs(p.invested)),
+                _Stat(
+                  label: p.overPaid > 0 ? 'Over' : 'Still to come',
+                  value: p.overPaid > 0 ? rs(p.overPaid) : rs(p.stillToPayIn),
+                ),
               ],
             ),
-            if (widget.canAddInvestment) ...[
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _Stat(label: 'Profit kept', value: rs(p.profitHeld)),
+                _Stat(label: 'Taken out', value: rs(p.withdrawn)),
+                _Stat(
+                  label: 'Farm owes him',
+                  value: rs(context.watch<FarmStore>().owedToFounder(p.id)),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: GhostButton(
+                    label: 'He put in',
+                    icon: Icons.south_west,
+                    compact: true,
+                    onPressed: _busy
+                        ? null
+                        : () => showMoneyInSheet(context, p),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GhostButton(
+                    label: 'His lines',
+                    icon: Icons.list_alt_outlined,
+                    compact: true,
+                    onPressed: _busy ? null : () => showMoneyLines(context, p),
+                  ),
+                ),
+                if (widget.canAddInvestment) ...[
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Field(
-                      label: 'Add investment (Rs)',
-                      controller: _amount,
-                      keyboardType: TextInputType.number,
-                      hint: '0',
+                    child: GhostButton(
+                      label: 'In for',
+                      icon: Icons.handshake_outlined,
+                      compact: true,
+                      onPressed: _busy
+                          ? null
+                          : () => showPledgeSheet(context, p),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  GhostButton(
-                    label: 'Add',
-                    icon: Icons.add,
-                    onPressed: _busy ? null : _add,
-                  ),
                 ],
-              ),
-            ],
+              ],
+            ),
 
             // Correcting a figure that went in wrong, and taking a record
             // away. Both are the master's, both are written into the log
@@ -421,11 +478,10 @@ class _PartnerCardState extends State<_PartnerCard> {
       hint: '0',
       starting: p.invested,
       note:
-          'This replaces the figure rather than adding to it. Share ratios '
-          'are worked out from capital, so changing this changes what all '
-          'four of them get from every month closed after today. Months '
-          'already closed keep what they were closed with. It goes in the '
-          'log either way, with what it was before.',
+          'This replaces the figure rather than adding to it, and it writes '
+          'a line of its own for the difference — nothing on this card moves '
+          'without one. Months already closed keep what they were closed '
+          'with.',
     );
     if (said == null || !mounted || said == p.invested) return;
     if (said < 0) {
@@ -439,14 +495,22 @@ class _PartnerCardState extends State<_PartnerCard> {
       body:
           '${p.name}\n\n'
           '${rs(p.invested)}  →  ${rs(said)}\n\n'
-          'Every co-founder\'s share of future months moves with this.',
+          'A correction of ${rs((said - p.invested).abs())} goes on his '
+          'lines, with your name on it.',
       confirmLabel: 'Change it',
     );
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
     try {
-      await PartnerRepo.setInvested(context.read<Session>().actor, p, said);
+      // Through a line, not over the figure. The farm's rule: nothing on a
+      // co-founder's card moves without something written to explain it.
+      await ContributionRepo.correct(
+        context.read<Session>().actor,
+        partner: p,
+        by: said - p.invested,
+        why: 'Master put the figure right',
+      );
       if (mounted) toast(context, '${p.name} capital is now ${rs(said)}');
     } catch (e) {
       if (mounted) toast(context, 'Could not change it. $e');
