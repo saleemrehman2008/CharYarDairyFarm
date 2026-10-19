@@ -617,4 +617,129 @@ void main() {
       expect(affected, ['Ghulam Ali']);
     });
   });
+
+  group('spending out of his own pocket, counted as money put in', () {
+    /// What the farm asked for in its own words: Saleem has ten lakh to put
+    /// in and has put in nothing, but he has paid for things — that should
+    /// show on his investment. Asif has fifteen lakh to put in and has spent
+    /// 3,80,000 of his own; it was in the expenses and nowhere on his card.
+    ///
+    /// The ledger had the answer all along. Every entry carries the name of
+    /// whoever found the money, so a man who has paid out more than he has
+    /// taken in is out of pocket by the difference. That difference is his
+    /// own money the farm has had the use of. It only needed a line.
+
+    Txn spentBy(num amount, String by) => Txn(
+      id: 't${_n++}',
+      date: DateTime(2026, 10, 9),
+      monthId: '2026-10',
+      type: TxnType.expense,
+      party: 'Feed shop',
+      category: 'Feed',
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 9),
+    );
+
+    test('the ledger already says how much he is out of pocket', () {
+      final hands = cashInHands([spentBy(380000, 'Asif')], putIn: const []);
+      expect(hands.single.who, 'Asif');
+      expect(hands.single.holding, -380000);
+    });
+
+    test('counting it brings what he is holding back to nothing', () {
+      final asif = _p(name: 'Asif', pledged: 1500000);
+      final ledger = [spentBy(380000, 'Asif')];
+
+      // The line the one tap writes: his own money, spent, not handed to
+      // anybody. It lands in his hands on the way in and goes straight out
+      // again on the purchase row that carries his name.
+      final line = Contribution(
+        id: 'c${_n++}',
+        partnerId: asif.id,
+        partnerName: 'Asif',
+        kind: ContributionKind.investment,
+        source: ContributionSource.spent,
+        amount: 380000,
+        date: DateTime(2026, 10, 9),
+        createdAt: DateTime(2026, 10, 9),
+      );
+
+      final hands = cashInHands(ledger, putIn: [line]);
+      expect(hands.single.holding, 0);
+      expect(investedFrom([line], asif.id), 380000);
+    });
+
+    test('it goes against his promise first, and the rest is owed back', () {
+      // Rafeeq is in for fifteen lakh and has spent sixteen of his own.
+      // Fifteen is his promise kept; the lakh over it the farm owes him.
+      final cut = splitByPledge(
+        amount: 1600000,
+        pledged: 1500000,
+        alreadyIn: 0,
+      );
+      expect(cut.investment, 1500000);
+      expect(cut.refundable, 100000);
+    });
+
+    test('a man already paid in full is owed every rupee of it back', () {
+      final cut = splitByPledge(
+        amount: 270000,
+        pledged: 1000000,
+        alreadyIn: 1000000,
+      );
+      expect(cut.investment, 0);
+      expect(cut.refundable, 270000);
+    });
+
+    test('an entry split to its payers is not counted twice over', () {
+      // Seventeen lakh of cattle, 7,00,000 of it Ghulam Ali's. Splitting it
+      // writes a line against the entry, which both credits his hands and
+      // takes the money back out on the row — so he is holding nothing and
+      // the farm is not asked to count it again.
+      final ali = _p(name: 'Ghulam Ali', pledged: 2000000);
+      final cows = spentBy(1700000, 'Ghulam Ali');
+      final line = Contribution(
+        id: 'c${_n++}',
+        partnerId: ali.id,
+        partnerName: 'Ghulam Ali',
+        kind: ContributionKind.investment,
+        source: ContributionSource.spent,
+        amount: 700000,
+        date: DateTime(2026, 10, 9),
+        txnId: cows.id,
+        createdAt: DateTime(2026, 10, 9),
+      );
+
+      final hands = cashInHands([cows], putIn: [line]);
+      expect(
+        hands.single.holding,
+        -1000000,
+        reason: 'what is left of the cattle is still unaccounted for',
+      );
+      expect(investedFrom([line], ali.id), 700000);
+    });
+
+    test('a correction is not money anybody took in', () {
+      // The master zeroing a typed figure wrote a minus ten lakh line, and
+      // the card read "Rs -10,00,000 taken in". A correction is a note
+      // about the books; no rupee moved.
+      final ali = _p(name: 'Ghulam Ali');
+      final fix = Contribution(
+        id: 'c${_n++}',
+        partnerId: ali.id,
+        partnerName: 'Ghulam Ali',
+        kind: ContributionKind.investment,
+        source: ContributionSource.correction,
+        amount: -1000000,
+        date: DateTime(2026, 10, 9),
+        createdAt: DateTime(2026, 10, 9),
+      );
+      expect(cashInHands(const [], putIn: [fix]), isEmpty);
+    });
+  });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
+import '../../services/contribution_repo.dart';
 import '../../services/db.dart';
 import '../../services/partner_repo.dart';
 import '../../state/farm_store.dart';
@@ -338,6 +339,20 @@ class _PartnerCardState extends State<_PartnerCard> {
                         style: T.meta,
                       ),
                     ],
+                    // Money of his own that the farm has had the use of,
+                    // with nothing on his record to say so. One tap puts it
+                    // there, because the alternative is forty entries.
+                    if (held < 0 && widget.canAddInvestment) ...[
+                      const SizedBox(height: 9),
+                      GhostButton(
+                        label: 'Count ${rs(held.abs())} as put in',
+                        icon: Icons.playlist_add_check_outlined,
+                        compact: true,
+                        onPressed: _busy
+                            ? null
+                            : () => _countOutOfPocket(held.abs()),
+                      ),
+                    ],
                     if (store.owedToFounder(p.id) > 0) ...[
                       const SizedBox(height: 3),
                       Text(
@@ -397,9 +412,20 @@ class _PartnerCardState extends State<_PartnerCard> {
             if (widget.canRemove) ...[
               const SizedBox(height: 10),
               if (p.isEmpty)
-                Text(
-                  'Nothing has ever gone through this record.',
-                  style: T.meta,
+                Builder(
+                  builder: (context) {
+                    final hands = context.watch<FarmStore>().handsOf(
+                      widget.partner.name,
+                    );
+                    final moved = (hands?.received ?? 0) + (hands?.paid ?? 0);
+                    return Text(
+                      moved > 0
+                          ? 'No capital on this record, though ${rs(moved)} '
+                                'has passed through his hands on the ledger.'
+                          : 'Nothing has ever gone through this record.',
+                      style: T.meta,
+                    );
+                  },
                 ),
               const SizedBox(height: 6),
               Row(
@@ -409,6 +435,14 @@ class _PartnerCardState extends State<_PartnerCard> {
                     icon: Icons.badge_outlined,
                     compact: true,
                     onPressed: _busy ? null : _editWho,
+                  ),
+
+                  const SizedBox(width: 8),
+                  GhostButton(
+                    label: 'Capital',
+                    icon: Icons.tune,
+                    compact: true,
+                    onPressed: _busy ? null : _correct,
                   ),
 
                   const SizedBox(width: 8),
@@ -505,12 +539,113 @@ class _PartnerCardState extends State<_PartnerCard> {
   /// The box opens on what it is now, because this is a correction and the
   /// person doing it should be looking at the figure they are about to
   /// change rather than recalling it.
-  // Typing over what a man has put in is gone. It is the sum of his own
-  // lines now and nothing else — money he handed over, or his share of
-  // something the farm bought. A figure that can be typed is a figure that
-  // can be typed twice, which is exactly what went wrong: the same rupees
-  // arrived once on the card and once again when the cattle entry was
-  // split. What he is in for is still his to set; see showPledgeSheet.
+  Future<void> _correct() async {
+    final p = widget.partner;
+    final said = await askForMoney(
+      context,
+      title: 'Capital for ${p.name}',
+      hint: '0',
+      starting: p.invested,
+      note:
+          'This replaces the figure rather than adding to it, and it writes '
+          'a line of its own for the difference — nothing on this card moves '
+          'without one. Months already closed keep what they were closed '
+          'with.',
+    );
+    if (said == null || !mounted || said == p.invested) return;
+    if (said < 0) {
+      toast(context, 'Capital cannot be less than nothing.');
+      return;
+    }
+
+    final ok = await confirm(
+      context,
+      title: 'Change the capital?',
+      body:
+          '${p.name}\n\n'
+          '${rs(p.invested)}  →  ${rs(said)}\n\n'
+          'A correction of ${rs((said - p.invested).abs())} goes on his '
+          'lines, with your name on it.',
+      confirmLabel: 'Change it',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      // Through a line, not over the figure. The farm's rule: nothing on a
+      // co-founder's card moves without something written to explain it.
+      await ContributionRepo.correct(
+        context.read<Session>().actor,
+        partner: p,
+        by: said - p.invested,
+        why: 'Master put the figure right',
+      );
+      if (mounted) toast(context, '${p.name} capital is now ${rs(said)}');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not change it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Counting what a man has already paid out of his own pocket as money he
+  /// has put into the farm.
+  ///
+  /// The farm's own question: Saleem has put nothing in yet, but he has spent
+  /// money — that should go onto his investment, should it not. It should.
+  /// What he is out of pocket is his own money the farm has had the use of,
+  /// and the only thing missing was a line saying so.
+  ///
+  /// One tap rather than entry by entry, because a man who has paid for forty
+  /// small things has paid for forty small things. The farm's rule then
+  /// divides it: against his promise while he still owes on it, and owed back
+  /// to him once he has paid that promise in full.
+  Future<void> _countOutOfPocket(num amount) async {
+    final p = widget.partner;
+    final cut = splitByPledge(
+      amount: amount,
+      pledged: p.pledged,
+      alreadyIn: p.invested,
+    );
+    final goesIn = cut.investment > 0
+        ? '${rs(cut.investment)} goes onto what he has put in.\n'
+        : '';
+    final comesBack = cut.refundable > 0
+        ? '${rs(cut.refundable)} is more than he promised, so the farm owes '
+              'it back to him.\n'
+        : '';
+
+    final ok = await confirm(
+      context,
+      title: 'Count his spending as money put in?',
+      body:
+          '${p.name} is out of pocket ${rs(amount)} — his own money, gone on '
+          'the farm.\n\n'
+          '$goesIn$comesBack'
+          '\nIt goes on his lines dated today, and what he is holding of the '
+          'farm\'s cash comes back to nothing.',
+      confirmLabel: 'Count it',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ContributionRepo.putIn(
+        context.read<Session>().actor,
+        partner: p,
+        amount: amount,
+        source: ContributionSource.spent,
+        date: DateTime.now(),
+        note: 'What he had already paid for out of his own pocket',
+      );
+      if (mounted) toast(context, '${rs(amount)} counted for ${p.name}');
+    } catch (e) {
+      if (mounted) toast(context, 'Could not count it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _remove() async {
     final p = widget.partner;
     final empty = p.isEmpty;

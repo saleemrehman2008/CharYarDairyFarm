@@ -35,12 +35,22 @@ class TransferRepo {
       throw StateError('Those are the same person.');
     }
 
+    // Money going into the farm's own account needs nobody's word on it.
+    //
+    // The second word exists so that no man's holding can be changed by
+    // somebody else's say-so. Here the man handing it over is the only one
+    // whose holding goes down, and he is the one doing it — the farm account
+    // is not a person who can be wronged, and it has no hands to confirm
+    // with. Left waiting, Rafeeq's deposit of what he collected from Urooj
+    // would sit in transit for ever and never reach the farm.
+    final toFarm = partyKey(to) == partyKey(farmAccountName);
+
     final move = CashTransfer(
       id: '',
       from: from.trim(),
       to: to.trim(),
       amount: amount,
-      state: TransferState.waiting,
+      state: toFarm ? TransferState.taken : TransferState.waiting,
       sentAt: DateTime.now(),
       payVia: payVia,
       note: note.trim(),
@@ -51,12 +61,29 @@ class TransferRepo {
     final doc = await Db.transfers.add({
       ...move.toMap(),
       'sentAt': FieldValue.serverTimestamp(),
+      if (toFarm) 'decidedAt': FieldValue.serverTimestamp(),
+      if (toFarm) 'decidedBy': actor.uid,
     });
+
+    if (toFarm) {
+      await TxnRepo.handOver(
+        actor,
+        from: move.from,
+        to: move.to,
+        amount: amount,
+        payVia: payVia,
+        note: note.trim(),
+        date: DateTime.now(),
+      );
+    }
 
     await Log.write(
       actor,
       LogKind.transaction,
-      '$from handed ${rs(amount)} to $to — waiting on $to to say it arrived',
+      toFarm
+          ? '$from put ${rs(amount)} into the farm account'
+          : '$from handed ${rs(amount)} to $to — waiting on $to to say it '
+                'arrived',
       refType: 'transfer',
       refId: doc.id,
     );

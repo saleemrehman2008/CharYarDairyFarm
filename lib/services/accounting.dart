@@ -350,6 +350,12 @@ List<HandsOn> cashInHands(
   for (final c in putIn) {
     if (c.isDeleted) continue;
 
+    // A correction moves no money. The master putting a figure right is a
+    // note about the books, not a rupee changing hands — counted here it
+    // read as a man taking in minus ten lakh, which is not a thing.
+    if (c.source == ContributionSource.correction) continue;
+    if (c.amount <= 0) continue;
+
     // Money handed to somebody lands in that pair of hands.
     //
     // Money spent straight on something the farm bought lands in the
@@ -592,6 +598,7 @@ List<AccountLine> accountLines(
   // again on the row above.
   for (final c in putIn) {
     if (c.isDeleted) continue;
+    if (c.source == ContributionSource.correction || c.amount <= 0) continue;
     final landedOn = c.wasHandedOver ? c.receivedBy : c.partnerName;
     if (partyKey(landedOn) != key) continue;
     out.add(

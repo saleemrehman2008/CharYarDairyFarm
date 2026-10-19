@@ -238,9 +238,15 @@ service cloud.firestore {
     // by the app, and every answer carries the name of whoever gave it.
     match /transfers/{id} {
       allow read: if isPartner();
+      // Waiting on the other man's word, or — into the farm's own
+      // account — settled the moment it is sent. The farm account has no
+      // hands to confirm with, and the only holding that goes down is the
+      // sender's own, so his word is the one that is needed.
       allow create: if isPartner()
-        && request.resource.data.state == 'waiting'
-        && request.resource.data.amount > 0;
+        && request.resource.data.amount > 0
+        && (request.resource.data.state == 'waiting'
+            || (request.resource.data.state == 'taken'
+                && request.resource.data.to == 'Farm account'));
       allow update: if isPartner()
         && resource.data.state == 'waiting'
         && !changedKeys().hasAny(['from', 'to', 'amount', 'sentBy',

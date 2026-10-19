@@ -569,6 +569,7 @@ const Map<String, String> romanUrdu = {
       'apni jeb se kiya aur farm ne un ko dena hai.',
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
+  'Into the farm account': 'Farm k account me jama karo',
   'Hand cash over': 'Paisa hawale karen',
   'Money passing between the four of them: taken at the gate by one and kept by another. The farm has exactly as much before and after, so nothing moves except who is answerable for it.':
       'Aapas mein paisa idhar se udhar: gate par ek ne liya, rakha dusre ne. '

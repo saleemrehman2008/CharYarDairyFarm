@@ -263,6 +263,26 @@ class _HandRow extends StatelessWidget {
             ),
           ],
         ),
+        // Farm money sitting in a man's pocket. It is the farm's until the
+        // month closes and the profit is shared, so it belongs in the farm
+        // account — the thousand rupees Rafeeq collected from Urooj is the
+        // farm's thousand rupees, not Rafeeq's.
+        if (!hand.outOfPocket &&
+            hand.holding > 0 &&
+            partyKey(hand.who) != partyKey(farmAccountName)) ...[
+          const SizedBox(height: 7),
+          GhostButton(
+            label: l.t('Into the farm account'),
+            icon: Icons.account_balance_outlined,
+            compact: true,
+            onPressed: () => showHandover(
+              context,
+              from: hand.who,
+              to: farmAccountName,
+              amount: hand.holding,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -295,7 +315,16 @@ class _Total extends StatelessWidget {
 }
 
 /// Handing cash from one pair of hands to another.
-Future<void> showHandover(BuildContext context) {
+///
+/// It opens filled in when the farm already knows the answer — the button
+/// beside a man's holding says where the money is going, so the sheet should
+/// not then ask him again.
+Future<void> showHandover(
+  BuildContext context, {
+  String? from,
+  String? to,
+  num? amount,
+}) {
   final store = context.read<FarmStore>();
   return showModalBottomSheet<void>(
     context: context,
@@ -306,13 +335,17 @@ Future<void> showHandover(BuildContext context) {
     ),
     builder: (_) => ChangeNotifierProvider<FarmStore>.value(
       value: store,
-      child: const _HandoverSheet(),
+      child: _HandoverSheet(from: from, to: to, amount: amount),
     ),
   );
 }
 
 class _HandoverSheet extends StatefulWidget {
-  const _HandoverSheet();
+  const _HandoverSheet({this.from, this.to, this.amount});
+
+  final String? from;
+  final String? to;
+  final num? amount;
 
   @override
   State<_HandoverSheet> createState() => _HandoverSheetState();
@@ -325,6 +358,16 @@ class _HandoverSheetState extends State<_HandoverSheet> {
   String? _to;
   PayVia _via = PayVia.cash;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = widget.from;
+    _to = widget.to;
+    if (widget.amount != null && widget.amount! > 0) {
+      _amount.text = widget.amount!.toStringAsFixed(0);
+    }
+  }
 
   @override
   void dispose() {
