@@ -735,6 +735,24 @@ const Map<String, String> romanUrdu = {
   // The receipt that came with the money.
   'Receipt': 'Receipt',
   'Tap to open it full size.': 'Poori dekhne ke liye click karen.',
+  // The strip of accounts, and one account opened out.
+  '%s (you)': '%s (aap)',
+  'In the farm\'s own keeping': 'Farm ke apne paas',
+  'Farm\'s cash on him': 'Farm ka paisa un ke paas',
+  'Out of his own pocket': 'Un ki apni jeb se',
+  'His own, in the farm': 'Farm mein un ka apna',
+  '%s in · %s out': '%s aaya · %s gaya',
+  '%s promised': '%s ka wada',
+  'Nothing has gone through it yet': 'Abhi is mein se kuch nahi guzra',
+  'What has gone through it': 'Is mein se kya guzra',
+  '%s after': 'baad mein %s',
+  '%s on its way out, waiting on the other man':
+      '%s raaste mein hai, dusre ke jawab ka intezar',
+  '%s sent to him and not yet acknowledged':
+      '%s un ko bheja gaya, abhi tasdeeq nahi hui',
+  'Nothing has gone through this account yet. Every entry with this name against it appears here.':
+      'Is khaate mein se abhi kuch nahi guzra. Har wo entry jis par ye naam '
+      'likha ho, yahan aati hai.',
   // The two charts on the dashboard.
   'Month by month': 'Mahine ba mahine',
   'No period has been settled yet.': 'Abhi koi mahina band nahi hua.',

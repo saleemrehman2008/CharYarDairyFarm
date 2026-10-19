@@ -122,7 +122,7 @@ class TxnRepo {
     // argument about a bank transfer three months later.
     if (receipt != null) {
       try {
-        final photo = await Photos.prepare(receipt);
+        final photo = await Photos.prepare(receipt, kind: PhotoKind.receipt);
         await Db.txnPhotos.doc(doc.id).set({
           'data': photo.full,
           'at': FieldValue.serverTimestamp(),

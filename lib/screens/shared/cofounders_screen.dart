@@ -12,6 +12,7 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/loan_card.dart';
 import '../../widgets/ui.dart';
+import 'accounts_strip.dart';
 import 'cash_hands.dart';
 import 'founder_money.dart';
 
@@ -94,9 +95,14 @@ class CofoundersScreen extends StatelessWidget {
         ),
         const SizedBox(height: T.pad),
 
-        // Whose hands the farm's cash is in. Above the cards rather than
-        // below them, because it is the question the four of them ask each
-        // other most often and the one the books could never answer.
+        // Every account the money can sit in, picked from a strip of
+        // names. The farm's own is one of them, because it is the same
+        // kind of thing as a man's — a pair of hands that belongs to
+        // nobody.
+        const AccountStrip(),
+        const SizedBox(height: 20),
+
+        // All four at once, under the one that is open.
         const CashHands(),
         const SizedBox(height: T.pad),
 

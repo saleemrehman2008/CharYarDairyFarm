@@ -23,7 +23,10 @@ class Photos {
   /// Ask the camera for no more than this. The picker resizes on the phone
   /// before the file is ever read, so a 12 megapixel photo never has to be
   /// decoded whole.
-  static const pickWidth = 800.0;
+  /// Ask the picker for enough to read small print on a slip. The camera
+  /// resizes on the phone before the file is ever read, so this costs
+  /// nothing on a buffalo — she is brought down again in [shrinkFor].
+  static const pickWidth = 1600.0;
   static const pickQuality = 60;
 
   /// Thumbnails are for lists, where the picture is 60 points across.
@@ -32,15 +35,18 @@ class Photos {
 
   /// A Firestore document stops at a megabyte. Base64 adds a third on top of
   /// the bytes, so anything past this is refused and shrunk again.
-  static const maxEncoded = 600 * 1024;
+  static const maxEncoded = 700 * 1024;
 
   /// Reads a picked photo and returns the two sizes, base64 encoded.
   ///
   /// The work happens off the main thread — a farmer taking a photo of a
   /// buffalo should not watch the screen freeze.
-  static Future<FarmPhoto> prepare(File file) async {
+  static Future<FarmPhoto> prepare(
+    File file, {
+    PhotoKind kind = PhotoKind.animal,
+  }) async {
     final bytes = await file.readAsBytes();
-    return compute(shrinkPhoto, bytes);
+    return compute(shrinkFor, (bytes, kind));
   }
 
   /// `Image.memory` wants bytes; the record holds base64.
@@ -66,28 +72,54 @@ class FarmPhoto {
   final String full;
 }
 
+/// What a photograph is of, which decides how much of it is worth keeping.
+///
+/// A buffalo is told apart by her markings and her face, and eight hundred
+/// pixels of her is plenty. A bank slip is told apart by six digits of an
+/// account number printed small, and eight hundred pixels of that is a grey
+/// smudge — which makes the photograph worth nothing, since the only reason
+/// it was taken is to be read three months later.
+///
+/// So a receipt is kept larger and at a better quality. It is still a long
+/// way inside what a Firestore document holds, and it is still read only
+/// when somebody actually opens it.
+enum PhotoKind {
+  animal(800, 60),
+  receipt(1600, 78);
+
+  const PhotoKind(this.width, this.quality);
+
+  final int width;
+  final int quality;
+}
+
 /// Shrinks a photo to the two sizes the app keeps. Top level because it runs
 /// in a background isolate.
-FarmPhoto shrinkPhoto(Uint8List bytes) {
+FarmPhoto shrinkPhoto(Uint8List bytes) => shrinkFor((bytes, PhotoKind.animal));
+
+FarmPhoto shrinkFor((Uint8List, PhotoKind) work) {
+  final (bytes, kind) = work;
   final decoded = img.decodeImage(bytes);
   if (decoded == null) {
     throw const FormatException('That file is not a picture.');
   }
 
-  // The picker has already brought this down to about 800 across, so the
-  // decode is cheap and this is only a tidy-up.
-  var full = decoded.width > Photos.pickWidth
-      ? img.copyResize(decoded, width: Photos.pickWidth.round())
+  var full = decoded.width > kind.width
+      ? img.copyResize(decoded, width: kind.width)
       : decoded;
 
-  var quality = Photos.pickQuality;
+  var quality = kind.quality;
   var encoded = base64Encode(img.encodeJpg(full, quality: quality));
 
   // Belt and braces: a picture that still will not fit is shrunk until it
   // does, rather than failing the write in front of the user.
-  while (encoded.length > Photos.maxEncoded && quality > 25) {
-    quality -= 15;
-    full = img.copyResize(full, width: (full.width * 0.8).round());
+  // Belt and braces, and gently. A photograph that will not fit is brought
+  // down a step at a time rather than halved: the one picture most likely to
+  // be too big is a receipt, and a receipt that has been crushed to fit is a
+  // receipt nobody can read — which is the whole of its value gone.
+  while (encoded.length > Photos.maxEncoded && quality > 30) {
+    quality -= 8;
+    full = img.copyResize(full, width: (full.width * 0.88).round());
     encoded = base64Encode(img.encodeJpg(full, quality: quality));
   }
 

@@ -499,6 +499,117 @@ List<PeriodBar> periodBars(
   return bars.length <= last ? bars : bars.sublist(bars.length - last);
 }
 
+/// One line of an account: what happened, and which way the money went.
+class AccountLine {
+  const AccountLine({
+    required this.date,
+    required this.what,
+    required this.detail,
+    required this.amount,
+  });
+
+  final DateTime date;
+
+  /// Who it was with, or what it was for — the first line on the row.
+  final String what;
+
+  final String detail;
+
+  /// Into these hands when it is more than nothing, out of them when less.
+  final num amount;
+}
+
+/// Everything that has passed through one pair of hands, newest first.
+///
+/// The farm asked for its accounts to read like a bank's, and this is what
+/// a bank statement is: not a list of what the farm did, but a list of what
+/// touched this account, in the order it touched it.
+///
+/// Four kinds of line reach it. Cash that came in through him and cash that
+/// went out through him; his own money going in, which lands in his hands on
+/// the way past; and his share of something the farm bought, which is the
+/// other half of that — an entry carries one name as the payer and three men
+/// can have paid for it, so where the farm has written down who found the
+/// money, that is who it comes out of.
+List<AccountLine> accountLines(
+  List<Txn> ledger, {
+  required String who,
+  List<Contribution> putIn = const [],
+}) {
+  final key = partyKey(who);
+  final out = <AccountLine>[];
+
+  final split = <String, List<Contribution>>{};
+  for (final c in putIn) {
+    final id = c.txnId;
+    if (c.isDeleted || id == null) continue;
+    split.putIfAbsent(id, () => []).add(c);
+  }
+
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+
+    if (movedCashIn(t) && partyKey(t.handledBy) == key) {
+      out.add(
+        AccountLine(
+          date: t.date,
+          what: t.party.isEmpty ? t.category : t.party,
+          detail: t.category,
+          amount: t.amount,
+        ),
+      );
+      continue;
+    }
+    if (!movedCashOut(t)) continue;
+
+    var left = t.amount;
+    for (final c in split[t.id] ?? const <Contribution>[]) {
+      left -= c.amount;
+      if (partyKey(c.partnerName) != key) continue;
+      out.add(
+        AccountLine(
+          date: t.date,
+          what: t.party.isEmpty ? t.category : t.party,
+          detail: t.category,
+          amount: -c.amount,
+        ),
+      );
+    }
+    if (left > 0 && partyKey(t.handledBy) == key) {
+      out.add(
+        AccountLine(
+          date: t.date,
+          what: t.party.isEmpty ? t.category : t.party,
+          detail: t.category,
+          amount: -left,
+        ),
+      );
+    }
+  }
+
+  // His own money going in. Handed to somebody, it lands in that man's
+  // hands; spent straight on a purchase, it lands in his own and goes out
+  // again on the row above.
+  for (final c in putIn) {
+    if (c.isDeleted) continue;
+    final landedOn = c.wasHandedOver ? c.receivedBy : c.partnerName;
+    if (partyKey(landedOn) != key) continue;
+    out.add(
+      AccountLine(
+        date: c.date,
+        what: c.wasHandedOver
+            ? '${c.partnerName} put money in'
+            : '${c.partnerName} paid for something',
+        detail: c.kind.label,
+        amount: c.amount,
+      ),
+    );
+  }
+
+  out.sort((a, b) => b.date.compareTo(a.date));
+  return out;
+}
+
 /// Capital that has never been written down as reaching anybody.
 ///
 /// The farm's cash is its capital plus what it has earned less what it has

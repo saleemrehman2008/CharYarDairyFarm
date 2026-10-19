@@ -301,4 +301,134 @@ void main() {
       expect(hands.single.received, 38000);
     });
   });
+
+  group('one account, read like a bank statement', () {
+    /// Not a list of what the farm did — a list of what touched this
+    /// account, in the order it touched it.
+
+    Txn milk({required String by, num amount = 38000, int day = 18}) => Txn(
+      id: 'milk$day$by',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.receipt,
+      party: 'Urooj Dairy Shop',
+      category: khaataReceiptCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      settlesTxnId: 'x',
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    Txn feed({required String by, num amount = 12000, int day = 19}) => Txn(
+      id: 'feed$day$by',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.purchase,
+      party: 'Feed store',
+      category: 'Wanda / feed',
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    test('only what touched this account, newest first', () {
+      final lines = accountLines([
+        milk(by: 'Jalbani', day: 18),
+        milk(by: 'Rafeeq', day: 20),
+        feed(by: 'Jalbani', day: 19),
+      ], who: 'Jalbani');
+      expect(lines.length, 2, reason: "Rafeeq's milk is not his business");
+      expect(lines.first.date.day, 19, reason: 'newest at the top');
+      expect(lines.first.amount, -12000);
+      expect(lines.last.amount, 38000);
+    });
+
+    test('the lines add up to what he is holding', () {
+      // The figure at the top of the account and the lines under it cannot
+      // disagree; a statement that does not add up is worse than none.
+      final ledger = [milk(by: 'Jalbani'), feed(by: 'Jalbani')];
+      final lines = accountLines(ledger, who: 'Jalbani');
+      final sum = lines.fold<num>(0, (a, l) => a + l.amount);
+      expect(sum, cashInHands(ledger).single.holding);
+      expect(sum, 26000);
+    });
+
+    test('an entry three men paid for reaches all three accounts', () {
+      // The entry carries one name as the payer. Where the farm has written
+      // down who found the money, that is whose account it comes out of.
+      final cows = Txn(
+        id: 'cows',
+        date: DateTime(2026, 10, 8),
+        monthId: '2026-10',
+        type: TxnType.purchase,
+        party: 'Mandi',
+        category: 'Cattle purchase',
+        amount: 1700000,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: 'Jalbani',
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 8),
+      );
+      final split = [
+        for (final (who, amount) in [
+          ('Jalbani', 700000),
+          ('Rafeeq', 500000),
+          ('Saleem', 500000),
+        ])
+          Contribution(
+            id: 'c$who',
+            partnerId: who,
+            partnerName: who,
+            kind: ContributionKind.investment,
+            source: ContributionSource.spent,
+            amount: amount,
+            date: DateTime(2026, 10, 8),
+            txnId: 'cows',
+            createdAt: DateTime(2026, 10, 8),
+          ),
+      ];
+
+      for (final (who, share) in [
+        ('Jalbani', 700000),
+        ('Rafeeq', 500000),
+        ('Saleem', 500000),
+      ]) {
+        final lines = accountLines([cows], who: who, putIn: split);
+        // His own money in, and his share of the purchase straight back out.
+        expect(lines.length, 2, reason: who);
+        expect(
+          lines.fold<num>(0, (a, l) => a + l.amount),
+          0,
+          reason: '$who put his own money in and it went straight out',
+        );
+        expect(lines.map((l) => l.amount.abs()).toSet(), {
+          share,
+        }, reason: '$who paid $share of it');
+      }
+    });
+
+    test('the farm account carries what nobody is holding', () {
+      // Money taken into the farm's own box is a line on the farm's own
+      // account, exactly as a man's would be.
+      final lines = accountLines([
+        milk(by: farmAccountName),
+      ], who: farmAccountName);
+      expect(lines.single.amount, 38000);
+    });
+
+    test('an entry with nobody named reaches nobody', () {
+      final lines = accountLines([milk(by: '')], who: farmAccountName);
+      expect(lines, isEmpty, reason: 'blank is not the farm, it is unwritten');
+    });
+  });
 }

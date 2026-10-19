@@ -137,8 +137,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   Future<void> _pickReceipt(ImageSource source) async {
     final picked = await ImagePicker().pickImage(
       source: source,
-      maxWidth: 1400,
-      imageQuality: 80,
+      // Big enough that an account number on a bank slip survives, and
+      // shrunk properly once it is read — see [PhotoKind.receipt].
+      maxWidth: 2000,
+      imageQuality: 88,
     );
     if (picked == null || !mounted) return;
     setState(() => _receipt = File(picked.path));
