@@ -552,4 +552,33 @@ void main() {
       expect(shortRs(19000), '19k');
     });
   });
+
+  group('who handled the money', () {
+    /// Which names the field treats as offered, and which it treats as
+    /// somebody typed out by hand.
+    final people = [
+      const FarmPerson(uid: 'u1', name: 'Jalbani'),
+      const FarmPerson(uid: 'u2', name: 'Rafeeq'),
+    ];
+
+    test('a co-founder is one of the names offered', () {
+      expect(isOfferedName('Rafeeq', people), isTrue);
+    });
+
+    test('and so is the farm\'s own account', () {
+      // Left off this, choosing the farm marked "Someone else" and opened
+      // a box to type a name into, over a choice just made.
+      expect(isOfferedName(farmAccountName, people), isTrue);
+    });
+
+    test('a name nobody has heard of is not', () {
+      expect(isOfferedName('A man at the gate', people), isFalse);
+    });
+
+    test('nor is a co-founder spelled differently', () {
+      // Deliberately: the field is how a name gets into the books in one
+      // spelling, and a near miss is exactly what it exists to catch.
+      expect(isOfferedName('rafeeq', people), isFalse);
+    });
+  });
 }

@@ -1192,6 +1192,16 @@ class SwitchRow extends StatelessWidget {
 /// rider's phone offers the same list without being able to see the users
 /// collection. Somebody not on it can still be typed in: money is sometimes
 /// handed to a labourer or a neighbour, and the entry has to be able to say so.
+/// Whether a name is one the app put in front of somebody, or one typed
+/// out by hand.
+///
+/// It decides whether the field shows a chosen chip or opens a box to type
+/// in. The farm's own account belongs on the offered side as much as any of
+/// the names: left off it, choosing the farm marked "Someone else" and
+/// opened a box over a choice that had just been made.
+bool isOfferedName(String chosen, List<FarmPerson> people) =>
+    chosen == farmAccountName || people.any((p) => p.name == chosen);
+
 class WhoField extends StatefulWidget {
   const WhoField({
     super.key,
@@ -1265,7 +1275,10 @@ class _WhoFieldState extends State<WhoField> {
         : [FarmPerson(uid: me.uid, name: me.name)];
 
     final chosen = widget.controller.text.trim();
-    final onList = people.any((p) => p.name == chosen);
+    // The farm's own account is on the list as much as any of the names
+    // is. Left out of this, choosing it marked "Someone else" and opened a
+    // box to type a name into, over a choice that had just been made.
+    final onList = isOfferedName(chosen, people);
 
     // At rest: the name that is already in, and a way to say it was not them.
     if (!_open && chosen.isNotEmpty) {
