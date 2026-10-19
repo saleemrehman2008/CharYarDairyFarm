@@ -60,4 +60,10 @@ class L {
 
   String t3(String english, Object a, Object b) =>
       t(english).replaceFirst('%s', '$a').replaceFirst('%s', '$b');
+
+  /// Three fill-ins. Rare, and it earns its place on the one sentence that
+  /// has to name a man and both halves of what his money just did.
+  String t4(String english, Object a, Object b, Object c) => t(
+    english,
+  ).replaceFirst('%s', '$a').replaceFirst('%s', '$b').replaceFirst('%s', '$c');
 }

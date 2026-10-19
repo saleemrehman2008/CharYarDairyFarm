@@ -260,4 +260,83 @@ void main() {
       expect(money.reconciles, isTrue);
     });
   });
+
+  group('what the farm does with a co-founder\'s own money', () {
+    /// The rule the farm settled, and the reason it is a rule rather than a
+    /// question: while a man still owes on what he promised, every rupee he
+    /// lays out is that promise being paid off. Once he has paid it in full,
+    /// the next rupee is a loan the farm has to give back.
+
+    test('short on his promise, it all counts towards it', () {
+      // Jalbani is in for twenty lakh and has paid ten. The ten he hands
+      // over finishes it.
+      final cut = splitByPledge(
+        amount: 1000000,
+        pledged: 2000000,
+        alreadyIn: 1000000,
+      );
+      expect(cut.investment, 1000000);
+      expect(cut.refundable, 0);
+    });
+
+    test('paid in full, the next rupee is owed back to him', () {
+      // Twenty thousand of feed, out of his own pocket, on a promise he has
+      // already met. He asks Rafeeq for it or takes it out of the next
+      // money that passes through his hands.
+      final cut = splitByPledge(
+        amount: 20000,
+        pledged: 2000000,
+        alreadyIn: 2000000,
+      );
+      expect(cut.investment, 0);
+      expect(cut.refundable, 20000);
+    });
+
+    test('one payment can be both, and is cut where the promise ends', () {
+      // Five thousand left on his promise and a twenty-five thousand feed
+      // bill. Five finishes what he owed; twenty the farm has to return.
+      final cut = splitByPledge(
+        amount: 25000,
+        pledged: 2000000,
+        alreadyIn: 1995000,
+      );
+      expect(cut.investment, 5000);
+      expect(cut.refundable, 20000);
+      expect(cut.investment + cut.refundable, 25000, reason: 'nothing lost');
+    });
+
+    test('exactly finishing the promise leaves nothing owed', () {
+      final cut = splitByPledge(
+        amount: 5000,
+        pledged: 2000000,
+        alreadyIn: 1995000,
+      );
+      expect(cut.investment, 5000);
+      expect(cut.refundable, 0);
+    });
+
+    test('a man who has already over-paid is owed every rupee of it', () {
+      final cut = splitByPledge(
+        amount: 10000,
+        pledged: 500000,
+        alreadyIn: 600000,
+      );
+      expect(cut.investment, 0);
+      expect(cut.refundable, 10000);
+    });
+
+    test('with no promise on the record it is all investment', () {
+      // How the farm ran before promises were kept at all, so nothing
+      // breaks on the day this arrives.
+      final cut = splitByPledge(amount: 10000, pledged: 0, alreadyIn: 300000);
+      expect(cut.investment, 10000);
+      expect(cut.refundable, 0);
+    });
+
+    test('nothing in, nothing out', () {
+      final cut = splitByPledge(amount: 0, pledged: 500000, alreadyIn: 0);
+      expect(cut.investment, 0);
+      expect(cut.refundable, 0);
+    });
+  });
 }

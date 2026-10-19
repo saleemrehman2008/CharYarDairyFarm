@@ -675,6 +675,16 @@ const Map<String, String> romanUrdu = {
   'Save who paid': 'Kis ne diya, mehfooz karen',
   'Split saved · %s': 'Taqseem mehfooz · %s',
   'The farm would owe him %s': 'Farm ne us ko %s dena hoga',
+  // What the farm's own rule does with a co-founder's money.
+  'What this does': 'Is ka kya hoga',
+  '%s — %s goes onto his investment.':
+      '%s — %s us ki investment mein chala jaega.',
+  '%s — his promise is already paid, so the farm owes him %s back.':
+      '%s — us ka wada pehle hi poora hai, to farm ne us ko %s wapas dena hai.',
+  '%s — %s finishes his promise, %s the farm owes him back.':
+      '%s — %s se us ka wada poora, aur %s farm ne us ko wapas dena hai.',
+  'His promise is already paid, so the farm owes him %s of this back.':
+      'Us ka wada pehle hi poora hai, to is mein se %s farm ne us ko wapas dena hai.',
   // The two charts on the dashboard.
   'Month by month': 'Mahine ba mahine',
   'No period has been settled yet.': 'Abhi koi mahina band nahi hua.',

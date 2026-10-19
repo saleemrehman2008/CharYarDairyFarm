@@ -77,7 +77,6 @@ class _MoneyInSheetState extends State<_MoneyInSheet> {
   final _note = TextEditingController();
   String? _to;
   PayVia _via = PayVia.cash;
-  ContributionKind _kind = ContributionKind.investment;
   DateTime _day = DateTime.now();
   bool _busy = false;
 
@@ -112,14 +111,14 @@ class _MoneyInSheetState extends State<_MoneyInSheet> {
     }
     setState(() => _busy = true);
     try {
-      await ContributionRepo.handedOver(
+      await ContributionRepo.putIn(
         context.read<Session>().actor,
         partner: widget.partner,
         amount: amount,
+        source: ContributionSource.cash,
         receivedBy: _to!,
         date: _day,
         payVia: _via,
-        kind: _kind,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -231,18 +230,6 @@ class _MoneyInSheetState extends State<_MoneyInSheet> {
               ),
 
               const SizedBox(height: T.pad),
-              Kicker(l.t('This money was')),
-              const SizedBox(height: 6),
-              Segmented<ContributionKind>(
-                value: _kind,
-                compact: true,
-                options: [
-                  for (final k in ContributionKind.values) (k, l.t(k.label)),
-                ],
-                onChanged: (v) => setState(() => _kind = v),
-              ),
-
-              const SizedBox(height: T.pad),
               Kicker(l.t('Which day')),
               const SizedBox(height: 6),
               GhostButton(
@@ -259,15 +246,40 @@ class _MoneyInSheetState extends State<_MoneyInSheet> {
                 hint: l.t('Anything worth remembering'),
               ),
 
-              if (amount > 0 && _kind == ContributionKind.investment) ...[
+              // What the farm's rule does with it, said rather than asked.
+              if (amount > 0) ...[
                 const SizedBox(height: T.gap),
-                Text(
-                  l.t3(
-                    'Put in: %s → %s',
-                    rs(p.invested),
-                    rs(p.invested + amount),
-                  ),
-                  style: T.meta.copyWith(color: T.accent700),
+                Builder(
+                  builder: (context) {
+                    final cut = splitByPledge(
+                      amount: amount,
+                      pledged: p.pledged,
+                      alreadyIn: p.invested,
+                    );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (cut.investment > 0)
+                          Text(
+                            l.t3(
+                              'Put in: %s → %s',
+                              rs(p.invested),
+                              rs(p.invested + cut.investment),
+                            ),
+                            style: T.meta.copyWith(color: T.accent700),
+                          ),
+                        if (cut.refundable > 0)
+                          Text(
+                            l.t2(
+                              'His promise is already paid, so the farm owes '
+                              'him %s of this back.',
+                              rs(cut.refundable),
+                            ),
+                            style: T.meta.copyWith(color: T.moneyDue),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ],
 

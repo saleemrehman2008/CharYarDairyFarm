@@ -54,7 +54,6 @@ class _SplitSheet extends StatefulWidget {
 
 class _SplitSheetState extends State<_SplitSheet> {
   final _boxes = <String, TextEditingController>{};
-  ContributionKind _kind = ContributionKind.investment;
   bool _busy = false;
   bool _filled = false;
 
@@ -78,7 +77,6 @@ class _SplitSheetState extends State<_SplitSheet> {
     for (final c in mine) {
       _box(c.partnerId).text = '${c.amount.round()}';
     }
-    if (mine.isNotEmpty) _kind = mine.first.kind;
   }
 
   num get _typed => _boxes.values.fold<num>(
@@ -113,7 +111,6 @@ class _SplitSheetState extends State<_SplitSheet> {
         partners: partners,
         existing: mine,
         amounts: amounts,
-        kind: _kind,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -184,7 +181,6 @@ class _SplitSheetState extends State<_SplitSheet> {
                   _Line(
                     partner: p,
                     box: _box(p.id),
-                    kind: _kind,
                     onChanged: () => setState(() {}),
                   ),
                   const SizedBox(height: T.gap),
@@ -253,30 +249,55 @@ class _SplitSheetState extends State<_SplitSheet> {
                   onPressed: _busy ? null : () => _shareEqually(partners),
                 ),
 
+                // What the farm's own rule does with each share, said
+                // rather than asked. While a man still owes on what he
+                // promised, his money pays that off; once he has paid it
+                // in full, the next rupee is the farm's to give back.
                 const SizedBox(height: T.pad),
-                Kicker(l.t('This money was')),
+                Kicker(l.t('What this does')),
                 const SizedBox(height: 6),
-                Segmented<ContributionKind>(
-                  value: _kind,
-                  compact: true,
-                  options: [
-                    for (final k in ContributionKind.values) (k, l.t(k.label)),
-                  ],
-                  onChanged: (v) => setState(() => _kind = v),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  l.t(
-                    _kind == ContributionKind.investment
-                        ? 'Counted towards what each of them promised to put '
-                              'in. It stays in the farm.'
-                        : 'The farm owes it back to them. It counts towards '
-                              'nothing until you say it does — and one tap on '
-                              'their page says it.',
+                for (final p in partners)
+                  Builder(
+                    builder: (context) {
+                      final typed = num.tryParse(_box(p.id).text.trim()) ?? 0;
+                      if (typed <= 0) return const SizedBox.shrink();
+                      final cut = splitByPledge(
+                        amount: typed,
+                        pledged: p.pledged,
+                        alreadyIn: p.invested,
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Text(
+                          cut.refundable <= 0
+                              ? l.t3(
+                                  '%s — %s goes onto his investment.',
+                                  p.name,
+                                  rs(cut.investment),
+                                )
+                              : cut.investment <= 0
+                              ? l.t3(
+                                  '%s — his promise is already paid, so the '
+                                  'farm owes him %s back.',
+                                  p.name,
+                                  rs(cut.refundable),
+                                )
+                              : l.t4(
+                                  '%s — %s finishes his promise, %s the farm '
+                                  'owes him back.',
+                                  p.name,
+                                  rs(cut.investment),
+                                  rs(cut.refundable),
+                                ),
+                          style: T.meta.copyWith(
+                            color: cut.refundable > 0
+                                ? T.moneyDue
+                                : T.accent700,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  style: T.meta,
-                ),
-
                 const SizedBox(height: T.pad),
                 PrimaryButton(
                   label: l.t('Save who paid'),
@@ -298,20 +319,26 @@ class _Line extends StatelessWidget {
   const _Line({
     required this.partner,
     required this.box,
-    required this.kind,
     required this.onChanged,
   });
 
   final Partner partner;
   final TextEditingController box;
-  final ContributionKind kind;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
     final typed = num.tryParse(box.text.trim()) ?? 0;
-    final after = partner.invested + typed;
+    // Only the part that counts towards his promise moves his total;
+    // the rest is money the farm will hand back.
+    final after =
+        partner.invested +
+        splitByPledge(
+          amount: typed,
+          pledged: partner.pledged,
+          alreadyIn: partner.invested,
+        ).investment;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,9 +357,7 @@ class _Line extends StatelessWidget {
         Text(
           typed <= 0
               ? l.t2('Put in so far: %s', rs(partner.invested))
-              : kind == ContributionKind.investment
-              ? l.t3('Put in: %s → %s', rs(partner.invested), rs(after))
-              : l.t2('The farm would owe him %s', rs(typed)),
+              : l.t3('Put in: %s → %s', rs(partner.invested), rs(after)),
           style: T.meta.copyWith(color: typed > 0 ? T.accent700 : T.n500),
         ),
       ],

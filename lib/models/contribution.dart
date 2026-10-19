@@ -174,6 +174,38 @@ class Contribution {
   }
 }
 
+/// How one payment of a co-founder's own money divides between what counts
+/// towards his promise and what the farm has to hand back.
+///
+/// The farm settled this itself and it is not a choice anybody makes twice:
+/// while a man still owes on what he promised, every rupee he lays out is
+/// that promise being paid off. Once he has paid it in full, the next rupee
+/// is a loan — the farm owes it, and he either asks for it back or takes it
+/// out of the next money that passes through his hands.
+///
+/// One payment can be both. Jalbani has five thousand left on his promise and
+/// pays a twenty-five thousand feed bill: five of it finishes what he owed and
+/// twenty is money the farm has to return. Splitting it is not a nicety — put
+/// the whole twenty-five against his promise and he has over-paid a promise
+/// nobody asked him to exceed; call the whole twenty-five a loan and he is
+/// still short on a promise he has in fact met.
+///
+/// A record with no promise on it counts everything as investment, which is
+/// how the farm ran before promises were kept at all.
+({num investment, num refundable}) splitByPledge({
+  required num amount,
+  required num pledged,
+  required num alreadyIn,
+}) {
+  if (amount <= 0) return (investment: 0, refundable: 0);
+  if (pledged <= 0) return (investment: amount, refundable: 0);
+
+  final room = pledged - alreadyIn;
+  if (room <= 0) return (investment: 0, refundable: amount);
+  if (amount <= room) return (investment: amount, refundable: 0);
+  return (investment: room, refundable: amount - room);
+}
+
 /// What one person has put in, out of a list of lines.
 num investedFrom(List<Contribution> lines, String partnerId) => lines
     .where((c) => !c.isDeleted && c.isInvestment && c.partnerId == partnerId)

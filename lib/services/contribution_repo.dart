@@ -20,6 +20,59 @@ import 'log_service.dart';
 class ContributionRepo {
   ContributionRepo._();
 
+  /// One payment of a co-founder's own money, written as the farm's rule
+  /// divides it: against his promise while he still owes on it, and as money
+  /// the farm must return once he has paid it in full.
+  ///
+  /// Two lines where it falls both sides of the line — see [splitByPledge].
+  /// Nobody is asked which it is, because it is not a matter of opinion: it
+  /// follows from what he promised and what he has paid.
+  static Future<void> putIn(
+    Actor actor, {
+    required Partner partner,
+    required num amount,
+    required ContributionSource source,
+    required DateTime date,
+    PayVia payVia = PayVia.cash,
+    String receivedBy = '',
+    Txn? entry,
+    String note = '',
+  }) async {
+    final cut = splitByPledge(
+      amount: amount,
+      pledged: partner.pledged,
+      alreadyIn: partner.invested,
+    );
+
+    for (final (kind, part) in [
+      (ContributionKind.investment, cut.investment),
+      (ContributionKind.loan, cut.refundable),
+    ]) {
+      if (part <= 0) continue;
+      if (entry != null) {
+        await forEntry(
+          actor,
+          partner: partner,
+          entry: entry,
+          amount: part,
+          kind: kind,
+          note: note,
+        );
+      } else {
+        await handedOver(
+          actor,
+          partner: partner,
+          amount: part,
+          receivedBy: receivedBy,
+          date: date,
+          payVia: payVia,
+          kind: kind,
+          note: note,
+        );
+      }
+    }
+  }
+
   /// Money handed over — to whoever is keeping the farm's cash, usually.
   ///
   /// The ordinary way a promise gets paid off: eight lakh of it went on
@@ -102,7 +155,6 @@ class ContributionRepo {
     required List<Partner> partners,
     required List<Contribution> existing,
     required Map<String, num> amounts,
-    ContributionKind kind = ContributionKind.investment,
   }) async {
     final total = amounts.values.fold<num>(0, (a, v) => a + (v > 0 ? v : 0));
     if (total > entry.amount) {
@@ -112,43 +164,61 @@ class ContributionRepo {
       );
     }
 
-    final mine = {
-      for (final c in existing)
-        if (c.txnId == entry.id) c.partnerId: c,
-    };
+    // A man can have two lines against one entry — part of it finishing
+    // his promise and the rest owed back to him — so his old lines are
+    // gathered, not looked up one apiece.
+    final mine = <String, List<Contribution>>{};
+    for (final c in existing) {
+      if (c.txnId != entry.id || c.isDeleted) continue;
+      mine.putIfAbsent(c.partnerId, () => []).add(c);
+    }
 
     for (final partner in partners) {
       final want = amounts[partner.id] ?? 0;
-      final had = mine[partner.id];
+      final had = mine[partner.id] ?? const <Contribution>[];
+      final hadTotal = had.fold<num>(0, (a, c) => a + c.amount);
 
-      if (want <= 0) {
-        if (had != null) await remove(actor, had, partner: partner);
-        continue;
-      }
-      if (had == null) {
-        await forEntry(
-          actor,
-          partner: partner,
-          entry: entry,
-          amount: want,
-          kind: kind,
-        );
-        continue;
-      }
-      if (had.amount == want && had.kind == kind) continue;
+      if (want == hadTotal) continue;
 
-      // Changed. Written as a removal and a fresh line rather than a figure
-      // edited in place, so what was there before is still readable.
-      await remove(actor, had, partner: partner);
-      await forEntry(
+      // Written as removals and fresh lines rather than figures edited in
+      // place, so what was there before is still readable afterwards.
+      for (final line in had) {
+        await remove(actor, line, partner: partner);
+      }
+      if (want <= 0) continue;
+
+      // His total has just come down by whatever those lines held, and
+      // the phone is holding a stale copy of it. The split is worked out
+      // against what he will actually have, or saving the same figure
+      // twice would measure it against itself.
+      final hadInvested = had
+          .where((c) => c.isInvestment)
+          .fold<num>(0, (a, c) => a + c.amount);
+      await putIn(
         actor,
-        partner: partner,
+        partner: _less(partner, hadInvested),
         entry: entry,
         amount: want,
-        kind: kind,
+        source: ContributionSource.spent,
+        date: entry.date,
       );
     }
   }
+
+  /// The same person with some of his total taken back off, for working
+  /// out a split against what he is about to have rather than what the
+  /// screen is still showing.
+  static Partner _less(Partner p, num amount) => Partner(
+    id: p.id,
+    userId: p.userId,
+    name: p.name,
+    email: p.email,
+    invested: p.invested - amount,
+    pledged: p.pledged,
+    profitHeld: p.profitHeld,
+    withdrawn: p.withdrawn,
+    createdAt: p.createdAt,
+  );
 
   /// The master putting a figure right.
   ///
