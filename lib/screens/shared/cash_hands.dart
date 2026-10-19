@@ -117,6 +117,55 @@ class CashHands extends StatelessWidget {
             ],
           ),
         ),
+        // Capital nobody can account for by name. Not an error — the money
+        // is real and the books balance — but the per-person picture is
+        // short by exactly this, and this is how the farm finds that out
+        // instead of wondering why the figures look thin.
+        if (capitalWithoutLines(
+              capital: store.capitalIn,
+              putIn: store.contributions,
+            ) >
+            0) ...[
+          const SizedBox(height: 10),
+          RegCard(
+            stripe: T.accent600,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.t('Investment with no line against it'),
+                        style: T.bodyMid,
+                      ),
+                    ),
+                    Text(
+                      rs(
+                        capitalWithoutLines(
+                          capital: store.capitalIn,
+                          putIn: store.contributions,
+                        ),
+                      ),
+                      style: T.num22.copyWith(color: T.accent700),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l.t(
+                    'Capital that went in without anything saying where. '
+                    'The farm has the money and the books balance; it is '
+                    'the list above that is short by this much. Write the '
+                    'lines and it comes down to nothing.',
+                  ),
+                  style: T.meta,
+                ),
+              ],
+            ),
+          ),
+        ],
         // What is on its way and has not been acknowledged. Named apart
         // from every balance above it, because it is in nobody's hands.
         if (store.cashInTransit > 0) ...[

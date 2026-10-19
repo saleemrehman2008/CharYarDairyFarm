@@ -691,6 +691,11 @@ const Map<String, String> romanUrdu = {
   '%s sent to %s — waiting on him': '%s, %s ko bheja — un ke jawab ka intezar',
   '%s → %s': '%s → %s',
   'On its way': 'Raaste mein',
+  'Investment with no line against it': 'Wo investment jis ki koi line nahi',
+  'Capital that went in without anything saying where. The farm has the money and the books balance; it is the list above that is short by this much. Write the lines and it comes down to nothing.':
+      'Wo investment jo andar to aayi magar kahin likha nahi ke kahan gayi. '
+      'Paisa farm ke paas hai aur kitaab barabar hai; bas uper wali fehrist '
+      'itni hi kam hai. Lines likh den to ye sifar ho jaegi.',
   'Handed over and not yet acknowledged, so it is in neither pair of hands. It joins the other man the moment he says he has it.':
       'Diya ja chuka hai magar abhi tasdeeq nahi hui, is liye ye kisi ke bhi '
       'haath mein nahi. Jaise hi dusra kahe ke mil gaya, us ke khaate mein '

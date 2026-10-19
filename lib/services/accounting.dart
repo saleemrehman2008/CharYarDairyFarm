@@ -499,6 +499,29 @@ List<PeriodBar> periodBars(
   return bars.length <= last ? bars : bars.sublist(bars.length - last);
 }
 
+/// Capital that has never been written down as reaching anybody.
+///
+/// The farm's cash is its capital plus what it has earned less what it has
+/// spent. The sum of what everybody is holding only counts money with a name
+/// against it. The difference between the two is capital that went in without
+/// a line saying where — a figure typed onto a card, with no day, no hands,
+/// and nothing it paid for.
+///
+/// It is not an error and the books still balance with it there: the money is
+/// real and the farm has it. What it means is that the per-person picture is
+/// incomplete by exactly this much, and the fix is to write the lines — to
+/// say who handed it over, or which purchase it paid for.
+num capitalWithoutLines({
+  required num capital,
+  required List<Contribution> putIn,
+}) {
+  final written = putIn
+      .where((c) => !c.isDeleted && c.isInvestment)
+      .fold<num>(0, (a, c) => a + c.amount);
+  final left = capital - written;
+  return left > 0 ? left : 0;
+}
+
 /// Where every rupee the farm has ever handled currently sits.
 ///
 /// The dashboard used to show only the closing figure, which left the farm

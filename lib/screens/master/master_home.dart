@@ -29,6 +29,7 @@ import '../shared/statement_screen.dart';
 import 'activity_log_screen.dart';
 import 'cattle_screen.dart';
 import 'close_month_screen.dart';
+import 'farm_setup_screen.dart';
 import 'handovers_screen.dart';
 import 'udhaar_registrations_screen.dart';
 import 'users_screen.dart';
@@ -277,6 +278,14 @@ class MasterHome extends StatelessWidget {
       tone: T.n600,
       badge: store.pendingUsers.length,
       onTap: () => _push(context, store, const UsersScreen()),
+    ),
+    // The Sheet keeps up on its own, but the farm reads it and sometimes
+    // wants it brought up to date now — and it was three taps deep.
+    ActionTile(
+      icon: Icons.table_chart_outlined,
+      label: l.t('Google Sheet'),
+      tone: T.moneyIn,
+      onTap: () => _push(context, store, const FarmSetupScreen()),
     ),
     ActionTile(
       icon: Icons.history,
