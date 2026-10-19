@@ -733,4 +733,243 @@ void main() {
       expect(hands['Ghulam Ali'], 0);
     });
   });
+
+  group('the 8,600 from Urooj, followed all the way through', () {
+    /// The farm's hardest question yet, and the books turned out to be
+    /// right: "Ghulam Ali ne to farm k paisy hi liye thy, or wo amount farm
+    /// me de diye, to Ghulam Ali ki jeb se kyun ja raha hy?"
+    ///
+    /// Because by the time he paid it into the farm account, Urooj's 8,600
+    /// was long gone — spent on feed and medicine, along with 66,790 of his
+    /// own. The notes he actually handed over came out of his own pocket,
+    /// and the farm owes him for them. His real figures, as the app showed
+    /// them, are used here so this cannot drift.
+
+    Txn row({
+      required String id,
+      required TxnType type,
+      required String category,
+      required num amount,
+      required String handledBy,
+      String party = '',
+      int day = 12,
+    }) => Txn(
+      id: id,
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: type,
+      party: party,
+      category: category,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: handledBy,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    // Everything he had taken in, and everything he had paid out, before
+    // any of this started. Rs 66,790 of it was his own.
+    final before = [
+      row(
+        id: 'took',
+        type: TxnType.receipt,
+        category: khaataReceiptCategory,
+        party: 'Urooj Dairy Shop',
+        amount: 908600,
+        handledBy: 'Ghulam Ali',
+      ),
+      row(
+        id: 'spent',
+        type: TxnType.expense,
+        category: 'Feed',
+        party: 'Ghas Wala',
+        amount: 975390,
+        handledBy: 'Ghulam Ali',
+      ),
+    ];
+
+    num holding(List<Txn> ledger, [List<Contribution> putIn = const []]) =>
+        cashInHands(
+          ledger,
+          putIn: putIn,
+        ).firstWhere((h) => h.who == 'Ghulam Ali').holding;
+
+    test('he starts 66,790 out of his own pocket', () {
+      expect(holding(before), -66790);
+    });
+
+    test('paying 8,600 into the farm puts him 8,600 further down', () {
+      // Not because the books lost the Urooj money. Because they had
+      // already spent it.
+      final ledger = [
+        ...before,
+        row(
+          id: 'out',
+          type: TxnType.payment,
+          category: handoverOutCategory,
+          party: farmAccountName,
+          amount: 8600,
+          handledBy: 'Ghulam Ali',
+          day: 19,
+        ),
+        row(
+          id: 'in',
+          type: TxnType.receipt,
+          category: handoverInCategory,
+          party: 'Ghulam Ali',
+          amount: 8600,
+          handledBy: farmAccountName,
+          day: 19,
+        ),
+      ];
+      expect(holding(ledger), -75390);
+      expect(
+        cashInHands(ledger).firstWhere((h) => h.who == farmAccountName).holding,
+        8600,
+        reason: 'and the farm really does have it',
+      );
+    });
+
+    test(
+      'counting 66,790 then leaves exactly the 8,600 he just handed over',
+      () {
+        // Which is what his screen showed, and why the app offered to count
+        // another 8,600 rather than saying he was square.
+        final ledger = [
+          ...before,
+          row(
+            id: 'out',
+            type: TxnType.payment,
+            category: handoverOutCategory,
+            party: farmAccountName,
+            amount: 8600,
+            handledBy: 'Ghulam Ali',
+            day: 19,
+          ),
+          row(
+            id: 'in',
+            type: TxnType.receipt,
+            category: handoverInCategory,
+            party: 'Ghulam Ali',
+            amount: 8600,
+            handledBy: farmAccountName,
+            day: 19,
+          ),
+        ];
+        final counted = Contribution(
+          id: 'c1',
+          partnerId: 'p-ali',
+          partnerName: 'Ghulam Ali',
+          kind: ContributionKind.investment,
+          source: ContributionSource.spent,
+          amount: 66790,
+          date: DateTime(2026, 10, 19),
+          createdAt: DateTime(2026, 10, 19),
+        );
+        expect(holding(ledger, [counted]), -8600);
+      },
+    );
+
+    test(
+      'counting that 8,600 too squares him, and his own money is 75,390',
+      () {
+        final ledger = [
+          ...before,
+          row(
+            id: 'out',
+            type: TxnType.payment,
+            category: handoverOutCategory,
+            party: farmAccountName,
+            amount: 8600,
+            handledBy: 'Ghulam Ali',
+            day: 19,
+          ),
+          row(
+            id: 'in',
+            type: TxnType.receipt,
+            category: handoverInCategory,
+            party: 'Ghulam Ali',
+            amount: 8600,
+            handledBy: farmAccountName,
+            day: 19,
+          ),
+        ];
+        final lines = [
+          for (final (id, amount) in [('c1', 66790), ('c2', 8600)])
+            Contribution(
+              id: id,
+              partnerId: 'p-ali',
+              partnerName: 'Ghulam Ali',
+              kind: ContributionKind.investment,
+              source: ContributionSource.spent,
+              amount: amount,
+              date: DateTime(2026, 10, 19),
+              createdAt: DateTime(2026, 10, 19),
+            ),
+        ];
+
+        expect(holding(ledger, lines), 0);
+        expect(
+          investedFrom(lines, 'p-ali'),
+          75390,
+          reason: '66,790 spent on costs and 8,600 sitting in the farm account',
+        );
+      },
+    );
+
+    test('his statement says where it went, not that the farm is a man', () {
+      // "Handed to a co-founder" on a row whose other side is the farm's own
+      // account is plainly wrong, and it is what he was reading.
+      final out = row(
+        id: 'out',
+        type: TxnType.payment,
+        category: handoverOutCategory,
+        party: farmAccountName,
+        amount: 8600,
+        handledBy: 'Ghulam Ali',
+        day: 19,
+      );
+      expect(handoverWords(out, 'Ghulam Ali'), 'Put into the farm account');
+
+      // Read from the farm's own side the same row is simply money it took
+      // in. "Taken out of the farm account" belongs on the page of a man
+      // drawing money from it, which is the other direction entirely.
+      expect(handoverWords(out, farmAccountName), 'Taken in');
+
+      final drawn = row(
+        id: 'draw',
+        type: TxnType.receipt,
+        category: handoverInCategory,
+        party: farmAccountName,
+        amount: 5000,
+        handledBy: 'Rafeeq',
+        day: 19,
+      );
+      expect(handoverWords(drawn, 'Rafeeq'), 'Taken out of the farm account');
+    });
+
+    test('between two of them it says the plain thing instead', () {
+      final out = row(
+        id: 'out2',
+        type: TxnType.payment,
+        category: handoverOutCategory,
+        party: 'Rafeeq',
+        amount: 5000,
+        handledBy: 'Ghulam Ali',
+        day: 19,
+      );
+      expect(handoverWords(out, 'Ghulam Ali'), 'Handed over');
+      expect(handoverWords(out, 'Rafeeq'), 'Taken in');
+    });
+
+    test('an ordinary row keeps its own category', () {
+      expect(
+        handoverWords(before.last, 'Ghulam Ali'),
+        'Feed',
+        reason: 'only handovers are reworded',
+      );
+    });
+  });
 }

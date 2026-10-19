@@ -546,18 +546,44 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                 Builder(
                   builder: (context) {
                     final has = hands[partyKey(_from!)]?.holding ?? 0;
-                    return Text(
-                      has > 0
-                          ? l.t3('%s has %s in hand.', _from!, rs(has))
-                          : l.t2(
-                              '%s is not holding anything the books know '
-                              'about. That is fine if the money has only '
-                              'just come in.',
-                              _from!,
+                    if (has > 0) {
+                      return Text(
+                        l.t3('%s has %s in hand.', _from!, rs(has)),
+                        style: T.meta.copyWith(color: T.moneyIn),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          has < 0
+                              ? l.t3(
+                                  '%s is holding none of the farm\'s cash — '
+                                  'he is %s out of his own pocket.',
+                                  _from!,
+                                  rs(has.abs()),
+                                )
+                              : l.t2(
+                                  '%s is not holding anything the books know '
+                                  'about. That is fine if the money has only '
+                                  'just come in.',
+                                  _from!,
+                                ),
+                          style: T.meta.copyWith(color: T.moneyDue),
+                        ),
+                        if (has < 0) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            l.t(
+                              'What came in through him has gone out again on '
+                              'the farm\'s costs. Anything he hands over now '
+                              'is his own money, and the farm will owe him '
+                              'that much more.',
                             ),
-                      style: T.meta.copyWith(
-                        color: has > 0 ? T.moneyIn : T.moneyDue,
-                      ),
+                            style: T.meta.copyWith(color: T.moneyDue),
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),

@@ -537,6 +537,25 @@ class AccountLine {
 /// other half of that — an entry carries one name as the payer and three men
 /// can have paid for it, so where the farm has written down who found the
 /// money, that is who it comes out of.
+/// What a handover row should say on one man's own statement.
+///
+/// The categories on the rows are written for the books: "Handed to a
+/// co-founder", "Taken from a co-founder". On the farm's own account that is
+/// plainly wrong — the farm is not a co-founder — and on a man's page it
+/// hides the one thing he wants to read, which is whether the money went
+/// into the farm or to one of the others.
+String handoverWords(Txn t, String forWhom) {
+  final s = handoverSides(t);
+  if (s == null) return t.category;
+
+  final key = partyKey(forWhom);
+  final gave = partyKey(s.from) == key;
+  final farm = partyKey(gave ? s.to : s.from) == partyKey(farmAccountName);
+
+  if (gave) return farm ? 'Put into the farm account' : 'Handed over';
+  return farm ? 'Taken out of the farm account' : 'Taken in';
+}
+
 List<AccountLine> accountLines(
   List<Txn> ledger, {
   required String who,
@@ -560,7 +579,7 @@ List<AccountLine> accountLines(
         AccountLine(
           date: t.date,
           what: t.party.isEmpty ? t.category : t.party,
-          detail: t.category,
+          detail: handoverWords(t, who),
           amount: t.amount,
         ),
       );
@@ -586,7 +605,7 @@ List<AccountLine> accountLines(
         AccountLine(
           date: t.date,
           what: t.party.isEmpty ? t.category : t.party,
-          detail: t.category,
+          detail: handoverWords(t, who),
           amount: -left,
         ),
       );
