@@ -60,6 +60,7 @@ class CashTransfer {
     this.decidedAt,
     this.decidedBy = '',
     this.because = '',
+    this.txnIds = const [],
   });
 
   final String id;
@@ -85,6 +86,18 @@ class CashTransfer {
   /// What the man said when he refused it.
   final String because;
 
+  /// The entries this handover is made of.
+  ///
+  /// A figure typed into a box says how much moved. These say which money it
+  /// was — the four Urooj receipts Ghulam Ali took at the gate, rather than
+  /// "8,600 from Ghulam Ali". Once they are named here they are spoken for,
+  /// so nobody hands the same thousand rupees over twice, and each of those
+  /// entries can say on its own face where the money went.
+  ///
+  /// Empty is allowed and always will be: a man may hand over a round sum
+  /// out of a pocket that holds a dozen entries' worth.
+  final List<String> txnIds;
+
   bool get isWaiting => state.isWaiting;
 
   Map<String, dynamic> toMap() => {
@@ -97,6 +110,7 @@ class CashTransfer {
     'sentBy': sentBy,
     'sentByName': sentByName,
     'because': because,
+    'txnIds': txnIds,
   };
 
   factory CashTransfer.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -115,6 +129,10 @@ class CashTransfer {
       decidedAt: dt(m['decidedAt']),
       decidedBy: s(m['decidedBy']),
       because: s(m['because']),
+      txnIds: [
+        for (final v in (m['txnIds'] as List<dynamic>? ?? const []))
+          if (s(v).isNotEmpty) s(v),
+      ],
     );
   }
 }
@@ -127,6 +145,24 @@ num sentWaitingBy(List<CashTransfer> moves, String name) => moves
 num comingTo(List<CashTransfer> moves, String name) => moves
     .where((t) => t.isWaiting && partyKey(t.to) == partyKey(name))
     .fold<num>(0, (a, t) => a + t.amount);
+
+/// Entries already named by a handover, so they are not offered twice.
+///
+/// A refused one lets its entries go again: the money never moved, so it is
+/// still sitting where it was and is still his to hand over.
+Set<String> alreadyHandedOn(List<CashTransfer> moves) => {
+  for (final t in moves)
+    if (t.state != TransferState.refused) ...t.txnIds,
+};
+
+/// Which handover an entry went out on, if any.
+CashTransfer? handoverOf(List<CashTransfer> moves, String txnId) {
+  for (final t in moves) {
+    if (t.state == TransferState.refused) continue;
+    if (t.txnIds.contains(txnId)) return t;
+  }
+  return null;
+}
 
 /// Everything still waiting on somebody's word, oldest first — the farm
 /// should be asked about the one that has been sitting longest.

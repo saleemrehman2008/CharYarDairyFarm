@@ -29,6 +29,9 @@ class TransferRepo {
     required num amount,
     PayVia payVia = PayVia.cash,
     String note = '',
+
+    /// The entries this handover is made of, where the farm named them.
+    List<String> txnIds = const [],
   }) async {
     if (amount <= 0) throw StateError('How much is being handed over?');
     if (partyKey(from) == partyKey(to)) {
@@ -56,6 +59,7 @@ class TransferRepo {
       note: note.trim(),
       sentBy: actor.uid,
       sentByName: actor.name,
+      txnIds: txnIds,
     );
 
     final doc = await Db.transfers.add({

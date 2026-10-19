@@ -570,6 +570,17 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s · already handed to %s': '%s · pehly hi %s ko de diya',
+  'Handed on': 'Aagy diya gaya',
+  'Still on its way — it is in nobody\'s hands until %s says he has it.':
+      'Abhi raaste me hy — jb tk %s na kahy k mil gaya, kisi k pass ni hy.',
+  'Tap the ones being handed over and the amount fills itself in. Leave them alone to hand over a plain figure instead.':
+      'Jo entry de rahy ho un per tap karo, amount khud bhar jaegi. Chorh do to sirf ek amount likh k b de sakty ho.',
+  'This money went to %s on %s.': 'Ye paisa %s ko %s ko gaya.',
+  'What %s paid for himself': '%s ne apni jeb se kiya kharcha',
+  'What %s took in': '%s ne jo paisa liya',
+  'What the farm owes him, entry by entry. Nothing here is settled by this handover: his own spending goes against what he is in for until that is paid in full, and only what is over it is his to take back.':
+      'Farm us ka jitna dena hy, entry k hisab se. Is transfer se yahan kuch wapas ni ho raha: us ka apna kharcha pehly us k investment wady me jata hy, aur jo us se uper ho wohi us ko wapas milta hy.',
   'Hand cash over': 'Paisa hawale karen',
   'Money passing between the four of them: taken at the gate by one and kept by another. The farm has exactly as much before and after, so nothing moves except who is answerable for it.':
       'Aapas mein paisa idhar se udhar: gate par ek ne liya, rakha dusre ne. '

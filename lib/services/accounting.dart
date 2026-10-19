@@ -617,6 +617,120 @@ List<AccountLine> accountLines(
   return out;
 }
 
+/// One entry sitting behind what a man is holding, or behind what he is out
+/// of pocket.
+///
+/// [AccountLine] says how a figure was arrived at and is enough to read. This
+/// carries the entry's id as well, because the farm wants to pick them: a
+/// handover of 8,600 should be able to say it is *these four* Urooj receipts
+/// rather than 8,600 of an indistinguishable pile.
+class InHand {
+  const InHand({
+    required this.txnId,
+    required this.date,
+    required this.what,
+    required this.detail,
+    required this.amount,
+    required this.incoming,
+    this.handedOnTo = '',
+  });
+
+  final String txnId;
+  final DateTime date;
+
+  /// Who it was with, falling back to what it was for.
+  final String what;
+  final String detail;
+
+  /// Always positive. [incoming] says which way it went.
+  final num amount;
+
+  /// Money that came into his hands, as against money that went out of them.
+  final bool incoming;
+
+  /// Named by a handover already, so it is spoken for.
+  final String handedOnTo;
+
+  bool get isSpokenFor => handedOnTo.isNotEmpty;
+}
+
+/// The entries behind one man's figure, latest first.
+///
+/// Latest first because the farm asked for it that way, and it is right: the
+/// money he is most likely to be handing over this morning is the money that
+/// came in last night.
+///
+/// [incoming] true gives what came into his hands — what he has to hand over.
+/// False gives what went out of them, which on a co-founder's page is the
+/// spending the farm has yet to settle with him.
+List<InHand> inHand(
+  List<Txn> ledger, {
+  required String who,
+  required bool incoming,
+  List<Contribution> putIn = const [],
+  List<CashTransfer> moving = const [],
+}) {
+  final key = partyKey(who);
+  final spokenFor = <String, String>{};
+  for (final t in moving) {
+    if (t.state == TransferState.refused) continue;
+    for (final id in t.txnIds) {
+      spokenFor[id] = t.to;
+    }
+  }
+
+  final split = <String, List<Contribution>>{};
+  for (final c in putIn) {
+    final id = c.txnId;
+    if (c.isDeleted || id == null) continue;
+    split.putIfAbsent(id, () => []).add(c);
+  }
+
+  InHand line(Txn t, num amount, bool incoming) => InHand(
+    txnId: t.id,
+    date: t.date,
+    what: t.party.isEmpty ? t.category : t.party,
+    detail: t.category,
+    amount: amount,
+    incoming: incoming,
+    handedOnTo: spokenFor[t.id] ?? '',
+  );
+
+  final out = <InHand>[];
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+
+    // A handover is not money he is holding — it is the act of passing it
+    // on. Offering it back would let the same rupees be handed over twice.
+    if (t.isHandoverOut || t.isHandoverIn) continue;
+
+    if (movedCashIn(t)) {
+      if (incoming && partyKey(t.handledBy) == key && t.amount > 0) {
+        out.add(line(t, t.amount, true));
+      }
+      continue;
+    }
+    if (!movedCashOut(t)) continue;
+    if (incoming) continue;
+
+    // An entry carries one payer's name and three men can have paid for it.
+    // Where the farm has written down who found the money, that is whose
+    // row this is; the rest belongs to the name on the entry.
+    var left = t.amount;
+    for (final c in split[t.id] ?? const <Contribution>[]) {
+      left -= c.amount;
+      if (partyKey(c.partnerName) != key || c.amount <= 0) continue;
+      out.add(line(t, c.amount, false));
+    }
+    if (left > 0 && partyKey(t.handledBy) == key) {
+      out.add(line(t, left, false));
+    }
+  }
+
+  out.sort((a, b) => b.date.compareTo(a.date));
+  return out;
+}
+
 /// Capital that has never been written down as reaching anybody.
 ///
 /// The farm's cash is its capital plus what it has earned less what it has

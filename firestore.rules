@@ -250,7 +250,7 @@ service cloud.firestore {
       allow update: if isPartner()
         && resource.data.state == 'waiting'
         && !changedKeys().hasAny(['from', 'to', 'amount', 'sentBy',
-                                 'sentAt', 'payVia']);
+                                 'sentAt', 'payVia', 'txnIds']);
       // Taken back by whoever sent it, and only while nobody has answered.
       allow delete: if isPartner() && resource.data.state == 'waiting';
     }

@@ -359,6 +359,14 @@ class _HandoverSheetState extends State<_HandoverSheet> {
   PayVia _via = PayVia.cash;
   bool _busy = false;
 
+  /// The entries picked out of the sender's hands.
+  ///
+  /// Picking any of them drives the amount, because the whole point is that
+  /// the figure and the entries agree. Leave them alone and it is a typed
+  /// sum like before — a man may well hand over a round amount out of a
+  /// pocket holding a dozen entries' worth.
+  final _picked = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -381,6 +389,17 @@ class _HandoverSheetState extends State<_HandoverSheet> {
   /// store, so this sheet and the entry form can never offer different
   /// answers to the same question.
   List<String> _people(FarmStore store) => store.moneyHolders;
+
+  void _toggle(InHand row, List<InHand> all) {
+    setState(() {
+      if (!_picked.remove(row.txnId)) _picked.add(row.txnId);
+      final sum = all
+          .where((r) => _picked.contains(r.txnId))
+          .fold<num>(0, (a, r) => a + r.amount);
+      _amount.text = sum > 0 ? sum.toStringAsFixed(0) : '';
+    });
+  }
+
   Future<void> _save(FarmStore store) async {
     final l = L.read(context);
     final from = _from;
@@ -407,6 +426,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
         amount: amount,
         payVia: _via,
         note: _note.text.trim(),
+        txnIds: _picked.toList(),
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -511,6 +531,62 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                 ),
               ],
 
+              // The entries the money is made of. The farm asked for it:
+              // Ghulam Ali took four payments from Urooj at the gate, and
+              // handing over 8,600 should be able to say it is those four
+              // rather than 8,600 of an indistinguishable pile. Latest
+              // first, because the money most likely to be handed over this
+              // morning is the money that came in last night.
+              if (_from != null)
+                Builder(
+                  builder: (context) {
+                    final rows = store.heldBy(_from!);
+                    if (rows.isEmpty) return const SizedBox.shrink();
+                    return _EntryPick(
+                      title: l.t2('What %s took in', _from!),
+                      note: l.t(
+                        'Tap the ones being handed over and the amount '
+                        'fills itself in. Leave them alone to hand over a '
+                        'plain figure instead.',
+                      ),
+                      rows: rows,
+                      picked: _picked,
+                      onTap: (r) => _toggle(r, rows),
+                    );
+                  },
+                ),
+
+              // And the other side of it. A co-founder who has paid for
+              // things out of his own pocket is owed that money, and the
+              // farm wanted to see which entries they are — without them
+              // being settled here. They are not the farm's to give back
+              // until his own promise is paid in full; see [splitByPledge].
+              if (_to != null)
+                Builder(
+                  builder: (context) {
+                    final owed = hands[partyKey(_to!)]?.holding ?? 0;
+                    if (owed >= 0) return const SizedBox.shrink();
+                    final rows = store
+                        .spentBy(_to!)
+                        .where((r) => !r.isSpokenFor)
+                        .toList();
+                    if (rows.isEmpty) return const SizedBox.shrink();
+                    return _EntryPick(
+                      title: l.t2('What %s paid for himself', _to!),
+                      note: l.t(
+                        'What the farm owes him, entry by entry. Nothing '
+                        'here is settled by this handover: his own spending '
+                        'goes against what he is in for until that is paid '
+                        'in full, and only what is over it is his to take '
+                        'back.',
+                      ),
+                      rows: rows,
+                      picked: const <String>{},
+                      onTap: null,
+                    );
+                  },
+                ),
+
               const SizedBox(height: T.pad),
               Kicker(l.t('How')),
               const SizedBox(height: 6),
@@ -544,6 +620,125 @@ class _HandoverSheetState extends State<_HandoverSheet> {
 }
 
 /// One of the two names on a handover.
+/// A man's own entries, latest first, to pick from or just to read.
+class _EntryPick extends StatelessWidget {
+  const _EntryPick({
+    required this.title,
+    required this.note,
+    required this.rows,
+    required this.picked,
+    required this.onTap,
+  });
+
+  final String title;
+  final String note;
+  final List<InHand> rows;
+  final Set<String> picked;
+  final void Function(InHand row)? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final tone = rows.first.incoming ? T.moneyIn : T.moneyDue;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: T.pad),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(title),
+          const SizedBox(height: 4),
+          Text(note, style: T.meta),
+          const SizedBox(height: 8),
+          // Enough to see several without the sheet becoming a ledger of
+          // its own; the rest is a scroll away.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 232),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: rows.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 6),
+              itemBuilder: (context, i) {
+                final r = rows[i];
+                final on = picked.contains(r.txnId);
+                final dead = r.isSpokenFor || onTap == null;
+                return InkWell(
+                  onTap: dead ? null : () => onTap!(r),
+                  borderRadius: BorderRadius.circular(T.radiusXs),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: on ? tone.withValues(alpha: 0.10) : T.surface,
+                      borderRadius: BorderRadius.circular(T.radiusXs),
+                      border: Border.all(
+                        color: on ? tone.withValues(alpha: 0.55) : T.divider,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (onTap != null) ...[
+                          Icon(
+                            r.isSpokenFor
+                                ? Icons.lock_outline
+                                : on
+                                ? Icons.check_box
+                                : Icons.check_box_outline_blank,
+                            size: 18,
+                            color: r.isSpokenFor
+                                ? T.n400
+                                : on
+                                ? tone
+                                : T.n400,
+                          ),
+                          const SizedBox(width: 9),
+                        ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                r.what,
+                                style: T.bodyMid,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                r.isSpokenFor
+                                    ? l.t3(
+                                        '%s · already handed to %s',
+                                        fmtDate(r.date),
+                                        r.handedOnTo,
+                                      )
+                                    : '${fmtDate(r.date)} · ${l.t(r.detail)}',
+                                style: T.meta,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          rs(r.amount),
+                          style: T.bodyMid.copyWith(
+                            color: r.isSpokenFor ? T.n400 : tone,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Pick extends StatelessWidget {
   const _Pick({
     required this.label,

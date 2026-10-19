@@ -591,6 +591,35 @@ class FarmStore extends ChangeNotifier implements RoundData {
     return null;
   }
 
+  /// The entries behind what a man is holding, latest first.
+  ///
+  /// So a handover can name the money it is made of instead of being a bare
+  /// figure — these four Urooj receipts, not 8,600 out of a pile.
+  List<InHand> heldBy(String name) => inHand(
+    _ledger,
+    who: name,
+    incoming: true,
+    putIn: _contributions,
+    moving: _transfers,
+  );
+
+  /// The entries behind what a man is out of pocket, latest first.
+  ///
+  /// What the farm owes him, entry by entry. It is shown to be read rather
+  /// than settled: the farm's own rule is that his spending goes against his
+  /// promise until that promise is paid in full, and only what is over it is
+  /// his to take back.
+  List<InHand> spentBy(String name) => inHand(
+    _ledger,
+    who: name,
+    incoming: false,
+    putIn: _contributions,
+    moving: _transfers,
+  );
+
+  /// Which handover an entry went out on, if any.
+  CashTransfer? handoverFor(String txnId) => handoverOf(_transfers, txnId);
+
   /// What is still to come in against what the four of them promised.
   num get pledgedStillToCome =>
       _partners.fold<num>(0, (a, p) => a + p.stillToPayIn);

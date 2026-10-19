@@ -432,6 +432,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           onGiveUp: () => _giveUp(txn),
           onSplit: () => showSplitSheet(context, txn),
           paidBy: context.read<FarmStore>().paidForEntry(txn.id),
+          handedOn: context.read<FarmStore>().handoverFor(txn.id),
           // A settled period's figures are what four people were paid out
           // of, so nothing in one can be corrected.
           canEdit:
@@ -1343,6 +1344,7 @@ class _LedgerRow extends StatelessWidget {
     required this.onGiveUp,
     required this.onSplit,
     required this.paidBy,
+    required this.handedOn,
     required this.canEdit,
     this.showMark = false,
     this.reached = 0,
@@ -1364,6 +1366,9 @@ class _LedgerRow extends StatelessWidget {
 
   /// Whose money paid for it, read off the store by the screen above.
   final List<Contribution> paidBy;
+
+  /// The handover this entry's money went out on, if it has gone.
+  final CashTransfer? handedOn;
 
   /// False once this entry's period has been settled.
   final bool canEdit;
@@ -1610,6 +1615,7 @@ class _LedgerRow extends StatelessWidget {
             onGiveUp: onGiveUp,
             onSplit: onSplit,
             paidBy: paidBy,
+            handedOn: handedOn,
             canEdit: canEdit,
           ),
           borderRadius: T.round,
@@ -1703,6 +1709,10 @@ Future<void> showEntryDetail(
   /// pushed with — asking it for the farm's data threw, and a release build
   /// draws a thrown widget as a plain grey box half a screen tall.
   required List<Contribution> paidBy,
+
+  /// The handover this entry's money went out on, read off the store by the
+  /// screen above for the same reason as [paidBy].
+  required CashTransfer? handedOn,
 
   /// False once the entry's period has been settled. The figures of a
   /// closed month were what four people were paid out of, so nothing in
@@ -1963,6 +1973,35 @@ Future<void> showEntryDetail(
                 );
               },
             ),
+
+            // Where this money went afterwards. The farm asked for it: an
+            // entry should say on its own face that this is the money that
+            // went to the farm account, rather than leaving somebody to
+            // work it out from two lists that never mention each other.
+            if (handedOn != null) ...[
+              const Divider(height: 20),
+              Kicker(l.t('Handed on')),
+              const SizedBox(height: 6),
+              Text(
+                l.t3(
+                  'This money went to %s on %s.',
+                  handedOn.to,
+                  fmtDate(handedOn.sentAt),
+                ),
+                style: T.body,
+              ),
+              if (handedOn.isWaiting) ...[
+                const SizedBox(height: 3),
+                Text(
+                  l.t2(
+                    'Still on its way — it is in nobody\'s hands until %s '
+                    'says he has it.',
+                    handedOn.to,
+                  ),
+                  style: T.meta.copyWith(color: T.moneyDue),
+                ),
+              ],
+            ],
 
             // Every correction ever made to it, oldest first, in the words
             // it was shown as at the time. The farm asked for this before
