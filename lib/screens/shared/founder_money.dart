@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
-import '../../services/accounting.dart';
 import '../../services/contribution_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -137,15 +136,8 @@ class _MoneyInSheetState extends State<_MoneyInSheet> {
     final p = widget.partner;
     final amount = num.tryParse(_amount.text.trim()) ?? 0;
 
-    // Everybody the farm has a name for, so the money lands in a pair of
-    // hands the cash card already knows about.
-    final people = <String, String>{
-      for (final x in store.partners) partyKey(x.name): x.name,
-    };
-    for (final h in cashInHands(store.ledger, putIn: store.contributions)) {
-      people.putIfAbsent(partyKey(h.who), () => h.who);
-    }
-    final names = people.values.toList()..sort();
+    // Everywhere the money can land, from the one list the whole app uses.
+    final names = store.moneyHolders;
 
     return SafeArea(
       top: false,

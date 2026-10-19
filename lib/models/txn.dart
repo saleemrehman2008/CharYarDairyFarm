@@ -387,6 +387,19 @@ const badDebtCategory = 'Given up on — not coming back';
 /// holding moves by what was passed. They are posted as a pair by the app
 /// and are deliberately not on the entry form, because half a transfer would
 /// be worse than none.
+/// The farm's own box, or its bank — money that is in nobody's hands.
+///
+/// Every rupee the farm holds is somewhere, and until now the only answer the
+/// form offered was a person. Cash that goes into the farm's own keeping had
+/// to be put under somebody's name or left blank, and blank reads as "nobody
+/// wrote it down" rather than "it is in the box" — two quite different
+/// things, and only one of them is a mistake.
+///
+/// A name rather than a flag, because that is all a holder is: every figure
+/// about whose hands money is in is worked out by name, and the farm is
+/// simply another pair of hands that happens to belong to nobody.
+const farmAccountName = 'Farm account';
+
 const handoverOutCategory = 'Handed to a co-founder';
 const handoverInCategory = 'Taken from a co-founder';
 

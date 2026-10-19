@@ -244,20 +244,11 @@ class _HandoverSheetState extends State<_HandoverSheet> {
     super.dispose();
   }
 
-  /// Everybody the farm has a name for: the co-founders, and anybody else
-  /// whose hands money has already passed through.
-  List<String> _people(FarmStore store) {
-    final names = <String, String>{};
-    for (final p in store.partners) {
-      names[partyKey(p.name)] = p.name;
-    }
-    for (final h in cashInHands(store.ledger, putIn: store.contributions)) {
-      names.putIfAbsent(partyKey(h.who), () => h.who);
-    }
-    final out = names.values.toList()..sort();
-    return out;
-  }
-
+  /// Everywhere the farm's money can be: its own account, the co-founders,
+  /// and anybody else who has handled money for it. One list, held by the
+  /// store, so this sheet and the entry form can never offer different
+  /// answers to the same question.
+  List<String> _people(FarmStore store) => store.moneyHolders;
   Future<void> _save(FarmStore store) async {
     final l = L.read(context);
     final from = _from;

@@ -19,6 +19,7 @@ import '../../widgets/worth_bar.dart';
 import '../../widgets/ui.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/bills_screen.dart';
+import '../shared/cash_hands.dart';
 import '../shared/deliveries_screen.dart';
 import '../shared/new_entry_screen.dart';
 import '../shared/products_screen.dart';
@@ -198,6 +199,14 @@ class MasterHome extends StatelessWidget {
       tone: T.moneyOut,
       onTap: () =>
           _push(context, store, const NewEntryScreen(flow: MoneyFlow.outgoing)),
+    ),
+    // Money moving between the four of them. Neither in nor out of the
+    // farm, which is why it is its own door rather than a kind of entry.
+    ActionTile(
+      icon: Icons.swap_horiz,
+      label: l.t('Transfer'),
+      tone: T.accent600,
+      onTap: () => showHandover(context),
     ),
     if (f.rider)
       ActionTile(

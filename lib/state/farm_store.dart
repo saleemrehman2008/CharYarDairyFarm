@@ -505,6 +505,37 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   num owedToFounder(String partnerId) => owedToFrom(_contributions, partnerId);
 
+  /// Every pair of hands the farm's money can be in.
+  ///
+  /// The farm's own account first, then the co-founders, then anybody else
+  /// who has already handled money for the farm — a worker who took a
+  /// payment at the gate once belongs on the list, because the money he
+  /// took is still somewhere.
+  ///
+  /// One list, read by every screen that asks whose hands money is in. They
+  /// each built their own and they each drifted: the entry form offered the
+  /// farm's account and the transfer sheet did not, so money could be taken
+  /// into a place it could never be moved out of.
+  List<String> get moneyHolders {
+    final names = <String, String>{};
+    for (final f in _settings.founders) {
+      final name = f.name.trim();
+      if (name.isNotEmpty) names.putIfAbsent(partyKey(name), () => name);
+    }
+    for (final p in _partners) {
+      final name = p.name.trim();
+      if (name.isNotEmpty) names.putIfAbsent(partyKey(name), () => name);
+    }
+    final people = names.values.toList()..sort();
+
+    for (final h in cashInHands(_ledger, putIn: _contributions)) {
+      if (names.containsKey(partyKey(h.who))) continue;
+      if (partyKey(h.who) == partyKey(farmAccountName)) continue;
+      people.add(h.who);
+    }
+    return [farmAccountName, ...people];
+  }
+
   /// What one pair of hands has taken in and handed out.
   ///
   /// Read off the ledger the same way the farm-wide card reads it, so a

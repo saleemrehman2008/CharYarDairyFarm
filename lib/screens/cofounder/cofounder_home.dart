@@ -20,6 +20,7 @@ import '../../widgets/ui.dart';
 import '../master/activity_log_screen.dart';
 import '../master/cattle_screen.dart';
 import '../shared/accounts_screen.dart';
+import '../shared/cash_hands.dart';
 import '../shared/my_account_screen.dart';
 import '../shared/report_screen.dart';
 import '../shared/statement_screen.dart';
@@ -186,6 +187,14 @@ class CofounderHome extends StatelessWidget {
               label: l.t('Accounts'),
               tone: T.accent600,
               onTap: () => _push(context, store, const AccountsScreen()),
+            ),
+            // A co-founder hands cash to another as often as the master
+            // does — more often, since he is the one at the gate.
+            ActionTile(
+              icon: Icons.swap_horiz,
+              label: l.t('Transfer'),
+              tone: T.accent600,
+              onTap: () => showHandover(context),
             ),
             if (store.features.cattle)
               ActionTile(

@@ -1282,7 +1282,13 @@ class _WhoFieldState extends State<WhoField> {
             ),
             child: Row(
               children: [
-                Icon(Icons.person_outline, size: 17, color: T.done),
+                Icon(
+                  chosen == farmAccountName
+                      ? Icons.account_balance_outlined
+                      : Icons.person_outline,
+                  size: 17,
+                  color: T.done,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1313,6 +1319,15 @@ class _WhoFieldState extends State<WhoField> {
           spacing: 7,
           runSpacing: 7,
           children: [
+            // The farm itself, first, because it is where money goes when
+            // it goes nowhere in particular — the box, or the bank. Drawn
+            // apart from the names, since it is not one of them.
+            _WhoChip(
+              label: farmAccountName,
+              icon: Icons.account_balance_outlined,
+              selected: !_typing && chosen == farmAccountName,
+              onTap: () => _pick(farmAccountName),
+            ),
             for (final person in people)
               _WhoChip(
                 label: person.name,
@@ -1350,11 +1365,15 @@ class _WhoChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.icon,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Set on the farm's own account, which is not a person.
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -1369,12 +1388,21 @@ class _WhoChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(T.pill),
           border: Border.all(color: selected ? T.fill : T.n300, width: 1.3),
         ),
-        child: Text(
-          label,
-          style: T.bodyMid.copyWith(
-            fontSize: 13,
-            color: selected ? T.onFill : T.n700,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 15, color: selected ? T.onFill : T.n700),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: T.bodyMid.copyWith(
+                fontSize: 13,
+                color: selected ? T.onFill : T.n700,
+              ),
+            ),
+          ],
         ),
       ),
     ),
