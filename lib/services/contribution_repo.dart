@@ -298,6 +298,48 @@ class ContributionRepo {
     );
   }
 
+  /// Moves a figure that was typed onto a card into what the man promised,
+  /// and leaves what he has put in to be read off his lines.
+  ///
+  /// The farm ran for months on one number per co-founder that the master
+  /// typed, and it was sitting in the wrong column. Nobody had handed that
+  /// money over — it was what each of them had undertaken to put in. Read as
+  /// money already in, it did two things wrong at once: it said the farm held
+  /// cash it did not hold, and it counted every rupee twice the moment
+  /// somebody wrote down which purchase that man had actually paid for.
+  ///
+  /// So the typed figure becomes the promise, and what he has put in becomes
+  /// the sum of his lines, which is nothing until the lines are written. The
+  /// farm's cash reads low in between, and it is right to: until somebody
+  /// says who paid for the cattle, the books genuinely cannot account for
+  /// what bought them.
+  static Future<void> adoptTypedCapital(
+    Actor actor, {
+    required Partner partner,
+    required List<Contribution> lines,
+  }) async {
+    final written = investedFrom(lines, partner.id);
+    final typed = partner.invested;
+    if (typed <= written) return;
+
+    final promise = partner.pledged > typed ? partner.pledged : typed;
+
+    await Db.partners.doc(partner.id).update({
+      'pledged': promise,
+      'invested': written,
+    });
+
+    await Log.write(
+      actor,
+      LogKind.investment,
+      '${partner.name} is in for ${rs(promise)} — the ${rs(typed)} that was '
+      'typed on his card was a promise, not money in. What he has put in now '
+      'reads ${rs(written)}, off his own lines.',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
+
   /// The master putting a figure right.
   ///
   /// Even this is a line. A correction that left no trace would be exactly

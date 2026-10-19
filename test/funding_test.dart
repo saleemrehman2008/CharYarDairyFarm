@@ -541,4 +541,80 @@ void main() {
       expect(hands['Jalbani']!.holding, 20000);
     });
   });
+
+  group('a figure typed into the wrong column', () {
+    /// The farm ran for months on one number per co-founder that the master
+    /// typed onto his card. Nobody had handed that money over: it was what
+    /// each of them had undertaken to put in. Read as money already in, it
+    /// said the farm held cash it did not hold — and it counted every rupee
+    /// twice the moment somebody wrote down which purchase that man had
+    /// actually paid for.
+    ///
+    /// The farm found the second one itself, splitting a seventeen lakh
+    /// cattle entry and watching the cards go up by money already spent.
+
+    test('what it looks like, so the app can offer to put it right', () {
+      // More claimed as put in than the lines can account for.
+      final typed = _p(name: 'Ghulam Ali', invested: 2000000);
+      expect(investedFrom(const [], typed.id), 0);
+      expect(typed.invested > investedFrom(const [], typed.id), isTrue);
+    });
+
+    test('a card built from its own lines is left alone', () {
+      final honest = _p(name: 'Rafeeq', invested: 500000, pledged: 1500000);
+      final lines = [_c(partnerId: honest.id, amount: 500000)];
+      expect(investedFrom(lines, honest.id), 500000);
+      expect(honest.invested > investedFrom(lines, honest.id), isFalse);
+    });
+
+    test('moved across, the promise is kept and the money is not', () {
+      // What the one-tap fix does, in figures: twenty lakh typed on the
+      // card becomes twenty lakh promised, and what he has put in goes back
+      // to what his lines say — nothing, until they are written.
+      final before = _p(name: 'Ghulam Ali', invested: 2000000);
+      final after = _p(name: 'Ghulam Ali', invested: 0, pledged: 2000000);
+
+      expect(after.pledged, before.invested);
+      expect(after.invested, 0);
+      expect(after.stillToPayIn, 2000000);
+      // And his share does not move, because the ratio follows the promise.
+      expect(before.ratioBase, after.ratioBase);
+    });
+
+    test('splitting an entry afterwards no longer counts it twice', () {
+      // Seventeen lakh of cattle, paid by three of them. Before the fix
+      // their cards already held the money and the split added it again;
+      // after it, the split is the only place it is counted.
+      final after = _p(name: 'Ghulam Ali', invested: 0, pledged: 2000000);
+      final split = [
+        _c(
+          partnerId: after.id,
+          amount: 700000,
+          source: ContributionSource.spent,
+          txnId: 'cows',
+        ),
+      ];
+      expect(investedFrom(split, after.id), 700000);
+      expect(
+        after.pledged - investedFrom(split, after.id),
+        1300000,
+        reason: 'what he still owes on his promise',
+      );
+    });
+
+    test('and a man who has put in more than his lines show is the only '
+        'one offered', () {
+      // The offer is per man, not for the farm at large: one card can be
+      // honest while another is not.
+      final honest = _p(name: 'Rafeeq', invested: 500000);
+      final typed = _p(name: 'Ghulam Ali', invested: 2000000);
+      final lines = [_c(partnerId: honest.id, amount: 500000)];
+
+      final affected = [
+        for (final p in [honest, typed])
+          if (p.invested > investedFrom(lines, p.id)) p.name,
+      ];
+      expect(affected, ['Ghulam Ali']);
+    });
+  });
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
-import '../../services/contribution_repo.dart';
 import '../../services/db.dart';
 import '../../services/partner_repo.dart';
 import '../../state/farm_store.dart';
@@ -11,6 +10,7 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/loan_card.dart';
+import '../../widgets/typed_capital_card.dart';
 import '../../widgets/ui.dart';
 import 'accounts_strip.dart';
 import 'cash_hands.dart';
@@ -94,6 +94,10 @@ class CofoundersScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: T.pad),
+
+        // Figures typed onto the cards before any line was kept, sitting
+        // under "put in" as though the money had arrived.
+        const TypedCapitalCard(),
 
         // Every account the money can sit in, picked from a strip of
         // names. The farm's own is one of them, because it is the same
@@ -406,15 +410,7 @@ class _PartnerCardState extends State<_PartnerCard> {
                     compact: true,
                     onPressed: _busy ? null : _editWho,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: GhostButton(
-                      label: 'Capital',
-                      icon: Icons.edit_outlined,
-                      compact: true,
-                      onPressed: _busy ? null : _correct,
-                    ),
-                  ),
+
                   const SizedBox(width: 8),
                   GhostButton(
                     label: 'Remove',
@@ -509,55 +505,12 @@ class _PartnerCardState extends State<_PartnerCard> {
   /// The box opens on what it is now, because this is a correction and the
   /// person doing it should be looking at the figure they are about to
   /// change rather than recalling it.
-  Future<void> _correct() async {
-    final p = widget.partner;
-    final said = await askForMoney(
-      context,
-      title: 'Capital for ${p.name}',
-      hint: '0',
-      starting: p.invested,
-      note:
-          'This replaces the figure rather than adding to it, and it writes '
-          'a line of its own for the difference — nothing on this card moves '
-          'without one. Months already closed keep what they were closed '
-          'with.',
-    );
-    if (said == null || !mounted || said == p.invested) return;
-    if (said < 0) {
-      toast(context, 'Capital cannot be less than nothing.');
-      return;
-    }
-
-    final ok = await confirm(
-      context,
-      title: 'Change the capital?',
-      body:
-          '${p.name}\n\n'
-          '${rs(p.invested)}  →  ${rs(said)}\n\n'
-          'A correction of ${rs((said - p.invested).abs())} goes on his '
-          'lines, with your name on it.',
-      confirmLabel: 'Change it',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      // Through a line, not over the figure. The farm's rule: nothing on a
-      // co-founder's card moves without something written to explain it.
-      await ContributionRepo.correct(
-        context.read<Session>().actor,
-        partner: p,
-        by: said - p.invested,
-        why: 'Master put the figure right',
-      );
-      if (mounted) toast(context, '${p.name} capital is now ${rs(said)}');
-    } catch (e) {
-      if (mounted) toast(context, 'Could not change it. $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
+  // Typing over what a man has put in is gone. It is the sum of his own
+  // lines now and nothing else — money he handed over, or his share of
+  // something the farm bought. A figure that can be typed is a figure that
+  // can be typed twice, which is exactly what went wrong: the same rupees
+  // arrived once on the card and once again when the cattle entry was
+  // split. What he is in for is still his to set; see showPledgeSheet.
   Future<void> _remove() async {
     final p = widget.partner;
     final empty = p.isEmpty;

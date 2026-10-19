@@ -74,7 +74,12 @@ class _MoneyInSheet extends StatefulWidget {
 class _MoneyInSheetState extends State<_MoneyInSheet> {
   final _amount = TextEditingController();
   final _note = TextEditingController();
-  String? _to;
+
+  /// Where the money landed. The farm's own account by default, because
+  /// that is where a man putting his share in is putting it — handed to
+  /// whoever keeps the cash, and into the farm's keeping. Picking a person
+  /// instead says it stayed in his hands.
+  String? _to = farmAccountName;
   PayVia _via = PayVia.cash;
   DateTime _day = DateTime.now();
   bool _busy = false;
