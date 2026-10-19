@@ -349,6 +349,77 @@ String? _mostWritten(Map<String, int>? spellings) {
   return best;
 }
 
+/// One period's worth of the farm, for the column chart on the dashboard.
+class PeriodBar {
+  const PeriodBar({
+    required this.id,
+    required this.label,
+    required this.sales,
+    required this.costs,
+    required this.profit,
+    required this.isOpen,
+  });
+
+  final String id;
+
+  /// Short — `Sep` — because six of them share a phone's width.
+  final String label;
+
+  final num sales;
+  final num costs;
+  final num profit;
+
+  /// The period still being written. Drawn faint, because it is not finished
+  /// and reading a half month against five whole ones is how a farm talks
+  /// itself into a bad decision.
+  final bool isOpen;
+
+  num get most => sales > costs ? sales : costs;
+}
+
+/// The last few periods, oldest first, for drawing.
+///
+/// The farm could see what this month has done and had no way of seeing what
+/// the month before did, or the one before that. Four figures say where it
+/// stands; six columns say which way it is going, which is the question
+/// anybody actually asks at the gate.
+///
+/// A settled period is read from the figures frozen into it at the seal,
+/// never worked out again — that is the whole point of freezing them. The
+/// open one is read live.
+List<PeriodBar> periodBars(
+  List<FarmMonth> periods, {
+  required FarmMonth open,
+  required Books books,
+  required String Function(String monthId) shortName,
+  int last = 6,
+}) {
+  final done = periods.where((m) => m.isFrozen).toList()
+    ..sort((a, b) => a.id.compareTo(b.id));
+
+  final bars = [
+    for (final m in done)
+      PeriodBar(
+        id: m.id,
+        label: shortName(m.id),
+        sales: (m.sales ?? 0) + (m.otherIncome ?? 0),
+        costs: m.runningCosts,
+        profit: m.profit ?? 0,
+        isOpen: false,
+      ),
+    PeriodBar(
+      id: open.id,
+      label: shortName(open.id),
+      sales: books.sales + books.otherIncome,
+      costs: books.costs,
+      profit: books.profit,
+      isOpen: true,
+    ),
+  ];
+
+  return bars.length <= last ? bars : bars.sublist(bars.length - last);
+}
+
 /// Where every rupee the farm has ever handled currently sits.
 ///
 /// The dashboard used to show only the closing figure, which left the farm

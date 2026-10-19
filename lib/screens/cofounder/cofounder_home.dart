@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
+import '../../services/accounting.dart';
 import '../../services/db.dart';
 import '../../state/farm_store.dart';
 import '../../state/round_data.dart';
@@ -11,6 +12,8 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/day_chart.dart';
+import '../../widgets/month_chart.dart';
+import '../../widgets/worth_bar.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
 import '../../widgets/ui.dart';
@@ -145,6 +148,21 @@ class CofounderHome extends StatelessWidget {
         const SizedBox(height: T.gap),
 
         DayChart(days: dayTotals(store.monthTxns)),
+        const SizedBox(height: T.gap),
+
+        // The same two pictures the master gets. A co-founder who can only
+        // see this month cannot tell whether the farm is doing better or
+        // worse, which is most of what he is being asked to trust.
+        MonthChart(
+          bars: periodBars(
+            store.periods,
+            open: store.month,
+            books: store.books,
+            shortName: monthShort,
+          ),
+        ),
+        const SizedBox(height: T.gap),
+        WorthBar(money: store.money),
         const SizedBox(height: 20),
 
         SectionTitle(l.t('Look at')),

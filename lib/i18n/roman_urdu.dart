@@ -675,6 +675,21 @@ const Map<String, String> romanUrdu = {
   'Save who paid': 'Kis ne diya, mehfooz karen',
   'Split saved · %s': 'Taqseem mehfooz · %s',
   'The farm would owe him %s': 'Farm ne us ko %s dena hoga',
+  // The two charts on the dashboard.
+  'Month by month': 'Mahine ba mahine',
+  'No period has been settled yet.': 'Abhi koi mahina band nahi hua.',
+  'so far': 'ab tak',
+  'Made %s this period so far.': 'Is period mein ab tak %s banaya.',
+  'Settled periods are drawn from the figures frozen into them. The last column is the period still running, so it is faint — half a month against six whole ones proves nothing.':
+      'Band mahine un ke apne jame hue figures se bante hain. Aakhri khamba '
+      'chalta hua mahina hai, is liye halka hai — aadha mahina chhe poore '
+      'mahinon ke saamne kuch sabit nahi karta.',
+  'What the farm is worth': 'Farm ki kul maliyat',
+  'Cash — in the box and in their hands': 'Cash — box mein aur haathon mein',
+  'Still to come in': 'Jo abhi aana hai',
+  'Cattle & equipment': 'Maal mawaishi aur machinery',
+  'Owed out — bills, securities, co-founders':
+      'Jo dena hai — bills, security, founders',
   // Which day an entry is for, and who may move it.
   'Any day up to today, back or forward. Where it ends up is kept on the entry with the day it came from.':
       'Aaj tak koi bhi din, aage ya peechhe. Jahan jaye wo aur '

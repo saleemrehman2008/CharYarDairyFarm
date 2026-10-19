@@ -1,11 +1,15 @@
 import 'package:char_yar_dairy_farm/screens/shared/new_entry_screen.dart';
+import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/util/money.dart';
 import 'package:char_yar_dairy_farm/theme/tokens.dart';
 import 'package:char_yar_dairy_farm/widgets/balance_check.dart';
 import 'package:char_yar_dairy_farm/widgets/photo.dart';
 import 'package:char_yar_dairy_farm/widgets/pick_sheet.dart';
 import 'package:char_yar_dairy_farm/widgets/day_chart.dart';
 import 'package:char_yar_dairy_farm/widgets/farm_icons.dart';
+import 'package:char_yar_dairy_farm/widgets/month_chart.dart';
+import 'package:char_yar_dairy_farm/widgets/worth_bar.dart';
 import 'package:char_yar_dairy_farm/widgets/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -353,6 +357,199 @@ void main() {
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
       expect(find.text('B-05 Kaali'), findsNothing);
+    });
+  });
+
+  group('the month-by-month columns', () {
+    FarmMonth done(String id, {num sales = 0, num profit = 0}) => FarmMonth(
+      id: id,
+      status: 'closed',
+      openingCash: 0,
+      sales: sales,
+      profit: profit,
+    );
+
+    Books books({num sales = 0}) => Books(
+      monthId: '2026-10',
+      openingCash: 0,
+      capital: 0,
+      monthTxns: const [],
+      unpaidTxns: const [],
+    );
+
+    final open = FarmMonth(id: '2026-10', status: 'open', openingCash: 0);
+
+    test('settled periods oldest first, with the open one last', () {
+      // Read left to right the way a year is read, and the period still
+      // being written is the one on the right.
+      final bars = periodBars(
+        [done('2026-09'), done('2026-07'), done('2026-08')],
+        open: open,
+        books: books(),
+        shortName: (id) => id,
+      );
+      expect(bars.map((b) => b.id), [
+        '2026-07',
+        '2026-08',
+        '2026-09',
+        '2026-10',
+      ]);
+      expect(bars.last.isOpen, isTrue);
+      expect(bars.where((b) => b.isOpen).length, 1);
+    });
+
+    test('a settled period keeps the figures frozen into it', () {
+      // Never worked out again. That is the whole point of freezing them:
+      // a closed month is what four people were paid out of.
+      final bars = periodBars(
+        [done('2026-09', sales: 900000, profit: 92000)],
+        open: open,
+        books: books(),
+        shortName: (id) => id,
+      );
+      expect(bars.first.sales, 900000);
+      expect(bars.first.profit, 92000);
+      expect(bars.first.costs, 808000, reason: 'sales less profit');
+    });
+
+    test('only the last few fit on a phone', () {
+      final bars = periodBars(
+        [for (var m = 1; m <= 9; m++) done('2026-0$m')],
+        open: open,
+        books: books(),
+        shortName: (id) => id,
+        last: 6,
+      );
+      expect(bars.length, 6);
+      expect(bars.first.id, '2026-05', reason: 'the oldest ones drop off');
+      expect(bars.last.id, '2026-10');
+    });
+
+    test('a farm that has never closed a month still has a column', () {
+      final bars = periodBars(
+        const [],
+        open: open,
+        books: books(),
+        shortName: (id) => id,
+      );
+      expect(bars.single.isOpen, isTrue);
+    });
+  });
+
+  group('the dashboard charts draw inside a page', () {
+    testWidgets('the months, with nothing in them', (tester) async {
+      await inAList(tester, [const MonthChart(bars: [])]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('and with six periods in them', (tester) async {
+      await inAList(tester, [
+        MonthChart(
+          bars: [
+            for (var m = 5; m <= 9; m++)
+              PeriodBar(
+                id: '2026-0$m',
+                label: 'M$m',
+                sales: 100000 * m,
+                costs: 60000 * m,
+                profit: 40000 * m,
+                isOpen: false,
+              ),
+            const PeriodBar(
+              id: '2026-10',
+              label: 'Oct',
+              sales: 120000,
+              costs: 90000,
+              profit: 30000,
+              isOpen: true,
+            ),
+          ],
+        ),
+      ]);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Oct'), findsOneWidget);
+      // The one still running says so rather than showing half a month's
+      // profit as though it were a month's.
+      expect(find.text('so far'), findsOneWidget);
+    });
+
+    testWidgets('a loss is drawn and said in red', (tester) async {
+      await inAList(tester, [
+        const MonthChart(
+          bars: [
+            PeriodBar(
+              id: '2026-07',
+              label: 'Jul',
+              sales: 400000,
+              costs: 419000,
+              profit: -19000,
+              isOpen: false,
+            ),
+          ],
+        ),
+      ]);
+      expect(tester.takeException(), isNull);
+      expect(find.text('−19k'), findsOneWidget);
+    });
+
+    testWidgets('what the farm is worth, split by where it sits', (
+      tester,
+    ) async {
+      await inAList(tester, [
+        const WorthBar(
+          money: MoneySummary(
+            capital: 2000000,
+            assets: 1700000,
+            runningCosts: 0,
+            sales: 0,
+            cash: 440700,
+            receivable: 224000,
+            payable: 118000,
+          ),
+        ),
+      ]);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Rs 22,46,700'), findsOneWidget);
+    });
+
+    testWidgets('and a farm with nothing in it still draws', (tester) async {
+      await inAList(tester, [
+        const WorthBar(
+          money: MoneySummary(
+            capital: 0,
+            assets: 0,
+            runningCosts: 0,
+            sales: 0,
+            cash: 0,
+            receivable: 0,
+            payable: 0,
+          ),
+        ),
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('a figure small enough to sit under a column', () {
+    test('thousands and lakhs, the way the farm says them', () {
+      expect(shortRs(92000), '92k');
+      expect(shortRs(1700000), '17L');
+      expect(shortRs(240000), '2.4L');
+      expect(shortRs(9500), '9.5k');
+    });
+
+    test('under a thousand is written whole', () {
+      // Rounding a hundred and twenty rupees to 0k is worse than saying
+      // nothing at all.
+      expect(shortRs(120), '120');
+      expect(shortRs(0), '0');
+    });
+
+    test('a loss carries its sign whether asked or not', () {
+      expect(shortRs(-19000), '−19k');
+      expect(shortRs(-19000, signed: true), '−19k');
+      expect(shortRs(19000, signed: true), '+19k');
+      expect(shortRs(19000), '19k');
     });
   });
 }

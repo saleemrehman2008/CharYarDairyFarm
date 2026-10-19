@@ -106,6 +106,7 @@ class HeroCard extends StatelessWidget {
     this.trailing,
     this.gradient,
     this.onTap,
+    this.chip,
   });
 
   final String label;
@@ -114,6 +115,11 @@ class HeroCard extends StatelessWidget {
 
   /// A chip on the same line as the label — "Open", "Sealed", a period name.
   final Widget? trailing;
+
+  /// A second figure beside the big one, in its own tinted pill — this
+  /// period's profit next to the cash, so the headline answers both halves
+  /// of what anybody asks: what have we got, and how is it going.
+  final HeroChip? chip;
 
   /// Overrides the navy wash, for a page that has taken a filter's colour.
   final LinearGradient? gradient;
@@ -151,11 +157,25 @@ class HeroCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  value,
-                  style: T.num36.copyWith(color: T.onHero),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        value,
+                        style: T.num36.copyWith(color: T.onHero),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (chip != null) ...[
+                      const SizedBox(width: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: chip!,
+                      ),
+                    ],
+                  ],
                 ),
                 if (note != null) ...[
                   const SizedBox(height: 4),
@@ -166,6 +186,41 @@ class HeroCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
+  );
+}
+
+/// The second figure on the headline card: how the period is going, beside
+/// how much there is.
+///
+/// Its own ink and its own tint rather than the money colours, because it
+/// sits on the deep hero wash where a green that reads on a card disappears
+/// and a red turns to mud. The arrow carries the direction and the tint only
+/// supports it, so it still reads for anybody who cannot tell the two apart.
+class HeroChip extends StatelessWidget {
+  const HeroChip({super.key, required this.label, required this.up});
+
+  final String label;
+  final bool up;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+    decoration: BoxDecoration(
+      color: T.onHero.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(T.pill),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          up ? Icons.trending_up : Icons.trending_down,
+          size: 15,
+          color: T.onHero,
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: T.bodyMid.copyWith(fontSize: 12.5, color: T.onHero)),
+      ],
     ),
   );
 }

@@ -24,6 +24,26 @@ String groupPk(num value) {
 /// `Rs 1,23,456`
 String rs(num value) => 'Rs ${groupPk(value)}';
 
+/// `92k`, `1.7L`, `−19k` — a figure small enough to sit under a chart column.
+///
+/// Six of these share a phone's width, so `Rs 1,23,456` is out of the
+/// question. Thousands and lakhs, because that is how the farm says figures
+/// out loud; anything under a thousand is written whole, since rounding a
+/// hundred and twenty rupees to `0k` would be worse than saying nothing.
+String shortRs(num value, {bool signed = false}) {
+  final sign = value < 0 ? '−' : (signed ? '+' : '');
+  final v = value.abs();
+  if (v >= 100000) {
+    final l = v / 100000;
+    return '$sign${l >= 10 ? l.round() : l.toStringAsFixed(1)}L';
+  }
+  if (v >= 1000) {
+    final k = v / 1000;
+    return '$sign${k >= 10 ? k.round() : k.toStringAsFixed(1)}k';
+  }
+  return '$sign${v.round()}';
+}
+
 /// `+ Rs 1,23,456` / `− Rs 1,23,456` for the accounts table.
 String signedRs(num value, {required bool incoming}) =>
     '${incoming ? '+' : '−'} ${rs(value.abs())}';

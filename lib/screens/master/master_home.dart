@@ -13,7 +13,9 @@ import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
+import '../../widgets/month_chart.dart';
 import '../../widgets/investment_card.dart';
+import '../../widgets/worth_bar.dart';
 import '../../widgets/ui.dart';
 import '../shared/accounts_screen.dart';
 import '../shared/bills_screen.dart';
@@ -54,9 +56,15 @@ class MasterHome extends StatelessWidget {
         HeroCard(
           label: l.t('Cash in hand'),
           value: rs(books.cash),
+          // How the period is going, beside how much there is. The two
+          // questions anybody asks at the gate, answered on one card.
+          chip: HeroChip(
+            label: shortRs(books.profit, signed: true),
+            up: books.profit >= 0,
+          ),
           note: books.withRider > 0
               ? l.t2('%s is still with the rider', rs(books.withRider))
-              : l.t('Everything the farm can spend today.'),
+              : l.t2('Made %s this period so far.', rs(books.profit)),
           trailing: Tag(monthShort(store.month.id), tone: TagTone.accent),
         ),
         const SizedBox(height: T.gap),
@@ -123,6 +131,21 @@ class MasterHome extends StatelessWidget {
         // you where the farm stands; the columns tell you which way it is
         // going, which is the thing a partner actually asks at the gate.
         DayChart(days: dayTotals(store.monthTxns)),
+        const SizedBox(height: T.gap),
+
+        // Which way the farm is going, which no figure on this page said.
+        MonthChart(
+          bars: periodBars(
+            store.periods,
+            open: store.month,
+            books: books,
+            shortName: monthShort,
+          ),
+        ),
+        const SizedBox(height: T.gap),
+
+        // And where its money actually sits, in one bar.
+        WorthBar(money: store.money),
         const SizedBox(height: 20),
 
         SectionTitle(l.t('Do')),
