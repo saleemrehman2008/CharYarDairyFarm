@@ -15,6 +15,7 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/category_field.dart';
 import '../../widgets/party_field.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/pick_sheet.dart';
 import '../../widgets/ui.dart';
 import 'new_entry_screen.dart';
@@ -1896,6 +1897,34 @@ Future<void> showEntryDetail(
             if (txn.note.trim().isNotEmpty)
               _DetailFact(label: l.t('Note'), value: txn.note),
 
+            // The receipt that came with the money. Small here, full size
+            // on a tap — a bank slip at sixty points is a smudge, and the
+            // whole reason it was photographed is that somebody would want
+            // to read it later.
+            if (txn.hasReceipt) ...[
+              const Divider(height: 20),
+              Kicker(l.t('Receipt')),
+              const SizedBox(height: 8),
+              Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: () => _openReceipt(context, txn),
+                  child: Row(
+                    children: [
+                      FarmPhotoView(data: txn.receipt, size: 64),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          l.t('Tap to open it full size.'),
+                          style: T.meta,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             // Whose money paid for it, where the four of them clubbed
             // together. In rupees, as they paid it.
             Builder(
@@ -2098,6 +2127,28 @@ Future<void> showEntryDetail(
         ),
       ),
     ),
+  );
+}
+
+/// Opens the receipt at full size.
+///
+/// The small copy on the entry appears at once and the big one is fetched
+/// behind it, the same way an animal's photograph is — nobody watches a
+/// grey box while a bank slip loads.
+Future<void> _openReceipt(BuildContext context, Txn txn) async {
+  final title =
+      '${txn.party.isEmpty ? txn.category : txn.party} · '
+      '${fmtDate(txn.date)}';
+
+  // Fetched before it opens rather than swapped in afterwards: a slip that
+  // appears blurred and sharpens a second later reads as a fault, and the
+  // wait is a blink.
+  final full = await Db.txnPhoto(txn.id);
+  if (!context.mounted) return;
+  await showFarmPhoto(
+    context,
+    data: full.isEmpty ? txn.receipt : full,
+    title: title,
   );
 }
 

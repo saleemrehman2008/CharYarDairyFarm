@@ -12,6 +12,7 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
 import '../../widgets/decision_banner.dart';
+import '../../widgets/refund_card.dart';
 import '../../widgets/transfer_card.dart';
 import '../../widgets/farm_icons.dart';
 import '../../widgets/month_chart.dart';
@@ -59,6 +60,7 @@ class MasterHome extends StatelessWidget {
         // Money somebody says he has handed you. It cannot be scrolled
         // past, which on the free plan is the only notification there is.
         const TransferInbox(),
+        const RefundCard(),
         HeroCard(
           label: l.t('Cash in hand'),
           value: rs(books.cash),

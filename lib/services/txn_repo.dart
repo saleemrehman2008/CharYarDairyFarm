@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/models.dart';
@@ -5,6 +7,7 @@ import '../util/money.dart';
 import 'allocation.dart';
 import 'db.dart';
 import 'month_repo.dart';
+import 'photo_store.dart';
 import 'log_service.dart';
 
 /// Whether this person may put an entry on this day, and why not.
@@ -73,6 +76,10 @@ class TxnRepo {
     PayVia payVia = PayVia.cash,
     String handledBy = '',
     DateTime? date,
+
+    /// The receipt that came with the money, already picked. The small copy
+    /// goes on the entry and the full one into its own document.
+    File? receipt,
   }) async {
     final now = date ?? DateTime.now();
     final settled = type.isSettlement || paid;
@@ -110,6 +117,21 @@ class TxnRepo {
       'createdByName': actor.name,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    // The photograph of the paper, which is the only thing that settles an
+    // argument about a bank transfer three months later.
+    if (receipt != null) {
+      try {
+        final photo = await Photos.prepare(receipt);
+        await Db.txnPhotos.doc(doc.id).set({
+          'data': photo.full,
+          'at': FieldValue.serverTimestamp(),
+        });
+        await doc.update({'receipt': photo.thumb});
+      } catch (_) {
+        // An entry with no picture is worth more than no entry at all.
+      }
+    }
 
     await Log.write(
       actor,

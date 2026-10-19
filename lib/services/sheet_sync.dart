@@ -440,6 +440,7 @@ class SheetBooks {
         'How',
         'Handled by',
         'Entered by',
+        'Receipt',
         'Note',
       ],
       for (final t in txns)
@@ -458,6 +459,7 @@ class SheetBooks {
           t.paid ? t.payVia.label : '',
           t.handledBy,
           t.createdByName,
+          t.hasReceipt ? 'Yes' : '',
           t.note,
         ],
     ],

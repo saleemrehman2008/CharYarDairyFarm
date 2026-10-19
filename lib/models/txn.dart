@@ -400,6 +400,14 @@ const badDebtCategory = 'Given up on — not coming back';
 /// simply another pair of hands that happens to belong to nobody.
 const farmAccountName = 'Farm account';
 
+/// A co-founder taking back money of his own that the farm was holding.
+///
+/// Real cash leaving the farm and not a cost of running it — it was never the
+/// farm's money, only money the farm owed him for something he paid for out
+/// of his own pocket. The same shape as handing a customer his security back,
+/// and counted the same way.
+const founderRepaidCategory = 'Given back to a co-founder';
+
 const handoverOutCategory = 'Handed to a co-founder';
 const handoverInCategory = 'Taken from a co-founder';
 
@@ -612,6 +620,7 @@ class Txn {
     this.capital,
     this.shift,
     this.edits = const [],
+    this.receipt = '',
     this.paidOnCreate = false,
     this.payVia = PayVia.cash,
     this.handledBy = '',
@@ -655,6 +664,18 @@ class Txn {
   /// Every correction made to this entry since it was written, oldest
   /// first. Empty on an entry nobody has touched.
   final List<TxnEdit> edits;
+
+  /// A small copy of the receipt that came with the money — a bank slip, a
+  /// mandi chit — kept on the entry so a list can show it without fetching
+  /// anything. The full-size one lives in its own document; see
+  /// [Db.txnPhoto].
+  ///
+  /// A photograph of the paper is the only thing that settles an argument
+  /// about a transfer three months later, and the farm pays for everything
+  /// in cash and slips.
+  final String receipt;
+
+  bool get hasReceipt => receipt.isNotEmpty;
 
   /// How much of [amount] has actually been taken against this entry.
   ///
@@ -798,6 +819,10 @@ class Txn {
   bool get movedNoCash => isWriteOff || isBadDebt;
 
   /// One half of cash passing between two co-founders.
+  /// A co-founder being handed back money of his own.
+  bool get isFounderRepaid =>
+      type == TxnType.payment && category == founderRepaidCategory;
+
   bool get isHandoverOut =>
       type == TxnType.payment && category == handoverOutCategory;
 
@@ -820,7 +845,10 @@ class Txn {
       !isLoanOut &&
       // Handed to another co-founder, not spent. The other half of the
       // pair takes it straight back in.
-      !isHandoverOut;
+      !isHandoverOut &&
+      // Money of his own going back to him. The cost was booked the day he
+      // paid for the feed; this is only the farm settling up with him.
+      !isFounderRepaid;
 
   /// An advance taken in against a standing order. Cash in, and nothing
   /// else: the farm is holding this money, not earning it.
@@ -919,6 +947,7 @@ class Txn {
       capital: m['capital'] == null ? null : b(m['capital']),
       shift: MilkShift.parse(m['shift']),
       edits: TxnEdit.listFrom(m['edits']),
+      receipt: s(m['receipt']),
       paidOnCreate: m['paidOnCreate'] == null
           ? _wasPaidOnCreate(paid, paidAt, createdAt)
           : b(m['paidOnCreate']),

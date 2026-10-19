@@ -406,7 +406,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     // Co-founders' money the farm is holding and owes back. It is in the
     // box and it can be spent, exactly like a customer's security, so the
     // cash has to see it — and the farm's worth has to take it off again.
-    founderFloat: owedToFounders,
+    founderFloat: founderFloat,
     monthTxns: _monthTxns,
     unpaidTxns: _unpaidTxns,
     withRider: cashWithRiders,
@@ -506,6 +506,23 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// load of feed out of his own pocket on Tuesday — until the four of them
   /// say otherwise, the farm owes him for it.
   num get owedToFounders => _contributions
+      .where((c) => c.isLoan)
+      .fold<num>(0, (a, c) => a + c.stillOwed);
+
+  /// The correction the cash formula needs for money that was never in the
+  /// farm's box.
+  ///
+  /// A co-founder pays the feed merchant out of his own pocket. The books
+  /// carry a purchase saying twenty thousand left the farm, and it did not
+  /// — it left him. This cancels that, and it has to go on cancelling it
+  /// for ever, because the purchase row is there for ever.
+  ///
+  /// Which is why it is not the same figure as what the farm owes him. The
+  /// day it pays him back, the box really does lose the money and the debt
+  /// is gone; the purchase it never made is still on the page. Clearing both
+  /// with one figure took the cash down twice — once for a payment the farm
+  /// made and once for one it never did.
+  num get founderFloat => _contributions
       .where((c) => c.isLoan)
       .fold<num>(0, (a, c) => a + c.amount);
 

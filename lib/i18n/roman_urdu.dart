@@ -712,6 +712,29 @@ const Map<String, String> romanUrdu = {
   'Nothing goes into the books and the money stays where it was. What you write here is kept on it, and both of you can see it.':
       'Kitaab mein kuch nahi jaega aur paisa wahin rahega jahan tha. Aap jo '
       'yahan likhenge wo is par mehfooz rahega, aur aap dono dekh sakenge.',
+  // Taking back money of your own that the farm was holding.
+  'The farm owes you %s': 'Farm ne aap ko %s dena hai',
+  'You are holding %s of the farm\'s cash. Keep %s of it and the farm stops owing you.':
+      'Aap ke paas farm ke %s hain. Un mein se %s rakh lein, phir farm ka '
+      'koi qarz baqi nahi rahega.',
+  'Keep %s': '%s rakh lein',
+  'It stays owed. The card will be back.':
+      'Qarz waisa hi rahega. Card phir aa jaega.',
+  'Take it out of what you are holding?': 'Jo aap ke paas hai us mein se len?',
+  '%s of the farm\'s cash in your hands becomes yours, and the farm stops owing it. Both halves are written down, and the rest of the farm can see it.':
+      'Aap ke haath mein farm ke %s aap ke ho jaenge, aur farm ka qarz khatam. '
+      'Dono taraf likha jata hai, aur baqi sab dekh sakte hain.',
+  'Take it': 'Le lein',
+  '%s taken back': '%s wapas le liya',
+  'Taken back lately': 'Haal mein wapas liya gaya',
+  '%s took back %s': '%s ne %s wapas liya',
+  'Money of their own the farm was holding, taken out of farm cash already in their hands. Every one is in the activity log as well.':
+      'Un ka apna paisa jo farm ke paas tha, un ke apne haath mein maujood '
+      'farm ke cash mein se liya gaya. Har ek activity log mein bhi hai.',
+
+  // The receipt that came with the money.
+  'Receipt': 'Receipt',
+  'Tap to open it full size.': 'Poori dekhne ke liye click karen.',
   // The two charts on the dashboard.
   'Month by month': 'Mahine ba mahine',
   'No period has been settled yet.': 'Abhi koi mahina band nahi hua.',

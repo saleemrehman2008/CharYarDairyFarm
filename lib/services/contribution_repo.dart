@@ -4,6 +4,8 @@ import '../models/models.dart';
 import '../util/money.dart';
 import 'db.dart';
 import 'log_service.dart';
+import 'month_repo.dart';
+import 'txn_repo.dart';
 
 /// Writing down a co-founder's own money going into the farm.
 ///
@@ -219,6 +221,82 @@ class ContributionRepo {
     withdrawn: p.withdrawn,
     createdAt: p.createdAt,
   );
+
+  /// A co-founder taking back money of his own that the farm was holding.
+  ///
+  /// The farm's own way of doing it: Jalbani paid for a load of feed out of
+  /// his pocket, and a week later forty thousand of milk money passes through
+  /// his hands. Rather than handing over all forty and asking for twenty back,
+  /// he keeps his twenty and the farm's twenty goes on. Nothing is owed
+  /// either way afterwards and every rupee of it is written down.
+  ///
+  /// Oldest line first, which is the only order that needs no explaining, and
+  /// a line may be settled in parts — he can take back five of a twenty when
+  /// five is what is passing through.
+  ///
+  /// Two things are written: the lines lose what has been given back, and the
+  /// ledger carries a payment for the cash actually leaving. It is not a cost
+  /// — the cost was booked the day he bought the feed — so it is held out of
+  /// the running costs the same way a customer's security is.
+  static Future<void> repay(
+    Actor actor, {
+    required Partner partner,
+    required List<Contribution> lines,
+    required num amount,
+    PayVia payVia = PayVia.cash,
+    String handledBy = '',
+    String note = '',
+  }) async {
+    if (amount <= 0) throw StateError('How much is he taking back?');
+
+    final owed =
+        lines
+            .where((c) => !c.isDeleted && c.isLoan && c.partnerId == partner.id)
+            .where((c) => c.stillOwed > 0)
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+
+    final total = owed.fold<num>(0, (a, c) => a + c.stillOwed);
+    if (total <= 0) throw StateError('The farm owes him nothing.');
+    if (amount > total) {
+      throw StateError('The farm only owes him ${rs(total)}.');
+    }
+
+    var left = amount;
+    for (final line in owed) {
+      if (left <= 0) break;
+      final take = line.stillOwed < left ? line.stillOwed : left;
+      await Db.contributions.doc(line.id).update({
+        'repaidSoFar': line.repaidSoFar + take,
+      });
+      left -= take;
+    }
+
+    await TxnRepo.add(
+      actor: actor,
+      monthId: MonthRepo.bookingId,
+      type: TxnType.payment,
+      party: partner.name,
+      category: founderRepaidCategory,
+      amount: amount,
+      paid: true,
+      note: note.isEmpty
+          ? 'Taken back by ${partner.name} — money of his the farm was '
+                'holding'
+          : note,
+      payVia: payVia,
+      handledBy: handledBy.isEmpty ? partner.name : handledBy,
+    );
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      '${partner.name} took back ${rs(amount)} of his own that the farm was '
+      'holding',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
 
   /// The master putting a figure right.
   ///

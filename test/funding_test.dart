@@ -387,4 +387,158 @@ void main() {
       expect(cut.refundable, 0);
     });
   });
+
+  group('taking back money of his own', () {
+    /// Jalbani pays a twenty thousand feed bill out of his own pocket on a
+    /// promise he has already met, and a week later forty thousand of milk
+    /// money passes through his hands. Rather than handing over all forty and
+    /// asking for twenty back, he keeps his twenty.
+    ///
+    /// The trap in this, and it took the long way round to find: the farm's
+    /// cash formula carries a correction for money that was never in its box.
+    /// That correction has to go on standing after he is repaid, because the
+    /// purchase it cancels is on the page for ever. Clearing it and paying
+    /// him at the same time took the cash down twice — once for a payment
+    /// the farm made and once for one it never did.
+
+    Txn feed({num amount = 20000}) => Txn(
+      id: 'feed',
+      date: DateTime(2026, 10, 8),
+      monthId: '2026-10',
+      type: TxnType.purchase,
+      party: 'Feed store',
+      category: 'Wanda / feed',
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: 'Jalbani',
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 8),
+    );
+
+    Txn repaid({num amount = 20000}) => Txn(
+      id: 'back',
+      date: DateTime(2026, 10, 15),
+      monthId: '2026-10',
+      type: TxnType.payment,
+      party: 'Jalbani',
+      category: founderRepaidCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: 'Jalbani',
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 15),
+    );
+
+    Contribution lent({num amount = 20000, num back = 0}) => Contribution(
+      id: 'lent',
+      partnerId: 'p1',
+      partnerName: 'Jalbani',
+      kind: ContributionKind.loan,
+      source: ContributionSource.spent,
+      amount: amount,
+      repaidSoFar: back,
+      date: DateTime(2026, 10, 8),
+      txnId: 'feed',
+      createdAt: DateTime(2026, 10, 8),
+    );
+
+    MoneySummary money(List<Txn> rows, List<Contribution> lines) {
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        founderFloat: lines
+            .where((c) => c.isLoan)
+            .fold<num>(0, (a, c) => a + c.amount),
+        monthTxns: rows,
+        unpaidTxns: const [],
+      );
+      return MoneySummary(
+        capital: 0,
+        assets: 0,
+        runningCosts: b.costs,
+        sales: 0,
+        cash: b.cash,
+        receivable: 0,
+        payable: 0,
+        owedToFounders: lines.fold<num>(0, (a, c) => a + c.stillOwed),
+      );
+    }
+
+    test('while he is owed it, the box is untouched', () {
+      // He paid the feed merchant. Not one rupee of the farm's own money
+      // moved, and the farm owes him twenty thousand.
+      final m = money([feed()], [lent()]);
+      expect(m.cash, 0);
+      expect(m.owedToFounders, 20000);
+      expect(m.farmMoney, -20000, reason: 'the cost, and nothing to show');
+      expect(m.reconciles, isTrue);
+    });
+
+    test(
+      'once he is paid back, the box is short by it and nothing is owed',
+      () {
+        final m = money([feed(), repaid()], [lent(back: 20000)]);
+        expect(m.cash, -20000, reason: 'the farm really did pay him');
+        expect(m.owedToFounders, 0);
+        expect(m.reconciles, isTrue);
+      },
+    );
+
+    test('and it is never counted as a cost of running the farm', () {
+      // The cost was booked the day he bought the feed. Counting it again
+      // when he is handed his money back would halve the profit twice over.
+      final b = Books(
+        monthId: '2026-10',
+        openingCash: 0,
+        capital: 0,
+        founderFloat: 20000,
+        monthTxns: [feed(), repaid()],
+        unpaidTxns: const [],
+      );
+      expect(b.costs, 20000, reason: 'the feed, once');
+      expect(repaid().isLoosePayment, isFalse);
+    });
+
+    test('taking back part of it leaves the rest owed', () {
+      final m = money([feed(), repaid(amount: 5000)], [lent(back: 5000)]);
+      expect(m.owedToFounders, 15000);
+      expect(m.cash, -5000);
+      expect(m.reconciles, isTrue);
+    });
+
+    test('and it comes out of the cash he is holding', () {
+      // Forty thousand of milk money reached him; he keeps twenty.
+      final collected = Txn(
+        id: 'milk',
+        date: DateTime(2026, 10, 15),
+        monthId: '2026-10',
+        type: TxnType.receipt,
+        party: 'Urooj Dairy Shop',
+        category: khaataReceiptCategory,
+        amount: 40000,
+        paid: true,
+        paidOnCreate: true,
+        settlesTxnId: 'x',
+        handledBy: 'Jalbani',
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 15),
+      );
+      final hands = {
+        for (final h in cashInHands(
+          [feed(), collected, repaid()],
+          putIn: [lent(back: 20000)],
+        ))
+          h.who: h,
+      };
+      // Twenty thousand of his own went in and straight out on the feed;
+      // forty came in and twenty of it stayed with him as his own money.
+      expect(hands['Jalbani']!.holding, 20000);
+    });
+  });
 }

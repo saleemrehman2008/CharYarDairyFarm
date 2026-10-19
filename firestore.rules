@@ -318,6 +318,11 @@ service cloud.firestore {
     // Full-size animal pictures, kept here rather than in Firebase Storage —
     // Storage needs a card on a billing account, and a shrunk photo costs the
     // free tier almost nothing.
+    // Receipts on ledger entries — a bank slip, a chit from the mandi.
+    // Kept apart from the entry so a page of the ledger never carries them.
+    match /txn_photos/{id} {
+      allow read, write: if isPartner();
+    }
     match /animal_photos/{id} {
       allow read, write: if isPartner();
     }

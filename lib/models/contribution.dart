@@ -84,11 +84,12 @@ class Contribution {
     this.receivedBy = '',
     this.txnId,
     this.note = '',
+    num? repaidSoFar,
     this.createdBy = '',
     this.createdByName = '',
     required this.createdAt,
     this.deletedAt,
-  });
+  }) : repaidSoFar = repaidSoFar ?? 0;
 
   final String id;
   final String partnerId;
@@ -118,6 +119,21 @@ class Contribution {
   /// and each line here says what it bought. Seventeen lakh of cattle, three
   /// men, one purchase — and no way to lose track of which part was whose.
   final String? txnId;
+
+  /// How much of a loan the farm has given back.
+  ///
+  /// Only ever more than nothing on a line the farm owes. The line stays
+  /// where it is with the day it was written: a man who paid for the feed in
+  /// October paid for it in October, whether he was repaid in November or
+  /// never. What changes is how much of it is still owed.
+  final num repaidSoFar;
+
+  /// Still owed on this line.
+  num get stillOwed {
+    if (!isLoan) return 0;
+    final left = amount - repaidSoFar;
+    return left > 0 ? left : 0;
+  }
 
   final String note;
   final String createdBy;
@@ -166,6 +182,7 @@ class Contribution {
       receivedBy: s(m['receivedBy']),
       txnId: m['txnId'] == null ? null : s(m['txnId']),
       note: s(m['note']),
+      repaidSoFar: n(m['repaidSoFar']),
       createdBy: s(m['createdBy']),
       createdByName: s(m['createdByName']),
       createdAt: dtOr(m['createdAt']),
@@ -215,7 +232,7 @@ num investedFrom(List<Contribution> lines, String partnerId) => lines
 /// not been told to keep.
 num owedToFrom(List<Contribution> lines, String partnerId) => lines
     .where((c) => !c.isDeleted && c.isLoan && c.partnerId == partnerId)
-    .fold<num>(0, (a, c) => a + c.amount);
+    .fold<num>(0, (a, c) => a + c.stillOwed);
 
 /// Who paid for one entry, and how much of it each of them paid.
 List<Contribution> paidFor(List<Contribution> lines, String txnId) =>

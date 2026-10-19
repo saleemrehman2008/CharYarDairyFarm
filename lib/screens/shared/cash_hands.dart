@@ -9,6 +9,7 @@ import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
+import '../../widgets/refund_card.dart';
 import '../../widgets/ui.dart';
 
 /// Who is holding the farm's cash, and who is out of pocket.
@@ -204,6 +205,7 @@ class CashHands extends StatelessWidget {
             ),
           ),
         ],
+        const RefundNotices(),
         const SizedBox(height: 10),
         GhostButton(
           label: l.t('Hand cash to somebody'),

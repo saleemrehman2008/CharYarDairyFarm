@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -11,6 +14,7 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/category_field.dart';
 import '../../widgets/party_field.dart';
+import '../../widgets/photo.dart';
 import '../../widgets/ui.dart';
 
 /// One form for every kind of money that moves, opened in one of two
@@ -63,6 +67,9 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// can type over — so an entry put in two days late reads as what it is,
   /// Monday's trade written on Wednesday.
   DateTime _day = DateTime.now();
+
+  /// The receipt that came with the money, if there was one.
+  File? _receipt;
 
   final _party = TextEditingController();
   final _qty = TextEditingController();
@@ -125,6 +132,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         ? rate.toInt().toString()
         : rate.toStringAsFixed(2);
     _syncing = false;
+  }
+
+  Future<void> _pickReceipt(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1400,
+      imageQuality: 80,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _receipt = File(picked.path));
   }
 
   bool get _isToday => _sameDay(_day, DateTime.now());
@@ -302,6 +319,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         // alongside it by the server, and neither can be had without the
         // other.
         date: _when,
+        receipt: _receipt,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -678,6 +696,70 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             ),
           ],
 
+          // The receipt that came with the money. A bank slip, a chit from
+          // the mandi — the one thing that settles an argument about a
+          // transfer three months later, when nobody can remember.
+          const SizedBox(height: T.pad),
+          const Kicker('Receipt'),
+          const SizedBox(height: 6),
+          if (_receipt == null)
+            Row(
+              children: [
+                Expanded(
+                  child: GhostButton(
+                    label: 'Take a photo',
+                    icon: Icons.photo_camera_outlined,
+                    compact: true,
+                    onPressed: _busy
+                        ? null
+                        : () => _pickReceipt(ImageSource.camera),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GhostButton(
+                    label: 'From the gallery',
+                    icon: Icons.photo_outlined,
+                    compact: true,
+                    onPressed: _busy
+                        ? null
+                        : () => _pickReceipt(ImageSource.gallery),
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FarmPhotoView(file: _receipt, size: 64),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'It goes on the entry and opens full size when '
+                        'anybody taps it.',
+                        style: T.meta,
+                      ),
+                      const SizedBox(height: 7),
+                      GhostButton(
+                        label: 'Take it off',
+                        compact: true,
+                        onPressed: () => setState(() => _receipt = null),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 5),
+          Text(
+            'Not required. Worth it on a bank transfer, where the slip is '
+            'the only proof there is.',
+            style: T.meta,
+          ),
           const SizedBox(height: T.gap),
           Field(
             label: 'Note',

@@ -50,6 +50,11 @@ class Db {
   /// list of animals never has to carry them.
   static Col get animalPhotos => fs.collection('animal_photos');
 
+  /// Receipts: a bank slip, a mandi chit, whatever was handed over with the
+  /// money. One document each, apart from the entry itself so a page of the
+  /// ledger never has to carry them.
+  static Col get txnPhotos => fs.collection('txn_photos');
+
   /// One document per rider per day: milk out, milk delivered, cash held.
   static Col get riderDays => fs.collection('rider_days');
 
@@ -394,6 +399,16 @@ class Db {
   );
 
   /// The full-size picture, read only when it is actually being looked at.
+  /// The full-size receipt on one entry, or nothing.
+  static Future<String> txnPhoto(String txnId) async {
+    try {
+      final snap = await txnPhotos.doc(txnId).get();
+      return s((snap.data() ?? const {})['data']);
+    } catch (_) {
+      return '';
+    }
+  }
+
   static Future<String> animalPhoto(String photoId) async {
     try {
       final snap = await animalPhotos.doc(photoId).get();
