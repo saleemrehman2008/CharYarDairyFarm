@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
+import '../../services/contribution_repo.dart';
 import '../../services/transfer_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -114,6 +115,7 @@ class CashHands extends StatelessWidget {
                       ),
                   ],
                 ),
+                const CountPocketsButton(),
               ],
             ],
           ),
@@ -647,6 +649,132 @@ class _HandoverSheetState extends State<_HandoverSheet> {
 }
 
 /// One of the two names on a handover.
+/// Counting what the four of them have paid for themselves as money they
+/// have put in, all at once.
+///
+/// The farm's question, looking at Rs 73,690 sitting under "out of their
+/// pockets": why is this not on their investment, and what do I do so it
+/// goes there instead of being owed back to them.
+///
+/// The answer is that the farm had never been told. An entry says who found
+/// the money for it, which is how the app knows a man is out of pocket at
+/// all; it does not say whether that was his own money going into the farm
+/// or the farm's money he expects back. Only the four of them know that, and
+/// three of them have been paying their promise this way since the start.
+///
+/// So this asks once and writes it for all of them. Each man's own rule
+/// applies — against his promise while he still owes on it, owed back only
+/// once that promise is paid in full — so a man who has already paid his
+/// share in full is not quietly stripped of what the farm really does owe
+/// him. Each gets his own line with his own figure on it.
+class CountPocketsButton extends StatefulWidget {
+  const CountPocketsButton({super.key});
+
+  @override
+  State<CountPocketsButton> createState() => _CountPocketsButtonState();
+}
+
+class _CountPocketsButtonState extends State<CountPocketsButton> {
+  bool _busy = false;
+
+  Future<void> _count(List<(Partner, num)> owed) async {
+    final l = L.read(context);
+    final lines = <String>[];
+    num toInvestment = 0;
+    num stillOwed = 0;
+
+    for (final (p, amount) in owed) {
+      final cut = splitByPledge(
+        amount: amount,
+        pledged: p.pledged,
+        alreadyIn: p.invested,
+      );
+      toInvestment += cut.investment;
+      stillOwed += cut.refundable;
+      lines.add('${p.name} — ${rs(amount)}');
+    }
+
+    final ok = await confirm(
+      context,
+      title: l.t('Count it as money they have put in?'),
+      body:
+          '${lines.join('\n')}\n\n'
+          '${l.t2('%s goes onto what they have put in.', rs(toInvestment))}'
+          '${stillOwed > 0 ? '\n${l.t2('%s is more than they promised, so the farm still owes that back.', rs(stillOwed))}' : ''}'
+          '\n\n'
+          '${l.t('Each gets a line of his own, dated today. What they are holding of the farm\'s cash comes back to nothing.')}',
+      confirmLabel: l.t('Count it'),
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final actor = context.read<Session>().actor;
+      for (final (p, amount) in owed) {
+        await ContributionRepo.putIn(
+          actor,
+          partner: p,
+          amount: amount,
+          source: ContributionSource.spent,
+          date: DateTime.now(),
+          note: 'What he had already paid for out of his own pocket',
+        );
+      }
+      if (mounted) toast(context, l.t('Counted'));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.watch<Session>().role != Role.master) {
+      return const SizedBox.shrink();
+    }
+    final store = context.watch<FarmStore>();
+    final l = L.of(context);
+
+    // Co-founders only. A worker who took money at the gate is out of
+    // pocket in exactly the same arithmetic and it means something else
+    // entirely — the farm owes him, and he has no promise to put it against.
+    final owed = <(Partner, num)>[];
+    for (final p in store.partners) {
+      final held = store.handsOf(p.name)?.holding ?? 0;
+      if (held < 0) owed.add((p, -held));
+    }
+    if (owed.isEmpty) return const SizedBox.shrink();
+
+    final total = owed.fold<num>(0, (a, e) => a + e.$2);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GhostButton(
+            label: l.t2('Count %s as money put in', rs(total)),
+            icon: Icons.playlist_add_check_outlined,
+            onPressed: _busy ? null : () => _count(owed),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            l.t(
+              'Money of their own that the farm has had the use of. Until '
+              'somebody says so it sits here as a debt the farm owes them, '
+              'because an entry says who found the money and not whose it '
+              'was. Counted, it goes against what each of them is in for, '
+              'and only what is over a man\'s promise stays owed to him.',
+            ),
+            style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A man's own entries, latest first, to pick from or just to read.
 ///
 /// Grouped by who the money was with, because that is how the farm thinks of

@@ -570,6 +570,19 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s goes onto what they have put in.':
+      '%s un k diye hoie paison me shamil ho jaega.',
+  '%s is more than they promised, so the farm still owes that back.':
+      '%s un k wady se uper hy, wo farm ne un ko wapas dena hy.',
+  'Count %s as money put in': '%s ko diya hoa paisa ginwa do',
+  'Count it': 'Ginwa do',
+  'Count it as money they have put in?':
+      'Is ko un ka diya hoa paisa ginwa den?',
+  'Counted': 'Gin liya',
+  'Each gets a line of his own, dated today. What they are holding of the farm\'s cash comes back to nothing.':
+      'Har ek ki apni alag line banegi, aaj ki tareekh se. Farm ka jo paisa un k pass tha wo sifar ho jaega.',
+  'Money of their own that the farm has had the use of. Until somebody says so it sits here as a debt the farm owes them, because an entry says who found the money and not whose it was. Counted, it goes against what each of them is in for, and only what is over a man\'s promise stays owed to him.':
+      'Un ka apna paisa jo farm k kaam aaya. Jb tk koi na kahy, ye yahan farm k zimmy qarz ban k rehta hy, kyunki entry sirf itna batati hy k paisa kis ne nikala, ye ni k kis ka tha. Ginwa do to har ek k wady me jata hy, aur jo wady se uper ho sirf wo us ka baqi rehta hy.',
   '%s picked': '%s chuni gai',
   '%s entry': '%s entry',
   'Tap a shop to take everything of theirs at once, or single entries. The amount fills itself in. Leave them alone to hand over a plain figure instead.':

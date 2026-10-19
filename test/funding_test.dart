@@ -742,4 +742,75 @@ void main() {
       expect(cashInHands(const [], putIn: [fix]), isEmpty);
     });
   });
+
+  group('counting every pocket at once', () {
+    /// The farm looked at Rs 73,690 under "out of their pockets" and asked
+    /// why it was not on their investment. The answer was that nothing had
+    /// told it: an entry says who found the money for it, never whose money
+    /// it was. Only the four of them know that, and three of them have been
+    /// paying their promise this way since the start.
+    ///
+    /// Done for all of them at once, each man's own rule still applies —
+    /// otherwise the one who has already paid his share in full is quietly
+    /// stripped of what the farm really does owe him.
+
+    test('each man is split against his own promise, not a shared one', () {
+      final men = [
+        // Owes most of his promise still: all of it goes onto his investment.
+        (_p(name: 'Saleem', pledged: 1000000), 2700),
+        // Likewise.
+        (_p(name: 'Ghulam Ali', pledged: 2000000), 66790),
+        // Paid up in full already: the farm genuinely owes him this.
+        (_p(name: 'Rafeeq', pledged: 1500000, invested: 1500000), 4200),
+      ];
+
+      final cuts = [
+        for (final (p, amount) in men)
+          splitByPledge(
+            amount: amount,
+            pledged: p.pledged,
+            alreadyIn: p.invested,
+          ),
+      ];
+
+      expect(cuts[0].investment, 2700);
+      expect(cuts[1].investment, 66790);
+      expect(
+        cuts[2].refundable,
+        4200,
+        reason: 'a man paid up in full is owed it back, not credited twice',
+      );
+      expect(
+        cuts.fold<num>(0, (a, c) => a + c.investment),
+        69490,
+        reason: 'not the whole 73,690 — one of them had finished paying',
+      );
+    });
+
+    test('a man straddling the line is split across both', () {
+      // In for fifteen lakh, fourteen already in, and 1,50,000 of his own
+      // spent. One lakh finishes the promise; fifty thousand is the farm's
+      // to give back.
+      final cut = splitByPledge(
+        amount: 150000,
+        pledged: 1500000,
+        alreadyIn: 1400000,
+      );
+      expect(cut.investment, 100000);
+      expect(cut.refundable, 50000);
+      expect(cut.investment + cut.refundable, 150000);
+    });
+
+    test('a worker out of pocket is not one of them', () {
+      // Same arithmetic, different thing entirely: the farm owes him, and
+      // he has no promise to put it against. Only partners are offered.
+      final partners = [_p(name: 'Saleem', pledged: 1000000)];
+      final holders = ['Saleem', 'Jalbani'];
+      final offered = [
+        for (final who in holders)
+          if (partners.any((p) => partyKey(p.name) == partyKey(who))) who,
+      ];
+      expect(offered, ['Saleem']);
+    });
+  });
 }
