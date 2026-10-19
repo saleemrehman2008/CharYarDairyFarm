@@ -538,8 +538,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   /// What this person is being asked to confirm.
   /// The one who keeps the farm's cash, if the master has named anybody.
-  Partner? get cashKeeper =>
-      _partners.where((p) => p.keepsCash).firstOrNull;
+  Partner? get cashKeeper => _partners.where((p) => p.keepsCash).firstOrNull;
 
   /// What is waiting on one person's word.
   ///
