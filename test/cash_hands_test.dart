@@ -616,4 +616,121 @@ void main() {
       );
     });
   });
+
+  group('money on its way to the farm account', () {
+    /// "Jab ye amount farm per move kiya to on hand cash me show kyun nahi
+    /// raha tha?" Two answers, and both had to be checked rather than
+    /// guessed at.
+    ///
+    /// Once the handover is on the books the farm account holds it, which is
+    /// pinned below. Before that — while it is sent and not yet acknowledged
+    /// — it is in nobody's hands on purpose, and the page has to say so
+    /// rather than show nothing at all.
+
+    final took = Txn(
+      id: 'u9',
+      date: DateTime(2026, 10, 12),
+      monthId: '2026-10',
+      type: TxnType.receipt,
+      party: 'Urooj Dairy Shop',
+      category: khaataReceiptCategory,
+      amount: 8600,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: 'Ghulam Ali',
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 12),
+    );
+
+    final sent = CashTransfer(
+      id: 'w1',
+      from: 'Ghulam Ali',
+      to: farmAccountName,
+      amount: 8600,
+      state: TransferState.waiting,
+      sentAt: DateTime(2026, 10, 19),
+    );
+
+    test('before it is sent it is simply his', () {
+      final hands = {
+        for (final h in cashInHands([took])) h.who: h.holding,
+      };
+      expect(hands['Ghulam Ali'], 8600);
+      expect(hands[farmAccountName], isNull);
+    });
+
+    test('sent and not yet acknowledged, it is in neither pair of hands', () {
+      final hands = {
+        for (final h in cashInHands([took], moving: [sent])) h.who: h,
+      };
+      expect(hands['Ghulam Ali']!.holding, 0, reason: 'it has left him');
+      expect(hands['Ghulam Ali']!.onItsWay, 8600);
+      expect(
+        hands[farmAccountName]!.holding,
+        0,
+        reason: 'and it has not reached the farm',
+      );
+      expect(hands[farmAccountName]!.coming, 8600);
+    });
+
+    test('the farm account is on the list even with nothing in it yet', () {
+      // Otherwise the page shows nothing where the money plainly is, which
+      // is what "on hand cash me show kyun nahi raha tha" was asking about.
+      final who = [
+        for (final h in cashInHands([took], moving: [sent])) h.who,
+      ];
+      expect(who, contains(farmAccountName));
+    });
+
+    test('left out, the two cards disagree about the same money', () {
+      // The card that did not count what was on its way said Ghulam Ali
+      // still held 8,600 while every other page said he held nothing. One
+      // farm, one question, two answers — which is the bug.
+      final without = cashInHands([took]);
+      final with_ = cashInHands([took], moving: [sent]);
+      expect(without.single.holding, 8600);
+      expect(with_.firstWhere((h) => h.who == 'Ghulam Ali').holding, 0);
+    });
+
+    test('acknowledged, the farm account holds it', () {
+      final landed = [
+        took,
+        Txn(
+          id: 'o9',
+          date: DateTime(2026, 10, 19),
+          monthId: '2026-10',
+          type: TxnType.payment,
+          party: farmAccountName,
+          category: handoverOutCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Ghulam Ali',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 19),
+        ),
+        Txn(
+          id: 'i9',
+          date: DateTime(2026, 10, 19),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Ghulam Ali',
+          category: handoverInCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: farmAccountName,
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 19),
+        ),
+      ];
+
+      final hands = {for (final h in cashInHands(landed)) h.who: h.holding};
+      expect(hands[farmAccountName], 8600);
+      expect(hands['Ghulam Ali'], 0);
+    });
+  });
 }

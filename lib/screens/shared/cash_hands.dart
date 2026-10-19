@@ -38,6 +38,11 @@ class CashHands extends StatelessWidget {
       store.ledger,
       unnamed: l.t('Nobody named'),
       putIn: store.contributions,
+      // Cash handed over and not yet acknowledged. Left out here, this card
+      // disagreed with every other page that asks the same question — the
+      // account strip and the co-founder cards all count it, because a man
+      // who has handed money on is not holding it any more.
+      moving: store.transfers,
     );
 
     if (hands.isEmpty) {

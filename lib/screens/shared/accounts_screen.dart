@@ -1510,6 +1510,16 @@ class _LedgerRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                // Both sides of it on the one line, which is what the farm
+                // asked for: out of this man, into that account. One act,
+                // said once, with the two names it concerns.
+                if (moved != null)
+                  Text(
+                    l.t3('Out of %s · into %s', moved.from, moved.to),
+                    style: T.meta.copyWith(color: T.accent700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 Text(
                   moved != null
                       ? l.t(
