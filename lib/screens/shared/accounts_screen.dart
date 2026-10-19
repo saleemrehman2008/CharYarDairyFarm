@@ -165,7 +165,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         final periods = periodSnap.data ?? const <FarmMonth>[];
         final everything = store.ledger;
         final loading = !store.ready;
-        final rows = _ordered(_narrow(_rows(everything, store)));
+        final rows = ledgerOrder(_narrow(_rows(everything, store)));
         // Split where the work is. Anything still owing goes above the
         // settle bar; anything finished with goes below it.
         final open = rows.where((t) => t.outstanding > 0).toList();
@@ -407,12 +407,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final out = <Widget>[];
     String? current;
 
+    // Each period gets its line once, where its entries first appear going
+    // down the page. Drawn on every change instead, a single back-dated
+    // entry sitting among an earlier month's days would draw October's
+    // line a second time, halfway down September — which says the farm
+    // closed October twice.
+    final drawn = <String>{};
+
     for (final txn in rows) {
-      if (txn.monthId != current) {
-        current = txn.monthId;
-        final period = periods.where((p) => p.id == current).firstOrNull;
-        out.add(_divider(period, current, l));
+      if (txn.monthId != current && drawn.add(txn.monthId)) {
+        final period = periods.where((p) => p.id == txn.monthId).firstOrNull;
+        out.add(_divider(period, txn.monthId, l));
       }
+      current = txn.monthId;
       out.add(
         _LedgerRow(
           txn: txn,
@@ -521,23 +528,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
   };
-
-  /// The order the ledger is read in: period by period, newest first, and
-  /// inside a period by day.
-  ///
-  /// By date alone was enough while every entry was written on the day it
-  /// happened. It is not now that an entry can be dated back: one written in
-  /// October for a day in September sorts in among September's rows while the
-  /// books still hold it in October, so the line that marks where a period
-  /// ended would be drawn twice and in the wrong place. The period is what
-  /// the figures are built on, so the period leads.
-  static List<Txn> _ordered(List<Txn> rows) => rows.toList()
-    ..sort((a, b) {
-      final byPeriod = b.monthId.compareTo(a.monthId);
-      if (byPeriod != 0) return byPeriod;
-      final byDate = b.date.compareTo(a.date);
-      return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
-    });
 
   // ---- settling a stack of credit entries together ----
 

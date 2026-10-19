@@ -670,4 +670,84 @@ void main() {
       expect(tally.single.times, 1);
     });
   });
+
+  group('the order the ledger is read in', () {
+    Txn on(
+      String id,
+      DateTime date, {
+      String monthId = '2026-10',
+      DateTime? written,
+    }) => Txn(
+      id: id,
+      date: date,
+      monthId: monthId,
+      type: TxnType.expense,
+      party: 'Feed store',
+      category: 'Wanda / feed',
+      amount: 1000,
+      paid: true,
+      paidOnCreate: true,
+      note: '',
+      createdBy: 'u1',
+      createdAt: written ?? date,
+    );
+
+    test('newest day at the top, whatever period it belongs to', () {
+      // The farm found a feed bill from the sixteenth at the bottom of the
+      // page because of which month it had been booked into. Nobody reading
+      // a ledger expects that, and this is the test that says so.
+      final rows = ledgerOrder([
+        on('old-period-16th', DateTime(2026, 10, 16), monthId: '2026-09'),
+        on('new-period-2nd', DateTime(2026, 10, 2), monthId: '2026-10'),
+        on('new-period-20th', DateTime(2026, 10, 20), monthId: '2026-10'),
+      ]);
+      expect(rows.map((t) => t.id), [
+        'new-period-20th',
+        'old-period-16th',
+        'new-period-2nd',
+      ]);
+    });
+
+    test('a back-dated entry sits on the day it is for', () {
+      // Written on the twentieth for the fifth. It belongs with the fifth,
+      // which is where somebody looking for the fifth will look.
+      final rows = ledgerOrder([
+        on('written-today', DateTime(2026, 10, 20)),
+        on(
+          'back-dated',
+          DateTime(2026, 10, 5),
+          written: DateTime(2026, 10, 20),
+        ),
+        on('the-sixth', DateTime(2026, 10, 6)),
+      ]);
+      expect(rows.map((t) => t.id), [
+        'written-today',
+        'the-sixth',
+        'back-dated',
+      ]);
+    });
+
+    test('two on one day keep the order they were written in', () {
+      final rows = ledgerOrder([
+        on('morning', DateTime(2026, 10, 8), written: DateTime(2026, 10, 8, 7)),
+        on(
+          'evening',
+          DateTime(2026, 10, 8),
+          written: DateTime(2026, 10, 8, 19),
+        ),
+      ]);
+      expect(rows.map((t) => t.id), ['evening', 'morning']);
+    });
+
+    test('and it leaves what it was given alone', () {
+      // A sort in place would reorder the store's own list underneath every
+      // other screen reading it.
+      final given = [
+        on('a', DateTime(2026, 10, 1)),
+        on('b', DateTime(2026, 10, 9)),
+      ];
+      ledgerOrder(given);
+      expect(given.map((t) => t.id), ['a', 'b']);
+    });
+  });
 }

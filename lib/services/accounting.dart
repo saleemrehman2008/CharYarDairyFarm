@@ -380,6 +380,21 @@ String? _mostWritten(Map<String, int>? spellings) {
   return best;
 }
 
+/// The order a ledger is read in: by the day it happened, newest first.
+///
+/// It is a diary before it is a book of accounts. Somebody reads down it
+/// looking for what happened on the sixteenth, so an entry from the
+/// sixteenth has to be where the sixteenth is — whatever period it was
+/// booked into, and whenever it was typed.
+///
+/// Two entries on the same day keep the order they were written in, which
+/// is the only other order anybody can check.
+List<Txn> ledgerOrder(List<Txn> rows) => rows.toList()
+  ..sort((a, b) {
+    final byDate = b.date.compareTo(a.date);
+    return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
+  });
+
 /// One period's worth of the farm, for the column chart on the dashboard.
 class PeriodBar {
   const PeriodBar({
