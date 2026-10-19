@@ -60,6 +60,43 @@ class PartnerRepo {
     );
   }
 
+  /// Master only. Names the one who keeps the farm's cash.
+  ///
+  /// Money paid into the farm's own account has nobody to say it arrived:
+  /// the account is not a person and has no hands. Somebody has to answer
+  /// for it, or a man's own word would be enough to move his own holding
+  /// down — and the whole reason these figures are kept is that nobody has
+  /// to take anybody's word for what he is holding.
+  ///
+  /// One at a time. Two men both answering for the same account is how a
+  /// deposit gets confirmed twice and nobody can say by whom, so naming one
+  /// takes it off whoever had it.
+  static Future<void> setCashKeeper(
+    Actor actor, {
+    required Partner partner,
+    required bool keeps,
+    required List<Partner> others,
+  }) async {
+    final batch = Db.fs.batch();
+    for (final o in others) {
+      if (o.id == partner.id || !o.keepsCash) continue;
+      batch.update(Db.partners.doc(o.id), {'keepsCash': false});
+    }
+    batch.update(Db.partners.doc(partner.id), {'keepsCash': keeps});
+    await batch.commit();
+
+    await Log.write(
+      actor,
+      LogKind.investment,
+      keeps
+          ? '${partner.name} now keeps the farm\'s cash and answers for '
+                'money paid into the farm account'
+          : '${partner.name} no longer keeps the farm\'s cash',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
+
   /// Master only. Sets a partner's capital to a figure, rather than adding
   /// to it — for correcting one that went in wrong.
   ///

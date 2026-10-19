@@ -537,7 +537,33 @@ class FarmStore extends ChangeNotifier implements RoundData {
       _transfers.where((t) => t.isWaiting).fold<num>(0, (a, t) => a + t.amount);
 
   /// What this person is being asked to confirm.
-  List<CashTransfer> waitingOn(String name) => waitingFor(_transfers, name);
+  /// The one who keeps the farm's cash, if the master has named anybody.
+  Partner? get cashKeeper =>
+      _partners.where((p) => p.keepsCash).firstOrNull;
+
+  /// What is waiting on one person's word.
+  ///
+  /// His own handovers, and — for whoever keeps the farm's cash, and for the
+  /// master — money paid into the farm's own account. The farm account has no
+  /// hands of its own to confirm with, and leaving it to confirm itself would
+  /// let a man reduce his own holding on nothing but his own say-so.
+  List<CashTransfer> waitingOn(String name, {bool alsoForFarm = false}) {
+    final mine = waitingFor(_transfers, name);
+    if (!alsoForFarm) return mine;
+
+    final seen = {for (final t in mine) t.id};
+    return [
+      ...mine,
+      for (final t in waitingFor(_transfers, farmAccountName))
+        if (!seen.contains(t.id) && partyKey(t.from) != partyKey(name)) t,
+    ]..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+  }
+
+  /// Whether this person may say that money reached the farm's own account.
+  bool keepsTheFarmCash(String name) {
+    final k = cashKeeper;
+    return k != null && partyKey(k.name) == partyKey(name);
+  }
 
   /// Every pair of hands the farm's money can be in.
   ///

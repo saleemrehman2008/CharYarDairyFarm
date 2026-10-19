@@ -439,6 +439,14 @@ class _PartnerCardState extends State<_PartnerCard> {
 
                   const SizedBox(width: 8),
                   GhostButton(
+                    label: p.keepsCash ? 'Keeps the cash' : 'Cash keeper',
+                    icon: p.keepsCash ? Icons.vpn_key : Icons.vpn_key_outlined,
+                    compact: true,
+                    onPressed: _busy ? null : _setKeeper,
+                  ),
+
+                  const SizedBox(width: 8),
+                  GhostButton(
                     label: 'Capital',
                     icon: Icons.tune,
                     compact: true,
@@ -529,6 +537,52 @@ class _PartnerCardState extends State<_PartnerCard> {
       if (mounted) toast(context, 'Saved');
     } catch (e) {
       if (mounted) toast(context, 'Could not save it. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Who keeps the farm's cash, and so answers for its own account.
+  ///
+  /// Money paid into the farm account has nobody to confirm it: the account
+  /// is not a person. Somebody has to be able to say it arrived, or a man's
+  /// own word would move his own holding down — and the whole reason these
+  /// figures exist is that nobody has to take anybody's word for what he is
+  /// holding. Rafeeq keeps the cash, so Rafeeq says. The master can always
+  /// say it too, and if nobody is marked the master is the only one who can.
+  Future<void> _setKeeper() async {
+    final p = widget.partner;
+    final on = !p.keepsCash;
+
+    final ok = await confirm(
+      context,
+      title: on ? 'He keeps the farm\'s cash?' : 'Take that off him?',
+      body: on
+          ? '${p.name} will be the one who says that money paid into the '
+                'farm account has arrived — along with you.\n\n'
+                'Only one of them at a time. Whoever holds it now loses it.'
+          : 'Nobody will keep the farm\'s cash, so only you will be able to '
+                'say that money paid into the farm account has arrived.',
+      confirmLabel: on ? 'He keeps it' : 'Take it off',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await PartnerRepo.setCashKeeper(
+        context.read<Session>().actor,
+        partner: p,
+        keeps: on,
+        others: context.read<FarmStore>().partners,
+      );
+      if (mounted) {
+        toast(
+          context,
+          on ? '${p.name} keeps the farm\'s cash' : 'Taken off ${p.name}',
+        );
+      }
+    } catch (e) {
+      if (mounted) toast(context, 'Could not change it. $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

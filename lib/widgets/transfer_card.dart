@@ -29,10 +29,19 @@ class TransferInbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final me = context.watch<Session>().user?.name ?? '';
+    final session = context.watch<Session>();
+    final me = session.user?.name ?? '';
     if (me.trim().isEmpty) return const SizedBox.shrink();
 
-    final waiting = context.watch<FarmStore>().waitingOn(me);
+    final store = context.watch<FarmStore>();
+
+    // Money paid into the farm's own account waits on whoever keeps the
+    // cash, and on the master. The farm account has no hands to confirm
+    // with, and letting it confirm itself would mean a man's own word moved
+    // his own holding down — which is the one thing these books exist to
+    // stop.
+    final forFarm = session.role == Role.master || store.keepsTheFarmCash(me);
+    final waiting = store.waitingOn(me, alsoForFarm: forFarm);
     if (waiting.isEmpty) return const SizedBox.shrink();
 
     return Column(

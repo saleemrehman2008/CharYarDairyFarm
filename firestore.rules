@@ -44,6 +44,16 @@ service cloud.firestore {
       return me().get('partnerId', 'none');
     }
 
+    // Whoever keeps the farm's cash answers for its own account. The farm
+    // account is not a person and has no hands to confirm with, so without
+    // somebody named here a man's own word would be enough to move his own
+    // holding down — which is the one thing these books are built to stop.
+    function keepsTheCash() {
+      return isPartner() && myPartnerId() != 'none'
+        && get(/databases/$(database)/documents/partners/$(myPartnerId()))
+             .data.get('keepsCash', false) == true;
+    }
+
     // Delivery staff walk the round and take money at the door. They can read
     // none of the farm's books: every rule below spells out the little they
     // touch, and their phone never even asks for the rest.
@@ -238,19 +248,22 @@ service cloud.firestore {
     // by the app, and every answer carries the name of whoever gave it.
     match /transfers/{id} {
       allow read: if isPartner();
-      // Waiting on the other man's word, or — into the farm's own
-      // account — settled the moment it is sent. The farm account has no
-      // hands to confirm with, and the only holding that goes down is the
-      // sender's own, so his word is the one that is needed.
       allow create: if isPartner()
-        && request.resource.data.amount > 0
-        && (request.resource.data.state == 'waiting'
-            || (request.resource.data.state == 'taken'
-                && request.resource.data.to == 'Farm account'));
+        && request.resource.data.state == 'waiting'
+        && request.resource.data.amount > 0;
+
+      // Answered, never rewritten: what was handed over, to whom and for
+      // how much is fixed the moment it is sent, and so are the entries it
+      // was made of. Money paid into the farm's own account is answered for
+      // by whoever keeps the cash, or by the master — and never by the man
+      // who sent it, or the second word is the first one over again.
       allow update: if isPartner()
         && resource.data.state == 'waiting'
         && !changedKeys().hasAny(['from', 'to', 'amount', 'sentBy',
-                                 'sentAt', 'payVia', 'txnIds']);
+                                 'sentAt', 'payVia', 'txnIds'])
+        && (resource.data.to != 'Farm account'
+            || ((isMaster() || keepsTheCash())
+                && resource.data.from != me().name));
       // Taken back by whoever sent it, and only while nobody has answered.
       allow delete: if isPartner() && resource.data.state == 'waiting';
     }

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
+import 'package:char_yar_dairy_farm/services/transfer_repo.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
 
 /// Cash passing between two pairs of hands, with the other man's word on it.
@@ -477,6 +478,143 @@ void main() {
         incoming: false,
       );
       expect(rows, isEmpty);
+    });
+  });
+
+  group('who may say money reached the farm account', () {
+    /// The farm account is not a person. It has no hands to confirm with,
+    /// and letting it confirm itself would mean a man's own word moved his
+    /// own holding down — which is the one thing these books exist to stop.
+    ///
+    /// So whoever keeps the cash answers for it, and the master can too. The
+    /// man who sent it never can, whatever else he is, or the second word is
+    /// the first one over again.
+
+    CashTransfer toFarm(String from) => CashTransfer(
+      id: 'f1',
+      from: from,
+      to: farmAccountName,
+      amount: 8600,
+      state: TransferState.waiting,
+      sentAt: DateTime(2026, 10, 12),
+    );
+
+    final toRafeeq = CashTransfer(
+      id: 'r1',
+      from: 'Ghulam Ali',
+      to: 'Rafeeq',
+      amount: 8600,
+      state: TransferState.waiting,
+      sentAt: DateTime(2026, 10, 12),
+    );
+
+    test('the one who keeps the cash can', () {
+      expect(
+        TransferRepo.mayAnswer(
+          toFarm('Ghulam Ali'),
+          asName: 'Rafeeq',
+          isMaster: false,
+          keepsFarmCash: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('and so can the master', () {
+      expect(
+        TransferRepo.mayAnswer(
+          toFarm('Ghulam Ali'),
+          asName: 'Saleem',
+          isMaster: true,
+          keepsFarmCash: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('nobody else can', () {
+      expect(
+        TransferRepo.mayAnswer(
+          toFarm('Ghulam Ali'),
+          asName: 'Asif',
+          isMaster: false,
+          keepsFarmCash: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('and not the man who sent it, master or keeper or neither', () {
+      for (final (master, keeper) in [
+        (true, false),
+        (false, true),
+        (true, true),
+      ]) {
+        expect(
+          TransferRepo.mayAnswer(
+            toFarm('Rafeeq'),
+            asName: 'Rafeeq',
+            isMaster: master,
+            keepsFarmCash: keeper,
+          ),
+          isFalse,
+          reason: 'his own word twice is one word',
+        );
+      }
+    });
+
+    test('an ordinary handover is still the receiver\'s alone', () {
+      expect(
+        TransferRepo.mayAnswer(
+          toRafeeq,
+          asName: 'Rafeeq',
+          isMaster: false,
+          keepsFarmCash: false,
+        ),
+        isTrue,
+      );
+      expect(
+        TransferRepo.mayAnswer(
+          toRafeeq,
+          asName: 'Saleem',
+          isMaster: true,
+          keepsFarmCash: true,
+        ),
+        isFalse,
+        reason: 'not even the master answers for another man\'s hands',
+      );
+    });
+
+    test('one already answered cannot be answered again', () {
+      final done = CashTransfer(
+        id: 'f2',
+        from: 'Ghulam Ali',
+        to: farmAccountName,
+        amount: 8600,
+        state: TransferState.taken,
+        sentAt: DateTime(2026, 10, 12),
+      );
+      expect(
+        TransferRepo.mayAnswer(
+          done,
+          asName: 'Rafeeq',
+          isMaster: true,
+          keepsFarmCash: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a different spelling of his name is still him', () {
+      expect(
+        TransferRepo.mayAnswer(
+          toRafeeq,
+          asName: ' rafeeq ',
+          isMaster: false,
+          keepsFarmCash: false,
+        ),
+        isTrue,
+      );
     });
   });
 }

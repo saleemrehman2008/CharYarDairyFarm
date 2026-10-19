@@ -23,6 +23,7 @@ class Partner {
     required this.withdrawn,
     required this.createdAt,
     this.pledged = 0,
+    this.keepsCash = false,
   });
 
   final String id;
@@ -63,6 +64,18 @@ class Partner {
   /// promised" — the ratio then falls back to the money, which is how the
   /// farm has run until now.
   final num pledged;
+
+  /// He keeps the farm's cash, and answers for its own account.
+  ///
+  /// The farm account is not a person. When one of them pays money into it,
+  /// somebody has to be able to say it arrived — otherwise a man's word alone
+  /// moves his own holding down, which is the one thing these books are built
+  /// not to allow. Rafeeq keeps the cash, so Rafeeq says, and the master can
+  /// say it too.
+  ///
+  /// Nobody marked means only the master can. That is a working farm, not a
+  /// broken one: it is how it ran before any of this was written down.
+  final bool keepsCash;
 
   /// Their profit, kept in the farm rather than taken.
   ///
@@ -132,6 +145,7 @@ class Partner {
           : n(m['profitHeld']),
       withdrawn: n(m['withdrawn']),
       createdAt: dtOr(m['createdAt']),
+      keepsCash: m['keepsCash'] == true,
     );
   }
 }

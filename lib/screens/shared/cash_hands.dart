@@ -390,13 +390,38 @@ class _HandoverSheetState extends State<_HandoverSheet> {
   /// answers to the same question.
   List<String> _people(FarmStore store) => store.moneyHolders;
 
+  void _retotal(List<InHand> all) {
+    final sum = all
+        .where((r) => _picked.contains(r.txnId))
+        .fold<num>(0, (a, r) => a + r.amount);
+    _amount.text = sum > 0 ? sum.toStringAsFixed(0) : '';
+  }
+
   void _toggle(InHand row, List<InHand> all) {
     setState(() {
       if (!_picked.remove(row.txnId)) _picked.add(row.txnId);
-      final sum = all
-          .where((r) => _picked.contains(r.txnId))
-          .fold<num>(0, (a, r) => a + r.amount);
-      _amount.text = sum > 0 ? sum.toStringAsFixed(0) : '';
+      _retotal(all);
+    });
+  }
+
+  /// Everything from one shop at once.
+  ///
+  /// Urooj paid 8,600 and it reached the books as four separate receipts,
+  /// because that is how it was handed over at the gate. Handing it on is
+  /// one act, so it should be one tap — the farm asked for exactly this.
+  void _toggleParty(List<InHand> party, List<InHand> all) {
+    final free = party.where((r) => !r.isSpokenFor).toList();
+    if (free.isEmpty) return;
+    final allOn = free.every((r) => _picked.contains(r.txnId));
+    setState(() {
+      for (final r in free) {
+        if (allOn) {
+          _picked.remove(r.txnId);
+        } else {
+          _picked.add(r.txnId);
+        }
+      }
+      _retotal(all);
     });
   }
 
@@ -545,13 +570,14 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                     return _EntryPick(
                       title: l.t2('What %s took in', _from!),
                       note: l.t(
-                        'Tap the ones being handed over and the amount '
-                        'fills itself in. Leave them alone to hand over a '
-                        'plain figure instead.',
+                        'Tap a shop to take everything of theirs at once, or '
+                        'single entries. The amount fills itself in. Leave '
+                        'them alone to hand over a plain figure instead.',
                       ),
                       rows: rows,
                       picked: _picked,
                       onTap: (r) => _toggle(r, rows),
+                      onTapParty: (party) => _toggleParty(party, rows),
                     );
                   },
                 ),
@@ -583,6 +609,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                       rows: rows,
                       picked: const <String>{},
                       onTap: null,
+                      onTapParty: null,
                     );
                   },
                 ),
@@ -621,6 +648,11 @@ class _HandoverSheetState extends State<_HandoverSheet> {
 
 /// One of the two names on a handover.
 /// A man's own entries, latest first, to pick from or just to read.
+///
+/// Grouped by who the money was with, because that is how the farm thinks of
+/// it. Urooj paid 8,600 and it reached the books as four separate receipts,
+/// since that is how it was handed over at the gate — but handing it on is
+/// one act, so one tap on the shop takes the lot.
 class _EntryPick extends StatelessWidget {
   const _EntryPick({
     required this.title,
@@ -628,6 +660,7 @@ class _EntryPick extends StatelessWidget {
     required this.rows,
     required this.picked,
     required this.onTap,
+    required this.onTapParty,
   });
 
   final String title;
@@ -635,105 +668,240 @@ class _EntryPick extends StatelessWidget {
   final List<InHand> rows;
   final Set<String> picked;
   final void Function(InHand row)? onTap;
+  final void Function(List<InHand> party)? onTapParty;
 
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
     final tone = rows.first.incoming ? T.moneyIn : T.moneyDue;
 
+    // The shops keep the order their entries are in, which is latest first.
+    final parties = <String, List<InHand>>{};
+    for (final r in rows) {
+      parties.putIfAbsent(r.what, () => []).add(r);
+    }
+
+    final picks = rows.where((r) => picked.contains(r.txnId)).toList();
+    final total = picks.fold<num>(0, (a, r) => a + r.amount);
+    final whole = rows.fold<num>(0, (a, r) => a + r.amount);
+
     return Padding(
       padding: const EdgeInsets.only(top: T.pad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Kicker(title),
+          Row(
+            children: [
+              Expanded(child: Kicker(title)),
+              Text('${_count(l, rows.length)} · ${rs(whole)}', style: T.meta),
+            ],
+          ),
           const SizedBox(height: 4),
           Text(note, style: T.meta),
-          const SizedBox(height: 8),
-          // Enough to see several without the sheet becoming a ledger of
-          // its own; the rest is a scroll away.
+          const SizedBox(height: 10),
+
+          // Enough to see several without the sheet becoming a ledger of its
+          // own; the rest is a scroll away.
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 232),
-            child: ListView.separated(
+            constraints: const BoxConstraints(maxHeight: 272),
+            child: ListView(
               shrinkWrap: true,
               padding: EdgeInsets.zero,
-              itemCount: rows.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 6),
-              itemBuilder: (context, i) {
-                final r = rows[i];
-                final on = picked.contains(r.txnId);
-                final dead = r.isSpokenFor || onTap == null;
-                return InkWell(
-                  onTap: dead ? null : () => onTap!(r),
-                  borderRadius: BorderRadius.circular(T.radiusXs),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: on ? tone.withValues(alpha: 0.10) : T.surface,
-                      borderRadius: BorderRadius.circular(T.radiusXs),
-                      border: Border.all(
-                        color: on ? tone.withValues(alpha: 0.55) : T.divider,
+              children: [
+                for (final e in parties.entries) ...[
+                  _PartyLine(
+                    name: e.key,
+                    rows: e.value,
+                    picked: picked,
+                    tone: tone,
+                    onTap: onTapParty == null
+                        ? null
+                        : () => onTapParty!(e.value),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final r in e.value)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: _EntryLine(
+                        row: r,
+                        on: picked.contains(r.txnId),
+                        tone: tone,
+                        selectable: onTap != null,
+                        onTap: onTap == null ? null : () => onTap!(r),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        if (onTap != null) ...[
-                          Icon(
-                            r.isSpokenFor
-                                ? Icons.lock_outline
-                                : on
-                                ? Icons.check_box
-                                : Icons.check_box_outline_blank,
-                            size: 18,
-                            color: r.isSpokenFor
-                                ? T.n400
-                                : on
-                                ? tone
-                                : T.n400,
-                          ),
-                          const SizedBox(width: 9),
-                        ],
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                r.what,
-                                style: T.bodyMid,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                r.isSpokenFor
-                                    ? l.t3(
-                                        '%s · already handed to %s',
-                                        fmtDate(r.date),
-                                        r.handedOnTo,
-                                      )
-                                    : '${fmtDate(r.date)} · ${l.t(r.detail)}',
-                                style: T.meta,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          rs(r.amount),
-                          style: T.bodyMid.copyWith(
-                            color: r.isSpokenFor ? T.n400 : tone,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                  const SizedBox(height: 5),
+                ],
+              ],
             ),
           ),
+
+          // What has been picked so far, added up. Four receipts of a
+          // thousand-odd each are hard to total in the head, and the figure
+          // in the box above is the one that will be handed over.
+          if (picks.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              decoration: BoxDecoration(
+                color: tone.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(T.radiusXs),
+                border: Border.all(color: tone.withValues(alpha: 0.35)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.t2('%s picked', _count(l, picks.length)),
+                      style: T.bodyMid.copyWith(color: tone),
+                    ),
+                  ),
+                  Text(rs(total), style: T.num22.copyWith(color: tone)),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+String _count(L l, int n) => l.t2(n == 1 ? '%s entry' : '%s entries', '$n');
+
+/// One shop's whole takings, as a single line to tap.
+class _PartyLine extends StatelessWidget {
+  const _PartyLine({
+    required this.name,
+    required this.rows,
+    required this.picked,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final String name;
+  final List<InHand> rows;
+  final Set<String> picked;
+  final Color tone;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final free = rows.where((r) => !r.isSpokenFor).toList();
+    final allOn =
+        free.isNotEmpty && free.every((r) => picked.contains(r.txnId));
+    final total = rows.fold<num>(0, (a, r) => a + r.amount);
+
+    return InkWell(
+      onTap: free.isEmpty ? null : onTap,
+      borderRadius: BorderRadius.circular(T.radiusXs),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            if (onTap != null) ...[
+              Icon(
+                allOn ? Icons.done_all : Icons.playlist_add,
+                size: 18,
+                color: free.isEmpty ? T.n400 : tone,
+              ),
+              const SizedBox(width: 7),
+            ],
+            Expanded(
+              child: Text(
+                name,
+                style: T.bodyMid,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${_count(l, rows.length)} · ${rs(total)}',
+              style: T.meta.copyWith(color: tone),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One entry of it.
+class _EntryLine extends StatelessWidget {
+  const _EntryLine({
+    required this.row,
+    required this.on,
+    required this.tone,
+    required this.selectable,
+    required this.onTap,
+  });
+
+  final InHand row;
+  final bool on;
+  final Color tone;
+  final bool selectable;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final r = row;
+    final dead = r.isSpokenFor || !selectable;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 15),
+      child: InkWell(
+        onTap: dead ? null : onTap,
+        borderRadius: BorderRadius.circular(T.radiusXs),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: on ? tone.withValues(alpha: 0.10) : T.surface,
+            borderRadius: BorderRadius.circular(T.radiusXs),
+            border: Border.all(
+              color: on ? tone.withValues(alpha: 0.55) : T.divider,
+            ),
+          ),
+          child: Row(
+            children: [
+              if (selectable) ...[
+                Icon(
+                  r.isSpokenFor
+                      ? Icons.lock_outline
+                      : on
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  size: 18,
+                  color: r.isSpokenFor
+                      ? T.n400
+                      : on
+                      ? tone
+                      : T.n400,
+                ),
+                const SizedBox(width: 9),
+              ],
+              Expanded(
+                child: Text(
+                  r.isSpokenFor
+                      ? l.t3(
+                          '%s · already handed to %s',
+                          fmtDate(r.date),
+                          r.handedOnTo,
+                        )
+                      : '${fmtDate(r.date)} · ${l.t(r.detail)}',
+                  style: T.meta,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                rs(r.amount),
+                style: T.bodyMid.copyWith(color: r.isSpokenFor ? T.n400 : tone),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

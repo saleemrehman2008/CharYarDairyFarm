@@ -570,12 +570,14 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s picked': '%s chuni gai',
+  '%s entry': '%s entry',
+  'Tap a shop to take everything of theirs at once, or single entries. The amount fills itself in. Leave them alone to hand over a plain figure instead.':
+      'Puri dukaan ek sath leni ho to us k naam per tap karo, ya alag alag entry per. Amount khud bhar jaegi. Chorh do to sirf ek amount likh k b de sakty ho.',
   '%s · already handed to %s': '%s · pehly hi %s ko de diya',
   'Handed on': 'Aagy diya gaya',
   'Still on its way — it is in nobody\'s hands until %s says he has it.':
       'Abhi raaste me hy — jb tk %s na kahy k mil gaya, kisi k pass ni hy.',
-  'Tap the ones being handed over and the amount fills itself in. Leave them alone to hand over a plain figure instead.':
-      'Jo entry de rahy ho un per tap karo, amount khud bhar jaegi. Chorh do to sirf ek amount likh k b de sakty ho.',
   'This money went to %s on %s.': 'Ye paisa %s ko %s ko gaya.',
   'What %s paid for himself': '%s ne apni jeb se kiya kharcha',
   'What %s took in': '%s ne jo paisa liya',
