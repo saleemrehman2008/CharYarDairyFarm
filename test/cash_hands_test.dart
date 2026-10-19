@@ -431,4 +431,189 @@ void main() {
       expect(lines, isEmpty, reason: 'blank is not the farm, it is unwritten');
     });
   });
+
+  group('one handover, one line', () {
+    /// The farm handed 8,600 from Ghulam Ali into its own account once and
+    /// the page showed it twice — once as money in and once as money out, of
+    /// a farm whose total had not moved by a rupee. "Ye double entry meri
+    /// samajh se bahar hy; maine to bas transfer kiya tha."
+    ///
+    /// The books need both rows: one pair of hands goes down by it and
+    /// another goes up, and no single row can say both. The page does not.
+    /// So the pair is matched back up and drawn once, and nothing is taken
+    /// out of the books to do it.
+
+    List<Txn> pair({
+      required String from,
+      required String to,
+      required num amount,
+      int day = 19,
+    }) => [
+      Txn(
+        id: 'out${_n++}',
+        date: DateTime(2026, 10, day),
+        monthId: '2026-10',
+        type: TxnType.payment,
+        party: to,
+        category: handoverOutCategory,
+        amount: amount,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: from,
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, day),
+      ),
+      Txn(
+        id: 'in${_n++}',
+        date: DateTime(2026, 10, day),
+        monthId: '2026-10',
+        type: TxnType.receipt,
+        party: from,
+        category: handoverInCategory,
+        amount: amount,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: to,
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, day),
+      ),
+    ];
+
+    test('either row knows which way the money went', () {
+      final rows = pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600);
+      for (final t in rows) {
+        final s = handoverSides(t)!;
+        expect(s.from, 'Ghulam Ali');
+        expect(s.to, farmAccountName);
+      }
+    });
+
+    test('an ordinary entry is not a handover at all', () {
+      final sale = Txn(
+        id: 's1',
+        date: DateTime(2026, 10, 19),
+        monthId: '2026-10',
+        type: TxnType.sale,
+        party: 'Urooj Dairy Shop',
+        category: milkCategory,
+        amount: 8600,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: 'Ghulam Ali',
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 19),
+      );
+      expect(handoverSides(sale), isNull);
+      expect(twinnedHandovers([sale]), isEmpty);
+    });
+
+    test('the pair is matched and one half is left out of the list', () {
+      final rows = pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600);
+      final hidden = twinnedHandovers(rows);
+      expect(hidden.length, 1);
+      expect(
+        rows.where((t) => !hidden.contains(t.id)).single.isHandoverOut,
+        isTrue,
+        reason: 'the half kept is the one that reads from → to',
+      );
+    });
+
+    test('two handovers of the same amount on one day stay two', () {
+      // Both of them paying 8,600 into the farm on the 19th is two acts,
+      // and each deserves its line.
+      final rows = [
+        ...pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600),
+        ...pair(from: 'Asif', to: farmAccountName, amount: 8600),
+      ];
+      expect(twinnedHandovers(rows).length, 2);
+      expect(rows.length - twinnedHandovers(rows).length, 2);
+    });
+
+    test('and the same man twice in a day is still twice', () {
+      final rows = [
+        ...pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600),
+        ...pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600),
+      ];
+      expect(twinnedHandovers(rows).length, 2);
+    });
+
+    test('a half with no partner is left alone', () {
+      // One row deleted, or written before the other — it still has to be
+      // readable rather than vanish.
+      final rows = pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600);
+      expect(twinnedHandovers([rows.first]), isEmpty);
+      expect(twinnedHandovers([rows.last]), isEmpty);
+    });
+
+    test('the books are untouched: the holdings still move', () {
+      // The whole reason both rows exist. Ghulam Ali is 8,600 lighter and
+      // the farm account 8,600 heavier, whatever the page draws.
+      final rows = pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600);
+      final took = [
+        Txn(
+          id: 'u1',
+          date: DateTime(2026, 10, 12),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Urooj Dairy Shop',
+          category: khaataReceiptCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Ghulam Ali',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 12),
+        ),
+      ];
+
+      final hands = {
+        for (final h in cashInHands([...took, ...rows])) h.who: h.holding,
+      };
+      expect(hands['Ghulam Ali'], 0);
+      expect(hands[farmAccountName], 8600);
+    });
+
+    test('taken out of both money lists, the difference is still the cash', () {
+      // The one thing that must not break. Received less paid out comes to
+      // the cash the farm holds; dropping both halves of a pair that summed
+      // to nothing cannot change that.
+      final rows = [
+        ...pair(from: 'Ghulam Ali', to: farmAccountName, amount: 8600),
+        Txn(
+          id: 'u2',
+          date: DateTime(2026, 10, 12),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Urooj Dairy Shop',
+          category: khaataReceiptCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Ghulam Ali',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 12),
+        ),
+      ];
+
+      num inLess(bool Function(Txn) keep) =>
+          rows
+              .where((t) => movedCashIn(t) && keep(t))
+              .fold<num>(0, (a, t) => a + t.amount) -
+          rows
+              .where((t) => movedCashOut(t) && keep(t))
+              .fold<num>(0, (a, t) => a + t.amount);
+
+      expect(inLess((_) => true), 8600);
+      expect(
+        inLess((t) => !t.isHandover),
+        8600,
+        reason: 'the pair cancelled, so leaving it out changes nothing',
+      );
+    });
+  });
 }

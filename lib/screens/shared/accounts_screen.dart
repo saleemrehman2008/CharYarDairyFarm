@@ -505,7 +505,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   List<Txn> _rows(List<Txn> monthTxns, FarmStore store) => switch (_filter) {
-    AccountsFilter.all => monthTxns,
+    // Money moving between two of them reaches the books as two rows,
+    // because one pair of hands goes down by it and another goes up and no
+    // single row can say both. The farm reads a ledger though, and two rows
+    // for one act read as two trades — "double entry, meri samajh se bahar",
+    // 8,600 handed to the farm account once and shown twice, as money in and
+    // money out of a farm whose total had not moved by a rupee. Both rows
+    // stay on the books and every balance is still worked out from both;
+    // this page draws the pair once.
+    AccountsFilter.all => () {
+      final twins = twinnedHandovers(monthTxns);
+      return monthTxns.where((t) => !twins.contains(t.id)).toList();
+    }(),
     // Loose receipts are in here for the same reason loose payments are in
     // the list below: money came in and nothing else on the books says so.
     AccountsFilter.sales =>
@@ -525,8 +536,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
           )
           .toList(),
     // One row per rupee. See [AccountsFilter.received].
-    AccountsFilter.received => monthTxns.where(movedCashIn).toList(),
-    AccountsFilter.paidOut => monthTxns.where(movedCashOut).toList(),
+    //
+    // Minus what only changed hands. The farm did not receive the 8,600
+    // Ghulam Ali paid into its own account — it already had it, in his
+    // pocket. Both halves go, so the two lists still differ by exactly the
+    // cash the farm holds.
+    AccountsFilter.received =>
+      monthTxns.where((t) => movedCashIn(t) && !t.isHandover).toList(),
+    AccountsFilter.paidOut =>
+      monthTxns.where((t) => movedCashOut(t) && !t.isHandover).toList(),
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
   };
@@ -1411,8 +1429,17 @@ class _LedgerRow extends StatelessWidget {
     // is real.
     final settling = txn.settlesAnotherEntry;
 
+    // Money that only changed hands. It wears the farm's own blue and
+    // carries no sign, because nothing was earned and nothing was spent —
+    // the farm had exactly as much before it as after.
+    final moved = handoverSides(txn);
+
     final card = RegCard(
-      stripe: settling ? T.accent600 : tone,
+      stripe: moved != null
+          ? T.accent600
+          : settling
+          ? T.accent600
+          : tone,
       wash: settling ? T.accent100 : null,
       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
       child: Row(
@@ -1457,20 +1484,45 @@ class _LedgerRow extends StatelessWidget {
                       ],
                     ),
                   ),
+                if (moved != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(
+                      children: [
+                        Icon(Icons.swap_horiz, size: 14, color: T.accent600),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            l.t('Money changing hands'),
+                            style: T.meta.copyWith(color: T.accent600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Text(
-                  txn.party.isEmpty ? txn.category : txn.party,
+                  moved != null
+                      ? '${moved.from}  →  ${moved.to}'
+                      : txn.party.isEmpty
+                      ? txn.category
+                      : txn.party,
                   style: T.bodyMid,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  [
-                    txn.type.label,
-                    txn.category,
-                    ?qtyLine,
-                    ?txn.shift?.label,
-                    if (txn.handOverLine.isNotEmpty) txn.handOverLine,
-                  ].join(' · '),
+                  moved != null
+                      ? l.t(
+                          'Nothing earned and nothing spent — the farm has '
+                          'as much as it had',
+                        )
+                      : [
+                          txn.type.label,
+                          txn.category,
+                          ?qtyLine,
+                          ?txn.shift?.label,
+                          if (txn.handOverLine.isNotEmpty) txn.handOverLine,
+                        ].join(' · '),
                   style: T.meta,
                   maxLines: 2,
                 ),
@@ -1571,14 +1623,20 @@ class _LedgerRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Deep when the money has moved, pale when it is still owed.
+              // Deep when the money has moved, pale when it is still
+              // owed — and unsigned when it only changed hands, because the
+              // farm neither gained nor lost it.
               Text(
-                signedRs(txn.amount, incoming: txn.type.isIncoming),
+                moved != null
+                    ? rs(txn.amount)
+                    : signedRs(txn.amount, incoming: txn.type.isIncoming),
                 style: T.bodyMid.copyWith(
-                  color: T.money(
-                    incoming: txn.type.isIncoming,
-                    settled: txn.paid,
-                  ),
+                  color: moved != null
+                      ? T.accent700
+                      : T.money(
+                          incoming: txn.type.isIncoming,
+                          settled: txn.paid,
+                        ),
                   fontWeight: T.moneyWeight(txn.paid),
                 ),
               ),

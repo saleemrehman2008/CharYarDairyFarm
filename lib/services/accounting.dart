@@ -617,6 +617,62 @@ List<AccountLine> accountLines(
   return out;
 }
 
+/// Which way round a handover went, read off either of its two rows.
+///
+/// The row that says "handed to" carries the receiver as its party and the
+/// giver as its handler; the row that says "taken from" carries them the
+/// other way about. Asking the row itself saves every screen from having to
+/// remember which is which.
+({String from, String to})? handoverSides(Txn t) {
+  if (t.isHandoverOut) return (from: t.handledBy, to: t.party);
+  if (t.isHandoverIn) return (from: t.party, to: t.handledBy);
+  return null;
+}
+
+/// One handover's second row, so the pair can be read as the one thing it is.
+///
+/// Money moving from one of them to another reaches the books as two rows,
+/// and it has to: one pair of hands goes down by it and another goes up, and
+/// a single row cannot say both. But the farm reads a ledger, not a double
+/// entry system, and two rows for one act is what it called "double entry,
+/// meri samajh se bahar" — it handed 8,600 to the farm account once and the
+/// page showed it twice, as money in and money out, of a farm whose total
+/// had not changed by a rupee.
+///
+/// So the pair is matched back up and the page draws it once. Nothing is
+/// taken out of the books: both rows stay, every balance is worked out from
+/// both, and the one that is hidden is hidden from a list on a screen.
+///
+/// Matched on what the pair cannot differ in — the day, the amount, and the
+/// two names the opposite way round — because the rows were written before
+/// anything linked them and his farm's are already on the books.
+Set<String> twinnedHandovers(List<Txn> ledger) {
+  final outs = <String, List<Txn>>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isHandoverOut) continue;
+    final s = handoverSides(t)!;
+    outs.putIfAbsent(_twinKey(t.date, t.amount, s.from, s.to), () => []).add(t);
+  }
+
+  final hidden = <String>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isHandoverIn) continue;
+    final s = handoverSides(t)!;
+    final mates = outs[_twinKey(t.date, t.amount, s.from, s.to)];
+    if (mates == null || mates.isEmpty) continue;
+
+    // One for one. Two men handing the same amount to the same place on the
+    // same day is two handovers, and both deserve their line.
+    mates.removeLast();
+    hidden.add(t.id);
+  }
+  return hidden;
+}
+
+String _twinKey(DateTime on, num amount, String from, String to) =>
+    '${on.year}-${on.month}-${on.day}|$amount|'
+    '${partyKey(from)}|${partyKey(to)}';
+
 /// One entry sitting behind what a man is holding, or behind what he is out
 /// of pocket.
 ///

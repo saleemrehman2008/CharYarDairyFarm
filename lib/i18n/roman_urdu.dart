@@ -570,6 +570,14 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  'Bought and not yet paid for': 'Khareeda hy, paisa dena baqi hy',
+  'Money changing hands': 'Paisa haath badal raha hy',
+  'Nothing earned and nothing spent — the farm has as much as it had':
+      'Na kuch kamaya na kharch hoa — farm k pass utna hi hy jitna tha',
+  'Owed to the co-founders': 'Founders ka farm per',
+  'Sold and not yet paid for': 'Becha hy, paisa milna baqi hy',
+  'Still to go out': 'Dena baqi',
+  'Their own money, spent on the farm': 'Un ka apna paisa jo farm per laga',
   '%s goes onto what they have put in.':
       '%s un k diye hoie paison me shamil ho jaega.',
   '%s is more than they promised, so the farm still owes that back.':

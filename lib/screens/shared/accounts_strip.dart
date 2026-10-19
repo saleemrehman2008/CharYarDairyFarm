@@ -142,8 +142,53 @@ class _Account extends StatelessWidget {
                 ),
               ),
             ],
+            // The farm's own account has two figures as well, and the farm
+            // was right to want them apart: what is actually in its keeping
+            // is one thing, and what it owes the four of them is another.
+            // Three of them are still paying their promise out of their own
+            // pockets, so the cash the farm itself holds is small and the
+            // debt behind it is not.
+            if (isFarm) ...[
+              const SizedBox(width: T.gap),
+              Expanded(
+                child: StatTile(
+                  label: l.t('Owed to the co-founders'),
+                  value: rs(_owedToThem(store)),
+                  tone: T.moneyDue,
+                  note: l.t('Their own money, spent on the farm'),
+                ),
+              ),
+            ],
           ],
         ),
+
+        // Still to come in, and still to go out. Neither is money the farm
+        // has — one is owed to it and the other by it — so neither belongs
+        // in the figure above, and both belong on the page.
+        if (isFarm) ...[
+          const SizedBox(height: T.gap),
+          Row(
+            children: [
+              Expanded(
+                child: StatTile(
+                  label: l.t('Still to come in'),
+                  value: rs(store.money.receivable),
+                  tone: T.moneyIn,
+                  note: l.t('Sold and not yet paid for'),
+                ),
+              ),
+              const SizedBox(width: T.gap),
+              Expanded(
+                child: StatTile(
+                  label: l.t('Still to go out'),
+                  value: rs(store.money.payable),
+                  tone: T.moneyOut,
+                  note: l.t('Bought and not yet paid for'),
+                ),
+              ),
+            ],
+          ),
+        ],
 
         // What is on its way to or from him, which is in nobody's hands.
         if ((hands?.onItsWay ?? 0) > 0 || (hands?.coming ?? 0) > 0) ...[
@@ -189,6 +234,22 @@ class _Account extends StatelessWidget {
       ],
     );
   }
+}
+
+/// What the farm owes the four of them out of their own pockets.
+///
+/// Their own money that the farm has had the use of and has not been told
+/// to count as investment — see the button on the holding card. Shown on
+/// the farm's own account because that is where somebody reading "Rs 8,600
+/// in the farm's keeping" needs to see it: the farm is not short of money
+/// by accident, it is running on theirs.
+num _owedToThem(FarmStore store) {
+  var owed = store.owedToFounders;
+  for (final p in store.partners) {
+    final held = store.handsOf(p.name)?.holding ?? 0;
+    if (held < 0) owed += -held;
+  }
+  return owed;
 }
 
 /// Every line that has touched one account, newest first, with what the
