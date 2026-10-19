@@ -1700,6 +1700,58 @@ Future<num?> askForMoney(
   return said;
 }
 
+/// A few words, when a figure is not what is wanted.
+///
+/// Written for the one case where somebody says he did not get money that
+/// another man says he handed over. What he types is kept on the record and
+/// both of them can read it, which is the only thing that makes a refusal
+/// worth more than a shrug.
+Future<String?> askForWords(
+  BuildContext context, {
+  required String title,
+  String hint = '',
+  String? note,
+}) async {
+  final field = TextEditingController();
+  final said = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: T.surface,
+      title: Text(title, style: T.cardTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: field,
+            autofocus: true,
+            maxLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(hintText: hint),
+            style: T.body,
+          ),
+          if (note != null) ...[
+            const SizedBox(height: 10),
+            Text(note, style: T.meta),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('Cancel', style: T.bodyMid),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, field.text.trim()),
+          child: Text('Save', style: T.bodyMid.copyWith(color: T.accent700)),
+        ),
+      ],
+    ),
+  );
+  field.dispose();
+  return said;
+}
+
 Future<bool> confirm(
   BuildContext context, {
   required String title,

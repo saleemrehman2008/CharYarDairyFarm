@@ -686,6 +686,27 @@ const Map<String, String> romanUrdu = {
       '%s — %s se us ka wada poora, aur %s farm ne us ko wapas dena hai.',
   'His promise is already paid, so the farm owes him %s of this back.':
       'Us ka wada pehle hi poora hai, to is mein se %s farm ne us ko wapas dena hai.',
+  // Cash handed over, waiting on the other man's word.
+  '%s has handed you money': '%s ne aap ko paisa diya hai',
+  '%s sent to %s — waiting on him': '%s, %s ko bheja — un ke jawab ka intezar',
+  '%s → %s': '%s → %s',
+  'On its way': 'Raaste mein',
+  'Handed over and not yet acknowledged, so it is in neither pair of hands. It joins the other man the moment he says he has it.':
+      'Diya ja chuka hai magar abhi tasdeeq nahi hui, is liye ye kisi ke bhi '
+      'haath mein nahi. Jaise hi dusra kahe ke mil gaya, us ke khaate mein '
+      'chala jaega.',
+  'Until you say so it is in nobody\'s hands — not his and not yours. Nothing has gone into the books yet.':
+      'Jab tak aap na kahen, ye kisi ke haath mein nahi — na un ke, na aap ke. '
+      'Kitaab mein abhi kuch nahi gaya.',
+  'I have it': 'Mil gaya',
+  'I did not': 'Nahi mila',
+  'Taken in': 'Le liya',
+  'Written down': 'Likh diya',
+  'You did not get this?': 'Ye aap ko nahi mila?',
+  'What happened': 'Kya hua',
+  'Nothing goes into the books and the money stays where it was. What you write here is kept on it, and both of you can see it.':
+      'Kitaab mein kuch nahi jaega aur paisa wahin rahega jahan tha. Aap jo '
+      'yahan likhenge wo is par mehfooz rahega, aur aap dono dekh sakenge.',
   // The two charts on the dashboard.
   'Month by month': 'Mahine ba mahine',
   'No period has been settled yet.': 'Abhi koi mahina band nahi hua.',

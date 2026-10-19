@@ -225,6 +225,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---- Cash passing between two pairs of hands ----
+    //
+    // Anybody who keeps the books may write one: the man handing the money
+    // over is usually the one holding the phone. Only the man it was sent
+    // to may answer it, and that is the whole point of the record — one
+    // word is not enough for both halves of it.
+    //
+    // The server cannot tell which partner is which by name, so what it
+    // enforces is the shape: a partner may update one of these, and may not
+    // move the money, the names, or who sent it. Who may answer is enforced
+    // by the app, and every answer carries the name of whoever gave it.
+    match /transfers/{id} {
+      allow read: if isPartner();
+      allow create: if isPartner()
+        && request.resource.data.state == 'waiting'
+        && request.resource.data.amount > 0;
+      allow update: if isPartner()
+        && resource.data.state == 'waiting'
+        && !changedKeys().hasAny(['from', 'to', 'amount', 'sentBy',
+                                 'sentAt', 'payVia']);
+      // Taken back by whoever sent it, and only while nobody has answered.
+      allow delete: if isPartner() && resource.data.state == 'waiting';
+    }
     // ---- Money the farm has lent its own ----
     //
     // A co-founder asks for their own, and only for themselves. Handing it

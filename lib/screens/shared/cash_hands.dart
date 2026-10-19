@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
-import '../../services/txn_repo.dart';
+import '../../services/transfer_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
@@ -117,6 +117,44 @@ class CashHands extends StatelessWidget {
             ],
           ),
         ),
+        // What is on its way and has not been acknowledged. Named apart
+        // from every balance above it, because it is in nobody's hands.
+        if (store.cashInTransit > 0) ...[
+          const SizedBox(height: 10),
+          RegCard(
+            stripe: T.moneyDue,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(l.t('On its way'), style: T.bodyMid)),
+                    Text(
+                      rs(store.cashInTransit),
+                      style: T.num22.copyWith(color: T.moneyDue),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                for (final t in store.transfers.where((t) => t.isWaiting))
+                  Text(
+                    '${l.t3('%s → %s', t.from, t.to)} · ${rs(t.amount)}',
+                    style: T.meta,
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  l.t(
+                    'Handed over and not yet acknowledged, so it is in '
+                    'neither pair of hands. It joins the other man the '
+                    'moment he says he has it.',
+                  ),
+                  style: T.meta,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         GhostButton(
           label: l.t('Hand cash to somebody'),
@@ -266,7 +304,9 @@ class _HandoverSheetState extends State<_HandoverSheet> {
 
     setState(() => _busy = true);
     try {
-      await TxnRepo.handOver(
+      // Sent, not done. Nothing reaches the books until the other man
+      // says he has it — see [TransferRepo].
+      await TransferRepo.send(
         context.read<Session>().actor,
         from: from,
         to: to,
@@ -276,7 +316,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
       );
       if (!mounted) return;
       Navigator.pop(context);
-      toast(context, l.t3('%s handed to %s', rs(amount), to));
+      toast(context, l.t3('%s sent to %s — waiting on him', rs(amount), to));
     } catch (e) {
       if (mounted) toast(context, '$e');
     } finally {

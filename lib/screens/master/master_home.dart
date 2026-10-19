@@ -12,6 +12,7 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
 import '../../widgets/decision_banner.dart';
+import '../../widgets/transfer_card.dart';
 import '../../widgets/farm_icons.dart';
 import '../../widgets/month_chart.dart';
 import '../../widgets/investment_card.dart';
@@ -54,6 +55,9 @@ class MasterHome extends StatelessWidget {
     return PageBody(
       children: [
         const DecisionBanner(),
+        // Money somebody says he has handed you. It cannot be scrolled
+        // past, which on the free plan is the only notification there is.
+        const TransferInbox(),
         HeroCard(
           label: l.t('Cash in hand'),
           value: rs(books.cash),

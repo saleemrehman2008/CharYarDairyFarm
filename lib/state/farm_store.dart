@@ -106,6 +106,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
         _contributions = v;
         notifyListeners();
       }),
+      // Cash handed over and waiting on the other man's word.
+      Db.watchTransfers().listen((v) {
+        _transfers = v;
+        notifyListeners();
+      }),
       // The whole running account. Held here rather than opened again by
       // every screen that wants it: Accounts reads it, and so does the name
       // suggestion on a new entry, which needs every customer the farm has
@@ -252,6 +257,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Txn> _loanTxns = const [];
   List<FounderLoan> _loans = const [];
   List<Contribution> _contributions = const [];
+  List<CashTransfer> _transfers = const [];
 
   /// Every period, newest first.
   List<FarmMonth> _periods = const [];
@@ -505,6 +511,17 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   num owedToFounder(String partnerId) => owedToFrom(_contributions, partnerId);
 
+  /// Every transfer, newest first.
+  List<CashTransfer> get transfers => _transfers;
+
+  /// Cash handed over and still waiting on somebody's word — out of one
+  /// pair of hands and not yet in another.
+  num get cashInTransit =>
+      _transfers.where((t) => t.isWaiting).fold<num>(0, (a, t) => a + t.amount);
+
+  /// What this person is being asked to confirm.
+  List<CashTransfer> waitingOn(String name) => waitingFor(_transfers, name);
+
   /// Every pair of hands the farm's money can be in.
   ///
   /// The farm's own account first, then the co-founders, then anybody else
@@ -528,7 +545,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
     }
     final people = names.values.toList()..sort();
 
-    for (final h in cashInHands(_ledger, putIn: _contributions)) {
+    for (final h in cashInHands(
+      _ledger,
+      putIn: _contributions,
+      moving: _transfers,
+    )) {
       if (names.containsKey(partyKey(h.who))) continue;
       if (partyKey(h.who) == partyKey(farmAccountName)) continue;
       people.add(h.who);
@@ -543,7 +564,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// disagree — they did, and the farm spotted it on the first screen.
   HandsOn? handsOf(String name) {
     final key = partyKey(name);
-    for (final h in cashInHands(_ledger, putIn: _contributions)) {
+    for (final h in cashInHands(
+      _ledger,
+      putIn: _contributions,
+      moving: _transfers,
+    )) {
       if (partyKey(h.who) == key) return h;
     }
     return null;

@@ -16,6 +16,7 @@ import '../../widgets/month_chart.dart';
 import '../../widgets/worth_bar.dart';
 import '../../widgets/decision_banner.dart';
 import '../../widgets/farm_icons.dart';
+import '../../widgets/transfer_card.dart';
 import '../../widgets/ui.dart';
 import '../master/activity_log_screen.dart';
 import '../master/cattle_screen.dart';
@@ -53,6 +54,7 @@ class CofounderHome extends StatelessWidget {
 
     return PageBody(
       children: [
+        const TransferInbox(),
         const DecisionBanner(),
 
         // Theirs first.

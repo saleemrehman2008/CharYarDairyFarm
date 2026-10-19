@@ -27,6 +27,11 @@ class Db {
   /// them funding the place. What each has put in is the sum of his lines,
   /// so no figure on a co-founder's card can move without one.
   static Col get contributions => fs.collection('contributions');
+
+  /// Cash moving between two pairs of hands, waiting on the second man's
+  /// word. Apart from the ledger because nothing is written to the books
+  /// until he gives it — see [CashTransfer].
+  static Col get transfers => fs.collection('transfers');
   static Col get products => fs.collection('products');
   static Col get transactions => fs.collection('transactions');
   static Col get orders => fs.collection('orders');
@@ -93,6 +98,14 @@ class Db {
         (q) =>
             q.docs.map(Contribution.fromDoc).where((c) => !c.isDeleted).toList()
               ..sort((a, b) => b.date.compareTo(a.date)),
+      );
+
+  /// Every transfer, newest first. A few a week, so nothing is capped.
+  static Stream<List<CashTransfer>> watchTransfers() =>
+      transfers.snapshots().map(
+        (q) =>
+            q.docs.map(CashTransfer.fromDoc).toList()
+              ..sort((a, b) => b.sentAt.compareTo(a.sentAt)),
       );
 
   /// The shop catalogue, in shop order.

@@ -224,6 +224,8 @@ class HandsOn {
     required this.received,
     required this.paid,
     required this.rows,
+    this.onItsWay = 0,
+    this.coming = 0,
   });
 
   /// The name as the farm writes it most often.
@@ -235,12 +237,24 @@ class HandsOn {
   /// How many entries their name is on, so a figure can be looked into.
   final int rows;
 
+  /// Handed to somebody else and not yet acknowledged by him.
+  ///
+  /// Out of this man's hands already — he has given it away — and not in
+  /// anybody else's until the other man says he has it. It belongs to
+  /// neither of them in between, which is the only honest place to put it.
+  final num onItsWay;
+
+  /// Sent to him and waiting on his own word. Shown beside his balance and
+  /// deliberately not in it: a man is answerable for money when he says he
+  /// has it, not when somebody says they sent it.
+  final num coming;
+
   /// What they should have in their hand.
   ///
   /// Below nothing means the opposite and is just as useful: they have paid
   /// more of the farm's costs than they have taken in, out of their own
   /// pocket, and the farm owes them the difference.
-  num get holding => received - paid;
+  num get holding => received - paid - onItsWay;
 
   bool get outOfPocket => holding < 0;
 }
@@ -277,6 +291,11 @@ List<HandsOn> cashInHands(
   /// it. Without this the card would read short by every rupee of capital
   /// that has been paid in, which is most of what the farm has.
   List<Contribution> putIn = const [],
+
+  /// Cash handed over and not yet acknowledged. It comes off the sender's
+  /// balance and does not go onto the receiver's — in between it is in
+  /// neither pair of hands, which is where it actually is.
+  List<CashTransfer> moving = const [],
 }) {
   final received = <String, num>{};
   final paid = <String, num>{};
@@ -349,13 +368,27 @@ List<HandsOn> cashInHands(
         .update(who, (v) => v + 1, ifAbsent: () => 1);
   }
 
+  // Anybody with money on its way to or from him belongs on the list even
+  // if he has never handled a rupee otherwise — that is exactly the man
+  // the farm needs to be asked about.
+  final waiting = <String, String>{};
+  for (final t in moving) {
+    if (!t.isWaiting) continue;
+    waiting.putIfAbsent(partyKey(t.from), () => t.from);
+    waiting.putIfAbsent(partyKey(t.to), () => t.to);
+  }
+
   final out = [
-    for (final key in {...received.keys, ...paid.keys})
+    for (final key in {...received.keys, ...paid.keys, ...waiting.keys})
       HandsOn(
-        who: key.isEmpty ? unnamed : _mostWritten(spellings[key]) ?? key,
+        who: key.isEmpty
+            ? unnamed
+            : _mostWritten(spellings[key]) ?? waiting[key] ?? key,
         received: received[key] ?? 0,
         paid: paid[key] ?? 0,
         rows: rows[key] ?? 0,
+        onItsWay: sentWaitingBy(moving, waiting[key] ?? key),
+        coming: comingTo(moving, waiting[key] ?? key),
       ),
   ];
 
