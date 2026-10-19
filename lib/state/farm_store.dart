@@ -505,6 +505,19 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   num owedToFounder(String partnerId) => owedToFrom(_contributions, partnerId);
 
+  /// What one pair of hands has taken in and handed out.
+  ///
+  /// Read off the ledger the same way the farm-wide card reads it, so a
+  /// co-founder's own card and the list of who is holding what can never
+  /// disagree — they did, and the farm spotted it on the first screen.
+  HandsOn? handsOf(String name) {
+    final key = partyKey(name);
+    for (final h in cashInHands(_ledger, putIn: _contributions)) {
+      if (partyKey(h.who) == key) return h;
+    }
+    return null;
+  }
+
   /// What is still to come in against what the four of them promised.
   num get pledgedStillToCome =>
       _partners.fold<num>(0, (a, p) => a + p.stillToPayIn);

@@ -283,39 +283,70 @@ List<HandsOn> cashInHands(
   final rows = <String, int>{};
   final spellings = <String, Map<String, int>>{};
 
-  void note(Txn t, {required bool incoming}) {
-    final said = t.handledBy.trim();
-    final key = said.isEmpty ? '' : partyKey(said);
+  void note(String said, num amount, {required bool incoming}) {
+    if (amount <= 0) return;
+    final name = said.trim();
+    final key = name.isEmpty ? '' : partyKey(name);
     (incoming ? received : paid).update(
       key,
-      (v) => v + t.amount,
-      ifAbsent: () => t.amount,
+      (v) => v + amount,
+      ifAbsent: () => amount,
     );
     rows.update(key, (v) => v + 1, ifAbsent: () => 1);
-    if (said.isNotEmpty) {
+    if (name.isNotEmpty) {
       spellings
           .putIfAbsent(key, () => <String, int>{})
-          .update(said, (v) => v + 1, ifAbsent: () => 1);
+          .update(name, (v) => v + 1, ifAbsent: () => 1);
     }
+  }
+
+  // Whose money paid for which entry, where the four of them clubbed
+  // together on one.
+  final split = <String, List<Contribution>>{};
+  for (final c in putIn) {
+    final id = c.txnId;
+    if (c.isDeleted || id == null) continue;
+    split.putIfAbsent(id, () => []).add(c);
   }
 
   for (final t in ledger) {
     if (t.isDeleted) continue;
     if (movedCashIn(t)) {
-      note(t, incoming: true);
-    } else if (movedCashOut(t)) {
-      note(t, incoming: false);
+      note(t.handledBy, t.amount, incoming: true);
+      continue;
     }
-  }
+    if (!movedCashOut(t)) continue;
 
+    // An entry carries one name as the payer, and three men can have paid
+    // for it. Where the farm has written down who found the money, that is
+    // who it comes out of — anything left over belongs to the one name on
+    // the entry, which is the farm's own cash going out through his hands.
+    var left = t.amount;
+    for (final c in split[t.id] ?? const <Contribution>[]) {
+      note(c.partnerName, c.amount, incoming: false);
+      left -= c.amount;
+    }
+    note(t.handledBy, left, incoming: false);
+  }
   for (final c in putIn) {
-    if (c.isDeleted || !c.wasHandedOver) continue;
-    final key = partyKey(c.receivedBy);
+    if (c.isDeleted) continue;
+
+    // Money handed to somebody lands in that pair of hands.
+    //
+    // Money spent straight on something the farm bought lands in the
+    // giver's own hands and goes out again on the purchase row, which
+    // carries his name as the payer. Without this half of it his account
+    // reads as though he had paid eighteen lakh of the farm's costs with
+    // the farm's money, when it was his own and is already his capital.
+    final who = c.wasHandedOver ? c.receivedBy : c.partnerName;
+    if (who.trim().isEmpty) continue;
+
+    final key = partyKey(who);
     received.update(key, (v) => v + c.amount, ifAbsent: () => c.amount);
     rows.update(key, (v) => v + 1, ifAbsent: () => 1);
     spellings
         .putIfAbsent(key, () => <String, int>{})
-        .update(c.receivedBy, (v) => v + 1, ifAbsent: () => 1);
+        .update(who, (v) => v + 1, ifAbsent: () => 1);
   }
 
   final out = [

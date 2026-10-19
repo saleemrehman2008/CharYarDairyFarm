@@ -423,6 +423,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           onEdit: () => _edit(txn),
           onGiveUp: () => _giveUp(txn),
           onSplit: () => showSplitSheet(context, txn),
+          paidBy: context.read<FarmStore>().paidForEntry(txn.id),
           // A settled period's figures are what four people were paid out
           // of, so nothing in one can be corrected.
           canEdit:
@@ -1350,6 +1351,7 @@ class _LedgerRow extends StatelessWidget {
     required this.onEdit,
     required this.onGiveUp,
     required this.onSplit,
+    required this.paidBy,
     required this.canEdit,
     this.showMark = false,
     this.reached = 0,
@@ -1368,6 +1370,9 @@ class _LedgerRow extends StatelessWidget {
 
   /// Writing down which co-founders found the money for it.
   final VoidCallback onSplit;
+
+  /// Whose money paid for it, read off the store by the screen above.
+  final List<Contribution> paidBy;
 
   /// False once this entry's period has been settled.
   final bool canEdit;
@@ -1613,6 +1618,7 @@ class _LedgerRow extends StatelessWidget {
             onEdit: onEdit,
             onGiveUp: onGiveUp,
             onSplit: onSplit,
+            paidBy: paidBy,
             canEdit: canEdit,
           ),
           borderRadius: T.round,
@@ -1698,6 +1704,14 @@ Future<void> showEntryDetail(
 
   /// Writing down which co-founders paid for it.
   required VoidCallback onSplit,
+
+  /// Whose money paid for it, worked out by the screen that opened this.
+  ///
+  /// Handed in rather than looked up. This sheet is built from the
+  /// navigator's own context, which sits above the provider the ledger was
+  /// pushed with — asking it for the farm's data threw, and a release build
+  /// draws a thrown widget as a plain grey box half a screen tall.
+  required List<Contribution> paidBy,
 
   /// False once the entry's period has been settled. The figures of a
   /// closed month were what four people were paid out of, so nothing in
@@ -1896,7 +1910,7 @@ Future<void> showEntryDetail(
             // together. In rupees, as they paid it.
             Builder(
               builder: (context) {
-                final split = context.watch<FarmStore>().paidForEntry(txn.id);
+                final split = paidBy;
                 if (split.isEmpty) return const SizedBox.shrink();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -297,15 +297,48 @@ class _PartnerCardState extends State<_PartnerCard> {
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                _Stat(label: 'Profit kept', value: rs(p.profitHeld)),
-                _Stat(label: 'Taken out', value: rs(p.withdrawn)),
-                _Stat(
-                  label: 'Farm owes him',
-                  value: rs(context.watch<FarmStore>().owedToFounder(p.id)),
-                ),
-              ],
+            // What this man has actually handled, read off the ledger —
+            // the same source the farm-wide card reads. The card used to
+            // show only what had been written down as owed to him, which
+            // was nothing, while the card above it said the farm owed him
+            // eighteen lakh. Two cards, one farm, two answers.
+            Builder(
+              builder: (context) {
+                final store = context.watch<FarmStore>();
+                final hands = store.handsOf(p.name);
+                final held = hands?.holding ?? 0;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _Stat(label: 'Profit kept', value: rs(p.profitHeld)),
+                        _Stat(label: 'Taken out', value: rs(p.withdrawn)),
+                        _Stat(
+                          label: held < 0 ? 'Out of pocket' : 'Cash on him',
+                          value: rs(held.abs()),
+                        ),
+                      ],
+                    ),
+                    if (hands != null) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        '${rs(hands.received)} taken in · '
+                        '${rs(hands.paid)} handed out',
+                        style: T.meta,
+                      ),
+                    ],
+                    if (store.owedToFounder(p.id) > 0) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '${rs(store.owedToFounder(p.id))} of it is written '
+                        'down as owed back to him.',
+                        style: T.meta.copyWith(color: T.moneyDue),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
 
             const SizedBox(height: 12),

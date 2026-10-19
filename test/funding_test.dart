@@ -159,13 +159,61 @@ void main() {
       expect(investedFrom(split, saleem.id), 500000);
     });
 
-    test('and nobody is holding a rupee of it', () {
-      // The money went from three pockets to the cattle market without
-      // passing through the farm's hands. A card saying one of them was
-      // holding seventeen lakh would be a card nobody could act on.
-      expect(cashInHands(const [], putIn: split), isEmpty);
+    test('and once the purchase is on the books nobody is left holding '
+        'it', () {
+      // The whole of it, both sides. Each man's own money goes in and out
+      // again on the same day, and the entry — which carries one name as
+      // the payer, though three men paid — comes out of the three who
+      // actually found it.
+      final cows = Txn(
+        id: 'cows',
+        date: DateTime(2026, 10, 8),
+        monthId: '2026-10',
+        type: TxnType.purchase,
+        party: 'Mandi',
+        category: 'Cattle purchase',
+        amount: 1700000,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: 'Jalbani',
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 8),
+      );
+
+      final hands = cashInHands([cows], putIn: split);
+      for (final h in hands) {
+        expect(
+          h.holding,
+          0,
+          reason: '${h.who} put his own money in and it went straight out',
+        );
+      }
     });
 
+    test('without the split it all lands on the one name on the entry', () {
+      // Which is what the farm was looking at: eighteen lakh against one
+      // man, because the entry can only carry one payer and nobody had
+      // written down who really found the money.
+      final cows = Txn(
+        id: 'cows',
+        date: DateTime(2026, 10, 8),
+        monthId: '2026-10',
+        type: TxnType.purchase,
+        party: 'Mandi',
+        category: 'Cattle purchase',
+        amount: 1700000,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: 'Jalbani',
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 8),
+      );
+      final hands = cashInHands([cows]);
+      expect(hands.single.who, 'Jalbani');
+      expect(hands.single.holding, -1700000);
+    });
     test('cash handed to whoever keeps it does land in his hands', () {
       final handed = [
         _c(partnerId: jalbani.id, amount: 200000, receivedBy: 'Rafeeq'),
