@@ -348,6 +348,10 @@ enum MilkShift {
 ///
 /// Named rather than typed out, because the books have to be able to tell it
 /// from an ordinary payment: it is the one payment that is not a cost.
+/// A wage. The one cost the farm pays every month with no invoice
+/// behind it — see the wage list, which is what stands under it instead.
+const salariesCategory = 'Salaries';
+
 const profitShareCategory = 'Profit share';
 
 /// What an animal that has left the farm is taken off the books at.

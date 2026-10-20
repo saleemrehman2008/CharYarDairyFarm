@@ -958,6 +958,7 @@ class Field extends StatelessWidget {
     this.onChanged,
     this.textCapitalization = TextCapitalization.sentences,
     this.focusNode,
+    this.shape,
   });
 
   final String label;
@@ -973,6 +974,15 @@ class Field extends StatelessWidget {
   /// keyboard — a suggestion list below it only belongs there while it does.
   final FocusNode? focusNode;
 
+  /// How what is typed is shaped as it is typed.
+  ///
+  /// For the two numbers this country writes a particular way: a CNIC takes
+  /// its dashes and a mobile number takes its own, while they are being
+  /// entered, so a wrong one is plain on the screen rather than discovered
+  /// on saving. Given one of these, the number keyboard's own filter steps
+  /// aside — the formatter does that job and more.
+  final List<TextInputFormatter>? shape;
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -987,9 +997,11 @@ class Field extends StatelessWidget {
         minLines: maxLines,
         onChanged: onChanged,
         textCapitalization: textCapitalization,
-        inputFormatters: keyboardType == TextInputType.number
-            ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-            : null,
+        inputFormatters:
+            shape ??
+            (keyboardType == TextInputType.number
+                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
+                : null),
         style: T.body,
         decoration: InputDecoration(
           hintText: hint,

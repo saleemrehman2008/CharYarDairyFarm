@@ -570,6 +570,43 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s a full month': 'Poore mahiny ka %s',
+  '%s has left?': '%s chor k chala gaya?',
+  '%s to %s': '%s se %s tak',
+  '%s wage · %s allowance': '%s tankhwah · %s allowance',
+  '%s man': '%s banda',
+  '%s men': '%s bandy',
+  'A month': 'Mahiny ka',
+  'Allowance (Rs)': 'Allowance (Rs)',
+  'CNIC': 'Shanakhti card',
+  'Every month in wages': 'Har mahiny tankhwahon me',
+  'He comes off the wage list from today. His record stays where it is — the months he was paid for are already closed, and a figure whose name has gone is worth nothing to anybody.':
+      'Aaj se wo tankhwah ki list se nikal jaega. Us ka record wahin rahega — jin mahinon ki us ne tankhwah li wo band ho chuky hain, aur jis figure ka naam hi gayab ho wo kisi kaam ka ni.',
+  'He has left': 'Chala gaya',
+  'He is back': 'Wapas aa gaya',
+  'Joined': 'Kab se',
+  'Mobile': 'Mobile number',
+  'No longer here': 'Ab yahan ni hain',
+  'Nobody on the wage list yet. Anybody the farm pays every month belongs here — the man who milks, the one who cleans, the one who walks the round.':
+      'Abhi tankhwah ki list me koi ni hy. Jis ko b farm har mahiny paisy deta hy wo yahan hona chahiye — doodh nikalny wala, safai karny wala, round per jany wala.',
+  'On the wage list': 'Tankhwah ki list per',
+  'Or keep %s you are holding': 'Ya jo %s ap k pass hy wohi rakh len',
+  'Pay %s from the farm account': 'Farm k account se %s de den',
+  'Pay it': 'De do',
+  'Put somebody on the wage list': 'Kisi ko tankhwah ki list per dalo',
+  'Since %s': '%s se',
+  'Take it out of the farm account?': 'Farm k account se nikal len?',
+  'The farm pays you %s out of its own account and stops owing it. That is where the farm\'s earnings sit, and it is what the account is for — nothing of anybody else\'s is touched.':
+      'Farm apne account se ap ko %s de dega aur us ka dena khatam. Farm ki kamai wahin rehti hy aur account isi liye hy — kisi aur ka kuch ni chhera jata.',
+  'The farm\'s own account has %s in it, which is what it is for.':
+      'Farm k apne account me %s mojood hain, aur account isi kaam k liye hy.',
+  'Wage a month (Rs)': 'Mahiny ki tankhwah (Rs)',
+  'Wages': 'Tankhwahain',
+  'What is he paid a month?': 'Us ki mahiny ki tankhwah kitni hy?',
+  'What they are owed a month, and the two numbers the farm needs to find them again. The salary entry then picks a name off this list and works the figure out from the record rather than from memory.':
+      'Kis ko mahiny ka kitna dena hy, aur wo do number jin se farm us ko dobara dhoond sake. Phir tankhwah ki entry isi list se naam uthati hy aur figure record se banati hy, yaad dasht se ni.',
+  'Who is this?': 'Ye kon hy?',
+  'Working here': 'Yahan kaam kar rahy hain',
   '%s is holding none of the farm\'s cash — he is %s out of his own pocket.':
       '%s k pass farm ka koi paisa ni hy — ulta us ki apni jeb se %s laga hoa hy.',
   'What came in through him has gone out again on the farm\'s costs. Anything he hands over now is his own money, and the farm will owe him that much more.':
@@ -1092,6 +1129,7 @@ const Map<String, String> romanUrdu = {
   'Save for %s?': '%s ke liye save karen?',
   'Confirm?': 'Pakka?',
   '%s out, %s into investment.': '%s bahar, %s investment me.',
+  'Saved': 'Save ho gaya',
   'Saved.': 'Save ho gaya.',
   'Could not save it. %s': 'Save nahi ho saka. %s',
   'You can change this until the master closes the period. After that it is final.':

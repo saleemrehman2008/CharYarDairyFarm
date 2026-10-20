@@ -56,6 +56,9 @@ class Db {
   static Col get txnPhotos => fs.collection('txn_photos');
 
   /// One document per rider per day: milk out, milk delivered, cash held.
+  /// The men the farm pays a wage to. Not users of the app.
+  static Col get employees => fs.collection('employees');
+
   static Col get riderDays => fs.collection('rider_days');
 
   /// The farm's own room. Only the people who run the farm are in it, and

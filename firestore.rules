@@ -184,6 +184,19 @@ service cloud.firestore {
     }
 
     // ---- Partners (capital and share ratios) ----
+    // The men the farm pays a wage to. Not users of the app and never
+    // deleted once a wage has been paid against them — a figure in a closed
+    // month whose name has gone is worth nothing to anybody.
+    match /employees/{id} {
+      allow read: if isPartner();
+      allow create, update: if isPartner()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.basic >= 0
+        && request.resource.data.allowance >= 0;
+      allow delete: if isMaster();
+    }
+
     match /partners/{id} {
       allow read: if isPartner();
 

@@ -15,6 +15,7 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/category_field.dart';
 import '../../widgets/party_field.dart';
 import '../../widgets/photo.dart';
+import '../../widgets/salary_picker.dart';
 import '../../widgets/ui.dart';
 
 /// One form for every kind of money that moves, opened in one of two
@@ -93,6 +94,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   }
 
   num get _amount => num.tryParse(_total.text.trim()) ?? 0;
+
+  /// Days off to come out of this month's wage.
+  ///
+  /// The one thing about a wage that changes month to month, and the one
+  /// thing the farm was working out on the back of a receipt every time.
+  int _daysOff = 0;
 
   /// Something the farm keeps. Off the list when it was picked off the list,
   /// and off what was said at the time when it was written out.
@@ -402,6 +409,32 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           // theirs to change: somebody who can spare more this month should
           // not have to work out what more means, and somebody who can spare
           // less should not have to skip the whole thing.
+          // A wage. The farm keeps a list of who it pays and what they are
+          // owed — see [WagesScreen] — so the name comes off that list and
+          // the figure is worked out from his record rather than from
+          // somebody's memory of what he is on.
+          if (_category == salariesCategory) ...[
+            const SizedBox(height: 10),
+            SalaryPicker(
+              chosen: _party.text.trim(),
+              daysOff: _daysOff,
+              onPicked: (who) {
+                setState(() {
+                  _party.text = who.name;
+                  _daysOff = 0;
+                  _total.text = '${who.payFor().round()}';
+                });
+                _fromTotal();
+              },
+              onDaysOff: (who, days) {
+                setState(() {
+                  _daysOff = days;
+                  _total.text = '${who.payFor(daysOff: days).round()}';
+                });
+                _fromTotal();
+              },
+            ),
+          ],
           if (_category == loanRepaidCategory) ...[
             const SizedBox(height: 8),
             Builder(

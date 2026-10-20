@@ -6,6 +6,7 @@ export 'cash_transfer.dart';
 export 'chat_msg.dart';
 export 'contribution.dart';
 export 'delivery.dart';
+export 'employee.dart';
 export 'farm_month.dart';
 export 'farm_order.dart';
 export 'farm_settings.dart';

@@ -34,6 +34,38 @@ class RefundCard extends StatefulWidget {
 class _RefundCardState extends State<RefundCard> {
   bool _busy = false;
 
+  Future<void> _fromFarm(FarmStore store, Partner me, num amount) async {
+    final l = L.read(context);
+    final ok = await confirm(
+      context,
+      title: l.t('Take it out of the farm account?'),
+      body: l.t2(
+        'The farm pays you %s out of its own account and stops owing it. '
+        'That is where the farm\'s earnings sit, and it is what the account '
+        'is for — nothing of anybody else\'s is touched.',
+        rs(amount),
+      ),
+      confirmLabel: l.t('Pay it'),
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ContributionRepo.repay(
+        context.read<Session>().actor,
+        partner: me,
+        lines: store.contributions,
+        amount: amount,
+        handledBy: farmAccountName,
+      );
+      if (mounted) toast(context, l.t2('%s taken back', rs(amount)));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _take(FarmStore store, Partner me, num amount) async {
     final l = L.read(context);
     final ok = await confirm(
@@ -78,11 +110,21 @@ class _RefundCardState extends State<RefundCard> {
 
     final owed = store.owedToFounder(me.id);
     final holding = store.handsOf(me.name)?.holding ?? 0;
-    if (owed <= 0 || holding <= 0) return const SizedBox.shrink();
+
+    // Two places it can come from, and the farm's account is the proper
+    // one. The farm's earnings go in there so that a month can be closed
+    // on them, and a man who has paid his promise in full is refunded what
+    // is over it out of there. Keeping cash he happens to be holding is
+    // the shortcut the four of them actually use between visits.
+    final inFarm = store.handsOf(farmAccountName)?.holding ?? 0;
+    if (owed <= 0 || (holding <= 0 && inFarm <= 0)) {
+      return const SizedBox.shrink();
+    }
 
     // Only as much as both sides allow. He cannot take out more than the
-    // farm owes him, and he cannot take out money he is not holding.
+    // farm owes him, and he cannot take out money that is not there.
     final can = owed < holding ? owed : holding;
+    final fromFarm = owed < inFarm ? owed : inFarm;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: T.gap),
@@ -107,12 +149,18 @@ class _RefundCardState extends State<RefundCard> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        l.t3(
-                          'You are holding %s of the farm\'s cash. Keep %s of '
-                          'it and the farm stops owing you.',
-                          rs(holding),
-                          rs(can),
-                        ),
+                        holding > 0
+                            ? l.t3(
+                                'You are holding %s of the farm\'s cash. Keep '
+                                '%s of it and the farm stops owing you.',
+                                rs(holding),
+                                rs(can),
+                              )
+                            : l.t2(
+                                'The farm\'s own account has %s in it, which '
+                                'is what it is for.',
+                                rs(inFarm),
+                              ),
                         style: T.meta,
                       ),
                     ],
@@ -121,17 +169,27 @@ class _RefundCardState extends State<RefundCard> {
               ],
             ),
             const SizedBox(height: 12),
+            if (fromFarm > 0) ...[
+              PrimaryButton(
+                label: l.t2('Pay %s from the farm account', rs(fromFarm)),
+                icon: Icons.account_balance_outlined,
+                busy: _busy,
+                onPressed: _busy ? null : () => _fromFarm(store, me, fromFarm),
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
-                Expanded(
-                  child: PrimaryButton(
-                    label: l.t2('Keep %s', rs(can)),
-                    icon: Icons.check,
-                    busy: _busy,
-                    onPressed: _busy ? null : () => _take(store, me, can),
+                if (can > 0) ...[
+                  Expanded(
+                    child: GhostButton(
+                      label: l.t2('Or keep %s you are holding', rs(can)),
+                      icon: Icons.check,
+                      onPressed: _busy ? null : () => _take(store, me, can),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 8),
+                ],
                 GhostButton(
                   label: l.t('Not now'),
                   onPressed: _busy
