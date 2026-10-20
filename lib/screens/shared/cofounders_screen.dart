@@ -353,6 +353,39 @@ class _PartnerCardState extends State<_PartnerCard> {
                             : () => _countOutOfPocket(held.abs()),
                       ),
                     ],
+                    // Farm money he has taken in and not passed on. It
+                    // stands on its own: none of it is his, and none of it
+                    // is settled by his having spent money of his own.
+                    if (store.owedToFarmBy(p.name) > 0) ...[
+                      const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: T.moneyOut.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(T.radiusXs),
+                          border: Border.all(
+                            color: T.moneyOut.withValues(alpha: 0.28),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'To pay into the farm account',
+                                style: T.meta.copyWith(color: T.moneyOut),
+                              ),
+                            ),
+                            Text(
+                              rs(store.owedToFarmBy(p.name)),
+                              style: T.bodyMid.copyWith(color: T.moneyOut),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (store.owedToFounder(p.id) > 0) ...[
                       const SizedBox(height: 3),
                       Text(

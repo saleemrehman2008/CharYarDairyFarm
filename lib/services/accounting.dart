@@ -537,6 +537,57 @@ class AccountLine {
 /// other half of that — an entry carries one name as the payer and three men
 /// can have paid for it, so where the farm has written down who found the
 /// money, that is who it comes out of.
+/// Farm money in a man's hands that belongs in the farm's own account.
+///
+/// The rule the farm settled on, in its own words: whatever of the farm's
+/// money a co-founder takes in, under whatever heading, is not knocked off
+/// anything — it stands on its own as "he has this much to pay into the
+/// farm". Milk money, a khaata receipt, cash another of them handed him: it
+/// is all the farm's, none of it is his, and none of it is settled by his
+/// having spent money of his own somewhere else.
+///
+/// That is what makes a month closeable. The farm's earnings have to reach
+/// the farm's account or there is nothing to close the month on, and netting
+/// a collection against a man's own spending is exactly how they stop
+/// arriving: the money never moves, the two figures cancel, and the account
+/// stays empty while everybody says they are square.
+///
+/// What he spent of his own is a separate matter with a separate answer —
+/// see [splitByPledge]. The two never touch.
+num toPayIntoFarm(List<Txn> ledger, {required String who}) {
+  final key = partyKey(who);
+  var owed = 0 as num;
+
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+
+    // Farm money reaching him: takings at the gate, and cash another of
+    // them has passed to him.
+    if (movedCashIn(t) && partyKey(t.handledBy) == key) {
+      owed += t.amount;
+      continue;
+    }
+
+    // Money he has passed on — into the farm's account, or to whoever is
+    // holding the cash this week. Either way it is no longer his to deposit.
+    if (t.isHandoverOut && partyKey(t.handledBy) == key) {
+      owed -= t.amount;
+    }
+  }
+
+  return owed < 0 ? 0 : owed;
+}
+
+/// The same, for everybody who has handled a rupee of it.
+Map<String, num> toPayIntoFarmByName(
+  List<Txn> ledger, {
+  required List<String> names,
+}) => {
+  for (final who in names)
+    if (partyKey(who) != partyKey(farmAccountName))
+      who: toPayIntoFarm(ledger, who: who),
+};
+
 /// Wage money a man has already taken against a month, still to come off it.
 ///
 /// He asks for five thousand on the 12th and says take it off my salary. The

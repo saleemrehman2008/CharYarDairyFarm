@@ -96,8 +96,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
   num get _amount => num.tryParse(_total.text.trim()) ?? 0;
 
-  DateTime get _payStart => DateTime(_when.year, _when.month, 1);
-  DateTime get _payEnd => DateTime(_when.year, _when.month + 1, 0);
+  /// The month a wage belongs to, kept apart from the day it goes out.
+  ///
+  /// October's wage is October's whether it is handed over on the 31st, on
+  /// the 1st, or — when the farm is busy — on the 5th of November. Null
+  /// until somebody moves it, when it follows the guess below.
+  DateTime? _payMonth;
+
+  /// Paying in the first days of a month almost always means the month just
+  /// gone. Almost always is not always, so the card lets it be moved.
+  DateTime get _wageMonth =>
+      _payMonth ??
+      (_when.day <= 10
+          ? DateTime(_when.year, _when.month - 1, 1)
+          : DateTime(_when.year, _when.month, 1));
+
+  DateTime get _payStart => DateTime(_wageMonth.year, _wageMonth.month, 1);
+  DateTime get _payEnd => DateTime(_wageMonth.year, _wageMonth.month + 1, 0);
 
   num _drawnBy(Employee who) => advanceTaken(
     context.read<FarmStore>().ledger,
@@ -449,6 +464,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               chosen: _party.text.trim(),
               daysOff: 0,
               payingFor: _when,
+              onMonth: (_) {},
               advance: true,
               drawnAlready: (who) => advanceTaken(
                 context.read<FarmStore>().ledger,
@@ -465,7 +481,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             SalaryPicker(
               chosen: _party.text.trim(),
               daysOff: _daysOff,
-              payingFor: _when,
+              payingFor: _wageMonth,
+              onMonth: (m) => setState(() => _payMonth = m),
               drawnAlready: _drawnBy,
               alreadyPaid: _wageDone,
               onPicked: (who, daysOn) {

@@ -571,6 +571,8 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s of it to pay into the farm account':
+      'Is me se %s farm k account me jama karny hain',
   '%s a full month': 'Poore mahiny ka %s',
   '%s has left?': '%s chor k chala gaya?',
   '%s to %s': '%s se %s tak',

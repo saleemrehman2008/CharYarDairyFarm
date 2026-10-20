@@ -972,4 +972,180 @@ void main() {
       );
     });
   });
+
+  group('what a man has to pay into the farm', () {
+    /// The rule the farm settled on, in its own words: whatever of the
+    /// farm's money a co-founder takes in, under whatever heading, is not
+    /// knocked off anything. It stands on its own as "he has this much to
+    /// pay into the farm".
+    ///
+    /// That is what makes a month closeable. The earnings have to reach the
+    /// farm's account or there is nothing to close the month on, and netting
+    /// a collection against a man's own spending is exactly how they stop
+    /// arriving: nothing moves, the two figures cancel, and the account
+    /// stays empty while everybody says they are square.
+
+    Txn took(num amount, String by, {int day = 12}) => Txn(
+      id: 'i${_n++}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.receipt,
+      party: 'Urooj Dairy Shop',
+      category: khaataReceiptCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    Txn paid(num amount, String by, {int day = 13}) => Txn(
+      id: 'o${_n++}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.expense,
+      party: 'Ghas Wala',
+      category: 'Feed',
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    Txn handedOn(num amount, String from, String to, {int day = 19}) => Txn(
+      id: 'h${_n++}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.payment,
+      party: to,
+      category: handoverOutCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: from,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    test('what he collects is what he has to pay in', () {
+      expect(
+        toPayIntoFarm([took(8600, 'Ghulam Ali')], who: 'Ghulam Ali'),
+        8600,
+      );
+    });
+
+    test('and spending his own money does not reduce it by a rupee', () {
+      // This is the whole rule. He paid 9,75,390 of the farm's costs out of
+      // his own pocket; the 8,600 of farm money in his hand is still the
+      // farm's 8,600 and still has to be paid in.
+      final led = [took(8600, 'Ghulam Ali'), paid(975390, 'Ghulam Ali')];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 8600);
+    });
+
+    test('paying it into the farm account clears it', () {
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        handedOn(8600, 'Ghulam Ali', farmAccountName),
+      ];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 0);
+    });
+
+    test('part of it paid in leaves the rest', () {
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        handedOn(3600, 'Ghulam Ali', farmAccountName),
+      ];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 5000);
+    });
+
+    test('handing it to whoever keeps the cash clears it too', () {
+      // It is no longer his to pay in — it is Rafeeq's.
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        handedOn(8600, 'Ghulam Ali', 'Rafeeq'),
+      ];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 0);
+    });
+
+    test('and lands on the man who took it', () {
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        handedOn(8600, 'Ghulam Ali', 'Rafeeq'),
+        Txn(
+          id: 'hin',
+          date: DateTime(2026, 10, 19),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Ghulam Ali',
+          category: handoverInCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Rafeeq',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 19),
+        ),
+      ];
+      expect(toPayIntoFarm(led, who: 'Rafeeq'), 8600);
+    });
+
+    test('nothing collected is nothing to pay in', () {
+      expect(toPayIntoFarm([paid(2700, 'Saleem')], who: 'Saleem'), 0);
+    });
+
+    test('never a negative, however much he has handed on', () {
+      // A man can hand over more than he collected — the rest was his own
+      // money. That is not the farm owing him here; it is nothing to pay in.
+      final led = [
+        took(1000, 'Ghulam Ali'),
+        handedOn(8600, 'Ghulam Ali', farmAccountName),
+      ];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 0);
+    });
+
+    test('a deleted collection is not owed', () {
+      final led = [
+        Txn(
+          id: 'gone',
+          date: DateTime(2026, 10, 12),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Urooj Dairy Shop',
+          category: khaataReceiptCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Ghulam Ali',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 12),
+          deletedAt: DateTime(2026, 10, 13),
+        ),
+      ];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 0);
+    });
+
+    test('another man\'s takings are not his', () {
+      final led = [took(8600, 'Ghulam Ali')];
+      expect(toPayIntoFarm(led, who: 'Rafeeq'), 0);
+    });
+
+    test('it is a separate question from what the farm owes him', () {
+      // Both can be true at once, and the farm wanted to see both. He has
+      // 8,600 of theirs to pay in; they have 9,66,790 of his to give back.
+      final led = [took(8600, 'Ghulam Ali'), paid(975390, 'Ghulam Ali')];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 8600);
+      expect(
+        cashInHands(led).firstWhere((h) => h.who == 'Ghulam Ali').holding,
+        -966790,
+      );
+    });
+  });
 }

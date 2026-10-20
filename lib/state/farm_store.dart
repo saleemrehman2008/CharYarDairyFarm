@@ -642,6 +642,13 @@ class FarmStore extends ChangeNotifier implements RoundData {
     moving: _transfers,
   );
 
+  /// Farm money in a man's hands that belongs in the farm's own account.
+  ///
+  /// Not netted against anything he has spent of his own: the farm's rule
+  /// is that whatever of its money he takes in stands on its own as money
+  /// to be paid in. See [toPayIntoFarm].
+  num owedToFarmBy(String name) => toPayIntoFarm(_ledger, who: name);
+
   /// Which handover an entry went out on, if any.
   CashTransfer? handoverFor(String txnId) => handoverOf(_transfers, txnId);
 

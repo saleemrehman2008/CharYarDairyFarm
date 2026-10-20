@@ -242,6 +242,7 @@ class _HandRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final tone = hand.outOfPocket ? T.moneyDue : T.moneyIn;
+    final owedIn = context.watch<FarmStore>().owedToFarmBy(hand.who);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,6 +271,26 @@ class _HandRow extends StatelessWidget {
             ),
           ],
         ),
+        // What he has taken in of the farm's money and not passed on. Shown
+        // on its own, never knocked off what he has spent of his own: the
+        // farm's earnings have to reach its account or there is nothing to
+        // close a month on, and netting the two is how they stop arriving.
+        if (owedIn > 0) ...[
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Icon(Icons.account_balance_outlined, size: 13, color: T.moneyOut),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  l.t2('%s of it to pay into the farm account', rs(owedIn)),
+                  style: T.meta.copyWith(color: T.moneyOut),
+                ),
+              ),
+            ],
+          ),
+        ],
+
         // Farm money sitting in a man's pocket. It is the farm's until the
         // month closes and the profit is shared, so it belongs in the farm
         // account — the thousand rupees Rafeeq collected from Urooj is the

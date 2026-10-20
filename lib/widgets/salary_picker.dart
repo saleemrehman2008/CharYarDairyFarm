@@ -26,6 +26,7 @@ class SalaryPicker extends StatelessWidget {
     required this.chosen,
     required this.daysOff,
     required this.payingFor,
+    required this.onMonth,
     required this.onPicked,
     required this.onDaysOff,
     this.advance = false,
@@ -45,12 +46,18 @@ class SalaryPicker extends StatelessWidget {
   final String chosen;
   final int daysOff;
 
-  /// The month being paid, taken from the entry's own date.
+  /// The month whose wage this is, which is not the day it is handed over.
   ///
-  /// A wage paid on the 2nd of November is November's wage as far as the
-  /// entry goes, and the farm pays on the day it pays — so the month this
-  /// counts against is simply the month the entry is dated in.
+  /// October's wage gets paid on the 31st, or on the 1st, or — when the farm
+  /// is busy — on the 5th of November. All three are October's wage: the
+  /// days he worked are October's days and the advance he drew on the 15th
+  /// is October's advance. Guessed from the entry's date, because paying in
+  /// the first days of a month almost always means the month just gone, and
+  /// then changeable, because almost always is not always.
   final DateTime payingFor;
+
+  /// Moving it to another month.
+  final void Function(DateTime month) onMonth;
 
   final void Function(Employee who, int daysOn) onPicked;
   final void Function(Employee who, int daysOn, int days) onDaysOff;
@@ -120,6 +127,46 @@ class SalaryPicker extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (!advance) ...[
+                Row(
+                  children: [
+                    Expanded(child: Kicker('Whose month')),
+                    _Arrow(
+                      icon: Icons.chevron_left,
+                      onTap: () => onMonth(
+                        DateTime(payingFor.year, payingFor.month - 1, 1),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    SizedBox(
+                      width: 112,
+                      child: Text(
+                        monthName(
+                          '${payingFor.year}-'
+                          '${payingFor.month.toString().padLeft(2, '0')}',
+                        ),
+                        style: T.bodyMid,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    _Arrow(
+                      icon: Icons.chevron_right,
+                      onTap: () => onMonth(
+                        DateTime(payingFor.year, payingFor.month + 1, 1),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'The month he worked, not the day he is handed it. '
+                  'October\'s wage is October\'s whether it goes out on the '
+                  '31st, the 1st or the 5th of November.',
+                  style: T.meta,
+                ),
+                const SizedBox(height: 11),
+              ],
               Kicker(
                 advance ? 'Who is being advanced it' : 'Who is being paid',
               ),
@@ -316,6 +363,29 @@ class SalaryPicker extends StatelessWidget {
       },
     );
   }
+}
+
+class _Arrow extends StatelessWidget {
+  const _Arrow({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(T.radiusXs),
+    child: Container(
+      width: 34,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(T.radiusXs),
+        border: Border.all(color: T.divider),
+      ),
+      child: Icon(icon, size: 18, color: T.n900),
+    ),
+  );
 }
 
 class _Who extends StatelessWidget {
