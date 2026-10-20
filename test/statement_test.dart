@@ -339,6 +339,182 @@ void _everything() {
       expect(just.debits, 210000);
     });
   });
+
+  group('a statement foot has to balance on its own page', () {
+    /// The farm read the bottom of its own cash book and could not make the
+    /// three figures agree: 17,200 of credit, 18,70,890 of debit, and a
+    /// closing of nothing. It was right that they do not agree. The figure
+    /// that reconciles them is the capital the co-founders put in, and that
+    /// was printed in the header four screens above.
+    ///
+    /// A statement whose foot does not add up is the one thing a statement
+    /// must not be, whatever is true further up the page.
+
+    Txn row({
+      required TxnType type,
+      required String category,
+      required num amount,
+      String party = 'Urooj Dairy Shop',
+      String handledBy = 'Ghulam Ali',
+      int day = 12,
+    }) => Txn(
+      id: 'sb${_n++}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: type,
+      party: party,
+      category: category,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: handledBy,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    test('opening plus credits less debits is the closing, always', () {
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        ),
+        row(
+          type: TxnType.expense,
+          category: 'Feed',
+          party: 'Ghas Wala',
+          amount: 1862290,
+          day: 13,
+        ),
+      ];
+
+      final s = buildStatement(rows: led, capital: 1853690);
+      expect(s.opening, 1853690);
+      expect(s.credits, 8600);
+      expect(s.debits, 1862290);
+      expect(s.opening + s.credits - s.debits, s.closing);
+      expect(s.closing, 0);
+    });
+
+    test('and the opening is the capital, which is what makes it zero', () {
+      // His own figures. Without the opening on the page the foot reads as
+      // eight thousand in and eighteen lakh out, closing at nothing.
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        ),
+        row(
+          type: TxnType.expense,
+          category: 'Feed',
+          party: 'Ghas Wala',
+          amount: 1862290,
+          day: 13,
+        ),
+      ];
+      final s = buildStatement(rows: led, capital: 1853690);
+      expect(s.opening, isNot(0), reason: 'so the foot has to print it');
+    });
+
+    test('money changing hands never reaches the cash book', () {
+      // Both halves counted put the same 8,600 into the credits and the
+      // debits, so a page showing 8,600 of takings totalled 17,200.
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        ),
+        row(
+          type: TxnType.payment,
+          category: handoverOutCategory,
+          party: farmAccountName,
+          amount: 8600,
+          day: 19,
+        ),
+        row(
+          type: TxnType.receipt,
+          category: handoverInCategory,
+          party: 'Ghulam Ali',
+          handledBy: farmAccountName,
+          amount: 8600,
+          day: 19,
+        ),
+      ];
+
+      final s = buildStatement(rows: led);
+      expect(s.credits, 8600, reason: 'the takings, and not the shuffle');
+      expect(s.debits, 0);
+      expect(s.lines, hasLength(1));
+    });
+
+    test(
+      'and leaving it out changes no balance, because it netted to zero',
+      () {
+        final takings = row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        );
+        final withShuffle = buildStatement(
+          rows: [
+            takings,
+            row(
+              type: TxnType.payment,
+              category: handoverOutCategory,
+              party: farmAccountName,
+              amount: 8600,
+              day: 19,
+            ),
+            row(
+              type: TxnType.receipt,
+              category: handoverInCategory,
+              party: 'Ghulam Ali',
+              handledBy: farmAccountName,
+              amount: 8600,
+              day: 19,
+            ),
+          ],
+        );
+        final without = buildStatement(rows: [takings]);
+        expect(withShuffle.closing, without.closing);
+      },
+    );
+
+    test("but one man's own page keeps every line of his", () {
+      // What he handed over is the whole of what his account is about.
+      final led = [
+        row(
+          type: TxnType.payment,
+          category: handoverOutCategory,
+          party: farmAccountName,
+          amount: 8600,
+          day: 19,
+        ),
+      ];
+      final his = buildStatement(rows: led, party: farmAccountName);
+      expect(his.lines, hasLength(1));
+    });
+
+    test('a page narrowed to one kind opens at nothing and still balances', () {
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        ),
+      ];
+      final s = buildStatement(
+        rows: led,
+        capital: 1853690,
+        types: {TxnType.receipt},
+      );
+      expect(s.opening, 0, reason: 'part of the account is hidden');
+      expect(s.opening + s.credits - s.debits, s.closing);
+    });
+  });
 }
 
 /// The page narrowed to one kind of entry, or one heading.

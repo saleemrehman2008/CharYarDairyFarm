@@ -607,15 +607,25 @@ class StatementSheet extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
                 child: Column(
                   children: [
-                    _footLine(
-                      label: l.t('Total debit'),
-                      value: rs(statement.debits),
-                      tone: T.moneyOut,
-                    ),
+                    if (statement.opening != 0)
+                      _footLine(
+                        label: l.t(
+                          statement.kind == StatementKind.cashBook
+                              ? 'Put in by the co-founders'
+                              : 'Brought forward',
+                        ),
+                        value: rs(statement.opening),
+                        tone: T.accent800,
+                      ),
                     _footLine(
                       label: l.t('Total credit'),
                       value: rs(statement.credits),
                       tone: T.moneyIn,
+                    ),
+                    _footLine(
+                      label: l.t('Total debit'),
+                      value: rs(statement.debits),
+                      tone: T.moneyOut,
                     ),
                     Divider(height: 14, color: T.accent300),
                     // Which way round the debt runs, said in words rather

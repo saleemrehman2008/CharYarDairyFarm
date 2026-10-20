@@ -261,7 +261,16 @@ Statement buildStatement({
       rows
           .where((t) => !t.isDeleted)
           .where((t) => !forOneParty || partyKey(t.party) == key)
-          .where((t) => forOneParty || narrowed || _movedCash(t))
+          // The cash book is about the farm's own box. Money changing
+          // hands between two of them never reaches it — the farm has
+          // exactly as much before and after — and counting both halves
+          // put the same 8,600 into the credits and the debits, so a page
+          // showing 8,600 of takings read 17,200. One man's own page is a
+          // different question and keeps them: what he handed over is the
+          // whole of what his account is about.
+          .where(
+            (t) => forOneParty || narrowed || (_movedCash(t) && !t.isHandover),
+          )
           // One person's own page has always carried everything of theirs.
           .where((t) => kinds == null || kinds.contains(t.type))
           .where((t) => cat == null || partyKey(t.category) == cat)
