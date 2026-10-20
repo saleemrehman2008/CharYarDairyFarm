@@ -5,6 +5,7 @@ rules_version = '2';
 // Roles live on users/{uid}.role:
 //   master    — everything
 //   investor  — co-founder: the books, approvals, the round
+//   silent    — silent investor: reads the books, writes nothing at all
 //   staff     — delivery: the round, orders to drop off, money collected
 //   customer  — the shop, their own orders, their own khaata
 //
@@ -32,9 +33,25 @@ service cloud.firestore {
     }
 
     // The partners run the farm side. A co-founder must be approved.
+    //
+    // This is the write test. Everything that changes a figure asks this
+    // one, and a silent investor fails it — which is the whole of what
+    // makes him silent. Taking the buttons off his screen is a courtesy;
+    // this is the guarantee.
     function isPartner() {
       return isMaster() ||
         (hasProfile() && me().role == 'investor' && me().status == 'active');
+    }
+
+    // And this is the read test: everybody whose money is in the farm.
+    //
+    // A silent investor has put capital in and takes his share like the
+    // rest of them. The books are open to the people whose money is in
+    // them — he can see every rupee and move none of it, which is also
+    // why he can never be suspected of having moved one.
+    function canSee() {
+      return isPartner() ||
+        (hasProfile() && me().role == 'silent' && me().status == 'active');
     }
 
     // Which partner record belongs to the person asking. Written onto the
@@ -63,6 +80,13 @@ service cloud.firestore {
 
     function onTheRound() {
       return isPartner() || isDelivery();
+    }
+
+    // The same list, for reading only. A silent investor watches the round
+    // like everything else: the orders, the deliveries, the day's takings.
+    // He is not on it and never writes a line of it.
+    function canSeeRound() {
+      return canSee() || isDelivery();
     }
 
     // Customers must be approved before they can order.
@@ -188,7 +212,7 @@ service cloud.firestore {
     // deleted once a wage has been paid against them — a figure in a closed
     // month whose name has gone is worth nothing to anybody.
     match /employees/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
       allow create, update: if isPartner()
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -198,7 +222,7 @@ service cloud.firestore {
     }
 
     match /partners/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
 
       // A co-founder may open their own record, but only an empty one — every
       // rupee of capital is still the master's to enter.
@@ -218,10 +242,10 @@ service cloud.firestore {
       // whole test — a record with somebody else's email, or one already
       // claimed, cannot be taken.
       allow update: if isMaster()
-        || (isPartner()
+        || (canSee()
             && resource.data.userId == request.auth.uid
             && changedKeys().hasOnly(['name', 'email']))
-        || (isPartner()
+        || (canSee()
             && resource.data.get('userId', '') == ''
             && resource.data.get('email', '') == me().email
             && request.resource.data.userId == request.auth.uid
@@ -241,7 +265,7 @@ service cloud.firestore {
     // read them — the whole purpose of keeping them is that none of these
     // four has to take any other's word for what he has put in.
     match /contributions/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
       allow create, update: if isMaster();
       // Taken out by marking it deleted, the same as a ledger entry, so
       // the line survives in the Sheet instead of vanishing from both.
@@ -260,7 +284,7 @@ service cloud.firestore {
     // move the money, the names, or who sent it. Who may answer is enforced
     // by the app, and every answer carries the name of whoever gave it.
     match /transfers/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
       allow create: if isPartner()
         && request.resource.data.state == 'waiting'
         && request.resource.data.amount > 0;
@@ -293,7 +317,7 @@ service cloud.firestore {
     // said, and a record that only keeps the answers somebody liked is not a
     // record.
     match /founder_loans/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
 
       allow create: if isMaster()
         || (isPartner()
@@ -320,7 +344,7 @@ service cloud.firestore {
     // A line is also stamped with who wrote it by the server's reckoning of
     // who is signed in, so nobody can post under another founder's name.
     match /chat/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
 
       allow create: if isPartner()
         && request.resource.data.byUid == request.auth.uid
@@ -344,7 +368,8 @@ service cloud.firestore {
     // spent, so it belongs to the four of them and nobody else. Staff on the
     // round and customers cannot see it at all.
     match /animals/{id} {
-      allow read, write: if isPartner();
+      allow read: if canSee();
+      allow write: if isPartner();
     }
 
     // Full-size animal pictures, kept here rather than in Firebase Storage —
@@ -353,14 +378,17 @@ service cloud.firestore {
     // Receipts on ledger entries — a bank slip, a chit from the mandi.
     // Kept apart from the entry so a page of the ledger never carries them.
     match /txn_photos/{id} {
-      allow read, write: if isPartner();
+      allow read: if canSee();
+      allow write: if isPartner();
     }
     match /animal_photos/{id} {
-      allow read, write: if isPartner();
+      allow read: if canSee();
+      allow write: if isPartner();
     }
 
     match /animal_events/{id} {
-      allow read, create: if isPartner();
+      allow read: if canSee();
+      allow create: if isPartner();
       allow update: if isPartner();
       // History is not rewritten; a mistake is corrected with another line.
       allow delete: if isMaster();
@@ -370,7 +398,7 @@ service cloud.firestore {
     // Entries are never hard-deleted; the master sets deletedAt instead, so the
     // row survives in the Google Sheet marked deleted.
     match /transactions/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
 
       // Delivery staff may write the money they took in — a sale at the door
       // or a receipt against a khaata — and nothing else. They cannot read the
@@ -424,7 +452,7 @@ service cloud.firestore {
     // A customer raises their own order and cannot touch it afterwards; only
     // staff approve it and move it along.
     match /orders/{id} {
-      allow read: if onTheRound()
+      allow read: if canSeeRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
 
       allow create: if isPartner()
@@ -467,7 +495,7 @@ service cloud.firestore {
     // The customer registers; staff set the limit, approve, and move the
     // balance. A customer can never approve themselves.
     match /udhaar_accounts/{uid} {
-      allow read: if onTheRound() || (signedIn() && request.auth.uid == uid);
+      allow read: if canSeeRound() || (signedIn() && request.auth.uid == uid);
 
       allow create: if isPartner()
         || (signedIn() && request.auth.uid == uid
@@ -494,7 +522,7 @@ service cloud.firestore {
     // left the van, so the button is gone from their app and refused here.
     // The master can still correct a mistake — somebody has to be able to.
     match /deliveries/{id} {
-      allow read: if onTheRound()
+      allow read: if canSeeRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
 
       allow create: if isDelivery() || isMaster();
@@ -508,7 +536,7 @@ service cloud.firestore {
     // A rider's day: what milk went out with him, what came back, and the
     // cash he is holding until a founder takes it in.
     match /rider_days/{id} {
-      allow read: if onTheRound();
+      allow read: if canSeeRound();
 
       // His own day, and only his own.
       allow create: if isDelivery()
@@ -534,7 +562,7 @@ service cloud.firestore {
     // Only the farm raises a bill or records a payment. A customer can read
     // their own, and nothing more.
     match /bills/{id} {
-      allow read: if onTheRound()
+      allow read: if canSeeRound()
         || (signedIn() && resource.data.customerId == request.auth.uid);
       // A partner raises a bill. The delivery man raises one too, but only the
       // month-end bill his own last delivery of the month triggers — and never
@@ -561,7 +589,7 @@ service cloud.firestore {
     // a co-founder's write touches nothing but their own key. The database
     // enforces it, not the app.
     match /months/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
       allow create, delete: if isMaster();
 
       allow update: if isMaster()
@@ -597,7 +625,7 @@ service cloud.firestore {
     // person's word. Nobody, the master included, can change or remove a
     // line once it is written.
     match /logs/{id} {
-      allow read: if isPartner();
+      allow read: if canSee();
       allow create: if signedIn();
       allow update, delete: if false;
     }

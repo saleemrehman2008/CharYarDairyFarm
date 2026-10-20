@@ -221,10 +221,12 @@ class _Account extends StatelessWidget {
         ],
 
         const SizedBox(height: T.gap),
-        GhostButton(
-          label: l.t('Hand cash to somebody'),
-          icon: Icons.swap_horiz,
-          onPressed: () => showHandover(context),
+        IfCanWrite(
+          child: GhostButton(
+            label: l.t('Hand cash to somebody'),
+            icon: Icons.swap_horiz,
+            onPressed: () => showHandover(context),
+          ),
         ),
 
         const SizedBox(height: 18),

@@ -82,6 +82,18 @@ class Session extends ChangeNotifier {
   Skin get skin => _user?.skin ?? Skin.dark;
 
   Role get role => _user?.role ?? Role.customer;
+
+  /// Whether this person may change anything at all.
+  ///
+  /// True for a silent investor, who reads the whole farm and writes none
+  /// of it. Every door that changes a figure asks this and closes itself —
+  /// but the answer that counts is in firestore.rules, where he fails
+  /// isPartner() on every write there is. A button hidden is a courtesy; a
+  /// rule is a guarantee.
+  bool get readOnly => role.readOnly;
+
+  /// And the plain opposite, which reads better at a call site.
+  bool get canWrite => !readOnly;
   Actor get actor => Actor(
     uid: _fbUser?.uid ?? '',
     name: _user?.name ?? _fbUser?.displayName ?? 'Someone',

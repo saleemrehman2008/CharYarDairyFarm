@@ -264,27 +264,34 @@ class _AccountsScreenState extends State<AccountsScreen> {
               const SizedBox(height: 12),
             ],
 
-            // The same two doors as on Home, in the same two colours.
-            Row(
-              children: [
-                Expanded(
-                  child: _EntryButton(
-                    flow: MoneyFlow.incoming,
-                    label: l.t('Money in'),
-                    store: store,
+            // The same two doors as on Home, in the same two colours —
+            // and not there at all for somebody who only looks.
+            IfCanWrite(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _EntryButton(
+                          flow: MoneyFlow.incoming,
+                          label: l.t('Money in'),
+                          store: store,
+                        ),
+                      ),
+                      const SizedBox(width: T.gap),
+                      Expanded(
+                        child: _EntryButton(
+                          flow: MoneyFlow.outgoing,
+                          label: l.t('Money out'),
+                          store: store,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: T.gap),
-                Expanded(
-                  child: _EntryButton(
-                    flow: MoneyFlow.outgoing,
-                    label: l.t('Money out'),
-                    store: store,
-                  ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
 
             if (loading && everything.isEmpty)
               EmptyNote(l.t('Loading…'))
@@ -556,7 +563,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// One customer's money cannot be spread across another customer's entries,
   /// and a list of everybody at once would invite exactly that. Pick Kashif
   /// and the tick boxes appear on what Kashif still owes.
-  bool get _canTick => _party != null;
+  /// Ticking a stack of entries settles money, which a silent investor
+  /// never does. He reads the same page with the bar taken off it.
+  bool get _canTick => _party != null && context.read<Session>().canWrite;
 
   /// The two tabs that are about what is still owed rather than what was
   /// booked.
@@ -1788,6 +1797,11 @@ Future<void> showEntryDetail(
   required bool canEdit,
 }) {
   final l = L.read(context);
+
+  // A silent investor opens the same entry and reads every word of it.
+  // Correcting it, settling it, splitting it, giving up on it: none of
+  // those are his, so the sheet simply ends where the facts end.
+  final canAct = context.read<Session>().canWrite;
   final kind = entryKindOf(
     type: txn.type,
     category: txn.category,
@@ -2121,114 +2135,119 @@ Future<void> showEntryDetail(
                 ),
             ],
 
-            const SizedBox(height: T.pad),
+            if (!canAct) const SizedBox(height: 4),
+            if (canAct) ...[
+              const SizedBox(height: T.pad),
 
-            // Correcting it, and the reason when it cannot be.
-            if (!canEdit)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text(
-                  l.t2(
-                    'This entry belongs to %s, which is already settled. '
-                    'Nothing in a settled period can be corrected — the '
-                    'profit was worked out from it and shared. Put the '
-                    'correction in the open period as a new entry.',
-                    monthName(txn.monthId),
+              // Correcting it, and the reason when it cannot be.
+              if (!canEdit)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    l.t2(
+                      'This entry belongs to %s, which is already settled. '
+                      'Nothing in a settled period can be corrected — the '
+                      'profit was worked out from it and shared. Put the '
+                      'correction in the open period as a new entry.',
+                      monthName(txn.monthId),
+                    ),
+                    style: T.meta.copyWith(color: T.moneyDue),
                   ),
-                  style: T.meta.copyWith(color: T.moneyDue),
                 ),
+              Row(
+                children: [
+                  if (canEdit)
+                    Expanded(
+                      child: GhostButton(
+                        label: l.t('Edit'),
+                        icon: Icons.edit_outlined,
+                        onPressed: () {
+                          Navigator.pop(sheet);
+                          onEdit();
+                        },
+                      ),
+                    ),
+                  if (canEdit && !txn.paid && !txn.type.isSettlement)
+                    const SizedBox(width: 8),
+                  if (!txn.paid && !txn.type.isSettlement)
+                    Expanded(
+                      child: GhostButton(
+                        label: l.t('Mark paid'),
+                        icon: Icons.check,
+                        onPressed: () {
+                          Navigator.pop(sheet);
+                          onMarkPaid();
+                        },
+                      ),
+                    ),
+                  if (!txn.paid && !txn.type.isSettlement && isMaster)
+                    const SizedBox(width: 8),
+                  if (isMaster)
+                    Expanded(
+                      child: GhostButton(
+                        label: l.t('Delete'),
+                        icon: Icons.delete_outline,
+                        danger: true,
+                        onPressed: () {
+                          Navigator.pop(sheet);
+                          onDelete();
+                        },
+                      ),
+                    ),
+                ],
               ),
-            Row(
-              children: [
-                if (canEdit)
-                  Expanded(
-                    child: GhostButton(
-                      label: l.t('Edit'),
-                      icon: Icons.edit_outlined,
-                      onPressed: () {
-                        Navigator.pop(sheet);
-                        onEdit();
-                      },
-                    ),
+
+              // Whose money paid for it. Offered on anything the farm bought,
+              // because the big purchases are the ones two or three of them
+              // club together for — and those are exactly the entries nobody
+              // could account for afterwards.
+              if (!txn.type.isIncoming && !txn.type.isSettlement) ...[
+                const SizedBox(height: 8),
+                GhostButton(
+                  label: l.t('Who paid for this?'),
+                  icon: Icons.groups_outlined,
+                  onPressed: () {
+                    Navigator.pop(sheet);
+                    onSplit();
+                  },
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  l.t(
+                    'Split it between the co-founders in rupees. The entry is '
+                    'not touched — what each of them paid goes onto what he '
+                    'has put into the farm.',
                   ),
-                if (canEdit && !txn.paid && !txn.type.isSettlement)
-                  const SizedBox(width: 8),
-                if (!txn.paid && !txn.type.isSettlement)
-                  Expanded(
-                    child: GhostButton(
-                      label: l.t('Mark paid'),
-                      icon: Icons.check,
-                      onPressed: () {
-                        Navigator.pop(sheet);
-                        onMarkPaid();
-                      },
-                    ),
-                  ),
-                if (!txn.paid && !txn.type.isSettlement && isMaster)
-                  const SizedBox(width: 8),
-                if (isMaster)
-                  Expanded(
-                    child: GhostButton(
-                      label: l.t('Delete'),
-                      icon: Icons.delete_outline,
-                      danger: true,
-                      onPressed: () {
-                        Navigator.pop(sheet);
-                        onDelete();
-                      },
-                    ),
-                  ),
+                  style: T.meta,
+                ),
               ],
-            ),
 
-            // Whose money paid for it. Offered on anything the farm bought,
-            // because the big purchases are the ones two or three of them
-            // club together for — and those are exactly the entries nobody
-            // could account for afterwards.
-            if (!txn.type.isIncoming && !txn.type.isSettlement) ...[
-              const SizedBox(height: 8),
-              GhostButton(
-                label: l.t('Who paid for this?'),
-                icon: Icons.groups_outlined,
-                onPressed: () {
-                  Navigator.pop(sheet);
-                  onSplit();
-                },
-              ),
-              const SizedBox(height: 5),
-              Text(
-                l.t(
-                  'Split it between the co-founders in rupees. The entry is '
-                  'not touched — what each of them paid goes onto what he '
-                  'has put into the farm.',
+              // Money that is owed and is not coming. Left on the books it
+              // says it is owed for ever, and the next co-founder to read the
+              // account goes and asks for it.
+              if (isMaster &&
+                  txn.outstanding > 0 &&
+                  !txn.type.isSettlement) ...[
+                const SizedBox(height: 8),
+                GhostButton(
+                  label: l.t2('Give up on %s', rs(txn.outstanding)),
+                  icon: Icons.money_off_csred_outlined,
+                  danger: true,
+                  onPressed: () {
+                    Navigator.pop(sheet);
+                    onGiveUp();
+                  },
                 ),
-                style: T.meta,
-              ),
-            ],
-
-            // Money that is owed and is not coming. Left on the books it
-            // says it is owed for ever, and the next co-founder to read the
-            // account goes and asks for it.
-            if (isMaster && txn.outstanding > 0 && !txn.type.isSettlement) ...[
-              const SizedBox(height: 8),
-              GhostButton(
-                label: l.t2('Give up on %s', rs(txn.outstanding)),
-                icon: Icons.money_off_csred_outlined,
-                danger: true,
-                onPressed: () {
-                  Navigator.pop(sheet);
-                  onGiveUp();
-                },
-              ),
-              const SizedBox(height: 5),
-              Text(
-                l.t(
-                  'For money nobody is going to pay. The entry is settled '
-                  'and what is left of it becomes a cost — the profit drops '
-                  'by it, and no cash moves.',
+                const SizedBox(height: 5),
+                Text(
+                  l.t(
+                    'For money nobody is going to pay. The entry is settled '
+                    'and what is left of it becomes a cost — the profit drops '
+                    'by it, and no cash moves.',
+                  ),
+                  style: T.meta,
                 ),
-                style: T.meta,
-              ),
+              ],
             ],
           ],
         ),

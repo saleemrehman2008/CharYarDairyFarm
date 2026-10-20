@@ -1013,6 +1013,21 @@ class Field extends StatelessWidget {
   );
 }
 
+/// Shown only to somebody who may change something.
+///
+/// A silent investor sees the farm and not one button that moves it. This
+/// is how the pages say so without every one of them learning about roles:
+/// wrap the door, and for him there is no door.
+class IfCanWrite extends StatelessWidget {
+  const IfCanWrite({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      context.watch<Session>().canWrite ? child : const SizedBox.shrink();
+}
+
 /// Square-cornered dropdown matching the fields.
 class Picker<V> extends StatelessWidget {
   const Picker({

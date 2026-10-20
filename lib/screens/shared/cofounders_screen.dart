@@ -26,6 +26,13 @@ class CofoundersScreen extends StatelessWidget {
     final store = context.watch<FarmStore>();
     final session = context.watch<Session>();
     final isMaster = session.role == Role.master;
+
+    // Putting money on somebody's record is the master's, and the man who
+    // keeps the farm's cash does it too. He is the one money actually
+    // reaches, and a silent investor needs somebody to do all of it in his
+    // name — he puts capital in and never touches the app to say so.
+    final keepsCash = store.keepsTheFarmCash(session.user?.name ?? '');
+    final canEnterMoney = isMaster || keepsCash;
     final partners = store.partners;
     final ratios = store.ratios;
 
@@ -128,7 +135,7 @@ class CofoundersScreen extends StatelessWidget {
               color: T.partnerColors[i % T.partnerColors.length],
               ratio: ratios[p.id] ?? 0,
               isYou: p.userId == session.user?.uid,
-              canAddInvestment: isMaster,
+              canAddInvestment: canEnterMoney,
               canRemove: isMaster,
             ),
 

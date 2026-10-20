@@ -143,7 +143,9 @@ class AuthGate extends StatelessWidget {
 
     return switch (user.role) {
       Role.master => const MasterRoot(),
-      Role.investor => const CofounderRoot(),
+      // The same farm, the same pages, every button that changes
+      // something taken off them. See [Role.silent].
+      Role.investor || Role.silent => const CofounderRoot(),
       Role.staff => const StaffRoot(),
       Role.customer => const CustomerRoot(),
     };

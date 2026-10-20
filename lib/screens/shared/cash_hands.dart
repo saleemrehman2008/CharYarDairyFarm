@@ -216,10 +216,12 @@ class CashHands extends StatelessWidget {
         ],
         const RefundNotices(),
         const SizedBox(height: 10),
-        GhostButton(
-          label: l.t('Hand cash to somebody'),
-          icon: Icons.swap_horiz,
-          onPressed: () => showHandover(context),
+        IfCanWrite(
+          child: GhostButton(
+            label: l.t('Hand cash to somebody'),
+            icon: Icons.swap_horiz,
+            onPressed: () => showHandover(context),
+          ),
         ),
         const SizedBox(height: 5),
         Text(
@@ -301,15 +303,17 @@ class _HandRow extends StatelessWidget {
             hand.holding > 0 &&
             partyKey(hand.who) != partyKey(farmAccountName)) ...[
           const SizedBox(height: 7),
-          GhostButton(
-            label: l.t('Into the farm account'),
-            icon: Icons.account_balance_outlined,
-            compact: true,
-            onPressed: () => showHandover(
-              context,
-              from: hand.who,
-              to: farmAccountName,
-              amount: hand.holding,
+          IfCanWrite(
+            child: GhostButton(
+              label: l.t('Into the farm account'),
+              icon: Icons.account_balance_outlined,
+              compact: true,
+              onPressed: () => showHandover(
+                context,
+                from: hand.who,
+                to: farmAccountName,
+                amount: hand.holding,
+              ),
             ),
           ),
         ],

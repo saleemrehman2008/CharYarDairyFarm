@@ -110,6 +110,9 @@ class _UserCardState extends State<_UserCard> {
                 value: u.role == Role.master ? Role.customer : u.role,
                 items: const [
                   (Role.investor, 'Co-founder'),
+                  // Money in the farm and no hand in running it: he reads
+                  // every page and cannot change a figure on any of them.
+                  (Role.silent, 'Silent investor'),
                   (Role.staff, 'Delivery staff'),
                   (Role.customer, 'Customer'),
                 ],
@@ -120,6 +123,10 @@ class _UserCardState extends State<_UserCard> {
                         '${u.name} is now a ${role.label.toLowerCase()}',
                       ),
               ),
+            if (u.role != Role.master && !isSelf) ...[
+              const SizedBox(height: 5),
+              Text(u.role.what, style: T.meta),
+            ],
 
             const SizedBox(height: 12),
             Wrap(

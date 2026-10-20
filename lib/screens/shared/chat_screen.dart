@@ -169,14 +169,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
         if (matches.isNotEmpty) _Mentions(people: matches, onPick: _put),
 
-        _Composer(
-          field: _field,
-          focus: _focus,
-          sending: _sending,
-          onSend: _send,
-          onChanged: (_) => setState(() {}),
-          hint: l.t('Say something to the others'),
-        ),
+        // The chat is the four of them working. A silent investor reads
+        // it like everything else and says nothing into it.
+        if (context.watch<Session>().canWrite)
+          _Composer(
+            field: _field,
+            focus: _focus,
+            sending: _sending,
+            onSend: _send,
+            onChanged: (_) => setState(() {}),
+            hint: l.t('Say something to the others'),
+          ),
       ],
     );
   }

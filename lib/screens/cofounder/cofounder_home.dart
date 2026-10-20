@@ -193,13 +193,16 @@ class CofounderHome extends StatelessWidget {
               onTap: () => _push(context, store, const AccountsScreen()),
             ),
             // A co-founder hands cash to another as often as the master
-            // does — more often, since he is the one at the gate.
-            ActionTile(
-              icon: Icons.swap_horiz,
-              label: l.t('Transfer'),
-              tone: T.accent600,
-              onTap: () => showHandover(context),
-            ),
+            // does — more often, since he is the one at the gate. A silent
+            // investor never does: he is not at the gate and never holds a
+            // rupee of it.
+            if (context.watch<Session>().canWrite)
+              ActionTile(
+                icon: Icons.swap_horiz,
+                label: l.t('Transfer'),
+                tone: T.accent600,
+                onTap: () => showHandover(context),
+              ),
             if (store.features.cattle)
               ActionTile(
                 drawn: const CattleIcon(size: 22, color: Color(0xFF6544B0)),
