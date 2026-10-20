@@ -11,6 +11,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
 import '../util/money.dart';
+import 'accounting.dart';
 import 'statement.dart';
 
 /// The statement as a thing you can hand somebody.
@@ -43,6 +44,11 @@ class StatementPaper {
     required String period,
     num securityHeld = 0,
     num securityOut = 0,
+
+    /// The farm's own figures, for the cash book's foot. The paper has to
+    /// say what the screen says or the farm has two answers to one question
+    /// and one of them is in somebody else's hands.
+    Books? books,
   }) async {
     final doc = pw.Document();
     final logo = pw.MemoryImage(await _logo());
@@ -245,8 +251,15 @@ class StatementPaper {
                 ),
                 child: pw.Column(
                   children: [
-                    _sum('Total debit', rs(statement.debits)),
+                    if (statement.opening != 0)
+                      _sum(
+                        statement.kind == StatementKind.cashBook
+                            ? 'Put in by the co-founders'
+                            : 'Brought forward',
+                        rs(statement.opening),
+                      ),
                     _sum('Total credit', rs(statement.credits)),
+                    _sum('Total debit', rs(statement.debits)),
                     pw.SizedBox(height: 4),
                     pw.Container(height: 1, color: blue),
                     pw.SizedBox(height: 6),
@@ -266,6 +279,33 @@ class StatementPaper {
                         rs(statement.closing),
                         big: true,
                       ),
+                    // What the cash figure above cannot say: most of what
+                    // left this farm's box was buffaloes, which it still
+                    // has. Cost is what running the place eats, and the
+                    // profit follows from that alone.
+                    if (statement.kind == StatementKind.cashBook &&
+                        books != null) ...[
+                      pw.SizedBox(height: 6),
+                      pw.Container(height: 1, color: blue),
+                      pw.SizedBox(height: 6),
+                      _sum('Running cost', rs(books.costs)),
+                      if (books.assetsBought > 0)
+                        _sum(
+                          'Spent on what the farm keeps',
+                          rs(books.assetsBought),
+                        ),
+                      _sum('Sold', rs(books.sales + books.otherIncome)),
+                      if (books.payable > 0)
+                        _sum('Still to go out', rs(books.payable)),
+                      if (books.receivable > 0)
+                        _sum('Still to come in', rs(books.receivable)),
+                      pw.SizedBox(height: 4),
+                      _sum(
+                        books.profit < 0 ? 'Loss this period' : 'Profit',
+                        rs(books.profit.abs()),
+                        big: true,
+                      ),
+                    ],
                     // The securities, each on its own line and neither
                     // part of what is owed for goods.
                     if (securityHeld > 0) ...[

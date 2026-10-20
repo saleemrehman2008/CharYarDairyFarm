@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
+import '../../services/accounting.dart';
 import '../../services/statement.dart';
 import '../../services/statement_paper.dart';
 import '../../state/farm_store.dart';
@@ -177,6 +178,7 @@ class _StatementScreenState extends State<StatementScreen> {
               period: _periodLine(l),
               securityHeld: held,
               securityOut: out,
+              books: store.books,
             ),
           ),
           const SizedBox(height: T.pad),
@@ -432,6 +434,7 @@ class _StatementScreenState extends State<StatementScreen> {
         period: _periodLine(l),
         securityHeld: _party == null ? 0 : store.securityHeldFrom(_party!),
         securityOut: _party == null ? 0 : store.securityOutWith(_party!),
+        books: store.books,
       );
     } catch (e) {
       if (mounted) toast(context, l.t2('Could not make the PDF. %s', e));
@@ -471,6 +474,7 @@ class StatementSheet extends StatelessWidget {
     required this.period,
     required this.securityHeld,
     this.securityOut = 0,
+    this.books,
   });
 
   final Statement statement;
@@ -483,6 +487,15 @@ class StatementSheet extends StatelessWidget {
 
   /// A deposit the farm left with this party, still out.
   final num securityOut;
+
+  /// The farm's own figures, for the cash book's foot.
+  ///
+  /// A cash book's last column is the money in the box, and the money that
+  /// left it is one number — most of this farm's was buffaloes, which it
+  /// still has standing in the shed. Cost is a different question and so is
+  /// profit, and the farm asked for both on this page rather than on
+  /// another one.
+  final Books? books;
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +662,54 @@ class StatementSheet extends StatelessWidget {
                         tone: T.accent800,
                         big: true,
                       ),
+                    // What the cash figure above cannot say.
+                    //
+                    // Everything that left the box is one number there, and
+                    // most of this farm's was buffaloes — money the farm
+                    // still has, standing in the shed. Cost is what running
+                    // the place eats: feed, medicine, wages, bills. The
+                    // profit follows from that and from nothing else, and
+                    // it is the figure a month is closed on.
+                    if (statement.kind == StatementKind.cashBook &&
+                        books != null) ...[
+                      Divider(height: 14, color: T.accent300),
+                      _footLine(
+                        label: l.t('Running cost'),
+                        value: rs(books!.costs),
+                        tone: T.moneyOut,
+                      ),
+                      if (books!.assetsBought > 0)
+                        _footLine(
+                          label: l.t('Spent on what the farm keeps'),
+                          value: rs(books!.assetsBought),
+                          tone: T.accent800,
+                        ),
+                      _footLine(
+                        label: l.t('Sold'),
+                        value: rs(books!.sales + books!.otherIncome),
+                        tone: T.moneyIn,
+                      ),
+                      if (books!.payable > 0)
+                        _footLine(
+                          label: l.t('Still to go out'),
+                          value: rs(books!.payable),
+                          tone: T.moneyDue,
+                        ),
+                      if (books!.receivable > 0)
+                        _footLine(
+                          label: l.t('Still to come in'),
+                          value: rs(books!.receivable),
+                          tone: T.moneyDue,
+                        ),
+                      _footLine(
+                        label: l.t(
+                          books!.profit < 0 ? 'Loss this period' : 'Profit',
+                        ),
+                        value: rs(books!.profit.abs()),
+                        tone: books!.profit < 0 ? T.moneyOut : T.moneyIn,
+                        big: true,
+                      ),
+                    ],
                     if (securityHeld > 0)
                       _footLine(
                         label: l.t('Security we are holding'),
