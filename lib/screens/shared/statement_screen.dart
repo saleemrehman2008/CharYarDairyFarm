@@ -113,16 +113,59 @@ class _StatementScreenState extends State<StatementScreen> {
         : '${fmtDateFull(_range!.start)} — ${fmtDateFull(_range!.end)}';
   }
 
-  Future<void> _pickDates() async {
+  Future<void> _pickFrom() async {
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
+    final picked = await showDatePicker(
       context: context,
+      initialDate: _range?.start ?? now,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 1),
-      initialDateRange: _range,
-      helpText: L.read(context).t('Which days'),
+      helpText: L.read(context).t('From which day'),
     );
-    if (picked != null && mounted) setState(() => _range = picked);
+    if (picked == null || !mounted) return;
+
+    // The other end follows rather than arguing: a start after the finish
+    // is not a mistake worth a warning, it is a man picking the far end
+    // first and the near end second.
+    final end = _range?.end;
+    setState(() {
+      _range = DateTimeRange(
+        start: picked,
+        end: end == null || end.isBefore(picked) ? picked : end,
+      );
+    });
+  }
+
+  Future<void> _pickTo() async {
+    final now = DateTime.now();
+    final start = _range?.start;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _range?.end ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      helpText: L.read(context).t('To which day'),
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _range = DateTimeRange(
+        start: start == null || start.isAfter(picked) ? picked : start,
+        end: picked,
+      );
+    });
+  }
+
+  /// A whole period, picked by its own name.
+  ///
+  /// What the farm wanted this for: the open one, to see what is still
+  /// pending in it. Its days are the window, so the page reads as that
+  /// month's book rather than as a span of dates that happen to match.
+  void _pickPeriod(FarmMonth m) {
+    final from = m.from;
+    final to = m.to ?? DateTime.now();
+    if (from == null) return;
+    setState(() => _range = DateTimeRange(start: from, end: to));
   }
 
   void _lastDays(int days) {
@@ -292,8 +335,61 @@ class _StatementScreenState extends State<StatementScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // A whole period by its own name, which is what the farm
+                  // reaches for first: the open one, to see what is still
+                  // pending in it.
+                  if (store.periods.isNotEmpty) ...[
+                    Kicker(l.t('Which period')),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 7,
+                      children: [
+                        for (final m in store.periods.take(8))
+                          _Quick(
+                            label: m.isOpen
+                                ? l.t2(
+                                    '%s · open now',
+                                    periodLabel(m, short: true),
+                                  )
+                                : periodLabel(m, short: true),
+                            icon: m.isOpen ? Icons.lock_open_outlined : null,
+                            onTap: () => _pickPeriod(m),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
                   Kicker(l.t('Which days')),
                   const SizedBox(height: 8),
+                  // Two calendars, one question each. A range picker asks
+                  // for both ends in one gesture, which on a phone is two
+                  // taps with a drag between them.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Quick(
+                          label: _range == null
+                              ? l.t('From')
+                              : fmtDateFull(_range!.start),
+                          icon: Icons.event_outlined,
+                          onTap: _pickFrom,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: _Quick(
+                          label: _range == null
+                              ? l.t('To')
+                              : fmtDateFull(_range!.end),
+                          icon: Icons.event_outlined,
+                          onTap: _pickTo,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
@@ -307,11 +403,12 @@ class _StatementScreenState extends State<StatementScreen> {
                         onTap: () => _lastDays(90),
                       ),
                       _Quick(label: l.t('A year'), onTap: () => _lastDays(365)),
-                      _Quick(
-                        label: l.t('Pick the days'),
-                        icon: Icons.date_range,
-                        onTap: _pickDates,
-                      ),
+                      if (_range != null)
+                        _Quick(
+                          label: l.t('All dates'),
+                          icon: Icons.close,
+                          onTap: () => setState(() => _range = null),
+                        ),
                     ],
                   ),
                 ],
