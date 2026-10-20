@@ -509,7 +509,14 @@ class _HandoverSheetState extends State<_HandoverSheet> {
     final store = context.watch<FarmStore>();
     final people = _people(store);
     final hands = {
-      for (final h in cashInHands(store.ledger, putIn: store.contributions))
+      // With what is on its way, like every other page that asks. Left out
+      // here, the sheet that hands cash over was the one place still
+      // telling a man he was holding money he had already sent.
+      for (final h in cashInHands(
+        store.ledger,
+        putIn: store.contributions,
+        moving: store.transfers,
+      ))
         partyKey(h.who): h,
     };
 
