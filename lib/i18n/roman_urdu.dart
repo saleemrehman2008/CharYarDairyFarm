@@ -571,6 +571,13 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  'After paying them back': 'Un ko wapas dene k baad',
+  'Every rupee in the account is owed back to one of them.':
+      'Account ka har rupya un me se kisi ko wapas dena hy.',
+  'It owes them more than it is holding. Nothing in this account is the farm\'s until that is paid back.':
+      'Jitna farm k pass hy us se ziyada un ka dena hy. Jb tk wo wapas na ho, is account me farm ka kuch b ni.',
+  'The farm\'s own, free and clear': 'Farm ka apna, saaf',
+  'Their own money, in the farm': 'Un ka apna paisa, farm me',
   'He has not left': 'Wo gaya hi ni',
   'His last month is worked out from these two days. Both of them count as worked.':
       'Us k aakhri mahiny ka hisab inhi do tareekhon se banta hy. Dono din kaam me gintay hain.',

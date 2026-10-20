@@ -155,12 +155,70 @@ class _Account extends StatelessWidget {
                   label: l.t('Owed to the co-founders'),
                   value: rs(_owedToThem(store)),
                   tone: T.moneyDue,
-                  note: l.t('Their own money, spent on the farm'),
+                  note: l.t('Their own money, in the farm'),
                 ),
               ),
             ],
           ],
         ),
+
+        // What is left of it once the co-founders have been paid back.
+        //
+        // The two figures above can be the same money seen twice: the farm
+        // holds 8,600 and owes 8,600, because the 8,600 it holds is what
+        // one of them paid in out of his own pocket. Saying so is the whole
+        // point of this page — it is the figure a month is closed on, and
+        // reading it off two tiles in your head is how it gets read wrong.
+        if (isFarm && (held > 0 || _owedToThem(store) > 0)) ...[
+          const SizedBox(height: T.gap),
+          Builder(
+            builder: (context) {
+              final free = held - _owedToThem(store);
+              return RegCard(
+                stripe: free < 0 ? T.moneyDue : T.moneyIn,
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.t('The farm\'s own, free and clear'),
+                            style: T.bodyMid,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            free < 0
+                                ? l.t(
+                                    'It owes them more than it is holding. '
+                                    'Nothing in this account is the farm\'s '
+                                    'until that is paid back.',
+                                  )
+                                : free == 0
+                                ? l.t(
+                                    'Every rupee in the account is owed back '
+                                    'to one of them.',
+                                  )
+                                : l.t('After paying them back'),
+                            style: T.meta,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      rs(free),
+                      style: T.num22.copyWith(
+                        color: free < 0 ? T.moneyDue : T.moneyIn,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
 
         // Still to come in, and still to go out. Neither is money the farm
         // has — one is owed to it and the other by it — so neither belongs
