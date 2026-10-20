@@ -555,6 +555,12 @@ class AccountLine {
 /// What he spent of his own is a separate matter with a separate answer —
 /// see [splitByPledge]. The two never touch.
 num toPayIntoFarm(List<Txn> ledger, {required String who}) {
+  // The farm's own account is where this money is going. Asked the same
+  // question it answered that it had 8,600 of its own to pay into itself,
+  // for money that had just arrived there — the one place on the page where
+  // the figure could only ever be nothing.
+  if (partyKey(who) == partyKey(farmAccountName)) return 0;
+
   final key = partyKey(who);
   var owed = 0 as num;
 
@@ -606,14 +612,26 @@ Map<String, num> toPayIntoFarmByName(
 /// What is left over after it is the real answer either way — his own money
 /// if he spent more than he collected, the farm's if he collected more.
 num takingsSpentOnFarm(List<Txn> ledger, {required String who}) {
+  if (partyKey(who) == partyKey(farmAccountName)) return 0;
+
   final key = partyKey(who);
   var tookIn = 0 as num;
   var paidOut = 0 as num;
+  var handedOn = 0 as num;
 
   for (final t in ledger) {
     if (t.isDeleted) continue;
-    if (t.isHandover) continue;
     if (partyKey(t.handledBy) != key) continue;
+
+    // Money he has actually paid over is settled the proper way and is no
+    // part of this. Counted in, the farm was offered the chance to square
+    // away 8,600 it had just watched arrive in its own account — the one
+    // amount on his record that had been dealt with correctly.
+    if (t.isHandoverOut) {
+      handedOn += t.amount;
+      continue;
+    }
+    if (t.isHandoverIn) continue;
 
     if (movedCashIn(t)) {
       tookIn += t.amount;
@@ -622,7 +640,10 @@ num takingsSpentOnFarm(List<Txn> ledger, {required String who}) {
     }
   }
 
-  final cancels = tookIn < paidOut ? tookIn : paidOut;
+  final left = tookIn - handedOn;
+  if (left <= 0) return 0;
+
+  final cancels = left < paidOut ? left : paidOut;
   return cancels < 0 ? 0 : cancels;
 }
 

@@ -1307,4 +1307,168 @@ void main() {
       expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 0);
     });
   });
+
+  group('money that has already reached the farm', () {
+    /// "Ye kyun aa raha hy jab ke ye amount main pehly hi Ghulam Ali se farm
+    /// account me transfer kar chuka hoon?" Two faults, both of them mine,
+    /// and both on the same 8,600.
+    ///
+    /// The farm's own account was being asked how much it had to pay into
+    /// the farm's own account. And the card that squares the old books was
+    /// counting money he had actually handed over as money still waiting to
+    /// be cancelled against something — offering to square away the one
+    /// amount on his record that had been dealt with properly.
+
+    Txn took(num amount, String by) => Txn(
+      id: 'ft${_n++}',
+      date: DateTime(2026, 10, 12),
+      monthId: '2026-10',
+      type: TxnType.receipt,
+      party: 'Urooj Dairy Shop',
+      category: khaataReceiptCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 12),
+    );
+
+    Txn spent(num amount, String by) => Txn(
+      id: 'fo${_n++}',
+      date: DateTime(2026, 10, 13),
+      monthId: '2026-10',
+      type: TxnType.expense,
+      party: 'Ghas Wala',
+      category: 'Feed',
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 13),
+    );
+
+    List<Txn> handover(num amount, String from, String to) => [
+      Txn(
+        id: 'fh${_n++}',
+        date: DateTime(2026, 10, 12),
+        monthId: '2026-10',
+        type: TxnType.payment,
+        party: to,
+        category: handoverOutCategory,
+        amount: amount,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: from,
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 12),
+      ),
+      Txn(
+        id: 'fi${_n++}',
+        date: DateTime(2026, 10, 12),
+        monthId: '2026-10',
+        type: TxnType.receipt,
+        party: from,
+        category: handoverInCategory,
+        amount: amount,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: to,
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 12),
+      ),
+    ];
+
+    test('the farm account never has to pay into itself', () {
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        ...handover(8600, 'Ghulam Ali', farmAccountName),
+      ];
+      expect(toPayIntoFarm(led, who: farmAccountName), 0);
+      expect(
+        cashInHands(led).firstWhere((h) => h.who == farmAccountName).holding,
+        8600,
+        reason: 'it is holding it, which is a different thing',
+      );
+    });
+
+    test('and the man who paid it in has nothing left to pay in', () {
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        ...handover(8600, 'Ghulam Ali', farmAccountName),
+      ];
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 0);
+    });
+
+    test('money already handed over is not waiting to be squared', () {
+      // His real figures. He collected 9,08,600, paid 9,75,390 of the
+      // farm's costs out of his own pocket, and paid 8,600 into the farm
+      // account. Only the 9,00,000 he never paid in is the old mixed-up
+      // kind; the 8,600 was dealt with properly.
+      final led = [
+        took(908600, 'Ghulam Ali'),
+        spent(975390, 'Ghulam Ali'),
+        ...handover(8600, 'Ghulam Ali', farmAccountName),
+      ];
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 900000);
+    });
+
+    test('and squaring it once leaves nothing to offer a second time', () {
+      // The card came back for exactly the amount he had just transferred,
+      // which is what he caught.
+      final led = [
+        took(908600, 'Ghulam Ali'),
+        spent(975390, 'Ghulam Ali'),
+        ...handover(8600, 'Ghulam Ali', farmAccountName),
+      ];
+      final settled = takingsSpentOnFarm(led, who: 'Ghulam Ali');
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali') - settled, 0);
+    });
+
+    test('a man who handed over everything he took has nothing to square', () {
+      final led = [
+        took(8600, 'Rafeeq'),
+        spent(5000, 'Rafeeq'),
+        ...handover(8600, 'Rafeeq', farmAccountName),
+      ];
+      expect(takingsSpentOnFarm(led, who: 'Rafeeq'), 0);
+      expect(toPayIntoFarm(led, who: 'Rafeeq'), 0);
+    });
+
+    test('handing on more than he took squares nothing and owes nothing', () {
+      final led = [
+        took(1000, 'Rafeeq'),
+        spent(5000, 'Rafeeq'),
+        ...handover(8600, 'Rafeeq', farmAccountName),
+      ];
+      expect(takingsSpentOnFarm(led, who: 'Rafeeq'), 0);
+      expect(toPayIntoFarm(led, who: 'Rafeeq'), 0);
+    });
+
+    test('taking cash from another of them is still his to pay in', () {
+      // Rafeeq hands Ghulam Ali 8,600 of the farm's money: now it is
+      // Ghulam Ali who owes it in, and Rafeeq who does not.
+      final led = [
+        took(8600, 'Rafeeq'),
+        ...handover(8600, 'Rafeeq', 'Ghulam Ali'),
+      ];
+      expect(toPayIntoFarm(led, who: 'Rafeeq'), 0);
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 8600);
+    });
+
+    test('but it is not his to square against his own spending', () {
+      // It was never his money to begin with and nothing of his cancels it.
+      final led = [
+        took(8600, 'Rafeeq'),
+        ...handover(8600, 'Rafeeq', 'Ghulam Ali'),
+        spent(50000, 'Ghulam Ali'),
+      ];
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 0);
+    });
+  });
 }
