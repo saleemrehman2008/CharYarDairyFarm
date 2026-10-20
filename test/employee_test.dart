@@ -606,4 +606,80 @@ void main() {
       expect(e.payFor(daysOn: 0), 0);
     });
   });
+
+  group('finding a man to pay', () {
+    /// Two things went wrong at once when the farm picked Salaries. Tapping
+    /// the name box showed nothing, because that list is built from whoever
+    /// the farm has traded with and a man taken on last week has traded with
+    /// nobody. And the card below said nobody was on the wage list, when
+    /// what it meant was that nobody on it was still working — Gul Din had
+    /// left on the 20th and was owed for the fourteen days before it.
+
+    final oct = (DateTime(2026, 10, 1), DateTime(2026, 10, 31));
+
+    test('a man who has left is still owed his last month', () {
+      final gone = _e(
+        name: 'Gul Din',
+        basic: 23000,
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 20),
+      );
+      expect(gone.isWorking, isFalse);
+      expect(gone.daysOnIn(oct.$1, oct.$2), 14);
+      expect(gone.payFor(daysOn: 14), 10733);
+    });
+
+    test('so he is on the list the month is paid from', () {
+      // What the card decides from. Working, or left with days in this
+      // month still unpaid for.
+      final gone = _e(
+        name: 'Gul Din',
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 20),
+      );
+      final pickable = [
+        for (final e in [gone])
+          if (e.isWorking || e.daysOnIn(oct.$1, oct.$2) > 0) e.name,
+      ];
+      expect(pickable, ['Gul Din']);
+    });
+
+    test('and off it once that month is behind him', () {
+      final gone = _e(
+        name: 'Gul Din',
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 20),
+      );
+      final nov = (DateTime(2026, 11, 1), DateTime(2026, 11, 30));
+      final pickable = [
+        for (final e in [gone])
+          if (e.isWorking || e.daysOnIn(nov.$1, nov.$2) > 0) e.name,
+      ];
+      expect(pickable, isEmpty);
+    });
+
+    test('an empty farm and a farm of leavers are not the same thing', () {
+      // Saying "nobody is on the wage list" when somebody is sends the farm
+      // off to write down a man it has already written down.
+      final nobody = <Employee>[];
+      final leaver = [
+        _e(
+          name: 'Gul Din',
+          joinedOn: DateTime(2026, 10, 7),
+          leftOn: DateTime(2026, 10, 20),
+        ),
+      ];
+      expect(nobody.isEmpty, isTrue);
+      expect(leaver.isEmpty, isFalse);
+      expect(leaver.where((e) => e.isWorking), isEmpty);
+      expect(leaver.where((e) => e.daysOnIn(oct.$1, oct.$2) > 0), hasLength(1));
+    });
+
+    test('somebody still working is on it for any month since he started', () {
+      final here = _e(name: 'Jalbani', joinedOn: DateTime(2026, 1, 1));
+      expect(here.daysOnIn(oct.$1, oct.$2), 30);
+      final nov = (DateTime(2026, 11, 1), DateTime(2026, 11, 30));
+      expect(here.daysOnIn(nov.$1, nov.$2), 30);
+    });
+  });
 }

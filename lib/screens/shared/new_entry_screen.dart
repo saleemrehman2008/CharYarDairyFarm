@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/accounting.dart';
+import '../../services/employee_repo.dart';
 import '../../services/month_repo.dart';
 import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
@@ -84,7 +86,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   bool _syncing = false;
 
   @override
+  void initState() {
+    super.initState();
+    _crewWatch = EmployeeRepo.watch().listen((crew) {
+      if (mounted) setState(() => _crew = crew);
+    });
+  }
+
+  @override
   void dispose() {
+    _crewWatch?.cancel();
     _party.dispose();
     _qty.dispose();
     _rate.dispose();
@@ -136,6 +147,26 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     final left = wage - off;
     return left < 0 ? 0 : left;
   }
+
+  /// The men the farm pays a wage to.
+  ///
+  /// Held here so the name box can offer them the moment Salaries is
+  /// picked, before a letter has been typed. The ordinary list of names is
+  /// built from whoever the farm has traded with, so a man taken on last
+  /// week and not yet paid was not in it and tapping the box showed
+  /// nothing.
+  List<Employee> _crew = const [];
+  StreamSubscription<List<Employee>>? _crewWatch;
+
+  /// Everyone who could be on the other end of a wage: those still here,
+  /// and those who left with a last month still to be paid.
+  List<String> get _crewNames => [
+    for (final e in _crew)
+      if (e.isWorking || e.daysOnIn(_payStart, _payEnd) > 0) e.name,
+  ];
+
+  bool get _aboutAWage =>
+      _category == salariesCategory || _category == salaryAdvanceCategory;
 
   /// Days off to come out of this month's wage.
   ///
@@ -430,6 +461,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             controller: _party,
             hint: coming ? 'Who paid, or who bought it' : 'Who you paid',
             onChanged: (_) => setState(() {}),
+            offer: _aboutAWage ? _crewNames : const [],
+            offerNote: _aboutAWage ? 'On the wage list' : '',
           ),
           const SizedBox(height: T.gap),
 

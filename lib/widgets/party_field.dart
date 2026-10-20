@@ -26,12 +26,26 @@ class PartyField extends StatefulWidget {
     required this.controller,
     required this.hint,
     this.onChanged,
+    this.offer = const [],
+    this.offerNote = '',
   });
 
   final String label;
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String>? onChanged;
+
+  /// Names worth offering before a letter has been typed.
+  ///
+  /// The farm's own people, where the heading already says who this will
+  /// be: pick Salaries and the men on the wage list belong under the box
+  /// at once. The ordinary list cannot do that — it is built from whoever
+  /// the farm has traded with, so a man taken on last week and not yet
+  /// paid is not in it, and tapping the box showed nothing at all.
+  final List<String> offer;
+
+  /// One line saying what these names are.
+  final String offerNote;
 
   @override
   State<PartyField> createState() => _PartyFieldState();
@@ -78,16 +92,27 @@ class _PartyFieldState extends State<PartyField> {
     final needle = partyKey(typed);
     final known = context.watch<FarmStore>().partyBook;
 
+    bool matches(String name) =>
+        partyKey(name).startsWith(needle) ||
+        partyKey(name).contains(' $needle');
+
     final hits = needle.isEmpty
         ? const <PartySummary>[]
-        : known
-              .where(
-                (p) =>
-                    partyKey(p.name).startsWith(needle) ||
-                    partyKey(p.name).contains(' $needle'),
-              )
-              .toList();
-    final exact = known.any((p) => partyKey(p.name) == needle);
+        : known.where((p) => matches(p.name)).toList();
+
+    // The offered names, minus any the ordinary list already carries, so
+    // one man never appears twice under his own box.
+    final mine = [
+      for (final name in widget.offer)
+        if (needle.isEmpty || matches(name))
+          if (!hits.any((p) => partyKey(p.name) == partyKey(name))) name,
+    ];
+
+    final exact =
+        known.any((p) => partyKey(p.name) == needle) ||
+        widget.offer.any((n) => partyKey(n) == needle);
+
+    final open = _show && (needle.isNotEmpty || mine.isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +125,7 @@ class _PartyFieldState extends State<PartyField> {
           textCapitalization: TextCapitalization.words,
           onChanged: widget.onChanged,
         ),
-        if (_show && needle.isNotEmpty) ...[
+        if (open) ...[
           const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
@@ -116,9 +141,22 @@ class _PartyFieldState extends State<PartyField> {
               shrinkWrap: true,
               padding: EdgeInsets.zero,
               children: [
+                if (mine.isNotEmpty) ...[
+                  if (widget.offerNote.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      child: Text(widget.offerNote, style: T.meta),
+                    ),
+                  for (final name in mine)
+                    _NewOption(
+                      label: name,
+                      note: l.t('On the wage list'),
+                      onTap: () => _pick(name),
+                    ),
+                ],
                 for (final p in hits)
                   _Option(party: p, onTap: () => _pick(p.name)),
-                if (!exact)
+                if (!exact && needle.isNotEmpty)
                   _NewOption(
                     label: l.t2('New name — "%s"', typed.trim()),
                     note: l.t('Not written down before'),

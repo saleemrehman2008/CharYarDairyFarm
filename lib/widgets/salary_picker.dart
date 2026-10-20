@@ -81,27 +81,38 @@ class SalaryPicker extends StatelessWidget {
       builder: (context, snap) {
         final all = snap.data ?? const <Employee>[];
         final working = all.where((e) => e.isWorking).toList();
-        if (working.isEmpty) {
-          return RegCard(
-            stripe: T.moneyDue,
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              'Nobody is on the wage list yet. More → Wages writes them down '
-              'once — what they are owed a month, and when they started — '
-              'and the figure is worked out here from that.',
-              style: T.meta,
-            ),
-          );
-        }
 
         // The ones who left are on the list too while their last month is
         // still being paid. A man let go on the 19th is owed for the 19
-        // days, and he is owed them after he has gone.
+        // days, and he is owed them after he has gone — which is also when
+        // the farm gets round to paying him.
         final owedStill = all.where((e) {
           if (e.isWorking) return false;
           return e.daysOnIn(_monthStart, _monthEnd) > 0;
         });
         final pickable = [...working, ...owedStill];
+
+        // Nobody to pay is one thing; nobody on the list at all is another,
+        // and saying the second when the first is true sends the farm off
+        // to write down a man it has already written down. A farm whose one
+        // employee left last week has a wage list and somebody to pay out
+        // of it.
+        if (pickable.isEmpty) {
+          return RegCard(
+            stripe: T.moneyDue,
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              all.isEmpty
+                  ? 'Nobody is on the wage list yet. More → Wages writes them '
+                        'down once — what they are owed a month, and when '
+                        'they started — and the figure is worked out here '
+                        'from that.'
+                  : 'Nobody on the wage list worked this month. Move the '
+                        'month above, or check the dates on More → Wages.',
+              style: T.meta,
+            ),
+          );
+        }
 
         final who = pickable
             .where((e) => partyKey(e.name) == partyKey(chosen))
