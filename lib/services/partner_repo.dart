@@ -60,6 +60,35 @@ class PartnerRepo {
     );
   }
 
+  /// Master only. Squares what a man collected against what he spent.
+  ///
+  /// Before the rule was settled, a man took money at the gate and bought
+  /// fodder with it on the way home, and nobody wrote down that they were
+  /// the same notes. Asking him now to pay in what he collected while the
+  /// farm hands him back what he spent is two trips to the same place.
+  ///
+  /// So it is agreed once, in figures, with a name against it in the log.
+  /// Nothing in the ledger moves — both rows are still there and every
+  /// balance is still worked out from both. What it records is that the
+  /// four of them have looked at it and said those were the same rupees.
+  static Future<void> squareOldTakings(
+    Actor actor, {
+    required Partner partner,
+    required num amount,
+  }) async {
+    if (amount <= 0) return;
+    final to = partner.takingsSettled + amount;
+    await Db.partners.doc(partner.id).update({'takingsSettled': to});
+    await Log.write(
+      actor,
+      LogKind.investment,
+      'agreed that ${rs(amount)} ${partner.name} took in for the farm was '
+      'spent on the farm, so neither owes the other for it',
+      refType: 'partner',
+      refId: partner.id,
+    );
+  }
+
   /// Master only. Names the one who keeps the farm's cash.
   ///
   /// Money paid into the farm's own account has nobody to say it arrived:

@@ -1148,4 +1148,163 @@ void main() {
       );
     });
   });
+
+  group('squaring the old books', () {
+    /// Before the rule was settled a man took money at the gate and bought
+    /// fodder with it on the way home, and nobody wrote down that they were
+    /// the same notes. The books now ask him to pay in what he collected
+    /// while the farm hands him back what he spent — two trips to the same
+    /// place, and neither is going to happen.
+    ///
+    /// So it is agreed once, in figures. Nothing in the ledger moves.
+
+    Txn took(num amount, String by) => Txn(
+      id: 'si${_n++}',
+      date: DateTime(2026, 10, 12),
+      monthId: '2026-10',
+      type: TxnType.receipt,
+      party: 'Urooj Dairy Shop',
+      category: khaataReceiptCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 12),
+    );
+
+    Txn spent(num amount, String by) => Txn(
+      id: 'so${_n++}',
+      date: DateTime(2026, 10, 13),
+      monthId: '2026-10',
+      type: TxnType.expense,
+      party: 'Ghas Wala',
+      category: 'Feed',
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: by,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, 13),
+    );
+
+    test('what cancels is everything he took in, up to what he paid out', () {
+      // Ghulam Ali's own case: 9,08,600 in, 9,75,390 out. All of what he
+      // collected went into the costs.
+      final led = [took(908600, 'Ghulam Ali'), spent(975390, 'Ghulam Ali')];
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 908600);
+    });
+
+    test(
+      'a man who collected more than he spent squares only what he spent',
+      () {
+        // He still has the rest of it in his pocket, and it is still the
+        // farm's.
+        final led = [took(50000, 'Rafeeq'), spent(20000, 'Rafeeq')];
+        expect(takingsSpentOnFarm(led, who: 'Rafeeq'), 20000);
+      },
+    );
+
+    test('a man who only spent his own money has nothing to square', () {
+      final led = [spent(2700, 'Saleem')];
+      expect(takingsSpentOnFarm(led, who: 'Saleem'), 0);
+    });
+
+    test('and a man who only collected has nothing to square either', () {
+      // Nothing cancelled, so he owes every rupee of it into the farm.
+      final led = [took(8600, 'Ghulam Ali')];
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 0);
+      expect(toPayIntoFarm(led, who: 'Ghulam Ali'), 8600);
+    });
+
+    test('squared, what he has to pay in comes down by that much', () {
+      final led = [took(908600, 'Ghulam Ali'), spent(975390, 'Ghulam Ali')];
+      final cancels = takingsSpentOnFarm(led, who: 'Ghulam Ali');
+      final owed = toPayIntoFarm(led, who: 'Ghulam Ali');
+      expect(owed - cancels, 0);
+    });
+
+    test('and what he took in afterwards still has to be paid in', () {
+      // Which is the whole point: the old mess is squared once, and the
+      // rule holds from then on.
+      final before = [took(908600, 'Ghulam Ali'), spent(975390, 'Ghulam Ali')];
+      final settled = takingsSpentOnFarm(before, who: 'Ghulam Ali');
+
+      final after = [...before, took(5000, 'Ghulam Ali')];
+      final owed = toPayIntoFarm(after, who: 'Ghulam Ali') - settled;
+      expect(owed, 5000);
+    });
+
+    test('a handover is not takings and is not spending', () {
+      // Passing the farm's money on is neither collecting it nor spending
+      // it, and counting it as either would square away money that is
+      // still sitting in somebody's pocket.
+      final led = [
+        took(8600, 'Ghulam Ali'),
+        Txn(
+          id: 'hv',
+          date: DateTime(2026, 10, 19),
+          monthId: '2026-10',
+          type: TxnType.payment,
+          party: farmAccountName,
+          category: handoverOutCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Ghulam Ali',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 19),
+        ),
+      ];
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 0);
+    });
+
+    test('nothing in the ledger moves when it is squared', () {
+      // The agreement is a note about the books, not an entry in them.
+      // Every balance is still worked out from every row.
+      final led = [took(908600, 'Ghulam Ali'), spent(975390, 'Ghulam Ali')];
+      final before = cashInHands(
+        led,
+      ).firstWhere((h) => h.who == 'Ghulam Ali').holding;
+      expect(before, -66790);
+
+      // Squaring touches a figure on his record and nothing here.
+      expect(led, hasLength(2));
+      expect(
+        cashInHands(led).firstWhere((h) => h.who == 'Ghulam Ali').holding,
+        before,
+      );
+    });
+
+    test('another man\'s rows are not his to square', () {
+      final led = [took(908600, 'Ghulam Ali'), spent(975390, 'Ghulam Ali')];
+      expect(takingsSpentOnFarm(led, who: 'Rafeeq'), 0);
+    });
+
+    test('a deleted row squares nothing', () {
+      final led = [
+        Txn(
+          id: 'gone2',
+          date: DateTime(2026, 10, 12),
+          monthId: '2026-10',
+          type: TxnType.receipt,
+          party: 'Urooj Dairy Shop',
+          category: khaataReceiptCategory,
+          amount: 8600,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Ghulam Ali',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 12),
+          deletedAt: DateTime(2026, 10, 13),
+        ),
+        spent(5000, 'Ghulam Ali'),
+      ];
+      expect(takingsSpentOnFarm(led, who: 'Ghulam Ali'), 0);
+    });
+  });
 }

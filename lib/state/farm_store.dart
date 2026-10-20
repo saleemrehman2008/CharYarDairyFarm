@@ -647,7 +647,23 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Not netted against anything he has spent of his own: the farm's rule
   /// is that whatever of its money he takes in stands on its own as money
   /// to be paid in. See [toPayIntoFarm].
-  num owedToFarmBy(String name) => toPayIntoFarm(_ledger, who: name);
+  num owedToFarmBy(String name) {
+    final owed = toPayIntoFarm(_ledger, who: name);
+    final p = _partners
+        .where((p) => partyKey(p.name) == partyKey(name))
+        .firstOrNull;
+    final settled = p?.takingsSettled ?? 0;
+    final left = owed - settled;
+    return left < 0 ? 0 : left;
+  }
+
+  /// What a man's old mixed-up takings and spending cancel down to, and
+  /// has not been squared yet.
+  num stillToSquare(Partner p) {
+    final cancels = takingsSpentOnFarm(_ledger, who: p.name);
+    final left = cancels - p.takingsSettled;
+    return left < 0 ? 0 : left;
+  }
 
   /// Which handover an entry went out on, if any.
   CashTransfer? handoverFor(String txnId) => handoverOf(_transfers, txnId);

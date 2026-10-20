@@ -32,6 +32,14 @@ class TransferRepo {
 
     /// The entries this handover is made of, where the farm named them.
     List<String> txnIds = const [],
+
+    /// The day the money actually changed hands.
+    ///
+    /// Not always today. Money collected on the 12th and paid into the farm
+    /// account when somebody next opened the app belongs on the 12th, where
+    /// it sits beside the receipt it came from instead of at the top of the
+    /// page a week later pretending to be news.
+    DateTime? on,
   }) async {
     if (amount <= 0) throw StateError('How much is being handed over?');
     if (partyKey(from) == partyKey(to)) {
@@ -44,7 +52,7 @@ class TransferRepo {
       to: to.trim(),
       amount: amount,
       state: TransferState.waiting,
-      sentAt: DateTime.now(),
+      sentAt: on ?? DateTime.now(),
       payVia: payVia,
       note: note.trim(),
       sentBy: actor.uid,
@@ -54,7 +62,9 @@ class TransferRepo {
 
     final doc = await Db.transfers.add({
       ...move.toMap(),
-      'sentAt': FieldValue.serverTimestamp(),
+      'sentAt': on == null
+          ? FieldValue.serverTimestamp()
+          : Timestamp.fromDate(on),
     });
 
     await Log.write(

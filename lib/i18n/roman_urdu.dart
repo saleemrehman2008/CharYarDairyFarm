@@ -571,6 +571,22 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s of the old books to square': 'Purany hisab me %s barabar karny hain',
+  'Anything taken in after today stands on its own and still has to be paid into the farm account.':
+      'Aaj k baad jo b paisa liya jaega wo alag khara rahega aur farm k account me jama karna hoga.',
+  'Each of them took this much of the farm\'s money in and paid at least this much of the farm\'s costs back out. Agreeing it here says those were the same notes, so neither owes the other for them.':
+      'In me se har ek ne farm ka itna paisa liya aur kam az kam itna hi farm k kharchon me diya. Yahan haan karny ka matlab hy k ye wohi note thy, to ab koi kisi ka maqrooz ni.',
+  'Money they took in for the farm and spent on the farm before the rule was settled — the same notes, going out the same day they came in. The books now ask them to pay it in and hand it back, which is two trips to the same place.':
+      'Jo paisa unhon ne farm k liye liya aur usool tay hony se pehly farm hi per kharch kar diya — wohi note, usi din aaye usi din gaye. Ab kitab keh rahi hy k pehly jama karao phir wapas lo, jo ek hi jagah k do chakkar hain.',
+  'Nothing in the ledger moves. Every entry stays exactly where it is and every balance is still worked out from all of them — this only writes down what the four of you have agreed.':
+      'Kitab me kuch ni hilta. Har entry apni jagah rahegi aur har balance un sab se hi banega — ye sirf wo likh raha hy jis per ap chaaron raazi hoie hain.',
+  'Said once, with your name on it in the log. Nothing in the ledger moves. Anything taken in after today stands on its own and still has to reach the farm account.':
+      'Ek bar kaha jata hy, log me ap k naam k sath. Kitab me kuch ni hilta. Aaj k baad ka liya hoa paisa alag khara rahega aur farm k account tak pohanchna hoga.',
+  'Squared': 'Barabar ho gaya',
+  'The day it changed hands': 'Jis din haath badla',
+  'These were the same rupees': 'Ye wohi paisy thy',
+  'They were the same': 'Wohi thy',
+  'Were these the same rupees?': 'Kiya ye wohi paisy thy?',
   '%s of it to pay into the farm account':
       'Is me se %s farm k account me jama karny hain',
   '%s a full month': 'Poore mahiny ka %s',

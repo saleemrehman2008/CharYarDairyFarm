@@ -24,6 +24,7 @@ class Partner {
     required this.createdAt,
     this.pledged = 0,
     this.keepsCash = false,
+    this.takingsSettled = 0,
   });
 
   final String id;
@@ -64,6 +65,19 @@ class Partner {
   /// promised" — the ratio then falls back to the money, which is how the
   /// farm has run until now.
   final num pledged;
+
+  /// Farm money he took in that has been agreed as spent on the farm.
+  ///
+  /// Before the four of them settled the rule, a man took money at the gate
+  /// and bought fodder with it on the way home, and nobody wrote down that
+  /// they were the same notes. Asking him now to pay in what he collected
+  /// while the farm hands him back what he spent is two trips to the same
+  /// place, so it is squared once and recorded here, with the figure and
+  /// the name of whoever agreed it in the log.
+  ///
+  /// Only ever the old mixed-up part. Anything he takes in after it stands
+  /// on its own, which is the whole point of the rule.
+  final num takingsSettled;
 
   /// He keeps the farm's cash, and answers for its own account.
   ///
@@ -146,6 +160,7 @@ class Partner {
       withdrawn: n(m['withdrawn']),
       createdAt: dtOr(m['createdAt']),
       keepsCash: m['keepsCash'] == true,
+      takingsSettled: n(m['takingsSettled']),
     );
   }
 }

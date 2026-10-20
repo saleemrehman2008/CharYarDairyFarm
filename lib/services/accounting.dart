@@ -588,6 +588,44 @@ Map<String, num> toPayIntoFarmByName(
       who: toPayIntoFarm(ledger, who: who),
 };
 
+/// Farm money a man took in that went straight back out on the farm's costs.
+///
+/// How the farm actually ran before any of this was written down: Ghulam Ali
+/// takes 8,600 from Urooj at the gate and buys fodder with it on the way
+/// home. Under the rule the four of them have now settled on, those are two
+/// separate things — the 8,600 is the farm's and belongs in its account, and
+/// what he spends of his own goes onto his promise. Going forward that is
+/// right and it is what keeps the account filling up.
+///
+/// Looking backwards it is not. The money he collected and the money he
+/// spent were the same notes, and asking him to pay in 9,08,600 he no longer
+/// has while the farm hands him 9,08,600 back is two trips to the same
+/// place. This is how much of it cancels: everything he took in, up to what
+/// he paid out.
+///
+/// What is left over after it is the real answer either way — his own money
+/// if he spent more than he collected, the farm's if he collected more.
+num takingsSpentOnFarm(List<Txn> ledger, {required String who}) {
+  final key = partyKey(who);
+  var tookIn = 0 as num;
+  var paidOut = 0 as num;
+
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+    if (t.isHandover) continue;
+    if (partyKey(t.handledBy) != key) continue;
+
+    if (movedCashIn(t)) {
+      tookIn += t.amount;
+    } else if (movedCashOut(t)) {
+      paidOut += t.amount;
+    }
+  }
+
+  final cancels = tookIn < paidOut ? tookIn : paidOut;
+  return cancels < 0 ? 0 : cancels;
+}
+
 /// Wage money a man has already taken against a month, still to come off it.
 ///
 /// He asks for five thousand on the 12th and says take it off my salary. The

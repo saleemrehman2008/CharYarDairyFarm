@@ -11,6 +11,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/refund_card.dart';
+import '../../widgets/square_card.dart';
 import '../../widgets/ui.dart';
 
 /// Who is holding the farm's cash, and who is out of pocket.
@@ -120,6 +121,7 @@ class CashHands extends StatelessWidget {
                       ),
                   ],
                 ),
+                const SquareOldBooksCard(),
                 const CountPocketsButton(),
               ],
             ],
@@ -387,6 +389,11 @@ class _HandoverSheetState extends State<_HandoverSheet> {
   PayVia _via = PayVia.cash;
   bool _busy = false;
 
+  /// The day it changed hands, which is not always the day it is written
+  /// down. Money taken at the gate on the 12th and paid into the farm when
+  /// somebody next opened the app belongs on the 12th.
+  DateTime _on = DateTime.now();
+
   /// The entries picked out of the sender's hands.
   ///
   /// Picking any of them drives the amount, because the whole point is that
@@ -480,6 +487,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
         payVia: _via,
         note: _note.text.trim(),
         txnIds: _picked.toList(),
+        on: _on,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -667,6 +675,28 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                     );
                   },
                 ),
+
+              const SizedBox(height: T.pad),
+              Kicker(l.t('The day it changed hands')),
+              const SizedBox(height: 5),
+              GhostButton(
+                label: fmtDateFull(_on),
+                icon: Icons.event_outlined,
+                compact: true,
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _on,
+                    firstDate: DateTime.now().subtract(
+                      const Duration(days: 400),
+                    ),
+                    lastDate: DateTime.now(),
+                  );
+                  if (picked != null && context.mounted) {
+                    setState(() => _on = picked);
+                  }
+                },
+              ),
 
               const SizedBox(height: T.pad),
               Kicker(l.t('How')),
