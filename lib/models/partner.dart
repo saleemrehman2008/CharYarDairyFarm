@@ -165,6 +165,39 @@ class Partner {
   }
 }
 
+/// Where a man's kept profit goes when he still owes on his promise.
+///
+/// The farm's rule, settled after everything else: a co-founder who has not
+/// finished paying in does not start a second pile of money. What the month
+/// made for him goes onto what he owes, until he owes nothing — and only
+/// what is over that lands in his profit account.
+///
+/// It is the same rule his own spending already follows, and for the same
+/// reason. A man sitting on a profit account while the farm is still short
+/// of the capital he promised is two books kept side by side, and the farm
+/// has to look at both to know where it stands. One book is the whole point.
+///
+/// The share ratio does not move. It follows what a man is *in for*, not
+/// what has arrived — see [Partner.ratioBase] — so paying his promise off
+/// this way settles the gap without touching anybody's slice. That was the
+/// decision they made when they split the two accounts, and this keeps it.
+///
+/// A losing month goes nowhere near this: a loss comes out of the profit
+/// account where the gains went, and a man's capital is not reduced because
+/// the farm had a bad October.
+({num toCapital, num toProfit}) keptProfitGoes({
+  required num kept,
+  required num pledged,
+  required num invested,
+}) {
+  if (kept <= 0) return (toCapital: 0, toProfit: kept);
+
+  final owes = pledged - invested;
+  if (owes <= 0) return (toCapital: 0, toProfit: kept);
+  if (kept <= owes) return (toCapital: kept, toProfit: 0);
+  return (toCapital: owes, toProfit: kept - owes);
+}
+
 /// What share of the profit each of them takes.
 ///
 /// Worked out from what each of them is in for — see [Partner.ratioBase] —

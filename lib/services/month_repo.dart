@@ -215,6 +215,11 @@ class MonthRepo {
     required FarmMonth period,
     required int percent,
     List<FounderLoan> loans = const [],
+
+    /// The co-founders as they stand, so a man who still owes on his
+    /// promise has this month's profit put against it rather than into a
+    /// second pile beside it. See [keptProfitGoes].
+    List<Partner> partners = const [],
   }) async {
     if (!period.isSealed) {
       throw StateError('Seal the period before closing it.');
@@ -235,10 +240,46 @@ class MonthRepo {
 
     for (final share in handed) {
       final ref = Db.partners.doc(share.partnerId);
-      // What stayed in — or, on a bad month, what the loss took out. Both go
-      // to the same place, because they are the same account.
-      if (share.held != 0) {
-        batch.update(ref, {'profitHeld': FieldValue.increment(share.held)});
+
+      // What stayed in — or, on a bad month, what the loss took out.
+      //
+      // A man who has not finished paying his promise does not start a
+      // second pile of money: what the month made for him goes onto what he
+      // owes, and only the rest lands in his profit account. It is the same
+      // rule his own spending follows, and it leaves the share ratio alone
+      // because that follows what he is in for and not what has arrived.
+      //
+      // A losing month goes nowhere near it. A loss comes out of the profit
+      // account where the gains went; nobody's capital is cut because the
+      // farm had a bad October.
+      final who = partners.where((p) => p.id == share.partnerId).firstOrNull;
+      final split = keptProfitGoes(
+        kept: share.held,
+        pledged: who?.pledged ?? 0,
+        invested: who?.invested ?? 0,
+      );
+
+      if (split.toProfit != 0) {
+        batch.update(ref, {'profitHeld': FieldValue.increment(split.toProfit)});
+      }
+      if (split.toCapital > 0) {
+        batch.update(ref, {'invested': FieldValue.increment(split.toCapital)});
+        batch.set(Db.contributions.doc(), {
+          'partnerId': share.partnerId,
+          'partnerName': share.name,
+          'kind': ContributionKind.investment.name,
+          'source': ContributionSource.opening.name,
+          'amount': split.toCapital,
+          'date': Timestamp.fromDate(now),
+          'payVia': PayVia.cash.name,
+          'receivedBy': '',
+          'note':
+              'His share of ${monthName(period.id)}, put against what '
+              'he still owes on his promise',
+          'createdBy': actor.uid,
+          'createdByName': actor.name,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
       if (share.taken > 0) {
         batch.update(ref, {'withdrawn': FieldValue.increment(share.taken)});

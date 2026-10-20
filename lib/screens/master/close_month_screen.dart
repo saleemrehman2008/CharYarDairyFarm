@@ -511,6 +511,7 @@ class _HandOutStepState extends State<_HandOutStep> {
         period: p,
         percent: _percent,
         loans: context.read<FarmStore>().loans,
+        partners: context.read<FarmStore>().partners,
       );
       if (!mounted) return;
       Navigator.pop(context);
