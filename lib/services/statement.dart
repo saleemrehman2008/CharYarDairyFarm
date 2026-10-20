@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import 'accounting.dart';
 
 /// Which of the three documents this is.
 ///
@@ -377,6 +378,71 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
     if (t.isPayable) weOwe += t.outstanding;
   }
   return (owesUs: owesUs, weOwe: weOwe);
+}
+
+/// A co-founder's own account: every rupee that has gone through his hands.
+///
+/// Picking his name used to open his profit account, which lists the closed
+/// periods and nothing else — so on a farm that has not closed a month yet it
+/// opened on an empty page, and the farm quite reasonably read that as the
+/// statement being broken.
+///
+/// His profit is one of three things his name stands for and it is the one
+/// that moves least. The others are what he has handled of the farm's money,
+/// day by day, and what of his own has gone into it. That is what a man means
+/// when he asks for his statement, so that is what his name opens on now.
+///
+/// Built from [accountLines], which is the same walk the holding card and his
+/// own card make. Three pages reading one answer is the whole point: they
+/// disagreed once and the farm found it on the first screen.
+Statement founderAccount({
+  required Partner partner,
+  required List<Txn> rows,
+  List<Contribution> putIn = const [],
+}) {
+  // Oldest first here. [accountLines] hands them back newest first, which is
+  // right for a card you glance at and wrong for a statement, where the
+  // running balance has to build from the top of the page downwards.
+  final walked = accountLines(rows, who: partner.name, putIn: putIn).reversed;
+
+  num balance = 0;
+  num debits = 0;
+  num credits = 0;
+  final lines = <StatementLine>[];
+
+  for (final line in walked) {
+    // Money reaching his hands is a credit; money leaving them is a debit,
+    // the way a bank statement reads — and the closing figure is then what
+    // he is holding, or what the farm owes him when it is below nothing.
+    final credit = line.amount > 0 ? line.amount : 0 as num;
+    final debit = line.amount < 0 ? -line.amount : 0 as num;
+
+    balance += credit - debit;
+    credits += credit;
+    debits += debit;
+
+    lines.add(
+      StatementLine(
+        date: line.date,
+        party: line.what,
+        detail: line.detail,
+        enteredBy: '',
+        debit: debit,
+        credit: credit,
+        balance: balance,
+      ),
+    );
+  }
+
+  return Statement(
+    lines: lines,
+    opening: 0,
+    closing: balance,
+    debits: debits,
+    credits: credits,
+    forOneParty: true,
+    kind: StatementKind.party,
+  );
 }
 
 /// A co-founder's profit account, written the way an account is written.

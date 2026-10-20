@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
+import 'package:char_yar_dairy_farm/services/accounting.dart';
 import 'package:char_yar_dairy_farm/services/statement.dart';
 
 /// The statement, read the way a bank statement is read — and the one thing
@@ -514,6 +515,168 @@ void _everything() {
       expect(s.opening, 0, reason: 'part of the account is hidden');
       expect(s.opening + s.credits - s.debits, s.closing);
     });
+  });
+
+  group("a co-founder's own statement", () {
+    /// Picking his name opened his profit account, which lists closed
+    /// periods and nothing else. On a farm that has not closed a month it
+    /// opened on an empty page — and an empty page under a man's name reads
+    /// as the statement being broken, which is how the farm read it.
+    ///
+    /// What a man means by his statement is what has gone through his hands.
+
+    Partner ali() => Partner(
+      id: 'p-ali',
+      userId: 'u-ali',
+      name: 'Ghulam Ali',
+      invested: 966790,
+      pledged: 2000000,
+      profitHeld: 0,
+      withdrawn: 0,
+      createdAt: DateTime(2026, 8, 1),
+    );
+
+    Txn row({
+      required TxnType type,
+      required String category,
+      required num amount,
+      String party = 'Urooj Dairy Shop',
+      String handledBy = 'Ghulam Ali',
+      int day = 12,
+    }) => Txn(
+      id: 'fa${_n++}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: type,
+      party: party,
+      category: category,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: handledBy,
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    test('it shows what he handled, with no month closed at all', () {
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        ),
+        row(
+          type: TxnType.expense,
+          category: 'Feed',
+          party: 'Ghas Wala',
+          amount: 1680,
+          day: 13,
+        ),
+      ];
+
+      final s = founderAccount(partner: ali(), rows: led);
+      expect(s.lines, hasLength(2));
+      expect(s.credits, 8600);
+      expect(s.debits, 1680);
+      expect(s.closing, 6920);
+    });
+
+    test('oldest first, so the running balance builds down the page', () {
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 1000,
+          day: 12,
+        ),
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 2000,
+          day: 15,
+        ),
+      ];
+      final s = founderAccount(partner: ali(), rows: led);
+      expect(s.lines.first.date.day, 12);
+      expect(s.lines.first.balance, 1000);
+      expect(s.lines.last.balance, 3000);
+    });
+
+    test('and the closing is what he is holding', () {
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 8600,
+        ),
+      ];
+      final s = founderAccount(partner: ali(), rows: led);
+      final hands = cashInHands(led).firstWhere((h) => h.who == 'Ghulam Ali');
+      expect(s.closing, hands.holding);
+    });
+
+    test('below nothing means the farm owes him, not that he owes it', () {
+      final led = [
+        row(
+          type: TxnType.expense,
+          category: 'Feed',
+          party: 'Ghas Wala',
+          amount: 2700,
+        ),
+      ];
+      final s = founderAccount(partner: ali(), rows: led);
+      expect(s.closing, -2700);
+      expect(s.forOneParty, isTrue, reason: 'so the foot says who owes whom');
+    });
+
+    test('his own money going in is on it too', () {
+      final led = [
+        row(
+          type: TxnType.expense,
+          category: 'Feed',
+          party: 'Ghas Wala',
+          amount: 66790,
+        ),
+      ];
+      final counted = [
+        Contribution(
+          id: 'c-ali',
+          partnerId: 'p-ali',
+          partnerName: 'Ghulam Ali',
+          kind: ContributionKind.investment,
+          source: ContributionSource.spent,
+          amount: 66790,
+          date: DateTime(2026, 10, 14),
+          createdAt: DateTime(2026, 10, 14),
+        ),
+      ];
+
+      final s = founderAccount(partner: ali(), rows: led, putIn: counted);
+      expect(s.lines, hasLength(2));
+      expect(s.closing, 0, reason: 'his own money, and what it paid for');
+    });
+
+    test('another man\'s entries are not on his page', () {
+      final led = [
+        row(
+          type: TxnType.receipt,
+          category: khaataReceiptCategory,
+          amount: 5000,
+          handledBy: 'Rafeeq',
+        ),
+      ];
+      expect(founderAccount(partner: ali(), rows: led).lines, isEmpty);
+    });
+
+    test(
+      'an empty page is empty because nothing happened, not by accident',
+      () {
+        final s = founderAccount(partner: ali(), rows: const []);
+        expect(s.lines, isEmpty);
+        expect(s.closing, 0);
+      },
+    );
   });
 }
 

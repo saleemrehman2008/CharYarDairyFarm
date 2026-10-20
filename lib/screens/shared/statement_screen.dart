@@ -13,6 +13,12 @@ import '../../widgets/app_shell.dart';
 import '../../widgets/pick_sheet.dart';
 import '../../widgets/ui.dart';
 
+/// Which of a co-founder's three accounts is being read.
+///
+/// His own, which is everything that has gone through his hands; his profit,
+/// which is the closed periods; and his loan, where he has one.
+enum FounderView { account, profit, loan }
+
 /// The books as a statement — the shape everybody already knows how to read.
 ///
 /// A dairy is asked one question more than any other: what do I owe you. The
@@ -61,7 +67,14 @@ class _StatementScreenState extends State<StatementScreen> {
   /// They have two with the farm and they are not the same thing: what the
   /// farm has earned in their name, and what they have borrowed off it. Put
   /// on one page the running column would be neither.
-  bool _theirLoan = false;
+  /// Which of a co-founder's accounts is on the page.
+  ///
+  /// His name used to open his profit account, which lists closed periods
+  /// and nothing else — so on a farm that has not closed a month it opened
+  /// on an empty page, which reads as the statement being broken. What a
+  /// man means by his statement is what has gone through his hands, so
+  /// that is what his name opens on.
+  FounderView _view = FounderView.account;
 
   /// Shut to begin with. The whole account is what is wanted nine times out of
   /// ten, and a date box open on arrival is a question nobody asked.
@@ -87,9 +100,13 @@ class _StatementScreenState extends State<StatementScreen> {
   /// dates it has not honoured.
   String _periodLine(L l) {
     if (_founder(context.read<FarmStore>()) != null) {
-      return _theirLoan
-          ? l.t('The whole loan, from the day it was handed over')
-          : l.t('Every period settled so far');
+      return switch (_view) {
+        FounderView.loan => l.t(
+          'The whole loan, from the day it was handed over',
+        ),
+        FounderView.profit => l.t('Every period settled so far'),
+        FounderView.account => l.t('Everything, from the start'),
+      };
     }
     return _range == null
         ? l.t('Everything, from the start')
@@ -132,16 +149,27 @@ class _StatementScreenState extends State<StatementScreen> {
               (t.isLoanOut || t.isLoanBack) &&
               partyKey(t.party) == partyKey(founder.name),
         );
-    final onLoan = founder != null && _theirLoan && hasLoan;
+    final view = founder == null
+        ? FounderView.account
+        : (_view == FounderView.loan && !hasLoan ? FounderView.account : _view);
 
     final statement = founder != null
-        ? onLoan
-              ? loanAccount(partner: founder, rows: store.ledger)
-              : profitAccount(
-                  partner: founder,
-                  periods: store.settledPeriods,
-                  label: (m) => periodLabel(m, short: true),
-                )
+        ? switch (view) {
+            FounderView.account => founderAccount(
+              partner: founder,
+              rows: store.ledger,
+              putIn: store.contributions,
+            ),
+            FounderView.profit => profitAccount(
+              partner: founder,
+              periods: store.settledPeriods,
+              label: (m) => periodLabel(m, short: true),
+            ),
+            FounderView.loan => loanAccount(
+              partner: founder,
+              rows: store.ledger,
+            ),
+          }
         : buildStatement(
             rows: store.ledger,
             party: _party,
@@ -167,22 +195,11 @@ class _StatementScreenState extends State<StatementScreen> {
       showBack: true,
       body: PageBody(
         children: [
-          // Everything that goes on the page, in one box — which is also the
-          // thing the camera points at when a picture is asked for.
-          RepaintBoundary(
-            key: _paper,
-            child: StatementSheet(
-              statement: statement,
-              farmName: l.t('Char Yar Dairy Farm'),
-              forWhom: _party ?? l.t('The whole farm'),
-              period: _periodLine(l),
-              securityHeld: held,
-              securityOut: out,
-              books: store.books,
-            ),
-          ),
-          const SizedBox(height: T.pad),
-
+          // What narrows the page, above the page it narrows.
+          //
+          // These sat underneath the whole statement, so picking a name
+          // meant scrolling past the answer to reach the question. The
+          // page is read after it is narrowed, not before.
           Row(
             children: [
               Flexible(
@@ -213,12 +230,16 @@ class _StatementScreenState extends State<StatementScreen> {
           // this is only worth offering on the farm's own.
           // Two accounts, two pages. A co-founder who has never borrowed
           // sees neither this nor the question.
-          if (hasLoan) ...[
+          if (founder != null) ...[
             const SizedBox(height: 8),
-            Segmented<bool>(
-              value: _theirLoan,
-              options: [(false, l.t('Profit')), (true, l.t('Loan'))],
-              onChanged: (v) => setState(() => _theirLoan = v),
+            Segmented<FounderView>(
+              value: view,
+              options: [
+                (FounderView.account, l.t('His account')),
+                (FounderView.profit, l.t('Profit')),
+                if (hasLoan) (FounderView.loan, l.t('Loan')),
+              ],
+              onChanged: (v) => setState(() => _view = v),
             ),
           ],
           if (founder == null && _party == null) ...[
@@ -297,6 +318,22 @@ class _StatementScreenState extends State<StatementScreen> {
               ),
             ),
           ],
+          const SizedBox(height: T.pad),
+
+          // Everything that goes on the page, in one box — which is also the
+          // thing the camera points at when a picture is asked for.
+          RepaintBoundary(
+            key: _paper,
+            child: StatementSheet(
+              statement: statement,
+              farmName: l.t('Char Yar Dairy Farm'),
+              forWhom: _party ?? l.t('The whole farm'),
+              period: _periodLine(l),
+              securityHeld: held,
+              securityOut: out,
+              books: store.books,
+            ),
+          ),
           const SizedBox(height: 12),
 
           Row(
@@ -412,13 +449,22 @@ class _StatementScreenState extends State<StatementScreen> {
         // Whatever is on the screen is what goes on the paper. Working it
         // out a second time here is how the two drift apart.
         statement: _founder(store) != null
-            ? (_theirLoan
-                  ? loanAccount(partner: _founder(store)!, rows: store.ledger)
-                  : profitAccount(
-                      partner: _founder(store)!,
-                      periods: store.settledPeriods,
-                      label: (m) => periodLabel(m, short: true),
-                    ))
+            ? switch (_view) {
+                FounderView.loan => loanAccount(
+                  partner: _founder(store)!,
+                  rows: store.ledger,
+                ),
+                FounderView.profit => profitAccount(
+                  partner: _founder(store)!,
+                  periods: store.settledPeriods,
+                  label: (m) => periodLabel(m, short: true),
+                ),
+                FounderView.account => founderAccount(
+                  partner: _founder(store)!,
+                  rows: store.ledger,
+                  putIn: store.contributions,
+                ),
+              }
             : buildStatement(
                 rows: store.ledger,
                 party: _party,
