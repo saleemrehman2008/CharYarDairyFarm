@@ -322,6 +322,14 @@ class _FormState extends State<_Form> {
   );
   late final _note = TextEditingController(text: widget.editing?.note ?? '');
   late DateTime _joined = widget.editing?.joinedOn ?? DateTime.now();
+
+  /// His last day, where he has one.
+  ///
+  /// It gets typed from memory a week after he goes and it gets typed
+  /// wrong, and it is the one date his last wage is worked out from. So it
+  /// sits here beside the day he started and is corrected the same way.
+  late DateTime? _left = widget.editing?.leftOn;
+
   bool _busy = false;
 
   @override
@@ -343,6 +351,20 @@ class _FormState extends State<_Form> {
       lastDate: DateTime.now(),
     );
     if (picked != null && mounted) setState(() => _joined = picked);
+  }
+
+  /// Never before the day he started, because a man cannot leave before he
+  /// arrives and a wage worked out from those two dates would come to
+  /// nothing at all.
+  Future<void> _pickLeft() async {
+    final from = _left ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: from.isBefore(_joined) ? _joined : from,
+      firstDate: _joined,
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) setState(() => _left = picked);
   }
 
   Future<void> _save() async {
@@ -387,6 +409,7 @@ class _FormState extends State<_Form> {
           cnic: _cnic.text,
           mobile: _mobile.text,
           joinedOn: _joined,
+          leftOn: _left,
           note: _note.text,
         );
       } else {
@@ -399,6 +422,8 @@ class _FormState extends State<_Form> {
           cnic: _cnic.text,
           mobile: _mobile.text,
           joinedOn: _joined,
+          leftOn: _left,
+          stillHere: _left == null,
           note: _note.text,
         );
       }
@@ -504,14 +529,68 @@ class _FormState extends State<_Form> {
               ],
 
               const SizedBox(height: T.pad),
-              Kicker(l.t('Joined')),
-              const SizedBox(height: 5),
-              GhostButton(
-                label: fmtDateFull(_joined),
-                icon: Icons.event_outlined,
-                compact: true,
-                onPressed: _pickJoined,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Kicker(l.t('Joined')),
+                        const SizedBox(height: 5),
+                        GhostButton(
+                          label: fmtDateFull(_joined),
+                          icon: Icons.event_outlined,
+                          compact: true,
+                          onPressed: _pickJoined,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: T.gap),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Kicker(l.t('Last day')),
+                        const SizedBox(height: 5),
+                        GhostButton(
+                          label: _left == null
+                              ? l.t('Still here')
+                              : fmtDateFull(_left!),
+                          icon: _left == null
+                              ? Icons.event_available_outlined
+                              : Icons.event_busy_outlined,
+                          compact: true,
+                          onPressed: _pickLeft,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              if (_left != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.t(
+                          'His last month is worked out from these two days. '
+                          'Both of them count as worked.',
+                        ),
+                        style: T.meta,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GhostButton(
+                      label: l.t('He has not left'),
+                      compact: true,
+                      onPressed: () => setState(() => _left = null),
+                    ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: T.pad),
               Field(

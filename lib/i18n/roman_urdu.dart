@@ -571,6 +571,11 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  'He has not left': 'Wo gaya hi ni',
+  'His last month is worked out from these two days. Both of them count as worked.':
+      'Us k aakhri mahiny ka hisab inhi do tareekhon se banta hy. Dono din kaam me gintay hain.',
+  'Last day': 'Aakhri din',
+  'Still here': 'Abhi yahin hy',
   '%s of the old books to square': 'Purany hisab me %s barabar karny hain',
   'Anything taken in after today stands on its own and still has to be paid into the farm account.':
       'Aaj k baad jo b paisa liya jaega wo alag khara rahega aur farm k account me jama karna hoga.',

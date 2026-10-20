@@ -518,4 +518,92 @@ void main() {
       expect(led.fold<num>(0, (a, t) => a + t.amount), 30000);
     });
   });
+
+  group('correcting the day he left', () {
+    /// The day a man leaves gets typed from memory a week after he goes, and
+    /// it gets typed wrong. It is also the one date his last wage is worked
+    /// out from, so it has to be correctable like any other figure here —
+    /// and until now the form only held the day he started.
+
+    final oct = (DateTime(2026, 10, 1), DateTime(2026, 10, 31));
+
+    test('the wrong last day pays the wrong wage', () {
+      // 20 October instead of 19 is one day, and one day of a 23,000 wage
+      // is 767 rupees of somebody's money.
+      final wrong = _e(
+        basic: 23000,
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 20),
+      );
+      final right = _e(
+        basic: 23000,
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 19),
+      );
+
+      expect(wrong.daysOnIn(oct.$1, oct.$2), 14);
+      expect(right.daysOnIn(oct.$1, oct.$2), 13);
+      expect(
+        wrong.payFor(daysOn: wrong.daysOnIn(oct.$1, oct.$2)) -
+            right.payFor(daysOn: right.daysOnIn(oct.$1, oct.$2)),
+        766,
+      );
+    });
+
+    test('corrected, the wage follows it at once', () {
+      final was = _e(
+        basic: 23000,
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 20),
+      );
+      final now = was.copyWith(leftOn: DateTime(2026, 10, 15));
+      expect(now.daysOnIn(oct.$1, oct.$2), 9);
+      expect(now.payFor(daysOn: 9), 6900);
+    });
+
+    test('taking the last day off puts him back on the list', () {
+      final gone = _e(
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 20),
+      );
+      expect(gone.isWorking, isFalse);
+
+      final back = gone.copyWith(clearLeft: true);
+      expect(back.isWorking, isTrue);
+      expect(
+        back.daysOnIn(oct.$1, oct.$2),
+        25,
+        reason: 'the 7th to the end of the month',
+      );
+    });
+
+    test('and he counts in the wage bill again', () {
+      final gone = _e(basic: 23000, leftOn: DateTime(2026, 10, 20));
+      expect(monthlyWageBill([gone]), 0);
+      expect(monthlyWageBill([gone.copyWith(clearLeft: true)]), 23000);
+    });
+
+    test('a last day on the day he started is one day worked', () {
+      // He came, he was paid for the day, he did not come back.
+      final e = _e(
+        basic: 30000,
+        joinedOn: DateTime(2026, 10, 7),
+        leftOn: DateTime(2026, 10, 7),
+      );
+      expect(e.daysOnIn(oct.$1, oct.$2), 1);
+      expect(e.payFor(daysOn: 1), 1000);
+    });
+
+    test('a last day before he started leaves nothing owed', () {
+      // The repo refuses it outright; if one ever reaches the books from
+      // an older record, it must not pay out a negative.
+      final e = _e(
+        basic: 30000,
+        joinedOn: DateTime(2026, 10, 20),
+        leftOn: DateTime(2026, 10, 7),
+      );
+      expect(e.daysOnIn(oct.$1, oct.$2), 0);
+      expect(e.payFor(daysOn: 0), 0);
+    });
+  });
 }

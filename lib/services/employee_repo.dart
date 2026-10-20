@@ -23,6 +23,10 @@ class EmployeeRepo {
     String cnic = '',
     String mobile = '',
     DateTime? joinedOn,
+
+    /// Where somebody is written down after he has already gone — the farm
+    /// catching up on a man it paid last month and never recorded.
+    DateTime? leftOn,
     String note = '',
   }) async {
     final to = name.trim();
@@ -42,7 +46,7 @@ class EmployeeRepo {
       'basic': basic,
       'allowance': allowance,
       'joinedOn': Timestamp.fromDate(joinedOn ?? DateTime.now()),
-      'leftOn': null,
+      'leftOn': leftOn == null ? null : Timestamp.fromDate(leftOn),
       'note': note.trim(),
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -73,6 +77,14 @@ class EmployeeRepo {
     String? mobile,
     DateTime? joinedOn,
     String? note,
+
+    /// His last day, and whether to take it off again.
+    ///
+    /// The day a man leaves gets typed from memory a week later and it gets
+    /// typed wrong, and it is the one date his last wage is worked out from.
+    /// It has to be correctable like any other figure here.
+    DateTime? leftOn,
+    bool stillHere = false,
   }) async {
     final to = (name ?? who.name).trim();
     if (to.isEmpty) throw StateError('Who is this?');
@@ -91,6 +103,13 @@ class EmployeeRepo {
       if (bad != null) throw StateError(bad);
     }
 
+    // A man cannot leave before he arrives, and a last month worked out
+    // from those two dates would come to nothing while looking fine.
+    final starts = joinedOn ?? who.joinedOn;
+    if (!stillHere && leftOn != null && leftOn.isBefore(starts)) {
+      throw StateError('He cannot have left before he started.');
+    }
+
     final was = who.monthly;
     await Db.employees.doc(who.id).update({
       'name': to,
@@ -100,13 +119,26 @@ class EmployeeRepo {
       'allowance': ?allowance,
       if (joinedOn != null) 'joinedOn': Timestamp.fromDate(joinedOn),
       if (note != null) 'note': note.trim(),
+      if (stillHere)
+        'leftOn': null
+      else if (leftOn != null)
+        'leftOn': Timestamp.fromDate(leftOn),
     });
 
     final now = (basic ?? who.basic) + (allowance ?? who.allowance);
+    final leftChanged =
+        stillHere ||
+        (leftOn != null &&
+            (who.leftOn == null || !_sameDay(leftOn, who.leftOn!)));
+
     await Log.write(
       actor,
       LogKind.settings,
-      now == was
+      leftChanged
+          ? (stillHere
+                ? '$to is back on the wage list'
+                : 'set $to\'s last day to ${fmtDate(leftOn!)}')
+          : now == was
           ? 'changed the record for $to on the wage list'
           : 'changed $to from ${rs(was)} a month to ${rs(now)}',
       refType: 'employee',
@@ -157,6 +189,9 @@ class EmployeeRepo {
       refId: who.id,
     );
   }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   static Stream<List<Employee>> watch() => Db.employees.snapshots().map(
     (s) => onTheBooks([for (final d in s.docs) Employee.fromDoc(d)]),
