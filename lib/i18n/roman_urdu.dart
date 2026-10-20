@@ -484,6 +484,7 @@ const Map<String, String> romanUrdu = {
   'Vet & medicine': 'Dawai aur daaktar',
   'Food & kitchen': 'Khana aur kitchen',
   'Salaries': 'Tankhwah',
+  'Salary advance': 'Tankhwah ka advance',
   'Rent': 'Kiraya',
   'Utilities (bijli, gas, pani)': 'Bijli, gas, pani',
   'Transport': 'Transport',

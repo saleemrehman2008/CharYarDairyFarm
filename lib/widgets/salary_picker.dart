@@ -25,15 +25,47 @@ class SalaryPicker extends StatelessWidget {
     super.key,
     required this.chosen,
     required this.daysOff,
+    required this.payingFor,
     required this.onPicked,
     required this.onDaysOff,
+    this.advance = false,
+    this.drawnAlready,
+    this.alreadyPaid,
   });
+
+  /// Handing out part of a wage before the month is out, rather than paying
+  /// the wage itself.
+  ///
+  /// The same list of names, and nothing else: how much he is given is
+  /// between him and whoever he asked, and the only thing the farm needs
+  /// written down is which man it was. The wage at month end finds it.
+  final bool advance;
 
   /// The name in the party field, which is what ties this to the entry.
   final String chosen;
   final int daysOff;
-  final void Function(Employee who) onPicked;
-  final void Function(Employee who, int days) onDaysOff;
+
+  /// The month being paid, taken from the entry's own date.
+  ///
+  /// A wage paid on the 2nd of November is November's wage as far as the
+  /// entry goes, and the farm pays on the day it pays — so the month this
+  /// counts against is simply the month the entry is dated in.
+  final DateTime payingFor;
+
+  final void Function(Employee who, int daysOn) onPicked;
+  final void Function(Employee who, int daysOn, int days) onDaysOff;
+
+  /// What he has already drawn against this month, which the wage takes off
+  /// by itself. Handed in by the screen, which has the ledger.
+  final num Function(Employee who)? drawnAlready;
+
+  /// Whether his wage for this month has already been paid, in which case
+  /// the advance has come off it and must not come off again.
+  final bool Function(Employee who)? alreadyPaid;
+
+  DateTime get _monthStart => DateTime(payingFor.year, payingFor.month, 1);
+
+  DateTime get _monthEnd => DateTime(payingFor.year, payingFor.month + 1, 0);
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +87,32 @@ class SalaryPicker extends StatelessWidget {
           );
         }
 
-        final who = working
+        // The ones who left are on the list too while their last month is
+        // still being paid. A man let go on the 19th is owed for the 19
+        // days, and he is owed them after he has gone.
+        final owedStill = all.where((e) {
+          if (e.isWorking) return false;
+          return e.daysOnIn(_monthStart, _monthEnd) > 0;
+        });
+        final pickable = [...working, ...owedStill];
+
+        final who = pickable
             .where((e) => partyKey(e.name) == partyKey(chosen))
             .firstOrNull;
+        final daysOn = who?.daysOnIn(_monthStart, _monthEnd) ?? 0;
+        final partMonth = who != null && daysOn < Employee.monthDays;
+
+        // Wage money he has already taken against this month. It comes off
+        // by itself, which is the whole point — the farm has always said yes
+        // to an advance and then had to remember, so whether it was deducted
+        // depended on who was doing the paying at month end.
+        final drawn = who == null ? 0 : (drawnAlready?.call(who) ?? 0);
+        final settled = who != null && (alreadyPaid?.call(who) ?? false);
+        final comesOff = settled ? 0 : drawn;
+        final wage = who == null
+            ? 0
+            : who.payFor(daysOff: daysOff, daysOn: daysOn);
+        final toHand = wage - comesOff;
 
         return RegCard(
           stripe: T.accent600,
@@ -65,18 +120,39 @@ class SalaryPicker extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Kicker('Who is being paid'),
+              Kicker(
+                advance ? 'Who is being advanced it' : 'Who is being paid',
+              ),
               const SizedBox(height: 7),
               Wrap(
                 spacing: 7,
                 runSpacing: 7,
                 children: [
-                  for (final e in working)
-                    _Who(who: e, on: who?.id == e.id, onTap: () => onPicked(e)),
+                  for (final e in pickable)
+                    _Who(
+                      who: e,
+                      on: who?.id == e.id,
+                      onTap: () =>
+                          onPicked(e, e.daysOnIn(_monthStart, _monthEnd)),
+                    ),
                 ],
               ),
 
-              if (who != null) ...[
+              if (who != null && advance) ...[
+                const SizedBox(height: 10),
+                Text(
+                  drawn > 0
+                      ? 'He is on ${rs(who.monthly)} a month and has already '
+                            'taken ${rs(drawn)} against it. Whatever goes out '
+                            'now comes off the same wage.'
+                      : 'He is on ${rs(who.monthly)} a month. Whatever goes '
+                            'out now comes off that wage at the end of the '
+                            'month, by itself — nobody has to remember.',
+                  style: T.meta,
+                ),
+              ],
+
+              if (who != null && !advance) ...[
                 const SizedBox(height: 12),
                 const Divider(height: 1),
                 const SizedBox(height: 12),
@@ -96,8 +172,49 @@ class SalaryPicker extends StatelessWidget {
                   ],
                 ),
 
+                if (partMonth) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: T.accent600.withValues(alpha: 0.09),
+                      borderRadius: BorderRadius.circular(T.radiusXs),
+                      border: Border.all(
+                        color: T.accent600.withValues(alpha: 0.30),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          daysOn == 1
+                              ? 'Here 1 day of this month'
+                              : 'Here $daysOn days of this month',
+                          style: T.bodyMid.copyWith(color: T.accent700),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          who.leftOn != null
+                              ? 'Started ${fmtDate(who.joinedOn)}, last day '
+                                    '${fmtDate(who.leftOn!)}. Counted off his '
+                                    'record rather than on anybody\'s fingers.'
+                              : 'Started ${fmtDate(who.joinedOn)}, so this is '
+                                    'only part of a month. Counted off his '
+                                    'record.',
+                          style: T.meta,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 11),
-                Kicker('Days off this month'),
+                Kicker(
+                  partMonth ? 'Days off on top of that' : 'Days off this month',
+                ),
                 const SizedBox(height: 6),
                 Text(
                   'Counted against a thirty day month, which is how the farm '
@@ -106,7 +223,7 @@ class SalaryPicker extends StatelessWidget {
                   style: T.meta,
                 ),
                 const SizedBox(height: 8),
-                _Days(days: daysOff, onPick: (d) => onDaysOff(who, d)),
+                _Days(days: daysOff, onPick: (d) => onDaysOff(who, daysOn, d)),
 
                 if (daysOff > 0) ...[
                   const SizedBox(height: 10),
@@ -119,10 +236,37 @@ class SalaryPicker extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '− ${rs(who.cutFor(daysOff: daysOff))}',
+                        '− ${rs(who.monthly - who.payFor(daysOff: daysOff, daysOn: daysOn))}',
                         style: T.bodyMid.copyWith(color: T.moneyDue),
                       ),
                     ],
+                  ),
+                ],
+
+                if (comesOff > 0) ...[
+                  const SizedBox(height: 7),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Advance already taken this month',
+                          style: T.meta.copyWith(color: T.moneyDue),
+                        ),
+                      ),
+                      Text(
+                        '− ${rs(comesOff)}',
+                        style: T.bodyMid.copyWith(color: T.moneyDue),
+                      ),
+                    ],
+                  ),
+                ],
+                if (settled && drawn > 0) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    'His wage for this month is already on the books, so the '
+                    '${rs(drawn)} advance has come off it once. It is not '
+                    'taken off again here.',
+                    style: T.meta.copyWith(color: T.moneyDue),
                   ),
                 ],
 
@@ -143,12 +287,12 @@ class SalaryPicker extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'To pay him',
+                          comesOff > 0 ? 'Left to hand him' : 'To pay him',
                           style: T.bodyMid.copyWith(color: T.moneyOut),
                         ),
                       ),
                       Text(
-                        rs(who.payFor(daysOff: daysOff)),
+                        rs(toHand < 0 ? 0 : toHand),
                         style: T.num22.copyWith(color: T.moneyOut),
                       ),
                     ],
@@ -156,9 +300,14 @@ class SalaryPicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Filled in above and still yours to change. The farm '
-                  'settles up with a man, not with a sum.',
-                  style: T.meta,
+                  toHand < 0
+                      ? 'He has drawn ${rs(-toHand)} more than this month '
+                            'comes to. Nothing is owed to him now, and that '
+                            'much is still to come off next month — put it '
+                            'in by hand when you pay it.'
+                      : 'Filled in above and still yours to change. The farm '
+                            'settles up with a man, not with a sum.',
+                  style: T.meta.copyWith(color: toHand < 0 ? T.moneyDue : null),
                 ),
               ],
             ],

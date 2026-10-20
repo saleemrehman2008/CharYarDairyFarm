@@ -57,6 +57,7 @@ enum TxnType {
     ],
     TxnType.expense => const [
       'Salaries',
+      salaryAdvanceCategory,
       'Rent',
       'Utilities (bijli, gas, pani)',
       'Food & kitchen',
@@ -153,6 +154,7 @@ enum MoneyFlow {
       ('Vet & medicine', TxnType.purchase),
       ('Food & kitchen', TxnType.purchase),
       ('Salaries', TxnType.expense),
+      (salaryAdvanceCategory, TxnType.expense),
       ('Rent', TxnType.expense),
       ('Utilities (bijli, gas, pani)', TxnType.expense),
       ('Transport', TxnType.expense),
@@ -351,6 +353,19 @@ enum MilkShift {
 /// A wage. The one cost the farm pays every month with no invoice
 /// behind it — see the wage list, which is what stands under it instead.
 const salariesCategory = 'Salaries';
+
+/// Wage money handed over before the month is out.
+///
+/// A man asks for five thousand on the 12th and says take it off my salary.
+/// The farm has always said yes and then had to remember, so the deduction
+/// happened or did not depending on who was doing the paying at the end of
+/// the month. It is an entry of its own now, and the wage it belongs to
+/// finds it by itself.
+///
+/// It is a cost on the day it is paid, like the rest of the wage: the advance
+/// and what is handed over at month end add up to the month's pay between
+/// them, so the salary bill comes out right either way.
+const salaryAdvanceCategory = 'Salary advance';
 
 const profitShareCategory = 'Profit share';
 

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
+import '../../services/accounting.dart';
 import '../../services/month_repo.dart';
 import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
@@ -94,6 +95,32 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   }
 
   num get _amount => num.tryParse(_total.text.trim()) ?? 0;
+
+  DateTime get _payStart => DateTime(_when.year, _when.month, 1);
+  DateTime get _payEnd => DateTime(_when.year, _when.month + 1, 0);
+
+  num _drawnBy(Employee who) => advanceTaken(
+    context.read<FarmStore>().ledger,
+    who: who.name,
+    from: _payStart,
+    to: _payEnd,
+  );
+
+  bool _wageDone(Employee who) => wagePaidIn(
+    context.read<FarmStore>().ledger,
+    who: who.name,
+    from: _payStart,
+    to: _payEnd,
+  );
+
+  /// What is actually handed over: the month's wage, less what he has
+  /// already drawn against it, and never less than nothing.
+  num _toHand(Employee who, int daysOn, int daysOff) {
+    final wage = who.payFor(daysOff: daysOff, daysOn: daysOn);
+    final off = _wageDone(who) ? 0 : _drawnBy(who);
+    final left = wage - off;
+    return left < 0 ? 0 : left;
+  }
 
   /// Days off to come out of this month's wage.
   ///
@@ -413,23 +440,46 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           // owed — see [WagesScreen] — so the name comes off that list and
           // the figure is worked out from his record rather than from
           // somebody's memory of what he is on.
+          // Part of a wage, handed out before the month is out. The only
+          // thing the farm needs written down is which man it was — the wage
+          // at month end finds the advance by itself.
+          if (_category == salaryAdvanceCategory) ...[
+            const SizedBox(height: 10),
+            SalaryPicker(
+              chosen: _party.text.trim(),
+              daysOff: 0,
+              payingFor: _when,
+              advance: true,
+              drawnAlready: (who) => advanceTaken(
+                context.read<FarmStore>().ledger,
+                who: who.name,
+                from: DateTime(_when.year, _when.month, 1),
+                to: DateTime(_when.year, _when.month + 1, 0),
+              ),
+              onPicked: (who, _) => setState(() => _party.text = who.name),
+              onDaysOff: (_, _, _) {},
+            ),
+          ],
           if (_category == salariesCategory) ...[
             const SizedBox(height: 10),
             SalaryPicker(
               chosen: _party.text.trim(),
               daysOff: _daysOff,
-              onPicked: (who) {
+              payingFor: _when,
+              drawnAlready: _drawnBy,
+              alreadyPaid: _wageDone,
+              onPicked: (who, daysOn) {
                 setState(() {
                   _party.text = who.name;
                   _daysOff = 0;
-                  _total.text = '${who.payFor().round()}';
+                  _total.text = '${_toHand(who, daysOn, 0).round()}';
                 });
                 _fromTotal();
               },
-              onDaysOff: (who, days) {
+              onDaysOff: (who, daysOn, days) {
                 setState(() {
                   _daysOff = days;
-                  _total.text = '${who.payFor(daysOff: days).round()}';
+                  _total.text = '${_toHand(who, daysOn, days).round()}';
                 });
                 _fromTotal();
               },

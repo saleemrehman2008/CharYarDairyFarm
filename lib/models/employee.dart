@@ -68,21 +68,55 @@ class Employee {
 
   bool get isWorking => leftOn == null;
 
-  /// What he is owed for a month he was away part of.
+  /// A month is thirty days here whatever the calendar says.
   ///
-  /// A thirty-day month whatever the calendar says, because that is how the
-  /// farm has always counted it and how the man expects it to be counted.
-  /// Arguing that February should divide by 28 costs more in trust than it
-  /// saves in rupees.
-  num payFor({int daysOff = 0}) {
-    if (daysOff <= 0) return monthly;
-    if (daysOff >= 30) return 0;
-    final cut = monthly * daysOff / 30;
-    return (monthly - cut).round();
+  /// That is how the farm has always counted it and how the man expects it
+  /// to be counted. Arguing that February should divide by 28 costs more in
+  /// trust than it saves in rupees.
+  static const monthDays = 30;
+
+  /// How many days of a given month he was actually on the farm.
+  ///
+  /// A man taken on partway through the month, or one who left partway
+  /// through it, is owed for the days he was here and no more. The farm was
+  /// counting these on its fingers — "rakha 7 October ko, last day 19
+  /// October" — and his record already holds both dates, so it can count
+  /// them itself.
+  ///
+  /// Both ends count as worked: a man who starts on the 7th and leaves on
+  /// the 19th was here on the 7th and on the 19th, which is thirteen days.
+  int daysOnIn(DateTime from, DateTime to) {
+    final start = _day(joinedOn).isAfter(_day(from))
+        ? _day(joinedOn)
+        : _day(from);
+    final end = leftOn != null && _day(leftOn!).isBefore(_day(to))
+        ? _day(leftOn!)
+        : _day(to);
+    if (end.isBefore(start)) return 0;
+    final days = end.difference(start).inDays + 1;
+    return days > monthDays ? monthDays : days;
   }
 
-  /// What a given number of days off takes off the wage.
-  num cutFor({int daysOff = 0}) => monthly - payFor(daysOff: daysOff);
+  /// What he is owed for the month.
+  ///
+  /// [daysOn] is how many of the month's days he was on the farm at all —
+  /// the whole month unless he joined or left inside it. [daysOff] is the
+  /// leave taken out of those. Both come off the month's whole pay, the
+  /// allowance with the wage: a day's absence is a day of the month, and
+  /// taking it off the basic alone would quietly pay a man who was away
+  /// more per working day than one who was not.
+  num payFor({int daysOff = 0, int? daysOn}) {
+    final worked = (daysOn ?? monthDays) - (daysOff > 0 ? daysOff : 0);
+    if (worked <= 0) return 0;
+    if (worked >= monthDays) return monthly;
+    return (monthly * worked / monthDays).round();
+  }
+
+  /// What the days not worked take off a full month's pay.
+  num cutFor({int daysOff = 0, int? daysOn}) =>
+      monthly - payFor(daysOff: daysOff, daysOn: daysOn);
+
+  static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 
   Map<String, dynamic> toMap() => {
     'name': name,

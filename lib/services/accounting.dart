@@ -537,6 +537,63 @@ class AccountLine {
 /// other half of that — an entry carries one name as the payer and three men
 /// can have paid for it, so where the farm has written down who found the
 /// money, that is who it comes out of.
+/// Wage money a man has already taken against a month, still to come off it.
+///
+/// He asks for five thousand on the 12th and says take it off my salary. The
+/// farm has always said yes and then had to remember, so whether the
+/// deduction happened depended on who was doing the paying at the end of the
+/// month. The entries know, so they can do the remembering.
+///
+/// Dated inside the month being paid, because an advance belongs to the wage
+/// it was taken against: one drawn in October comes off October's pay, and if
+/// it was not deducted then it is not quietly taken out of November's.
+num advanceTaken(
+  List<Txn> ledger, {
+  required String who,
+  required DateTime from,
+  required DateTime to,
+}) {
+  final key = partyKey(who);
+  final start = DateTime(from.year, from.month, from.day);
+  final end = DateTime(to.year, to.month, to.day, 23, 59, 59);
+
+  return ledger
+      .where(
+        (t) =>
+            !t.isDeleted &&
+            t.category == salaryAdvanceCategory &&
+            partyKey(t.party) == key &&
+            !t.date.isBefore(start) &&
+            !t.date.isAfter(end),
+      )
+      .fold<num>(0, (a, t) => a + t.amount);
+}
+
+/// Whether his wage for that month has already been paid.
+///
+/// Once it has, the advance has come off it and must not come off again —
+/// the farm correcting an entry a week later should not watch five thousand
+/// disappear twice.
+bool wagePaidIn(
+  List<Txn> ledger, {
+  required String who,
+  required DateTime from,
+  required DateTime to,
+}) {
+  final key = partyKey(who);
+  final start = DateTime(from.year, from.month, from.day);
+  final end = DateTime(to.year, to.month, to.day, 23, 59, 59);
+
+  return ledger.any(
+    (t) =>
+        !t.isDeleted &&
+        t.category == salariesCategory &&
+        partyKey(t.party) == key &&
+        !t.date.isBefore(start) &&
+        !t.date.isAfter(end),
+  );
+}
+
 /// What a handover row should say on one man's own statement.
 ///
 /// The categories on the rows are written for the books: "Handed to a

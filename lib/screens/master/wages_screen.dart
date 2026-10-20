@@ -9,6 +9,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../shared/statement_screen.dart';
 import '../../widgets/ui.dart';
 
 /// Who the farm pays a wage to, and what it pays them.
@@ -230,15 +231,28 @@ class _CardState extends State<_Card> {
           ],
 
           const SizedBox(height: 11),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
+              GhostButton(
+                label: l.t('Statement'),
+                icon: Icons.receipt_long_outlined,
+                compact: true,
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => StatementScreen(party: e.name),
+                        ),
+                      ),
+              ),
               GhostButton(
                 label: l.t('Change'),
                 icon: Icons.edit_outlined,
                 compact: true,
                 onPressed: _busy ? null : () => showEmployeeForm(context, e),
               ),
-              const SizedBox(width: 8),
               if (e.isWorking)
                 GhostButton(
                   label: l.t('He has left'),

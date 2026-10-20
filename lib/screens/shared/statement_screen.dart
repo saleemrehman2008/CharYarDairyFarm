@@ -22,14 +22,20 @@ import '../../widgets/ui.dart';
 /// is their account; leave it on everybody and it is the farm's cash book. The
 /// difference is real and not cosmetic — see [buildStatement].
 class StatementScreen extends StatefulWidget {
-  const StatementScreen({super.key});
+  const StatementScreen({super.key, this.party});
+
+  /// Opened already narrowed to one name.
+  ///
+  /// The wage list opens it on one man, because "what have we paid him" is
+  /// the question somebody standing on the page about him is asking.
+  final String? party;
 
   @override
   State<StatementScreen> createState() => _StatementScreenState();
 }
 
 class _StatementScreenState extends State<StatementScreen> {
-  String? _party;
+  late String? _party = widget.party;
   DateTimeRange? _range;
 
   /// One kind of entry, or all of them. Sale, purchase, expense, receipt,
