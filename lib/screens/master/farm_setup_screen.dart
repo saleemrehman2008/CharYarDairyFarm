@@ -31,6 +31,49 @@ class FarmSetupScreen extends StatefulWidget {
 class _FarmSetupScreenState extends State<FarmSetupScreen> {
   bool _busy = false;
 
+  /// What an entry has to say before it saves.
+  ///
+  /// Written as an explicit false rather than by leaving it out, because
+  /// absent means yes — a settings record written before any of this
+  /// existed should not quietly loosen the books.
+  Future<void> _setMust(MustSay m, bool on, Insists current) async {
+    final l = L.read(context);
+    final session = context.read<Session>();
+
+    setState(() => _busy = true);
+    try {
+      await Db.farmSettings.set({
+        'insists': {m.id: on},
+      }, SetOptions(merge: true));
+      await Log.write(
+        session.actor,
+        LogKind.settings,
+        on
+            ? 'made "${m.label}" something an entry must say'
+            : 'stopped insisting an entry says "${m.label}"',
+        refType: 'settings',
+        refId: 'farm',
+      );
+    } catch (e) {
+      if (mounted) toast(context, l.t2('Could not save that. %s', e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Why each one is worth insisting on, in the words of what went wrong.
+  static String _whyMust(MustSay m) => switch (m) {
+    MustSay.shift =>
+      'A buffalo is milked twice a day. Left unanswered the litres '
+          'land in neither half.',
+    MustSay.paid =>
+      'Picked for them, an entry that was really on credit goes in as '
+          'cash whenever nobody looks at the toggle.',
+    MustSay.handler =>
+      'Money that moved with no name against it cannot be asked about '
+          'a month later.',
+  };
+
   Future<void> _set(Feature feature, bool on, Features current) async {
     final l = L.read(context);
     final session = context.read<Session>();
@@ -78,6 +121,7 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final f = context.watch<Session>().features;
+    final s = context.watch<Session>().settings;
 
     return FarmScaffold(
       title: l.t('What the farm runs'),
@@ -158,6 +202,42 @@ class _FarmSetupScreenState extends State<FarmSetupScreen> {
                   ),
                   onChanged: null,
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: T.gap),
+
+          // What an entry has to say before it can be saved.
+          //
+          // The farm asked for these here: a question the app answers for
+          // somebody is a question nobody reads, and which of them matter is
+          // the master's call. Switched off, a sensible answer is filled in
+          // and whoever is entering is trusted to change it.
+          RegCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Kicker(l.t('What an entry must say')),
+                const SizedBox(height: 4),
+                Text(
+                  l.t(
+                    'Switched on, the form holds until it is told. Off, it '
+                    'fills in a sensible answer and trusts whoever is '
+                    'entering to change it.',
+                  ),
+                  style: T.meta,
+                ),
+                const SizedBox(height: 12),
+                for (final (i, m) in MustSay.values.indexed) ...[
+                  if (i > 0) const Divider(height: 22),
+                  SwitchRow(
+                    title: l.t(m.label),
+                    note: l.t(_whyMust(m)),
+                    value: s.insists.has(m),
+                    enabled: !_busy,
+                    onChanged: (v) => _setMust(m, v, s.insists),
+                  ),
+                ],
               ],
             ),
           ),

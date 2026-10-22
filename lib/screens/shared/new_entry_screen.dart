@@ -59,6 +59,9 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// Which milking, on a milk entry. Null until picked, and save refuses
   /// while it is — see [_shiftNeeded].
   MilkShift? _shift;
+
+  /// Left unanswered unless the master has said the farm may be trusted
+  /// to change a filled-in answer. See [Insists].
   bool? _paid;
 
   /// Whether a save has been tried and turned back.
@@ -300,21 +303,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     }
     // A buffalo is milked twice a day. Left unanswered, the litres land in
     // neither half and every figure built on the split is short by them.
-    if (_shiftNeeded && _shift == null) {
+    final insists = context.read<FarmStore>().settings.insists;
+
+    if (insists.shift && _shiftNeeded && _shift == null) {
       setState(() => _tried = true);
       toast(context, 'Morning or evening? Pick one first.');
       return;
     }
     // Has the money moved or not. Picked for them, an entry on credit went
     // in as cash whenever nobody looked at the toggle.
-    if (!_type.isSettlement && _paid == null) {
+    if (insists.paid && !_type.isSettlement && _paid == null) {
       setState(() => _tried = true);
       toast(context, 'Has it been paid? Pick one first.');
       return;
     }
     // Money that moved needs a name against it, or nobody can be asked about
     // it a month later.
-    if (_paid == true && _handledBy.text.trim().isEmpty) {
+    if (insists.handler && _paid == true && _handledBy.text.trim().isEmpty) {
       setState(() => _tried = true);
       toast(context, 'Who handled the money? Fill that in first.');
       return;
@@ -406,7 +411,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         capital: _capital,
         shift: _shiftNeeded ? _shift : null,
         amount: _amount,
-        paid: _paid ?? false,
+        paid: _paid ?? !insists.paid,
         qty: num.tryParse(_qty.text.trim()),
         unit: _unit,
         rate: num.tryParse(_rate.text.trim()),
@@ -835,7 +840,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           ],
 
           // Only worth asking once the money has actually moved.
-          if (_type.isSettlement || _paid == true) ...[
+          if (_type.isSettlement ||
+              (_paid ?? !context.watch<FarmStore>().settings.insists.paid)) ...[
             const SizedBox(height: T.pad),
             const Kicker('How'),
             const SizedBox(height: 6),

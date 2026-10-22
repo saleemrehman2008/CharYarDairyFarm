@@ -571,6 +571,31 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  'Switched on, the form holds until it is told. Off, it fills in a sensible answer and trusts whoever is entering to change it.':
+      'On ho to form rukta hy jb tk bataya na jae. Off ho to khud ek munasib jawab bhar deta hy aur bharny waly per chorh deta hy k badal le.',
+  'What an entry must say': 'Entry me kiya batana zaroori hy',
+  'Morning or evening': 'Subah ya shaam',
+  'Paid now, or on the account': 'Abhi diya, ya khaty per',
+  'Who handled the money': 'Paisa kis k haath laga',
+  'A buffalo is milked twice a day. Left unanswered the litres land in neither half.':
+      'Bhains din me do bar duhi jati hy. Na bataya jae to litre kisi b taraf ni jate.',
+  'Picked for them, an entry that was really on credit goes in as cash whenever nobody looks at the toggle.':
+      'Pehly se chuna hoa ho to jo entry asal me udhaar ki thi wo cash me chali jati hy, jb koi us button ko dekhta hi ni.',
+  'Money that moved with no name against it cannot be asked about a month later.':
+      'Jis paisy per kisi ka naam na ho, us k bare me mahiny baad koi poch b ni sakta.',
+  'Pick one — cash now, or on the account.':
+      'Ek chuno — abhi cash, ya khaty per.',
+  'Has it been paid? Pick one first.': 'Paisa diya gaya hy? Pehly ye batao.',
+  'Which milking? A buffalo is milked twice a day, and left unanswered the litres land in neither half.':
+      'Kon si duhai? Bhains din me do bar duhi jati hy, aur na bataya jae to litre kisi b taraf ni jate.',
+  'This one is needed. Money that moved with no name against it cannot be asked about a month later.':
+      'Ye zaroori hy. Jis paisy per kisi ka naam na ho, us k bare me mahiny baad koi poch b ni sakta.',
+  'Tag number': 'Tag number',
+  'What is written on her tag': 'Jo us k tag per likha hy',
+  'Leave it blank and the app will give her one.':
+      'Khali chorh do to app khud ek de degi.',
+  'Farm assets': 'Farm ki milkiyat',
+  'What the farm keeps': 'Jo farm k paas rehta hy',
   '%s entries · %s on this page': '%s entries · is safhy per %s',
   'A share follows what a man is in for, not what has arrived — so it is settled the day he says it and does not creep up as he pays.':
       'Hissa us baat se chalta hy k aadmi ne kitna dene ka keh rakha hy, us se ni k kitna aa chuka — is liye wo usi din tay ho jata hy aur baad me barhta ni.',

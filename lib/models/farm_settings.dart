@@ -6,6 +6,64 @@ import 'helpers.dart';
 /// Switching one off is not a permission and not a delete: the screens vanish
 /// from every phone, the notifications stop, and the records stay exactly
 /// where they are, waiting for it to be switched back on.
+/// What an entry must say before it can be saved.
+///
+/// The farm asked for these in the master's own settings: a question left
+/// answered by the app is a question nobody reads, and which of them matter
+/// is the master's call rather than the app's. Switched off, a sensible
+/// answer is filled in and the farm is trusted to change it; switched on,
+/// the form holds until it is told.
+enum MustSay {
+  /// Which milking the litres came from. A buffalo is milked twice a day,
+  /// and left unanswered they land in neither half.
+  shift('askShift', 'Morning or evening'),
+
+  /// Whether the money has moved. Picked for them, an entry on credit went
+  /// in as cash whenever nobody looked at the toggle.
+  paid('askPaid', 'Paid now, or on the account'),
+
+  /// Whose hands the money passed through. Money that moved with no name
+  /// against it cannot be asked about a month later.
+  handler('askHandler', 'Who handled the money');
+
+  const MustSay(this.id, this.label);
+
+  final String id;
+  final String label;
+}
+
+/// Which of those the farm insists on.
+class Insists {
+  const Insists(this.on);
+
+  final Set<MustSay> on;
+
+  bool has(MustSay m) => on.contains(m);
+
+  bool get shift => has(MustSay.shift);
+  bool get paid => has(MustSay.paid);
+  bool get handler => has(MustSay.handler);
+
+  /// All three, which is how the farm has been running since it asked for
+  /// them. A record written before any of this says nothing, and silence
+  /// should not quietly loosen the books.
+  static const Insists all = Insists({
+    MustSay.shift,
+    MustSay.paid,
+    MustSay.handler,
+  });
+
+  static Insists read(Object? v) {
+    if (v is! Map) return all;
+    final on = <MustSay>{};
+    for (final m in MustSay.values) {
+      // Absent means yes. Only an explicit false turns one off.
+      if (v[m.id] != false) on.add(m);
+    }
+    return Insists(on);
+  }
+}
+
 enum Feature {
   orders('orders'),
   khaata('khaata'),
@@ -102,6 +160,7 @@ class FarmSettings {
     required this.syncOk,
     required this.syncError,
     required this.features,
+    this.insists = Insists.all,
   });
 
   final String name;
@@ -137,6 +196,9 @@ class FarmSettings {
   /// Which parts of the farm are switched on. Master only.
   final Features features;
 
+  /// What an entry must say before it can be saved.
+  final Insists insists;
+
   String get sheetUrl =>
       sheetId.isEmpty ? '' : 'https://docs.google.com/spreadsheets/d/$sheetId';
 
@@ -155,6 +217,7 @@ class FarmSettings {
     syncOk: true,
     syncError: '',
     features: Features.initial,
+    insists: Insists.all,
   );
 
   factory FarmSettings.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -177,6 +240,7 @@ class FarmSettings {
       syncOk: m['syncOk'] == null ? true : b(m['syncOk']),
       syncError: s(m['syncError']),
       features: Features.from(m['features']),
+      insists: Insists.read(m['insists']),
     );
   }
 }
