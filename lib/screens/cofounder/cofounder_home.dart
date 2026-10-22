@@ -73,6 +73,10 @@ class CofounderHome extends StatelessWidget {
             periodLabel(store.month),
           ),
           trailing: Tag(periodLabel(store.month, short: true)),
+          // Where his slice comes from. The figure is the one thing he
+          // opens the app for, and the report is the only page that shows
+          // its working.
+          onTap: () => _push(context, store, const ReportScreen()),
         ),
         const SizedBox(height: T.gap),
 
@@ -86,6 +90,13 @@ class CofounderHome extends StatelessWidget {
                 note: (me?.profitHeld ?? 0) > 0
                     ? l.t2('incl. %s left in', rs(me!.profitHeld))
                     : l.t('put in from your pocket'),
+                onTap: me == null
+                    ? null
+                    : () => _push(
+                        context,
+                        store,
+                        StatementScreen(party: me.name),
+                      ),
               ),
             ),
             const SizedBox(width: T.gap),
@@ -97,6 +108,7 @@ class CofounderHome extends StatelessWidget {
                 note: books.withRider > 0
                     ? l.t2('%s with the rider', rs(books.withRider))
                     : l.t('cash in hand'),
+                onTap: () => _push(context, store, const AccountsScreen()),
               ),
             ),
           ],
@@ -111,6 +123,13 @@ class CofounderHome extends StatelessWidget {
                 value: rs(books.receivable),
                 tone: T.moneyGet,
                 note: l.t2('%s unpaid', store.receivablesDue.length),
+                onTap: () => _push(
+                  context,
+                  store,
+                  const AccountsScreen(
+                    initialFilter: AccountsFilter.receivable,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: T.gap),
@@ -120,6 +139,11 @@ class CofounderHome extends StatelessWidget {
                 value: rs(books.payable),
                 tone: T.moneyDue,
                 note: l.t2('%s bills', store.payablesDue.length),
+                onTap: () => _push(
+                  context,
+                  store,
+                  const AccountsScreen(initialFilter: AccountsFilter.payable),
+                ),
               ),
             ),
           ],
@@ -134,6 +158,11 @@ class CofounderHome extends StatelessWidget {
                 value: '${margin.toStringAsFixed(0)}%',
                 tone: margin < 0 ? T.moneyOut : T.moneyIn,
                 note: l.t2('of %s sold', rs(books.sales)),
+                onTap: () => _push(
+                  context,
+                  store,
+                  const AccountsScreen(initialFilter: AccountsFilter.sales),
+                ),
               ),
             ),
             const SizedBox(width: T.gap),
@@ -143,6 +172,11 @@ class CofounderHome extends StatelessWidget {
                 value: rs(books.costs),
                 tone: T.moneyOut,
                 note: l.t('feed, salaries, bills'),
+                onTap: () => _push(
+                  context,
+                  store,
+                  const AccountsScreen(initialFilter: AccountsFilter.running),
+                ),
               ),
             ),
           ],
