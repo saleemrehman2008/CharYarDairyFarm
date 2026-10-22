@@ -88,6 +88,10 @@ class SalaryPicker extends StatelessWidget {
         // the farm gets round to paying him.
         final owedStill = all.where((e) {
           if (e.isWorking) return false;
+          // Only while his last wage is still unpaid. Once it has gone out
+          // he is finished with, and a man who left in October has no
+          // business on the list every month after it.
+          if (alreadyPaid?.call(e) ?? false) return false;
           return e.daysOnIn(_monthStart, _monthEnd) > 0;
         });
         final pickable = [...working, ...owedStill];

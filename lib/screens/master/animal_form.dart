@@ -71,6 +71,14 @@ class AnimalFormScreen extends StatefulWidget {
 }
 
 class _AnimalFormScreenState extends State<AnimalFormScreen> {
+  /// The number already on her ear.
+  ///
+  /// The app used to pick one and tell the farm to go and write it on the
+  /// tag, which is backwards: these animals arrive with numbers, and the
+  /// man registering her is standing next to her reading one off. Left
+  /// blank the app still counts one out, because a calf born at four in the
+  /// morning has no number on anything yet.
+  final _tag = TextEditingController();
   final _name = TextEditingController();
   final _price = TextEditingController();
   final _litres = TextEditingController();
@@ -142,6 +150,7 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
 
   @override
   void dispose() {
+    _tag.dispose();
     _name.dispose();
     _calfName.dispose();
     _calfMonths.dispose();
@@ -259,6 +268,7 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
               species: _species,
               sex: _sex,
               photo: _photo!,
+              tag: _tag.text.trim(),
               name: _name.text.trim(),
               bornOn: _bornOn,
               boughtOn: price > 0 ? (_boughtOn ?? DateTime.now()) : null,
@@ -400,6 +410,18 @@ class _AnimalFormScreenState extends State<AnimalFormScreen> {
                   compact: true,
                   options: [for (final s in Sex.values) (s, s.label)],
                   onChanged: (v) => setState(() => _sex = v),
+                ),
+                const SizedBox(height: T.gap),
+                Field(
+                  label: 'Tag number',
+                  controller: _tag,
+                  hint: 'What is written on her tag',
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Leave it blank and the app will give her one.',
+                  style: T.meta,
                 ),
                 const SizedBox(height: T.gap),
                 Field(

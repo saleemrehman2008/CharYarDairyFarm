@@ -47,7 +47,17 @@ enum AccountsFilter {
   receivable('To receive'),
   payable('To pay'),
   sales('Sales'),
-  expenses('Expenses');
+  expenses('Expenses'),
+
+  /// What the money bought, split two ways.
+  ///
+  /// The farm's question: eighteen lakh went out, and how much of it is gone
+  /// and how much is standing in the shed? Running costs eat the profit;
+  /// buffaloes and equipment do not, because the farm still has them. The
+  /// one figure for "spent" could not answer it, and it is the difference
+  /// between a bad month and a month that bought a herd.
+  running('Running cost'),
+  assets('Farm assets');
 
   const AccountsFilter(this.label);
 
@@ -58,7 +68,10 @@ enum AccountsFilter {
   Color get tone => switch (this) {
     AccountsFilter.all => T.accent600,
     AccountsFilter.sales || AccountsFilter.received => T.moneyIn,
-    AccountsFilter.expenses || AccountsFilter.paidOut => T.moneyOut,
+    AccountsFilter.expenses ||
+    AccountsFilter.paidOut ||
+    AccountsFilter.running => T.moneyOut,
+    AccountsFilter.assets => T.accent700,
     AccountsFilter.receivable => T.moneyGet,
     AccountsFilter.payable => T.moneyDue,
   };
@@ -72,6 +85,8 @@ enum AccountsFilter {
     AccountsFilter.paidOut => books.paidOut,
     AccountsFilter.receivable => books.receivable,
     AccountsFilter.payable => books.payable,
+    AccountsFilter.running => books.costs,
+    AccountsFilter.assets => books.assetsBought,
   };
 
   String get heading => switch (this) {
@@ -82,6 +97,8 @@ enum AccountsFilter {
     AccountsFilter.paidOut => 'Money paid out',
     AccountsFilter.receivable => 'Still to collect',
     AccountsFilter.payable => 'Still to pay',
+    AccountsFilter.running => 'Running cost',
+    AccountsFilter.assets => 'What the farm keeps',
   };
 
   /// True on the two lists that carry one row per rupee, where a figure at
@@ -204,9 +221,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 label: l.t(_filter.heading),
                 value: rs(_total(books, rows)),
                 gradient: T.washOf(_filter.tone),
+                // The figure above is a balance the farm keeps; this is what
+                // is actually on the page under it. They are not the same
+                // number, and the second one used to sit at the very bottom
+                // past thirty entries — so the farm scrolled the whole list
+                // to find a total it had already asked for at the top.
                 note: loading
                     ? l.t('Loading…')
-                    : l.t2('%s entries', rows.length),
+                    : l.t3(
+                        '%s entries · %s on this page',
+                        '${rows.length}',
+                        rs(rows.fold<num>(0, (a, t) => a + t.amount)),
+                      ),
                 trailing: Tag(periodLabel(store.month, short: true)),
               ),
             const SizedBox(height: T.pad),
@@ -365,8 +391,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
   }
 
   /// The tab's rows, narrowed to one name, one kind, or both.
+  /// Narrowed to one name, and a name is two things on an entry.
+  ///
+  /// Who the trade was with, and who of the farm's own people handled the
+  /// money. Picking Ghulam Ali used to match only the first, so his name
+  /// found almost nothing — every milk sale he took at the gate has Urooj
+  /// Dairy Shop against it and him only as the handler. Twenty entries
+  /// through his hands and the page said none.
   List<Txn> _narrow(List<Txn> rows) => rows
-      .where((t) => _party == null || partyKey(t.party) == partyKey(_party!))
+      .where(
+        (t) =>
+            _party == null ||
+            partyKey(t.party) == partyKey(_party!) ||
+            partyKey(t.handledBy) == partyKey(_party!),
+      )
       .where((t) => _category == null || t.category == _category)
       .toList();
 
@@ -554,6 +592,23 @@ class _AccountsScreenState extends State<AccountsScreen> {
       monthTxns.where((t) => movedCashOut(t) && !t.isHandover).toList(),
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
+
+    // What running the place ate: everything that went out except the
+    // things the farm still has.
+    AccountsFilter.running =>
+      monthTxns
+          .where(
+            (t) =>
+                !t.type.isIncoming &&
+                !t.isCapitalAsset &&
+                !t.isHandover &&
+                !t.movedNoCash,
+          )
+          .toList(),
+
+    // And the things it still has: cattle, equipment, whatever was bought
+    // and kept.
+    AccountsFilter.assets => monthTxns.where((t) => t.isCapitalAsset).toList(),
   };
 
   // ---- settling a stack of credit entries together ----

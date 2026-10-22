@@ -571,6 +571,37 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  '%s entries · %s on this page': '%s entries · is safhy per %s',
+  'A share follows what a man is in for, not what has arrived — so it is settled the day he says it and does not creep up as he pays.':
+      'Hissa us baat se chalta hy k aadmi ne kitna dene ka keh rakha hy, us se ni k kitna aa chuka — is liye wo usi din tay ho jata hy aur baad me barhta ni.',
+  'About': 'App k bare me',
+  'Built for this farm and nobody else. Every figure on every screen comes from the entries the four of you write down.':
+      'Sirf isi farm k liye banai gai hy. Har safhy ka har figure unhi entries se banta hy jo ap chaaron likhte ho.',
+  'How it keeps the books': 'Hisab kis usool per rakhti hy',
+  'In for %s': '%s dene hain',
+  'Nobody is on the record yet.': 'Abhi record per koi ni hy.',
+  'Nothing on anybody\'s record moves without a line saying why, and every line carries a name and a time.':
+      'Kisi k record per kuch b bina wajah likhy ni hilta, aur har line per naam aur waqt likha hota hy.',
+  'On this phone you are': 'Is phone per ap',
+  'The books four friends keep together': 'Chaar doston ka sanjha hisab',
+  'The co-founders': 'Founders',
+  'This app': 'Ye app',
+  'Version': 'Version',
+  'What he spends of his own goes onto that promise until it is paid. Over it, the farm owes him the difference and gives it back out of its own account.':
+      'Jo wo apni jeb se kharch karta hy wo usi wady me jata rehta hy jb tk wo poora na ho. Us se uper jo ho wo farm us ka dena hy aur apne account se wapas karta hy.',
+  'What you may do': 'Ap kiya kar sakte ho',
+  'Whatever of the farm\'s money he takes in stands on its own and belongs in the farm account, whatever he has spent of his own.':
+      'Farm ka jo b paisa wo leta hy wo alag khara rehta hy aur farm k account me jana hy, chahe us ne apni jeb se kitna hi kharch kiya ho.',
+  'Everything, including the figures nobody else may touch':
+      'Sab kuch, wo figure b jin ko koi aur nahi chhoo sakta',
+  'The books, and the day to day running of the farm':
+      'Hisab kitab, aur farm ka rozana kaam',
+  'Looks at everything. Changes nothing.':
+      'Sab kuch dekhta hy. Kuch nahi badalta.',
+  'The round: milk dropped off and money taken at the door':
+      'Round: doodh pohanchana aur darwazy per paisa lena',
+  'Their own orders and their own khaata': 'Apne orders aur apna khaata',
+  'Silent investor': 'Khamosh investor',
   '%s · open now': '%s · abhi khula hy',
   'From': 'Kab se',
   'To': 'Kab tak',

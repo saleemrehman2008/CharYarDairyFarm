@@ -149,11 +149,21 @@ class AnimalRepo {
     String? purchaseTxnId,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
+
+    /// The number the farm has written on her own tag.
+    ///
+    /// The app used to pick it and hand it over — "put that number on the
+    /// tag" — which is backwards on a farm where the animals already carry
+    /// numbers, and where the man registering her is standing next to her
+    /// reading one off. Left blank it still counts one out, because a calf
+    /// born at four in the morning has no number on anything yet.
+    String tag = '',
   }) async {
-    final tag = await nextTag(species);
+    final given = tag.trim();
+    final theTag = given.isEmpty ? await nextTag(species) : given;
 
     final doc = await Db.animals.add({
-      'tag': tag,
+      'tag': theTag,
       'name': name,
       'species': species.name,
       'sex': sex.name,

@@ -15,6 +15,7 @@ import '../../widgets/ui.dart';
 import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
 import '../shared/my_account_screen.dart';
+import '../shared/about_screen.dart';
 import '../shared/products_screen.dart';
 import 'wages_screen.dart';
 import '../shared/report_screen.dart';
@@ -107,6 +108,12 @@ class MoreScreen extends StatelessWidget {
               icon: Icons.receipt_long_outlined,
               tone: T.accent700,
               onTap: () => _push(context, store, const StatementScreen()),
+            ),
+            _Row(
+              label: l.t('About'),
+              icon: Icons.info_outline,
+              tone: T.n600,
+              onTap: () => _push(context, store, const AboutScreen()),
             ),
             _Row(
               label: l.t('Wages'),
