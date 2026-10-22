@@ -28,6 +28,20 @@ enum SyncResult {
   notReady,
 }
 
+/// This phone is not the one that keeps the Sheet.
+///
+/// Thrown where Google says no rather than where something went wrong: the
+/// difference is whether the farm has a problem or this handset simply has
+/// no business writing.
+class _NotMine implements Exception {
+  const _NotMine(this.code);
+
+  final int code;
+
+  @override
+  String toString() => 'This phone cannot write to the farm\'s sheet ($code)';
+}
+
 /// The farm's books, mirrored into its Google Sheet as they change.
 ///
 /// Written from the phone with the partner's own Google account rather than
@@ -210,6 +224,11 @@ class SheetSync {
       _lastError = null;
       await _record(ok: true);
       return SyncResult.written;
+    } on _NotMine catch (e) {
+      // Not the farm's failure and not written down as one. The master's
+      // phone keeps the Sheet; this one simply watches.
+      _lastError = '$e';
+      return SyncResult.notReady;
     } catch (e) {
       _lastError = '$e';
       debugPrint('Sheet sync failed: $e');
@@ -284,6 +303,9 @@ class SheetSync {
       Uri.parse('$_api/$id?fields=sheets.properties.title'),
       headers: _headers(token),
     );
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw _NotMine(res.statusCode);
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not read the sheet (${res.statusCode})');
     }
@@ -310,6 +332,9 @@ class SheetSync {
         ],
       }),
     );
+    if (add.statusCode == 401 || add.statusCode == 403) {
+      throw _NotMine(add.statusCode);
+    }
     if (add.statusCode != 200) {
       throw Exception('Could not add the tabs (${add.statusCode})');
     }
@@ -325,6 +350,9 @@ class SheetSync {
         'ranges': [for (final t in tabs) "'$t'!A1:Z10000"],
       }),
     );
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw _NotMine(res.statusCode);
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not clear the tabs (${res.statusCode})');
     }
@@ -352,6 +380,9 @@ class SheetSync {
         ],
       }),
     );
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw _NotMine(res.statusCode);
+    }
     if (res.statusCode != 200) {
       throw Exception('Could not write the rows (${res.statusCode})');
     }
