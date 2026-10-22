@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/models.dart';
+import '../services/sheet_sync.dart';
 import '../services/db.dart';
 import '../services/links.dart';
 import '../services/update_check.dart';
@@ -226,6 +227,14 @@ class _SheetsTag extends StatelessWidget {
 
       if (settings.sheetId.isEmpty) {
         return const Tag('Sheets off', tone: TagTone.neutral);
+      }
+
+      // The Sheet belongs to one Google account. On anybody else's phone
+      // the sync is not pending, not failing and not his to mend — it is
+      // simply somebody else's job, and a warning colour there is a man
+      // being told to fix something he cannot reach.
+      if (SheetSync.deniedHere) {
+        return const Tag('Sheets · master', tone: TagTone.neutral);
       }
       if (settings.lastSyncAt == null) {
         return const Tag('Sheets waiting', tone: TagTone.warn);

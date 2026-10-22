@@ -26,6 +26,15 @@ enum SyncResult {
   /// No sheet linked, or the permission has never been granted. Nothing to
   /// retry: somebody has to do something first.
   notReady,
+
+  /// Google refused this phone the farm's sheet.
+  ///
+  /// Not a failure and not worth another go. The Sheet belongs to the
+  /// master's Google account, and a co-founder's phone holds a Sheets token
+  /// from his own sign-in — so it asks, and is told no, and will be told no
+  /// every forty-five seconds for as long as the app is open unless this is
+  /// kept apart from the rest. His phone has nothing to fix.
+  denied,
 }
 
 /// This phone is not the one that keeps the Sheet.
@@ -114,6 +123,14 @@ class SheetSync {
   static Future<bool> get authorised async =>
       (await _token(prompt: false)) != null;
 
+  /// Whether Google has refused this phone the farm's sheet.
+  ///
+  /// Asked once and remembered for the run. The answer does not change
+  /// while the app is open, and acting on it is the difference between a
+  /// phone that tries twice a minute for ever and one that reads the room.
+  static bool _denied = false;
+  static bool get deniedHere => _denied;
+
   /// Asks for the permission. Only from a button the person pressed.
   static Future<bool> requestAccess() async {
     final token = await _token(prompt: true);
@@ -168,6 +185,10 @@ class SheetSync {
       // a token, and quite correctly hid the button offering to fix it. The
       // farm was left looking at a permission error it did not have, on a
       // Sheet that would not move.
+      // A refusal is the one answer not worth asking again. Everything
+      // else — a skipped write, a plugin not yet awake, no signal — comes
+      // back round, which is what stopped a change from being stranded.
+      if (result == SyncResult.denied) return;
       if (result != SyncResult.written) {
         _retry = Timer(_cooldown, () => _attempt(read, force: force));
       }
@@ -178,6 +199,7 @@ class SheetSync {
   }
 
   static void stop() {
+    _denied = false;
     _timer?.cancel();
     _retry?.cancel();
     _timer = null;
@@ -228,7 +250,8 @@ class SheetSync {
       // Not the farm's failure and not written down as one. The master's
       // phone keeps the Sheet; this one simply watches.
       _lastError = '$e';
-      return SyncResult.notReady;
+      _denied = true;
+      return SyncResult.denied;
     } catch (e) {
       _lastError = '$e';
       debugPrint('Sheet sync failed: $e');
