@@ -702,7 +702,7 @@ void main() {
     );
 
     Txn advance(String party, {num amount = 16000, int day = 14}) => Txn(
-      id: 'adv${advance.hashCode}${day}${amount.toInt()}',
+      id: 'adv$day-${amount.toInt()}',
       date: DateTime(2026, 10, day),
       monthId: '2026-10',
       type: TxnType.expense,
