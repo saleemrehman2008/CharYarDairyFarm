@@ -678,6 +678,104 @@ void _everything() {
       },
     );
   });
+
+  group('a salary slip carries everything he was paid', () {
+    /// The farm's question: does the advance show on it as well as the wage?
+    /// Both are entries in his name, so both are on his page — which is the
+    /// whole use of it. A man who drew five thousand on the 15th and took
+    /// eighteen at the end of the month should be able to see both without
+    /// taking anybody's word for the arithmetic.
+
+    Txn his({
+      required String category,
+      required num amount,
+      int day = 15,
+      bool paid = true,
+    }) => Txn(
+      id: 'sl$day-${amount.toInt()}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.expense,
+      party: 'Gawalo Rafiq Jatt',
+      category: category,
+      amount: amount,
+      paid: paid,
+      paidOnCreate: paid,
+      handledBy: 'Rafeeq',
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    final led = [
+      his(category: salaryAdvanceCategory, amount: 16000, day: 15),
+      his(category: salariesCategory, amount: 14000, day: 31),
+    ];
+
+    test('the advance and the wage are both on it', () {
+      final slip = buildStatement(rows: led, party: 'Gawalo Rafiq Jatt');
+      expect(slip.lines, hasLength(2));
+      expect(
+        slip.lines.map((l) => l.detail).join(' '),
+        allOf(contains('Salary advance'), contains('Salaries')),
+      );
+    });
+
+    test('oldest first, so the month reads in order', () {
+      final slip = buildStatement(rows: led, party: 'Gawalo Rafiq Jatt');
+      expect(slip.lines.first.date.day, 15);
+      expect(slip.lines.last.date.day, 31);
+    });
+
+    test('and they add up to what he was handed that month', () {
+      final slip = buildStatement(rows: led, party: 'Gawalo Rafiq Jatt');
+      expect(slip.credits, 30000);
+    });
+
+    test('paid in full, nothing is left owing either way', () {
+      // Which is what the foot of his slip should say at month end.
+      final slip = buildStatement(rows: led, party: 'Gawalo Rafiq Jatt');
+      expect(slip.closing, 0);
+    });
+
+    test('a wage still owed shows as owed to him', () {
+      final owing = [
+        his(category: salaryAdvanceCategory, amount: 16000, day: 15),
+        his(category: salariesCategory, amount: 14000, day: 31, paid: false),
+      ];
+      final slip = buildStatement(rows: owing, party: 'Gawalo Rafiq Jatt');
+      expect(slip.closing, -14000, reason: 'the farm owes him his wage');
+    });
+
+    test("another man's wage is not on his slip", () {
+      final mixed = [
+        ...led,
+        Txn(
+          id: 'other',
+          date: DateTime(2026, 10, 31),
+          monthId: '2026-10',
+          type: TxnType.expense,
+          party: 'Somebody Else',
+          category: salariesCategory,
+          amount: 25000,
+          paid: true,
+          paidOnCreate: true,
+          handledBy: 'Rafeeq',
+          note: '',
+          createdBy: 'u1',
+          createdAt: DateTime(2026, 10, 31),
+        ),
+      ];
+      final slip = buildStatement(rows: mixed, party: 'Gawalo Rafiq Jatt');
+      expect(slip.lines, hasLength(2));
+      expect(slip.credits, 30000);
+    });
+
+    test('his name spelled a little differently is still his slip', () {
+      final slip = buildStatement(rows: led, party: ' gawalo  rafiq jatt ');
+      expect(slip.lines, hasLength(2));
+    });
+  });
 }
 
 /// The page narrowed to one kind of entry, or one heading.
