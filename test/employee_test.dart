@@ -995,4 +995,83 @@ void main() {
       }
     });
   });
+
+  group('what is actually handed to him on payday', () {
+    /// One sum, written down once. The card shows this figure and the entry
+    /// form saves it; while they each worked it out for themselves they
+    /// agreed, which is true of every figure this app has ever ended up
+    /// giving two answers to, right up until it was not.
+
+    final jatt = _e(
+      name: 'Gawalo Rafiq Jatt',
+      basic: 24000,
+      joinedOn: DateTime(2026, 10, 20),
+    );
+
+    final oct = DateTime(2026, 10, 1);
+    final octEnd = DateTime(2026, 10, 31);
+    final nov = DateTime(2026, 11, 1);
+    final novEnd = DateTime(2026, 11, 30);
+
+    test('the wage, less what he drew against it', () {
+      expect(wageToHand(who: jatt, from: nov, to: novEnd, drawn: 16000), 8000);
+    });
+
+    test('across a run of days it is the same arithmetic', () {
+      // His own case: October's last twelve days and all of November.
+      expect(
+        wageToHand(
+          who: jatt,
+          from: DateTime(2026, 10, 20),
+          to: novEnd,
+          drawn: 16000,
+        ),
+        17290,
+      );
+    });
+
+    test('nothing drawn means the whole wage', () {
+      expect(wageToHand(who: jatt, from: nov, to: novEnd), 24000);
+    });
+
+    test('once the wage is on the books the advance is not taken twice', () {
+      // It came off the first time. Taking it off again would hand him the
+      // same deduction a second time.
+      expect(
+        wageToHand(
+          who: jatt,
+          from: nov,
+          to: novEnd,
+          drawn: 16000,
+          wagePaidAlready: true,
+        ),
+        24000,
+      );
+    });
+
+    test('drawing more than the month comes to leaves nothing, not a debt', () {
+      expect(wageToHand(who: jatt, from: nov, to: novEnd, drawn: 30000), 0);
+    });
+
+    test('days off come off before the advance does', () {
+      // Three days of November off a 24,000 wage is 2,400.
+      expect(wageToHand(who: jatt, from: nov, to: novEnd, daysOff: 3), 21600);
+      expect(
+        wageToHand(who: jatt, from: nov, to: novEnd, daysOff: 3, drawn: 16000),
+        5600,
+      );
+    });
+
+    test('a month he was not here for owes him nothing', () {
+      expect(wageToHand(who: jatt, from: oct, to: octEnd, drawn: 0), 9290);
+      expect(
+        wageToHand(
+          who: jatt,
+          from: DateTime(2026, 8, 1),
+          to: DateTime(2026, 8, 31),
+        ),
+        0,
+      );
+    });
+  });
 }

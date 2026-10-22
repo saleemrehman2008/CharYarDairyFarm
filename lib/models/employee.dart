@@ -285,6 +285,32 @@ String? mobileWrong(String v) {
   return null;
 }
 
+/// What is actually handed to a man on payday.
+///
+/// The wage for the days being paid for, less what he has already drawn
+/// against them, and never less than nothing.
+///
+/// Written here rather than in either place that needs it. The card shows
+/// this figure and the entry form saves it, and while they each worked it
+/// out for themselves they agreed — which is true of every figure this app
+/// has ever ended up giving two answers to, right up until it was not.
+num wageToHand({
+  required Employee who,
+  required DateTime from,
+  required DateTime to,
+  int daysOff = 0,
+  num drawn = 0,
+  bool wagePaidAlready = false,
+}) {
+  final wage = who.payForWindow(from: from, to: to, daysOff: daysOff);
+
+  // Once the wage is on the books the advance has come off it once, and
+  // taking it off again would hand him the same deduction twice.
+  final off = wagePaidAlready ? 0 : drawn;
+  final left = wage - off;
+  return left < 0 ? 0 : left;
+}
+
 /// Who is on the wage list today, the longest-serving first.
 ///
 /// The ones who have left go to the bottom rather than off the page: their

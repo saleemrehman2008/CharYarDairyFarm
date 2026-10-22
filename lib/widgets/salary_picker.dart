@@ -72,8 +72,11 @@ class SalaryPicker extends StatelessWidget {
   final DateTime? spanTo;
   final void Function(DateTime? from, DateTime? to) onSpan;
 
-  final void Function(Employee who, int daysOn) onPicked;
-  final void Function(Employee who, int daysOn, int days) onDaysOff;
+  /// Picked, with what the card says is left to hand him.
+  final void Function(Employee who, num toHand) onPicked;
+
+  /// Days off changed, with the figure that leaves.
+  final void Function(Employee who, int days, num toHand) onDaysOff;
 
   /// What he has already drawn against this month, which the wage takes off
   /// by itself. Handed in by the screen, which has the ledger.
@@ -91,6 +94,23 @@ class SalaryPicker extends StatelessWidget {
 
   /// Whether this payment covers something other than the one whole month.
   bool get _spanned => spanFrom != null || spanTo != null;
+
+  /// What is actually handed over: the wage for the days being paid for,
+  /// less what he has already drawn against them, and never less than
+  /// nothing.
+  ///
+  /// The one place this sum is done. It was done twice — here to show the
+  /// farm and again on the form to fill the box — from the same functions
+  /// over the same window, which agreed today and is exactly the shape of
+  /// every figure this app has ever given two answers to.
+  num _toHand(Employee who, {required int daysOff}) => wageToHand(
+    who: who,
+    from: _monthStart,
+    to: _monthEnd,
+    daysOff: daysOff,
+    drawn: drawnAlready?.call(who) ?? 0,
+    wagePaidAlready: alreadyPaid?.call(who) ?? false,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +177,7 @@ class SalaryPicker extends StatelessWidget {
                 to: _monthEnd,
                 daysOff: daysOff,
               );
-        final toHand = wage - comesOff;
+        final toHand = who == null ? 0 : _toHand(who, daysOff: daysOff);
 
         return RegCard(
           stripe: T.accent600,
@@ -249,8 +269,7 @@ class SalaryPicker extends StatelessWidget {
                     _Who(
                       who: e,
                       on: who?.id == e.id,
-                      onTap: () =>
-                          onPicked(e, e.daysOnIn(_monthStart, _monthEnd)),
+                      onTap: () => onPicked(e, _toHand(e, daysOff: 0)),
                     ),
                 ],
               ),
@@ -340,7 +359,10 @@ class SalaryPicker extends StatelessWidget {
                   style: T.meta,
                 ),
                 const SizedBox(height: 8),
-                _Days(days: daysOff, onPick: (d) => onDaysOff(who, daysOn, d)),
+                _Days(
+                  days: daysOff,
+                  onPick: (d) => onDaysOff(who, d, _toHand(who, daysOff: d)),
+                ),
 
                 if (daysOff > 0) ...[
                   const SizedBox(height: 10),

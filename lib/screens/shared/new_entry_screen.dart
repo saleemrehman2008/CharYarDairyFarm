@@ -162,16 +162,14 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// What is actually handed over: the wage for the days being paid for,
   /// less what he has already drawn against them, and never less than
   /// nothing.
-  num _toHand(Employee who, int daysOff) {
-    final wage = who.payForWindow(
-      from: _payStart,
-      to: _payEnd,
-      daysOff: daysOff,
-    );
-    final off = _wageDone(who) ? 0 : _drawnBy(who);
-    final left = wage - off;
-    return left < 0 ? 0 : left;
-  }
+  num _toHand(Employee who, int daysOff) => wageToHand(
+    who: who,
+    from: _payStart,
+    to: _payEnd,
+    daysOff: daysOff,
+    drawn: _drawnBy(who),
+    wagePaidAlready: _wageDone(who),
+  );
 
   /// The men the farm pays a wage to.
   ///
@@ -592,18 +590,21 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               },
               drawnAlready: _drawnBy,
               alreadyPaid: _wageDone,
-              onPicked: (who, _) {
+              // The card works the figure out and hands it over. Doing
+              // the same sum again here is how a farm comes to see one
+              // number on the card and save another in the box.
+              onPicked: (who, toHand) {
                 setState(() {
                   _party.text = who.name;
                   _daysOff = 0;
-                  _total.text = '${_toHand(who, 0).round()}';
+                  _total.text = '${toHand.round()}';
                 });
                 _fromTotal();
               },
-              onDaysOff: (who, _, days) {
+              onDaysOff: (who, days, toHand) {
                 setState(() {
                   _daysOff = days;
-                  _total.text = '${_toHand(who, days).round()}';
+                  _total.text = '${toHand.round()}';
                 });
                 _fromTotal();
               },
