@@ -59,7 +59,14 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// Which milking, on a milk entry. Null until picked, and save refuses
   /// while it is — see [_shiftNeeded].
   MilkShift? _shift;
-  bool _paid = true;
+  bool? _paid;
+
+  /// Whether a save has been tried and turned back.
+  ///
+  /// Nothing is marked as missing before the farm has asked for it. After
+  /// that the unanswered questions wear it, because "fill that in first" at
+  /// the bottom of a long form does not say which.
+  bool _tried = false;
   PayVia _payVia = PayVia.cash;
   bool _busy = false;
 
@@ -294,12 +301,21 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     // A buffalo is milked twice a day. Left unanswered, the litres land in
     // neither half and every figure built on the split is short by them.
     if (_shiftNeeded && _shift == null) {
+      setState(() => _tried = true);
       toast(context, 'Morning or evening? Pick one first.');
+      return;
+    }
+    // Has the money moved or not. Picked for them, an entry on credit went
+    // in as cash whenever nobody looked at the toggle.
+    if (!_type.isSettlement && _paid == null) {
+      setState(() => _tried = true);
+      toast(context, 'Has it been paid? Pick one first.');
       return;
     }
     // Money that moved needs a name against it, or nobody can be asked about
     // it a month later.
-    if (_paid && _handledBy.text.trim().isEmpty) {
+    if (_paid == true && _handledBy.text.trim().isEmpty) {
+      setState(() => _tried = true);
       toast(context, 'Who handled the money? Fill that in first.');
       return;
     }
@@ -390,7 +406,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         capital: _capital,
         shift: _shiftNeeded ? _shift : null,
         amount: _amount,
-        paid: _paid,
+        paid: _paid ?? false,
         qty: num.tryParse(_qty.text.trim()),
         unit: _unit,
         rate: num.tryParse(_rate.text.trim()),
@@ -767,6 +783,14 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             const SizedBox(height: T.pad),
             const Kicker('Which milking?'),
             const SizedBox(height: 6),
+            if (_tried && _shift == null) ...[
+              Text(
+                'Which milking? A buffalo is milked twice a day, and left '
+                'unanswered the litres land in neither half.',
+                style: T.meta.copyWith(color: T.moneyDue),
+              ),
+              const SizedBox(height: 6),
+            ],
             Segmented<MilkShift?>(
               value: _shift,
               options: [for (final s in MilkShift.values) (s, s.label)],
@@ -795,16 +819,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             const SizedBox(height: T.pad),
             const Kicker('Settled?'),
             const SizedBox(height: 6),
-            Segmented<bool>(
+            Segmented<bool?>(
               value: _paid,
               compact: true,
               options: [(true, 'Paid now'), (false, _type.unpaidLabel)],
               onChanged: (v) => setState(() => _paid = v),
             ),
+            if (_tried && _paid == null) ...[
+              const SizedBox(height: 5),
+              Text(
+                'Pick one — cash now, or on the account.',
+                style: T.meta.copyWith(color: T.moneyDue),
+              ),
+            ],
           ],
 
           // Only worth asking once the money has actually moved.
-          if (_type.isSettlement || _paid) ...[
+          if (_type.isSettlement || _paid == true) ...[
             const SizedBox(height: T.pad),
             const Kicker('How'),
             const SizedBox(height: 6),
@@ -825,9 +856,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             ),
             const SizedBox(height: 5),
             Text(
-              'The person who actually handled the cash — not whoever is '
-              'typing this in.',
-              style: T.meta,
+              _tried && _handledBy.text.trim().isEmpty
+                  ? 'This one is needed. Money that moved with no name '
+                        'against it cannot be asked about a month later.'
+                  : 'The person who actually handled the cash — not whoever '
+                        'is typing this in.',
+              style: T.meta.copyWith(
+                color: _tried && _handledBy.text.trim().isEmpty
+                    ? T.moneyDue
+                    : null,
+              ),
             ),
           ],
 
