@@ -28,6 +28,7 @@ class PartyField extends StatefulWidget {
     this.onChanged,
     this.offer = const [],
     this.offerNote = '',
+    this.onlyOffered = false,
   });
 
   final String label;
@@ -46,6 +47,14 @@ class PartyField extends StatefulWidget {
 
   /// One line saying what these names are.
   final String offerNote;
+
+  /// Nobody but the offered names will do.
+  ///
+  /// A wage goes to somebody on the wage list or it goes nowhere: an
+  /// advance paid to a name typed into the box, with the man put on the
+  /// list afterwards, is two records of one man and a wage that cannot find
+  /// the advance to take it off.
+  final bool onlyOffered;
 
   @override
   State<PartyField> createState() => _PartyFieldState();
@@ -96,7 +105,7 @@ class _PartyFieldState extends State<PartyField> {
         partyKey(name).startsWith(needle) ||
         partyKey(name).contains(' $needle');
 
-    final hits = needle.isEmpty
+    final hits = needle.isEmpty || widget.onlyOffered
         ? const <PartySummary>[]
         : known.where((p) => matches(p.name)).toList();
 
@@ -156,7 +165,23 @@ class _PartyFieldState extends State<PartyField> {
                 ],
                 for (final p in hits)
                   _Option(party: p, onTap: () => _pick(p.name)),
-                if (!exact && needle.isNotEmpty)
+                if (widget.onlyOffered && mine.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+                    child: Text(
+                      needle.isEmpty
+                          ? l.t(
+                              'Nobody is on the wage list yet. '
+                              'More → Wages puts them on it.',
+                            )
+                          : l.t(
+                              'Nobody of that name is on the wage list. '
+                              'Put him on it first, under More → Wages.',
+                            ),
+                      style: T.meta.copyWith(color: T.moneyDue),
+                    ),
+                  ),
+                if (!widget.onlyOffered && !exact && needle.isNotEmpty)
                   _NewOption(
                     label: l.t2('New name — "%s"', typed.trim()),
                     note: l.t('Not written down before'),

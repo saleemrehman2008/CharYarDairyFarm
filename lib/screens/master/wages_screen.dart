@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/employee_repo.dart';
+import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
@@ -121,6 +122,30 @@ class _Card extends StatefulWidget {
 class _CardState extends State<_Card> {
   bool _busy = false;
 
+  /// Everything the farm has paid him, on one page.
+  ///
+  /// The store goes with it. This card is built inside a provider the
+  /// navigator does not sit beneath, so a page pushed without it asked an
+  /// empty farm for his wages and threw — and a release build draws a thrown
+  /// widget as a blank page, which is what the farm saw. The same page
+  /// reached from Accounts worked, because that one is pushed from inside
+  /// the provider.
+  void _slip(Employee e) {
+    final store = context.read<FarmStore>();
+    final session = context.read<Session>();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider<FarmStore>.value(value: store),
+            ChangeNotifierProvider<Session>.value(value: session),
+          ],
+          child: StatementScreen(party: e.name, title: 'Salary slip'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _left() async {
     final l = L.read(context);
     final e = widget.who;
@@ -236,16 +261,10 @@ class _CardState extends State<_Card> {
             runSpacing: 8,
             children: [
               GhostButton(
-                label: l.t('Statement'),
+                label: l.t('Salary slip'),
                 icon: Icons.receipt_long_outlined,
                 compact: true,
-                onPressed: _busy
-                    ? null
-                    : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => StatementScreen(party: e.name),
-                        ),
-                      ),
+                onPressed: _busy ? null : () => _slip(e),
               ),
               GhostButton(
                 label: l.t('Change'),

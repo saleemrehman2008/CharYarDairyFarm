@@ -29,7 +29,14 @@ enum FounderView { account, profit, loan }
 /// is their account; leave it on everybody and it is the farm's cash book. The
 /// difference is real and not cosmetic — see [buildStatement].
 class StatementScreen extends StatefulWidget {
-  const StatementScreen({super.key, this.party});
+  const StatementScreen({super.key, this.party, this.title});
+
+  /// What to call the page.
+  ///
+  /// A wage is not a trading account and the man reading it does not call it
+  /// a statement — it is his salary slip, and the wage list opens it under
+  /// that name.
+  final String? title;
 
   /// Opened already narrowed to one name.
   ///
@@ -234,7 +241,7 @@ class _StatementScreenState extends State<StatementScreen> {
         : store.securityOutWith(_party!);
 
     return FarmScaffold(
-      title: l.t('Statement'),
+      title: l.t(widget.title ?? 'Statement'),
       showBack: true,
       body: PageBody(
         children: [

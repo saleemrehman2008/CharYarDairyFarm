@@ -571,6 +571,11 @@ const Map<String, String> romanUrdu = {
   'Transfer': 'Transfer',
   'Hand cash to somebody': 'Kisi ko paisa dena',
   'Into the farm account': 'Farm k account me jama karo',
+  'Nobody is on the wage list yet. More → Wages puts them on it.':
+      'Abhi tankhwah ki list per koi ni hy. More → Wages se un ko list per dalo.',
+  'Nobody of that name is on the wage list. Put him on it first, under More → Wages.':
+      'Is naam ka koi tankhwah ki list per ni hy. Pehly us ko More → Wages me dalo.',
+  'Salary slip': 'Tankhwah ki parchi',
   'Switched on, the form holds until it is told. Off, it fills in a sensible answer and trusts whoever is entering to change it.':
       'On ho to form rukta hy jb tk bataya na jae. Off ho to khud ek munasib jawab bhar deta hy aur bharny waly per chorh deta hy k badal le.',
   'What an entry must say': 'Entry me kiya batana zaroori hy',

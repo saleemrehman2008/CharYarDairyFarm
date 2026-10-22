@@ -682,4 +682,107 @@ void main() {
       expect(here.daysOnIn(nov.$1, nov.$2), 30);
     });
   });
+
+  group('a wage goes to somebody on the wage list', () {
+    /// What happened without this. Sixteen thousand of advance went to
+    /// "Gawalo Rafiq Jatt" typed into the name box, and the man was put on
+    /// the wage list afterwards under the same name. Two records of one man,
+    /// and a wage at month end that cannot find the advance to take it off —
+    /// which is the whole reason advances are written down.
+    ///
+    /// It is also why the wage list exists. A salary is the one cost the
+    /// farm pays every month with no invoice behind it; the record is what
+    /// stands under it instead, and a payment with no record under it is the
+    /// thing the list was built to stop.
+
+    final jatt = _e(
+      name: 'Gawalo Rafiq Jatt',
+      basic: 30000,
+      joinedOn: DateTime(2026, 10, 1),
+    );
+
+    Txn advance(String party, {num amount = 16000, int day = 14}) => Txn(
+      id: 'adv${advance.hashCode}${day}${amount.toInt()}',
+      date: DateTime(2026, 10, day),
+      monthId: '2026-10',
+      type: TxnType.expense,
+      party: party,
+      category: salaryAdvanceCategory,
+      amount: amount,
+      paid: true,
+      paidOnCreate: true,
+      handledBy: 'Rafeeq',
+      note: '',
+      createdBy: 'u1',
+      createdAt: DateTime(2026, 10, day),
+    );
+
+    bool onTheList(List<Employee> crew, String who) =>
+        crew.any((e) => partyKey(e.name) == partyKey(who));
+
+    test('a name on the list passes', () {
+      expect(onTheList([jatt], 'Gawalo Rafiq Jatt'), isTrue);
+    });
+
+    test('a name nobody has written down does not', () {
+      expect(onTheList([jatt], 'Some Other Man'), isFalse);
+      expect(onTheList(const [], 'Gawalo Rafiq Jatt'), isFalse);
+    });
+
+    test('and an empty name least of all', () {
+      expect(onTheList([jatt], ''), isFalse);
+      expect(onTheList([jatt], '   '), isFalse);
+    });
+
+    test('spelled a little differently is still him', () {
+      // Which is also why his advance, paid before he was written down,
+      // is not lost: the two match on the same normalised name.
+      expect(onTheList([jatt], ' gawalo  rafiq jatt '), isTrue);
+    });
+
+    test('an advance paid before he was registered still comes off', () {
+      // His real case. The advance went out on the 14th under a typed
+      // name; he went on the wage list on the 20th. Nothing is stranded.
+      final led = [advance('Gawalo Rafiq Jatt')];
+      expect(
+        advanceTaken(
+          led,
+          who: jatt.name,
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 10, 31),
+        ),
+        16000,
+      );
+    });
+
+    test('and his wage that month is short by it', () {
+      final led = [advance('Gawalo Rafiq Jatt')];
+      final drawn = advanceTaken(
+        led,
+        who: jatt.name,
+        from: DateTime(2026, 10, 1),
+        to: DateTime(2026, 10, 31),
+      );
+      final daysOn = jatt.daysOnIn(
+        DateTime(2026, 10, 1),
+        DateTime(2026, 10, 31),
+      );
+      expect(jatt.payFor(daysOn: daysOn) - drawn, 14000);
+    });
+
+    test('an advance under a name off by more than spacing is stranded', () {
+      // The case the guard exists to prevent: two records of one man. The
+      // farm can still see it, under the typed name, but no wage finds it.
+      final led = [advance('Gawalo Rafeeq')];
+      expect(
+        advanceTaken(
+          led,
+          who: jatt.name,
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 10, 31),
+        ),
+        0,
+      );
+    });
+  });
 }

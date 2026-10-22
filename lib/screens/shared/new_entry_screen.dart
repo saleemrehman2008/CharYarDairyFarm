@@ -305,6 +305,22 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     // neither half and every figure built on the split is short by them.
     final insists = context.read<FarmStore>().settings.insists;
 
+    if (_aboutAWage) {
+      final who = _party.text.trim();
+      final known = _crew.any((e) => partyKey(e.name) == partyKey(who));
+      if (!known) {
+        setState(() => _tried = true);
+        toast(
+          context,
+          who.isEmpty
+              ? 'Pick the man off the wage list first.'
+              : '$who is not on the wage list. Put him on it under '
+                    'More → Wages, then pay him.',
+        );
+        return;
+      }
+    }
+
     if (insists.shift && _shiftNeeded && _shift == null) {
       setState(() => _tried = true);
       toast(context, 'Morning or evening? Pick one first.');
@@ -484,6 +500,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             onChanged: (_) => setState(() {}),
             offer: _aboutAWage ? _crewNames : const [],
             offerNote: _aboutAWage ? 'On the wage list' : '',
+            onlyOffered: _aboutAWage,
           ),
           const SizedBox(height: T.gap),
 
