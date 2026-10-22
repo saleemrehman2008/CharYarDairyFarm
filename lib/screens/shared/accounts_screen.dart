@@ -109,7 +109,19 @@ enum AccountsFilter {
 
 /// The farm ledger: everything bought and sold, and what is still outstanding.
 class AccountsScreen extends StatefulWidget {
-  const AccountsScreen({super.key, this.initialFilter = AccountsFilter.all});
+  const AccountsScreen({
+    super.key,
+    this.initialFilter = AccountsFilter.all,
+    this.initialParty,
+  });
+
+  /// Opened already narrowed to one name.
+  ///
+  /// A figure on somebody's account panel is a question — when did this
+  /// become that, and out of what — and the answer is the list of entries
+  /// behind it. Tapping it should land on them rather than on the whole
+  /// farm's ledger with the name still to be picked.
+  final String? initialParty;
 
   final AccountsFilter initialFilter;
 
@@ -127,7 +139,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// answer the question the farm actually asks: pick Kashif on the "To
   /// receive" tab and you have what Kashif still owes. Picking a name does not
   /// move you off the tab you were reading.
-  String? _party;
+  late String? _party = widget.initialParty;
   String? _category;
 
   String? _busyId;

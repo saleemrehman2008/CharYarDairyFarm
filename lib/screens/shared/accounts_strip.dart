@@ -8,6 +8,8 @@ import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
+import 'accounts_screen.dart';
+import 'founder_money.dart';
 import '../../widgets/ui.dart';
 import 'cash_hands.dart';
 
@@ -120,6 +122,7 @@ class _Account extends StatelessWidget {
                     : l.t('Farm\'s cash on him'),
                 value: rs(held.abs()),
                 tone: held < 0 ? T.moneyDue : T.moneyIn,
+                onTap: () => _open(context, name, AccountsFilter.all),
                 note: hands == null
                     ? l.t('Nothing has gone through it yet')
                     : l.t3(
@@ -136,6 +139,7 @@ class _Account extends StatelessWidget {
                   label: l.t('His own, in the farm'),
                   value: rs(partner.inTheFarm),
                   tone: T.accent700,
+                  onTap: () => showMoneyLines(context, partner),
                   note: partner.stillToPayIn > 0
                       ? l.t2('%s still to come', rs(partner.stillToPayIn))
                       : l.t2('%s promised', rs(partner.pledged)),
@@ -233,6 +237,7 @@ class _Account extends StatelessWidget {
                   value: rs(store.money.receivable),
                   tone: T.moneyIn,
                   note: l.t('Sold and not yet paid for'),
+                  onTap: () => _open(context, null, AccountsFilter.receivable),
                 ),
               ),
               const SizedBox(width: T.gap),
@@ -242,6 +247,7 @@ class _Account extends StatelessWidget {
                   value: rs(store.money.payable),
                   tone: T.moneyOut,
                   note: l.t('Bought and not yet paid for'),
+                  onTap: () => _open(context, null, AccountsFilter.payable),
                 ),
               ),
             ],
@@ -294,6 +300,22 @@ class _Account extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Opening the entries behind a figure.
+///
+/// The store goes with it: this panel lives under a provider the navigator
+/// does not sit beneath, and a page pushed without it reads an empty farm.
+void _open(BuildContext context, String? who, AccountsFilter filter) {
+  final store = context.read<FarmStore>();
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+        value: store,
+        child: AccountsScreen(initialFilter: filter, initialParty: who),
+      ),
+    ),
+  );
 }
 
 /// What the farm owes the four of them out of their own pockets.

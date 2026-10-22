@@ -102,7 +102,7 @@ class MasterHome extends StatelessWidget {
                     ? l.t2('+ %s assets', rs(books.assetsBought))
                     : l.t('feed, salaries, bills'),
                 onTap: () =>
-                    onGo('accounts', accountsFilter: AccountsFilter.expenses),
+                    onGo('accounts', accountsFilter: AccountsFilter.running),
               ),
             ),
           ],
