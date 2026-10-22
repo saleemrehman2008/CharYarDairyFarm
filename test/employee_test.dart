@@ -37,47 +37,116 @@ Employee _e({
 );
 
 void main() {
-  group('what a man is owed for a month', () {
-    test('a full month is the wage and whatever goes on top of it', () {
-      final e = _e(basic: 25000, allowance: 3000);
-      expect(e.monthly, 28000);
-      expect(e.payFor(), 28000);
+  group('a wage is a wage, whatever the month is called', () {
+    /// The farm said it plainly: "salary calendar month 24k hy, to ye lazmi
+    /// hona chahiye." A whole month pays the whole wage — February, October,
+    /// November, the same twenty-four thousand.
+    ///
+    /// The app used to count every month as thirty days. It is the
+    /// convention everybody knows and it is wrong in both directions: a full
+    /// February came out at 22,400 of a 24,000 wage, short by sixteen
+    /// hundred rupees of somebody's money every single year, and a 31-day
+    /// month had to be capped on the way past to stop it paying more than a
+    /// month's wage for a month's work.
+    ///
+    /// So a whole month pays the whole wage, and a part of one is worked out
+    /// against that month's own length. Over a year each month pays the same
+    /// and every part of one is fair to the day.
+
+    final hand = _e(name: 'Jalbani', basic: 24000, joinedOn: DateTime(2020));
+
+    num forMonth(Employee e, int year, int month) => e.payForWindow(
+      from: DateTime(year, month, 1),
+      to: DateTime(year, month + 1, 0),
+    );
+
+    test('February pays a whole wage', () {
+      expect(forMonth(hand, 2026, 2), 24000);
     });
 
-    test('days off come off the whole month, not off the wage alone', () {
-      // The tea money and the room are for a month of work as much as the
-      // wage is. Taking the days off the basic only would quietly pay a man
-      // who was away ten days more per working day than one who was not.
-      final e = _e(basic: 25000, allowance: 5000);
-      expect(e.payFor(daysOff: 3), 27000);
-      expect(e.cutFor(daysOff: 3), 3000);
+    test('and so does a leap February', () {
+      expect(Employee.lengthOf(DateTime(2028, 2, 1)), 29);
+      expect(forMonth(hand, 2028, 2), 24000);
     });
 
-    test('a thirty day month, whatever the calendar says', () {
-      // Which is how the farm has always counted it and how the man expects
-      // it to be counted. Dividing February by 28 saves rupees and costs
-      // more than it saves.
-      final e = _e(basic: 30000);
-      expect(e.payFor(daysOff: 1), 29000);
-      expect(e.payFor(daysOff: 15), 15000);
+    test('and a thirty day month, and a thirty-one day month', () {
+      expect(forMonth(hand, 2026, 11), 24000);
+      expect(forMonth(hand, 2026, 10), 24000);
     });
 
-    test('a whole month away is nothing, and no further', () {
-      final e = _e(basic: 30000);
-      expect(e.payFor(daysOff: 30), 0);
-      expect(e.payFor(daysOff: 45), 0, reason: 'never a negative wage');
+    test('every month of a year pays the same', () {
+      for (var m = 1; m <= 12; m++) {
+        expect(forMonth(hand, 2026, m), 24000, reason: 'month $m');
+      }
+    });
+
+    test('a wage and an allowance are one month between them', () {
+      final both = _e(basic: 25000, allowance: 3000, joinedOn: DateTime(2020));
+      expect(both.monthly, 28000);
+      expect(forMonth(both, 2026, 2), 28000);
+    });
+
+    test('half of February is half a wage, not fourteen thirtieths', () {
+      // Fourteen of twenty-eight days. Counted against thirty it would have
+      // been 12,000 — eight hundred rupees light, for no reason a man could
+      // be told.
+      final e = _e(basic: 24000, joinedOn: DateTime(2026, 2, 15));
+      expect(
+        e.payForWindow(from: DateTime(2026, 2, 1), to: DateTime(2026, 2, 28)),
+        12000,
+      );
+    });
+
+    test('and twelve days of October are twelve thirty-firsts', () {
+      final e = _e(basic: 24000, joinedOn: DateTime(2026, 10, 20));
+      expect(
+        e.payForWindow(from: DateTime(2026, 10, 1), to: DateTime(2026, 10, 31)),
+        9290,
+      );
+    });
+
+    test('days off come off the whole month, allowance and all', () {
+      // A day's absence is a day of the month. Taking it off the basic
+      // alone would quietly pay a man who was away more per working day
+      // than one who was not.
+      final e = _e(basic: 25000, allowance: 5000, joinedOn: DateTime(2020));
+      expect(
+        e.payForWindow(
+          from: DateTime(2026, 11, 1),
+          to: DateTime(2026, 11, 30),
+          daysOff: 3,
+        ),
+        27000,
+      );
+    });
+
+    test('a whole month away leaves nothing, and no further', () {
+      final e = _e(basic: 30000, joinedOn: DateTime(2020));
+      final nov = (DateTime(2026, 11, 1), DateTime(2026, 11, 30));
+      expect(e.payForWindow(from: nov.$1, to: nov.$2, daysOff: 30), 0);
+      expect(e.payForWindow(from: nov.$1, to: nov.$2, daysOff: 45), 0);
     });
 
     test('no days off takes nothing off', () {
-      final e = _e(basic: 28000);
-      expect(e.payFor(daysOff: 0), 28000);
-      expect(e.payFor(daysOff: -2), 28000);
+      final e = _e(basic: 28000, joinedOn: DateTime(2020));
+      expect(
+        e.payForWindow(
+          from: DateTime(2026, 11, 1),
+          to: DateTime(2026, 11, 30),
+          daysOff: 0,
+        ),
+        28000,
+      );
     });
 
     test('an awkward figure comes out whole', () {
       // Nobody is paid 24,333.333 rupees.
-      final e = _e(basic: 25000, allowance: 2000);
-      final pay = e.payFor(daysOff: 7);
+      final e = _e(basic: 25000, allowance: 2000, joinedOn: DateTime(2020));
+      final pay = e.payForWindow(
+        from: DateTime(2026, 11, 1),
+        to: DateTime(2026, 11, 30),
+        daysOff: 7,
+      );
       expect(pay, pay.round());
       expect(pay, 20700);
     });
@@ -200,9 +269,8 @@ void main() {
         joinedOn: DateTime(2026, 10, 7),
         leftOn: DateTime(2026, 10, 19),
       );
-      final daysOn = e.daysOnIn(oct.$1, oct.$2);
-      expect(e.payFor(daysOn: daysOn), 13000);
-      expect(e.cutFor(daysOn: daysOn), 17000);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 12581);
+      expect(e.monthly - e.payForWindow(from: oct.$1, to: oct.$2), 17419);
     });
 
     test('days off come off on top of the days he was here', () {
@@ -213,21 +281,20 @@ void main() {
         joinedOn: DateTime(2026, 10, 7),
         leftOn: DateTime(2026, 10, 19),
       );
-      final daysOn = e.daysOnIn(oct.$1, oct.$2);
-      expect(e.payFor(daysOn: daysOn, daysOff: 2), 11000);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2, daysOff: 2), 10645);
     });
 
     test('a man who started before the month gets the whole of it', () {
       final e = _e(joinedOn: DateTime(2026, 1, 1), basic: 30000);
-      expect(e.daysOnIn(oct.$1, oct.$2), 30);
-      expect(e.payFor(daysOn: e.daysOnIn(oct.$1, oct.$2)), 30000);
+      expect(e.daysOnIn(oct.$1, oct.$2), 31);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 30000);
     });
 
-    test('a long month is still thirty days of pay', () {
-      // October has 31. Nobody is paid 31/30 of a month.
+    test('a long month is still one month of pay', () {
+      // October has 31 days and November 30, and both pay a month's wage.
       final e = _e(joinedOn: DateTime(2020, 1, 1), basic: 30000);
-      expect(e.daysOnIn(oct.$1, oct.$2), 30);
-      expect(e.payFor(daysOn: 31), 30000);
+      expect(e.daysOnIn(oct.$1, oct.$2), 31);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 30000);
     });
 
     test('a month after he left is nothing at all', () {
@@ -237,7 +304,7 @@ void main() {
       );
       final nov = (DateTime(2026, 11, 1), DateTime(2026, 11, 30));
       expect(e.daysOnIn(nov.$1, nov.$2), 0);
-      expect(e.payFor(daysOn: 0), 0);
+      expect(e.payForWindow(from: nov.$1, to: nov.$2), 0);
     });
 
     test('and a month before he started is nothing either', () {
@@ -274,7 +341,7 @@ void main() {
       final e = _e(joinedOn: DateTime(2020, 1, 1), basic: 30000);
       final feb = (DateTime(2026, 2, 1), DateTime(2026, 2, 28));
       expect(e.daysOnIn(feb.$1, feb.$2), 28);
-      expect(e.payFor(daysOn: 28), 28000);
+      expect(e.payForWindow(from: feb.$1, to: feb.$2), 30000);
     });
 
     test('away the whole of a part month leaves nothing owed', () {
@@ -283,8 +350,8 @@ void main() {
         leftOn: DateTime(2026, 10, 19),
         basic: 30000,
       );
-      expect(e.payFor(daysOn: 13, daysOff: 13), 0);
-      expect(e.payFor(daysOn: 13, daysOff: 40), 0);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2, daysOff: 13), 0);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2, daysOff: 40), 0);
     });
   });
 
@@ -544,9 +611,9 @@ void main() {
       expect(wrong.daysOnIn(oct.$1, oct.$2), 14);
       expect(right.daysOnIn(oct.$1, oct.$2), 13);
       expect(
-        wrong.payFor(daysOn: wrong.daysOnIn(oct.$1, oct.$2)) -
-            right.payFor(daysOn: right.daysOnIn(oct.$1, oct.$2)),
-        766,
+        wrong.payForWindow(from: oct.$1, to: oct.$2) -
+            right.payForWindow(from: oct.$1, to: oct.$2),
+        742,
       );
     });
 
@@ -558,7 +625,7 @@ void main() {
       );
       final now = was.copyWith(leftOn: DateTime(2026, 10, 15));
       expect(now.daysOnIn(oct.$1, oct.$2), 9);
-      expect(now.payFor(daysOn: 9), 6900);
+      expect(now.payForWindow(from: oct.$1, to: oct.$2), 6677);
     });
 
     test('taking the last day off puts him back on the list', () {
@@ -591,7 +658,7 @@ void main() {
         leftOn: DateTime(2026, 10, 7),
       );
       expect(e.daysOnIn(oct.$1, oct.$2), 1);
-      expect(e.payFor(daysOn: 1), 1000);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 968);
     });
 
     test('a last day before he started leaves nothing owed', () {
@@ -603,7 +670,7 @@ void main() {
         leftOn: DateTime(2026, 10, 7),
       );
       expect(e.daysOnIn(oct.$1, oct.$2), 0);
-      expect(e.payFor(daysOn: 0), 0);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 0);
     });
   });
 
@@ -626,7 +693,7 @@ void main() {
       );
       expect(gone.isWorking, isFalse);
       expect(gone.daysOnIn(oct.$1, oct.$2), 14);
-      expect(gone.payFor(daysOn: 14), 10733);
+      expect(gone.payForWindow(from: oct.$1, to: oct.$2), 10387);
     });
 
     test('so he is on the list the month is paid from', () {
@@ -677,7 +744,7 @@ void main() {
 
     test('somebody still working is on it for any month since he started', () {
       final here = _e(name: 'Jalbani', joinedOn: DateTime(2026, 1, 1));
-      expect(here.daysOnIn(oct.$1, oct.$2), 30);
+      expect(here.daysOnIn(oct.$1, oct.$2), 31);
       final nov = (DateTime(2026, 11, 1), DateTime(2026, 11, 30));
       expect(here.daysOnIn(nov.$1, nov.$2), 30);
     });
@@ -763,11 +830,14 @@ void main() {
         from: DateTime(2026, 10, 1),
         to: DateTime(2026, 10, 31),
       );
-      final daysOn = jatt.daysOnIn(
-        DateTime(2026, 10, 1),
-        DateTime(2026, 10, 31),
+      expect(
+        jatt.payForWindow(
+              from: DateTime(2026, 10, 1),
+              to: DateTime(2026, 10, 31),
+            ) -
+            drawn,
+        14000,
       );
-      expect(jatt.payFor(daysOn: daysOn) - drawn, 14000);
     });
 
     test('an advance under a name off by more than spacing is stranded', () {
@@ -783,6 +853,146 @@ void main() {
         ),
         0,
       );
+    });
+  });
+
+  group('one payment covering more than a month', () {
+    /// The farm's own case, in its own words: "is ki salary 20 se start ho ke
+    /// 30 Nov tak generate ki jae, taake advance bhi adjust ho jaye."
+    ///
+    /// A man taken on on the 20th of October, paid at the end of November
+    /// for the whole of it — October's last days and all of November — so
+    /// that the sixteen thousand he drew in October comes off the same
+    /// payment. Asked a month at a time, that advance sat in a month nobody
+    /// was paying for and never came off at all.
+
+    final jatt = _e(
+      name: 'Gawalo Rafiq Jatt',
+      basic: 24000,
+      joinedOn: DateTime(2026, 10, 20),
+    );
+
+    final from = DateTime(2026, 10, 20);
+    final to = DateTime(2026, 11, 30);
+
+    test('October\'s last days and the whole of November', () {
+      // 20 to 31 October is twelve days; November is a whole month.
+      expect(jatt.daysOnIn(DateTime(2026, 10, 1), DateTime(2026, 10, 31)), 12);
+      expect(jatt.daysOnIn(DateTime(2026, 11, 1), DateTime(2026, 11, 30)), 30);
+      expect(jatt.daysOnBetween(from, to), 42);
+    });
+
+    test('and his pay for it is 33,600', () {
+      // 24,000 x 12/30 for October, plus a whole month of November.
+      expect(jatt.payForWindow(from: from, to: to), 33290);
+    });
+
+    test('less the advance, he is handed 17,600', () {
+      // Which is the figure the farm came for.
+      expect(jatt.payForWindow(from: from, to: to) - 16000, 17290);
+    });
+
+    test('and the advance is found, because the range reaches back to it', () {
+      final drawn = Txn(
+        id: 'advoct',
+        date: DateTime(2026, 10, 22),
+        monthId: '2026-10',
+        type: TxnType.expense,
+        party: 'Gawalo Rafiq Jatt',
+        category: salaryAdvanceCategory,
+        amount: 16000,
+        paid: true,
+        paidOnCreate: true,
+        handledBy: 'Rafeeq',
+        note: '',
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 22),
+      );
+
+      expect(advanceTaken([drawn], who: jatt.name, from: from, to: to), 16000);
+
+      // November alone would have missed it entirely, which is the whole
+      // reason the range exists.
+      expect(
+        advanceTaken(
+          [drawn],
+          who: jatt.name,
+          from: DateTime(2026, 11, 1),
+          to: DateTime(2026, 11, 30),
+        ),
+        0,
+      );
+    });
+
+    test('a month is thirty days of pay even when it has thirty-one', () {
+      // Counted as one run of days, October would pay thirty-one thirtieths
+      // of a month. The farm's month is thirty days whatever the calendar
+      // says, so each month is asked on its own and capped.
+      final old = _e(name: 'Old Hand', basic: 30000, joinedOn: DateTime(2020));
+      expect(
+        old.payForWindow(
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 10, 31),
+        ),
+        30000,
+      );
+    });
+
+    test('two whole months is two months of pay', () {
+      final old = _e(name: 'Old Hand', basic: 30000, joinedOn: DateTime(2020));
+      expect(
+        old.payForWindow(
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 11, 30),
+        ),
+        60000,
+      );
+    });
+
+    test('days off come off the whole payment, once', () {
+      expect(jatt.payForWindow(from: from, to: to, daysOff: 3), 30890);
+    });
+
+    test('and never below nothing, however many days off', () {
+      expect(jatt.payForWindow(from: from, to: to, daysOff: 90), 0);
+    });
+
+    test('a man who left inside the range is paid to his last day', () {
+      final gone = _e(
+        name: 'Gone',
+        basic: 24000,
+        joinedOn: DateTime(2026, 10, 20),
+        leftOn: DateTime(2026, 11, 10),
+      );
+      // Twelve days of October and ten of November.
+      expect(gone.daysOnBetween(from, to), 22);
+      expect(gone.payForWindow(from: from, to: to), 17290);
+    });
+
+    test('a range entirely before he started pays nothing', () {
+      expect(
+        jatt.payForWindow(
+          from: DateTime(2026, 8, 1),
+          to: DateTime(2026, 9, 30),
+        ),
+        0,
+      );
+    });
+
+    test('and one whole month is still one whole wage', () {
+      // The ordinary case has not moved. A run of days that happens to be
+      // exactly a month pays exactly a month, whichever month it is.
+      final old = _e(name: 'Old Hand', basic: 30000, joinedOn: DateTime(2020));
+      for (final m in [2, 4, 7, 11]) {
+        expect(
+          old.payForWindow(
+            from: DateTime(2026, m, 1),
+            to: DateTime(2026, m + 1, 0),
+          ),
+          30000,
+          reason: 'month $m',
+        );
+      }
     });
   });
 }

@@ -68,14 +68,23 @@ class Employee {
 
   bool get isWorking => leftOn == null;
 
-  /// A month is thirty days here whatever the calendar says.
+  /// How long a month actually is: 28, 29, 30 or 31.
   ///
-  /// That is how the farm has always counted it and how the man expects it
-  /// to be counted. Arguing that February should divide by 28 costs more in
-  /// trust than it saves in rupees.
-  static const monthDays = 30;
+  /// The farm used to count every month as thirty. It is the convention
+  /// everybody knows, and it is wrong in both directions: a full February
+  /// came out at 22,400 of a 24,000 wage, short by sixteen hundred rupees
+  /// of a man's money, and a full 31-day month had to be capped on the way
+  /// past to stop it paying more than a month's wage for a month's work.
+  ///
+  /// A wage is a wage. Twenty-four thousand is twenty-four thousand whether
+  /// the month is February or October — so a whole month pays the whole
+  /// wage, and a part month is worked out against that month's own length.
+  /// Over a year each month pays the same and every part of one is fair to
+  /// the day.
+  static int lengthOf(DateTime anyDayInIt) =>
+      DateTime(anyDayInIt.year, anyDayInIt.month + 1, 0).day;
 
-  /// How many days of a given month he was actually on the farm.
+  /// How many days of a window he was actually on the farm.
   ///
   /// A man taken on partway through the month, or one who left partway
   /// through it, is owed for the days he was here and no more. The farm was
@@ -93,28 +102,80 @@ class Employee {
         ? _day(leftOn!)
         : _day(to);
     if (end.isBefore(start)) return 0;
-    final days = end.difference(start).inDays + 1;
-    return days > monthDays ? monthDays : days;
+    return end.difference(start).inDays + 1;
   }
 
-  /// What he is owed for the month.
+  /// Every month a run of days touches, each with its own first and last day.
+  static List<(DateTime, DateTime)> monthsBetween(DateTime from, DateTime to) {
+    final out = <(DateTime, DateTime)>[];
+    var cursor = DateTime(from.year, from.month, 1);
+    final last = DateTime(to.year, to.month, 1);
+    while (!cursor.isAfter(last)) {
+      out.add((cursor, DateTime(cursor.year, cursor.month + 1, 0)));
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+      if (out.length > 60) break; // nobody is paid five years in one go
+    }
+    return out;
+  }
+
+  /// What he is owed for a run of days, which need not be one month.
   ///
-  /// [daysOn] is how many of the month's days he was on the farm at all —
-  /// the whole month unless he joined or left inside it. [daysOff] is the
-  /// leave taken out of those. Both come off the month's whole pay, the
-  /// allowance with the wage: a day's absence is a day of the month, and
-  /// taking it off the basic alone would quietly pay a man who was away
-  /// more per working day than one who was not.
-  num payFor({int daysOff = 0, int? daysOn}) {
-    final worked = (daysOn ?? monthDays) - (daysOff > 0 ? daysOff : 0);
-    if (worked <= 0) return 0;
-    if (worked >= monthDays) return monthly;
-    return (monthly * worked / monthDays).round();
+  /// Two things the farm asked for, and they are the same sum.
+  ///
+  /// A payment can cover more than a month: a man taken on on the 20th of
+  /// October, paid at the end of November for the whole of it, so that the
+  /// advance he drew in October comes off the same payment. Asked a month at
+  /// a time, that advance sat in a month nobody was paying for.
+  ///
+  /// And a whole month pays a whole wage whatever its length. Each month in
+  /// the run is asked on its own, against its own number of days, so a
+  /// February he worked right through pays the same as an October — and
+  /// twelve days of a 31-day October are twelve thirty-firsts of a wage.
+  ///
+  /// [daysOff] is leave taken out of the whole run. It comes off at the rate
+  /// of the month the payment is made in, and off the month's whole pay —
+  /// the allowance with the wage, because a day's absence is a day of the
+  /// month and taking it off the basic alone would quietly pay a man who was
+  /// away more per working day than one who was not.
+  num payForWindow({
+    required DateTime from,
+    required DateTime to,
+    int daysOff = 0,
+  }) {
+    var whole = 0 as num;
+    for (final (monthStart, monthEnd) in monthsBetween(from, to)) {
+      final a = monthStart.isBefore(from) ? from : monthStart;
+      final b = monthEnd.isAfter(to) ? to : monthEnd;
+      final on = daysOnIn(a, b);
+      if (on <= 0) continue;
+
+      final len = monthEnd.day;
+      whole += on >= len ? monthly : monthly * on / len;
+    }
+    if (whole <= 0) return 0;
+
+    final cut = daysOff > 0 ? monthly * daysOff / lengthOf(to) : 0;
+    final left = whole - cut;
+    return left <= 0 ? 0 : left.round();
   }
 
-  /// What the days not worked take off a full month's pay.
-  num cutFor({int daysOff = 0, int? daysOn}) =>
-      monthly - payFor(daysOff: daysOff, daysOn: daysOn);
+  /// How many days of a run of days he was actually here.
+  int daysOnBetween(DateTime from, DateTime to) {
+    var days = 0;
+    for (final (monthStart, monthEnd) in monthsBetween(from, to)) {
+      final a = monthStart.isBefore(from) ? from : monthStart;
+      final b = monthEnd.isAfter(to) ? to : monthEnd;
+      days += daysOnIn(a, b);
+    }
+    return days;
+  }
+
+  /// What a run of days has taken off a whole month's pay.
+  num cutForWindow({
+    required DateTime from,
+    required DateTime to,
+    int daysOff = 0,
+  }) => monthly - payForWindow(from: from, to: to, daysOff: daysOff);
 
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 

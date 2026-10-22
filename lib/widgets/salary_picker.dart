@@ -27,6 +27,9 @@ class SalaryPicker extends StatelessWidget {
     required this.daysOff,
     required this.payingFor,
     required this.onMonth,
+    required this.onSpan,
+    this.spanFrom,
+    this.spanTo,
     required this.onPicked,
     required this.onDaysOff,
     this.advance = false,
@@ -59,6 +62,16 @@ class SalaryPicker extends StatelessWidget {
   /// Moving it to another month.
   final void Function(DateTime month) onMonth;
 
+  /// The run of days this payment covers, where it is not one whole month.
+  ///
+  /// The farm's own case: a man taken on on the 20th of October, paid at
+  /// the end of November for the whole of it, so the advance he drew in
+  /// October comes off the same payment. Asked a month at a time, that
+  /// advance sat in a month nobody was paying for.
+  final DateTime? spanFrom;
+  final DateTime? spanTo;
+  final void Function(DateTime? from, DateTime? to) onSpan;
+
   final void Function(Employee who, int daysOn) onPicked;
   final void Function(Employee who, int daysOn, int days) onDaysOff;
 
@@ -70,9 +83,14 @@ class SalaryPicker extends StatelessWidget {
   /// the advance has come off it and must not come off again.
   final bool Function(Employee who)? alreadyPaid;
 
-  DateTime get _monthStart => DateTime(payingFor.year, payingFor.month, 1);
+  DateTime get _monthStart =>
+      spanFrom ?? DateTime(payingFor.year, payingFor.month, 1);
 
-  DateTime get _monthEnd => DateTime(payingFor.year, payingFor.month + 1, 0);
+  DateTime get _monthEnd =>
+      spanTo ?? DateTime(payingFor.year, payingFor.month + 1, 0);
+
+  /// Whether this payment covers something other than the one whole month.
+  bool get _spanned => spanFrom != null || spanTo != null;
 
   @override
   Widget build(BuildContext context) {
@@ -121,8 +139,9 @@ class SalaryPicker extends StatelessWidget {
         final who = pickable
             .where((e) => partyKey(e.name) == partyKey(chosen))
             .firstOrNull;
-        final daysOn = who?.daysOnIn(_monthStart, _monthEnd) ?? 0;
-        final partMonth = who != null && daysOn < Employee.monthDays;
+        final daysOn = who?.daysOnBetween(_monthStart, _monthEnd) ?? 0;
+        final allOfIt = _monthEnd.difference(_monthStart).inDays + 1;
+        final partMonth = who != null && (daysOn < allOfIt || _spanned);
 
         // Wage money he has already taken against this month. It comes off
         // by itself, which is the whole point — the farm has always said yes
@@ -133,7 +152,11 @@ class SalaryPicker extends StatelessWidget {
         final comesOff = settled ? 0 : drawn;
         final wage = who == null
             ? 0
-            : who.payFor(daysOff: daysOff, daysOn: daysOn);
+            : who.payForWindow(
+                from: _monthStart,
+                to: _monthEnd,
+                daysOff: daysOff,
+              );
         final toHand = wage - comesOff;
 
         return RegCard(
@@ -175,10 +198,42 @@ class SalaryPicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'The month he worked, not the day he is handed it. '
-                  'October\'s wage is October\'s whether it goes out on the '
-                  '31st, the 1st or the 5th of November.',
-                  style: T.meta,
+                  _spanned
+                      ? '${fmtDateFull(_monthStart)} to '
+                            '${fmtDateFull(_monthEnd)}'
+                      : 'The month he worked, not the day he is handed it. '
+                            'October\'s wage is October\'s whether it goes '
+                            'out on the 31st, the 1st or the 5th of November.',
+                  style: T.meta.copyWith(color: _spanned ? T.accent700 : null),
+                ),
+                const SizedBox(height: 8),
+                // One payment can cover more than a month — the end of
+                // October and the whole of November together — so that an
+                // advance drawn in October comes off it. Asked a month at a
+                // time, that advance sat in a month nobody was paying for.
+                Row(
+                  children: [
+                    Expanded(
+                      child: _Day(
+                        label: _spanned ? fmtDateFull(_monthStart) : 'Pay from',
+                        onTap: () => _pickSpan(context, start: true),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: _Day(
+                        label: _spanned ? fmtDateFull(_monthEnd) : 'Pay to',
+                        onTap: () => _pickSpan(context, start: false),
+                      ),
+                    ),
+                    if (_spanned) ...[
+                      const SizedBox(width: 7),
+                      _Day(
+                        label: 'Whole month',
+                        onTap: () => onSpan(null, null),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 11),
               ],
@@ -298,7 +353,7 @@ class SalaryPicker extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '− ${rs(who.monthly - who.payFor(daysOff: daysOff, daysOn: daysOn))}',
+                        '− ${rs(who.payForWindow(from: _monthStart, to: _monthEnd) - wage)}',
                         style: T.bodyMid.copyWith(color: T.moneyDue),
                       ),
                     ],
@@ -378,6 +433,43 @@ class SalaryPicker extends StatelessWidget {
       },
     );
   }
+}
+
+extension on SalaryPicker {
+  /// Picking one end of the run of days this payment covers.
+  Future<void> _pickSpan(BuildContext context, {required bool start}) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: start ? _monthStart : _monthEnd,
+      firstDate: DateTime(now.year - 3),
+      lastDate: DateTime(now.year + 1),
+      helpText: start ? 'Pay from which day' : 'Pay up to which day',
+    );
+    if (picked == null) return;
+
+    // The other end follows rather than arguing: a start after the finish
+    // is a man picking the far end first.
+    final a = start ? picked : _monthStart;
+    final b = start ? _monthEnd : picked;
+    onSpan(a.isAfter(b) ? b : a, b.isBefore(a) ? a : b);
+  }
+}
+
+/// One end of a run of days.
+class _Day extends StatelessWidget {
+  const _Day({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GhostButton(
+    label: label,
+    icon: Icons.event_outlined,
+    compact: true,
+    onPressed: onTap,
+  );
 }
 
 class _Arrow extends StatelessWidget {

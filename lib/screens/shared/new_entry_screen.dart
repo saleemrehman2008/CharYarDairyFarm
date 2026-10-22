@@ -124,6 +124,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// until somebody moves it, when it follows the guess below.
   DateTime? _payMonth;
 
+  /// A payment covering a run of days rather than one whole month.
+  ///
+  /// The end of October and the whole of November together, so that the
+  /// advance he drew in October comes off the same payment.
+  DateTime? _spanFrom;
+  DateTime? _spanTo;
+
   /// Paying in the first days of a month almost always means the month just
   /// gone. Almost always is not always, so the card lets it be moved.
   DateTime get _wageMonth =>
@@ -132,8 +139,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           ? DateTime(_when.year, _when.month - 1, 1)
           : DateTime(_when.year, _when.month, 1));
 
-  DateTime get _payStart => DateTime(_wageMonth.year, _wageMonth.month, 1);
-  DateTime get _payEnd => DateTime(_wageMonth.year, _wageMonth.month + 1, 0);
+  DateTime get _payStart =>
+      _spanFrom ?? DateTime(_wageMonth.year, _wageMonth.month, 1);
+
+  DateTime get _payEnd =>
+      _spanTo ?? DateTime(_wageMonth.year, _wageMonth.month + 1, 0);
 
   num _drawnBy(Employee who) => advanceTaken(
     context.read<FarmStore>().ledger,
@@ -149,10 +159,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     to: _payEnd,
   );
 
-  /// What is actually handed over: the month's wage, less what he has
-  /// already drawn against it, and never less than nothing.
-  num _toHand(Employee who, int daysOn, int daysOff) {
-    final wage = who.payFor(daysOff: daysOff, daysOn: daysOn);
+  /// What is actually handed over: the wage for the days being paid for,
+  /// less what he has already drawn against them, and never less than
+  /// nothing.
+  num _toHand(Employee who, int daysOff) {
+    final wage = who.payForWindow(
+      from: _payStart,
+      to: _payEnd,
+      daysOff: daysOff,
+    );
     final off = _wageDone(who) ? 0 : _drawnBy(who);
     final left = wage - off;
     return left < 0 ? 0 : left;
@@ -536,6 +551,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               daysOff: 0,
               payingFor: _when,
               onMonth: (_) {},
+              onSpan: (_, _) {},
               advance: true,
               drawnAlready: (who) => advanceTaken(
                 context.read<FarmStore>().ledger,
@@ -553,21 +569,41 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               chosen: _party.text.trim(),
               daysOff: _daysOff,
               payingFor: _wageMonth,
-              onMonth: (m) => setState(() => _payMonth = m),
-              drawnAlready: _drawnBy,
-              alreadyPaid: _wageDone,
-              onPicked: (who, daysOn) {
+              onMonth: (m) => setState(() {
+                _payMonth = m;
+                _spanFrom = null;
+                _spanTo = null;
+              }),
+              spanFrom: _spanFrom,
+              spanTo: _spanTo,
+              onSpan: (a, b) {
                 setState(() {
-                  _party.text = who.name;
-                  _daysOff = 0;
-                  _total.text = '${_toHand(who, daysOn, 0).round()}';
+                  _spanFrom = a;
+                  _spanTo = b;
+                });
+                final who = _crew
+                    .where((e) => partyKey(e.name) == partyKey(_party.text))
+                    .firstOrNull;
+                if (who == null) return;
+                setState(() {
+                  _total.text = '${_toHand(who, _daysOff).round()}';
                 });
                 _fromTotal();
               },
-              onDaysOff: (who, daysOn, days) {
+              drawnAlready: _drawnBy,
+              alreadyPaid: _wageDone,
+              onPicked: (who, _) {
+                setState(() {
+                  _party.text = who.name;
+                  _daysOff = 0;
+                  _total.text = '${_toHand(who, 0).round()}';
+                });
+                _fromTotal();
+              },
+              onDaysOff: (who, _, days) {
                 setState(() {
                   _daysOff = days;
-                  _total.text = '${_toHand(who, daysOn, days).round()}';
+                  _total.text = '${_toHand(who, days).round()}';
                 });
                 _fromTotal();
               },
