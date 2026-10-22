@@ -31,7 +31,23 @@ class Session extends ChangeNotifier {
   }
 
   /// How long to wait before showing something instead of a spinner.
-  static const _patience = Duration(seconds: 12);
+  /// How long to wait before saying something is wrong.
+  ///
+  /// Twelve seconds was far too tight. A co-founder opening the app cold on
+  /// a village 4G signal has Firebase to start, a token to refresh and two
+  /// documents to read, and at twelve seconds he was shown an error screen
+  /// with "Sign out" on it — so he signed out and picked his Google account
+  /// again, every single time. The app looked like it had forgotten him. It
+  /// had not; it had given up on him.
+  static const _patience = Duration(seconds: 45);
+
+  /// Whether it is taking longer than it should.
+  ///
+  /// Said quietly on the loading screen rather than as a failure, because
+  /// for somebody already signed in it is not one: the profile is in the
+  /// phone's own cache and the listener will deliver it.
+  bool _slow = false;
+  bool get isSlow => _slow;
 
   StreamSubscription<fb.User?>? _authSub;
   StreamSubscription<AppUser?>? _userSub;
@@ -101,14 +117,21 @@ class Session extends ChangeNotifier {
 
   void _startWatchdog() {
     _watchdog?.cancel();
+    _slow = false;
     _watchdog = Timer(_patience, () {
       if (!_loading) return;
-      _giveUp(
-        signedIn
-            ? 'Could not load your profile. Check the connection, or ask the '
-                  'master whether the database rules have been published.'
-            : 'Could not reach Firebase. Check the connection and try again.',
-      );
+
+      // Somebody already signed in is never shown the door for a slow
+      // network. His profile is in the phone's own cache and the listener
+      // will deliver it; saying "could not load" over a button marked Sign
+      // out is how he ends up signing himself out and logging in again.
+      if (signedIn) {
+        _slow = true;
+        notifyListeners();
+        return;
+      }
+
+      _giveUp('Could not reach Firebase. Check the connection and try again.');
     });
   }
 
@@ -116,6 +139,7 @@ class Session extends ChangeNotifier {
     _watchdog?.cancel();
     _watchdog = null;
     _loading = false;
+    _slow = false;
   }
 
   void _giveUp(String message) {

@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import '../state/session.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -12,7 +14,9 @@ class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => _build(context);
+
+  Widget _build(BuildContext context) => Scaffold(
     backgroundColor: T.brandDeep,
     body: Center(
       child: Column(
@@ -39,6 +43,26 @@ class SplashScreen extends StatelessWidget {
               ),
             ),
           ),
+
+          // Said only once it has taken longer than it should, and said as
+          // what it is. A slow signal is not a reason to show somebody who
+          // is already signed in a way out of his own app.
+          if (context.watch<Session>().isSlow) ...[
+            const SizedBox(height: 22),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Signal dheema hy — intezar jari hy. Ap logged in hain, '
+                'dobara login karne ki zaroorat nahi.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: const Color(0xCCFFFFFF),
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     ),
