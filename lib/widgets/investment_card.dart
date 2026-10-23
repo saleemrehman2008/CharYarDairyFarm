@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../i18n/words.dart';
 import '../models/models.dart';
+import '../screens/shared/founder_money.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
 import 'ui.dart';
@@ -33,48 +34,56 @@ class InvestmentCard extends StatelessWidget {
           if (partners.isEmpty)
             Text(l.t('No co-founders yet.'), style: T.meta)
           else ...[
+            // Each man's figure opens his own capital record — every rupee
+            // he has put in, dated, and where it came from. Read on the card
+            // it was a total of his that only he could vouch for.
             for (final p in partners)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            p.name,
-                            style: T.body,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            p.profitHeld > 0
-                                ? l.t2(
-                                    'incl. %s left in from profit',
-                                    rs(p.profitHeld),
-                                  )
-                                : l.t('put in from their own pocket'),
-                            style: T.meta.copyWith(fontSize: 11),
-                          ),
-                        ],
+              InkWell(
+                onTap: () => showMoneyLines(context, p),
+                borderRadius: T.roundSm,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.name,
+                              style: T.body,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              p.profitHeld > 0
+                                  ? l.t2(
+                                      'incl. %s left in from profit',
+                                      rs(p.profitHeld),
+                                    )
+                                  : l.t('put in from their own pocket'),
+                              style: T.meta.copyWith(fontSize: 11),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Tag(
-                      '${((ratios[p.id] ?? 0) * 100).toStringAsFixed(0)}%',
-                      tone: TagTone.accent,
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 96,
-                      child: Text(
-                        rs(p.inTheFarm),
-                        textAlign: TextAlign.right,
-                        style: T.bodyMid,
+                      const SizedBox(width: 8),
+                      Tag(
+                        '${((ratios[p.id] ?? 0) * 100).toStringAsFixed(0)}%',
+                        tone: TagTone.accent,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 96,
+                        child: Text(
+                          rs(p.inTheFarm),
+                          textAlign: TextAlign.right,
+                          style: T.bodyMid,
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, size: 15, color: T.n400),
+                    ],
+                  ),
                 ),
               ),
             const Divider(height: 18),

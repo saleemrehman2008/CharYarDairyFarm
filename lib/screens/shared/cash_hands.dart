@@ -10,6 +10,7 @@ import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
+import '../../widgets/entry_actions.dart';
 import '../../widgets/refund_card.dart';
 import '../../widgets/square_card.dart';
 import '../../widgets/ui.dart';
@@ -104,19 +105,44 @@ class CashHands extends StatelessWidget {
                   children: [
                     if (held > 0)
                       Expanded(
-                        child: _Total(
-                          label: l.t('In their hands'),
-                          value: rs(held),
-                          tone: T.moneyIn,
+                        child: BehindTap(
+                          title: l.t('In their hands'),
+                          figure: held,
+                          note: l.t(
+                            'every entry the four of them have taken money '
+                            'in on',
+                          ),
+                          rows: [
+                            for (final h in hands)
+                              if (h.holding > 0)
+                                ...store.heldBy(h.who).map(Behind.hand),
+                          ],
+                          child: _Total(
+                            label: l.t('In their hands'),
+                            value: rs(held),
+                            tone: T.moneyIn,
+                          ),
                         ),
                       ),
                     if (held > 0 && owed > 0) const SizedBox(width: 10),
                     if (owed > 0)
                       Expanded(
-                        child: _Total(
-                          label: l.t('Out of their pockets'),
-                          value: rs(owed),
-                          tone: T.moneyDue,
+                        child: BehindTap(
+                          title: l.t('Out of their pockets'),
+                          figure: owed,
+                          note: l.t(
+                            'every farm cost one of them paid for himself',
+                          ),
+                          rows: [
+                            for (final h in hands)
+                              if (h.outOfPocket)
+                                ...store.spentBy(h.who).map(Behind.hand),
+                          ],
+                          child: _Total(
+                            label: l.t('Out of their pockets'),
+                            value: rs(owed),
+                            tone: T.moneyDue,
+                          ),
                         ),
                       ),
                   ],
@@ -246,34 +272,67 @@ class _HandRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final tone = hand.outOfPocket ? T.moneyDue : T.moneyIn;
-    final owedIn = context.watch<FarmStore>().owedToFarmBy(hand.who);
+    final store = context.watch<FarmStore>();
+    final owedIn = store.owedToFarmBy(hand.who);
+
+    // The entries this man's figure was added up from, both ways. The row
+    // is not a reading of a total any more: press it and it says which
+    // entries it is, the same as every row in the ledger does.
+    final took = store.heldBy(hand.who).map(Behind.hand).toList();
+    final gave = store.spentBy(hand.who).map(Behind.hand).toList();
+
+    // His holding is what he took in, less what he handed out, less what he
+    // has passed on and nobody has acknowledged yet. All three or the
+    // sentence does not reach the figure above it.
+    final sum = [
+      l.t3('%s taken in, less %s handed out', rs(hand.received), rs(hand.paid)),
+      if (hand.onItsWay > 0)
+        l.t2('less %s on its way to somebody', rs(hand.onItsWay)),
+    ].join(' · ');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(child: Text(hand.who, style: T.bodyMid)),
-            Text(rs(hand.holding.abs()), style: T.num22.copyWith(color: tone)),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                l.t3(
-                  '%s taken in · %s handed out',
-                  rs(hand.received),
-                  rs(hand.paid),
-                ),
-                style: T.meta,
+        BehindTap(
+          title: hand.who,
+          figure: hand.holding.abs(),
+          note: sum,
+          rows: [...took, ...gave],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text(hand.who, style: T.bodyMid)),
+                  Text(
+                    rs(hand.holding.abs()),
+                    style: T.num22.copyWith(color: tone),
+                  ),
+                ],
               ),
-            ),
-            Text(
-              hand.outOfPocket ? l.t('farm owes them') : l.t('in their hand'),
-              style: T.meta.copyWith(color: tone),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.t3(
+                        '%s taken in · %s handed out',
+                        rs(hand.received),
+                        rs(hand.paid),
+                      ),
+                      style: T.meta,
+                    ),
+                  ),
+                  Text(
+                    hand.outOfPocket
+                        ? l.t('farm owes them')
+                        : l.t('in their hand'),
+                    style: T.meta.copyWith(color: tone),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         // What he has taken in of the farm's money and not passed on. Shown
         // on its own, never knocked off what he has spent of his own: the
@@ -281,17 +340,27 @@ class _HandRow extends StatelessWidget {
         // close a month on, and netting the two is how they stop arriving.
         if (owedIn > 0) ...[
           const SizedBox(height: 5),
-          Row(
-            children: [
-              Icon(Icons.account_balance_outlined, size: 13, color: T.moneyOut),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  l.t2('%s of it to pay into the farm account', rs(owedIn)),
-                  style: T.meta.copyWith(color: T.moneyOut),
+          BehindTap(
+            title: hand.who,
+            figure: owedIn,
+            note: l.t('farm money taken in, still to be paid into its account'),
+            rows: took,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.account_balance_outlined,
+                  size: 13,
+                  color: T.moneyOut,
                 ),
-              ),
-            ],
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    l.t2('%s of it to pay into the farm account', rs(owedIn)),
+                    style: T.meta.copyWith(color: T.moneyOut),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
 

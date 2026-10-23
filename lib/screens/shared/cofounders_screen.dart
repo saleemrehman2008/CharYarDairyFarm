@@ -10,6 +10,7 @@ import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/entry_actions.dart';
 import '../../widgets/loan_card.dart';
 import '../../widgets/typed_capital_card.dart';
 import '../../widgets/ui.dart';
@@ -306,11 +307,17 @@ class _PartnerCardState extends State<_PartnerCard> {
                 _Stat(
                   label: 'In for',
                   value: p.pledged > 0 ? rs(p.pledged) : '—',
+                  onTap: () => showMoneyLines(context, p),
                 ),
-                _Stat(label: 'Put in', value: rs(p.invested)),
+                _Stat(
+                  label: 'Put in',
+                  value: rs(p.invested),
+                  onTap: () => showMoneyLines(context, p),
+                ),
                 _Stat(
                   label: p.overPaid > 0 ? 'Over' : 'Still to come',
                   value: p.overPaid > 0 ? rs(p.overPaid) : rs(p.stillToPayIn),
+                  onTap: () => showMoneyLines(context, p),
                 ),
               ],
             ),
@@ -325,25 +332,56 @@ class _PartnerCardState extends State<_PartnerCard> {
                 final store = context.watch<FarmStore>();
                 final hands = store.handsOf(p.name);
                 final held = hands?.holding ?? 0;
+                final took = store.heldBy(p.name).map(Behind.hand).toList();
+                final gave = store.spentBy(p.name).map(Behind.hand).toList();
+                final sum = [
+                  '${rs(hands?.received ?? 0)} taken in, less '
+                      '${rs(hands?.paid ?? 0)} handed out',
+                  if ((hands?.onItsWay ?? 0) > 0)
+                    'less ${rs(hands!.onItsWay)} on its way to somebody',
+                ].join(' · ');
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        _Stat(label: 'Profit kept', value: rs(p.profitHeld)),
-                        _Stat(label: 'Taken out', value: rs(p.withdrawn)),
+                        _Stat(
+                          label: 'Profit kept',
+                          value: rs(p.profitHeld),
+                          onTap: () => showMoneyLines(context, p),
+                        ),
+                        _Stat(
+                          label: 'Taken out',
+                          value: rs(p.withdrawn),
+                          onTap: () => showMoneyLines(context, p),
+                        ),
                         _Stat(
                           label: held < 0 ? 'Out of pocket' : 'Cash on him',
                           value: rs(held.abs()),
+                          onTap: took.isEmpty && gave.isEmpty
+                              ? null
+                              : () => showBehind(
+                                  context,
+                                  title: p.name,
+                                  figure: held.abs(),
+                                  note: sum,
+                                  rows: [...took, ...gave],
+                                ),
                         ),
                       ],
                     ),
                     if (hands != null) ...[
                       const SizedBox(height: 7),
-                      Text(
-                        '${rs(hands.received)} taken in · '
-                        '${rs(hands.paid)} handed out',
-                        style: T.meta,
+                      BehindTap(
+                        title: p.name,
+                        figure: held.abs(),
+                        note: sum,
+                        rows: [...took, ...gave],
+                        child: Text(
+                          '${rs(hands.received)} taken in · '
+                          '${rs(hands.paid)} handed out',
+                          style: T.meta,
+                        ),
                       ),
                     ],
                     // Money of his own that the farm has had the use of,
@@ -365,31 +403,39 @@ class _PartnerCardState extends State<_PartnerCard> {
                     // is settled by his having spent money of his own.
                     if (store.owedToFarmBy(p.name) > 0) ...[
                       const SizedBox(height: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: T.moneyOut.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(T.radiusXs),
-                          border: Border.all(
-                            color: T.moneyOut.withValues(alpha: 0.28),
+                      BehindTap(
+                        title: p.name,
+                        figure: store.owedToFarmBy(p.name),
+                        note:
+                            'farm money taken in, still to be paid into '
+                            'its account',
+                        rows: took,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'To pay into the farm account',
-                                style: T.meta.copyWith(color: T.moneyOut),
+                          decoration: BoxDecoration(
+                            color: T.moneyOut.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(T.radiusXs),
+                            border: Border.all(
+                              color: T.moneyOut.withValues(alpha: 0.28),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'To pay into the farm account',
+                                  style: T.meta.copyWith(color: T.moneyOut),
+                                ),
                               ),
-                            ),
-                            Text(
-                              rs(store.owedToFarmBy(p.name)),
-                              style: T.bodyMid.copyWith(color: T.moneyOut),
-                            ),
-                          ],
+                              Text(
+                                rs(store.owedToFarmBy(p.name)),
+                                style: T.bodyMid.copyWith(color: T.moneyOut),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -785,14 +831,21 @@ class _PartnerCardState extends State<_PartnerCard> {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
+  const _Stat({required this.label, required this.value, this.onTap});
 
   final String label;
   final String value;
 
+  /// What the figure is made of, opened by pressing the figure.
+  ///
+  /// Every figure on this card is a total of entries somebody made, and a
+  /// total nobody can open is a total somebody has to be taken at their
+  /// word on. Null only where there is genuinely nothing behind it.
+  final VoidCallback? onTap;
+
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Column(
+  Widget build(BuildContext context) {
+    final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Kicker(label),
@@ -803,8 +856,23 @@ class _Stat extends StatelessWidget {
           child: Text(value, style: T.bodyMid),
         ),
       ],
-    ),
-  );
+    );
+    return Expanded(
+      child: onTap == null
+          ? body
+          : Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: T.roundSm,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: body,
+                ),
+              ),
+            ),
+    );
+  }
 }
 
 /// Opens a capital record for somebody who has not signed in yet.

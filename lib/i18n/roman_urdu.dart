@@ -1501,4 +1501,17 @@ const Map<String, String> romanUrdu = {
       '%s ko %s hisson me kaat kar rakh diya jayega.\n\nIs waqt ke baad figures nahi badal sakte, aur har nayi entry — chahe aaj ki tareekh ki ho — agle period ki hai. Jab tak aap band nahi karte, kisi ko kuch nahi diya jayega.',
   'There is nothing to share this time.\n\nFrom this moment the figures cannot change, and every new entry — even one dated today — belongs to the next period.':
       'Is bar baantne ko kuch nahi hai.\n\nIs waqt ke baad figures nahi badal sakte, aur har nayi entry — chahe aaj ki tareekh ki ho — agle period ki hai.',
+  // ---- What a figure is made of ----
+  '%s entries, %s between them': '%s entries, sab mila ke %s',
+  'Tap any one of them to read the whole entry — the same sheet the ledger opens, with everything written on it.':
+      'In me se kisi per bhi dabayen to poori entry khul jayegi — wohi window jo khaate me khulti hai, sab kuch likha hua.',
+  'handed to %s': '%s ko de di',
+  '%s taken in, less %s handed out': '%s liya, us me se %s diya',
+  'less %s on its way to somebody': 'aur %s raaste me hai',
+  'farm money taken in, still to be paid into its account':
+      'farm ka paisa jo liya, abhi farm ke account me jama karna hai',
+  'every entry the four of them have taken money in on':
+      'har wo entry jis per in charon me se kisi ne paisa liya',
+  'every farm cost one of them paid for himself':
+      'farm ka har wo kharcha jo in me se kisi ne apni jaib se diya',
 };

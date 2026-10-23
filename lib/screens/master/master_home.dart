@@ -74,6 +74,11 @@ class MasterHome extends StatelessWidget {
               ? l.t2('%s is still with the rider', rs(books.withRider))
               : l.t2('Made %s this period so far.', rs(books.profit)),
           trailing: Tag(monthShort(store.month.id), tone: TagTone.accent),
+          // Whose hands it is in. The figure is the farm's whole cash, and
+          // the only true answer to "what is it made of" is the list of
+          // four men and what each of them is holding — where every row
+          // now opens the entries it was counted from.
+          onTap: () => onGo('partners'),
         ),
         const SizedBox(height: T.gap),
 

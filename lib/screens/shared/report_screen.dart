@@ -13,8 +13,10 @@ import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
+import '../../widgets/entry_actions.dart';
 import '../../widgets/investment_card.dart';
 import '../../widgets/ui.dart';
+import 'accounts_screen.dart';
 
 /// Where the farm's money came from and where it went, over a stretch of time.
 ///
@@ -252,6 +254,12 @@ class _ReportScreenState extends State<ReportScreen> {
   List<_Line> _byCategory(List<Txn> txns, {required bool incoming}) {
     final totals = <String, num>{};
     final counts = <String, int>{};
+    // Which entries each category is made of. The farm asked this looking
+    // at a running cost of 92,000: press it and what are the forty things
+    // that came to 92,000? It was a dead figure, and a dead figure in a
+    // report four partners share out on is one somebody has to be believed
+    // about.
+    final behind = <String, List<Txn>>{};
     for (final t in txns) {
       // A receipt against a sale, or a payment against a bill, is the same
       // money as the entry it settles — counting both would say the farm
@@ -269,20 +277,30 @@ class _ReportScreenState extends State<ReportScreen> {
       final key = t.category.isEmpty ? t.type.label : t.category;
       totals[key] = (totals[key] ?? 0) + t.amount;
       counts[key] = (counts[key] ?? 0) + 1;
+      behind.putIfAbsent(key, () => []).add(t);
     }
     final lines = [
-      for (final e in totals.entries) _Line(e.key, e.value, counts[e.key] ?? 0),
+      for (final e in totals.entries)
+        _Line(
+          e.key,
+          e.value,
+          counts[e.key] ?? 0,
+          behind[e.key] ?? const <Txn>[],
+        ),
     ]..sort((a, b) => b.amount.compareTo(a.amount));
     return lines;
   }
 }
 
 class _Line {
-  const _Line(this.label, this.amount, this.count);
+  const _Line(this.label, this.amount, this.count, this.txns);
 
   final String label;
   final num amount;
   final int count;
+
+  /// The entries the figure was added up from, so the line can open them.
+  final List<Txn> txns;
 }
 
 class _Block extends StatelessWidget {
@@ -314,33 +332,38 @@ class _Block extends StatelessWidget {
             Text(l.t('Nothing here.'), style: T.meta)
           else
             for (final line in lines)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            line.label,
-                            style: T.body,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            l.t2('%s entries', line.count),
-                            style: T.meta.copyWith(fontSize: 11),
-                          ),
-                        ],
+              BehindTap(
+                title: l.t(line.label),
+                rows: line.txns.map(Behind.txn).toList(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              line.label,
+                              style: T.body,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              l.t2('%s entries', line.count),
+                              style: T.meta.copyWith(fontSize: 11),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      rs(line.amount),
-                      style: T.bodyMid.copyWith(color: tone),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Text(
+                        rs(line.amount),
+                        style: T.bodyMid.copyWith(color: tone),
+                      ),
+                      Icon(Icons.chevron_right, size: 15, color: T.n400),
+                    ],
+                  ),
                 ),
               ),
           const Divider(height: 18),
@@ -497,6 +520,25 @@ class _SinceDayOne extends StatelessWidget {
 
   final FarmStore store;
 
+  /// The ledger, filtered to what this tile counted.
+  ///
+  /// Every figure on this card is read back out of closed periods' own
+  /// frozen totals rather than off a list, so a sheet of entries could not
+  /// be made to add up to it. The honest door is the ledger itself,
+  /// already filtered — the whole list, not a copy of part of it.
+  void _list(BuildContext context, AccountsFilter filter) {
+    final store = context.read<FarmStore>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+          value: store,
+          child: AccountsScreen(initialFilter: filter),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
@@ -533,6 +575,7 @@ class _SinceDayOne extends StatelessWidget {
                 label: l.t('Sold'),
                 value: rs(store.lifetimeSales),
                 tone: T.moneyIn,
+                onTap: () => _list(context, AccountsFilter.sales),
               ),
             ),
           ],
@@ -546,6 +589,7 @@ class _SinceDayOne extends StatelessWidget {
                 value: rs(store.lifetimeRunningCosts),
                 tone: T.moneyOut,
                 note: l.t('feed, salaries, bills'),
+                onTap: () => _list(context, AccountsFilter.running),
               ),
             ),
             const SizedBox(width: T.gap),
@@ -555,6 +599,7 @@ class _SinceDayOne extends StatelessWidget {
                 value: rs(money.assets),
                 tone: const Color(0xFF6544B0),
                 note: l.t('cattle & equipment'),
+                onTap: () => _list(context, AccountsFilter.assets),
               ),
             ),
           ],
@@ -567,6 +612,7 @@ class _SinceDayOne extends StatelessWidget {
                 label: l.t('Cash now'),
                 value: rs(money.cash),
                 tone: T.moneyIn,
+                onTap: () => _list(context, AccountsFilter.received),
               ),
             ),
             const SizedBox(width: T.gap),
@@ -575,6 +621,7 @@ class _SinceDayOne extends StatelessWidget {
                 label: l.t('To receive'),
                 value: rs(money.receivable),
                 tone: T.moneyGet,
+                onTap: () => _list(context, AccountsFilter.receivable),
               ),
             ),
           ],

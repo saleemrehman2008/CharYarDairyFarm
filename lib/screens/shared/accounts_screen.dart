@@ -14,6 +14,7 @@ import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../../widgets/category_field.dart';
+import '../../widgets/entry_actions.dart';
 import '../../widgets/party_field.dart';
 import '../../widgets/photo.dart';
 import '../../widgets/pick_sheet.dart';
@@ -721,111 +722,30 @@ class _AccountsScreenState extends State<AccountsScreen> {
     }
   }
 
-  Future<void> _markPaid(Txn txn) async {
-    // Ask how the money moved before booking it — a month later nobody will
-    // remember whether it was cash or a transfer.
-    final settled = await askSettlement(
-      context,
-      incoming: txn.type.isIncoming,
-      party: txn.party,
-      amount: txn.amount,
-    );
-    if (settled == null || !mounted) return;
+  // The four things a person can do to an entry are written once, in
+  // widgets/entry_actions.dart, so an entry opened from a total on another
+  // screen behaves exactly as it does when opened from its own row here.
+  // All this screen adds is the row greying out while the write is away.
 
+  Future<void> _around(Txn txn, Future<void> Function() act) async {
     setState(() => _busyId = txn.id);
     try {
-      await TxnRepo.markPaid(
-        context.read<Session>().actor,
-        txn,
-        payVia: settled.payVia ?? PayVia.cash,
-        handledBy: settled.handledBy,
-      );
-      if (mounted) toast(context, '${txn.party} marked paid');
-    } catch (e) {
-      if (mounted) toast(context, 'Could not mark it paid. $e');
+      await act();
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
   }
 
-  /// Open the correction sheet for one entry.
-  Future<void> _edit(Txn txn) async {
-    final store = context.read<FarmStore>();
-    final isMaster = context.read<Session>().role == Role.master;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: T.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
-      ),
-      // The sheet is built from the navigator context, which sits above the
-      // provider this screen was pushed with, so the store is handed down.
-      builder: (_) => ChangeNotifierProvider<FarmStore>.value(
-        value: store,
-        child: EditEntrySheet(txn: txn, isMaster: isMaster),
-      ),
-    );
-  }
+  Future<void> _markPaid(Txn txn) =>
+      _around(txn, () => markEntryPaid(context, txn));
 
-  /// Give up on what is still owed on one entry.
-  Future<void> _giveUp(Txn txn) async {
-    final l = L.read(context);
-    final left = txn.outstanding;
-    final ok = await confirm(
-      context,
-      title: l.t('Give up on this money?'),
-      body: l.t3(
-        '%s · %s\n\n'
-        'The entry is marked settled and this becomes a cost of the open '
-        'period, so the profit drops by it. No cash moves — it never came. '
-        'It cannot be undone except by entering it again as a fresh sale.',
-        txn.party,
-        rs(left),
-      ),
-      confirmLabel: l.t('Give up on it'),
-    );
-    if (!ok || !mounted) return;
+  Future<void> _edit(Txn txn) => editEntry(context, txn);
 
-    setState(() => _busyId = txn.id);
-    try {
-      await TxnRepo.giveUpOn(context.read<Session>().actor, txn);
-      if (mounted) toast(context, l.t2('%s written off', rs(left)));
-    } catch (e) {
-      if (mounted) toast(context, l.t2('Could not write it off. %s', e));
-    } finally {
-      if (mounted) setState(() => _busyId = null);
-    }
-  }
+  Future<void> _giveUp(Txn txn) =>
+      _around(txn, () => giveUpOnEntry(context, txn));
 
-  Future<void> _delete(Txn txn) async {
-    final ok = await confirm(
-      context,
-      title: 'Delete this entry?',
-      body:
-          // What actually happens, which is not what this used to say. The
-          // Sheet's tabs are rewritten whole on every sync from the live
-          // books, and the live books leave deleted entries out — so the
-          // row goes, it is not flagged.
-          '${txn.type.label} · ${txn.party} · ${rs(txn.amount)}\n\n'
-          'It goes from the app, and from the Google Sheet at the next '
-          'sync a few seconds later. Every figure that counted it — the '
-          'profit, the cash, this party\'s balance — is worked out again '
-          'without it.',
-      confirmLabel: 'Delete',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busyId = txn.id);
-    try {
-      await TxnRepo.softDelete(context.read<Session>().actor, txn);
-      if (mounted) toast(context, 'Entry deleted');
-    } catch (e) {
-      if (mounted) toast(context, 'Could not delete it. $e');
-    } finally {
-      if (mounted) setState(() => _busyId = null);
-    }
-  }
+  Future<void> _delete(Txn txn) =>
+      _around(txn, () => deleteEntry(context, txn));
 }
 
 /// The row of filters. Each chip wears its own colour when chosen, and the
