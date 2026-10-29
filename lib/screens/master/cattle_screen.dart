@@ -229,51 +229,53 @@ class _AnimalRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => RegCard(
-    padding: const EdgeInsets.all(10),
-    onTap: onTap,
-    dim: !animal.status.isHere,
-    child: Row(
-      children: [
-        FarmPhotoView(data: animal.thumb, url: animal.photoUrl, size: 62),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(animal.tag, style: T.cardTitle),
-                  if (animal.name.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        animal.name,
-                        style: T.body,
-                        overflow: TextOverflow.ellipsis,
+  Widget build(BuildContext context) {
+    final mother = context.watch<FarmStore>().motherNameOf(animal);
+    return RegCard(
+      padding: const EdgeInsets.all(10),
+      onTap: onTap,
+      dim: !animal.status.isHere,
+      child: Row(
+        children: [
+          FarmPhotoView(data: animal.thumb, url: animal.photoUrl, size: 62),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(animal.tag, style: T.cardTitle),
+                    if (animal.name.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          animal.name,
+                          style: T.body,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ] else
-                    const Spacer(),
-                  if (!animal.status.isHere)
-                    Tag(animal.status.label, tone: TagTone.neutral)
-                  else if (animal.overdue())
-                    const Tag('Check due', tone: TagTone.bad)
-                  else if (animal.isMilking)
-                    Tag('${qty(animal.dailyLitres)} L', tone: TagTone.good),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(animal.summary, style: T.meta),
-              if (animal.motherTag != null)
-                Text('Out of ${animal.motherTag}', style: T.meta),
-            ],
+                    ] else
+                      const Spacer(),
+                    if (!animal.status.isHere)
+                      Tag(animal.status.label, tone: TagTone.neutral)
+                    else if (animal.overdue())
+                      const Tag('Check due', tone: TagTone.bad)
+                    else if (animal.isMilking)
+                      Tag('${qty(animal.dailyLitres)} L', tone: TagTone.good),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(animal.summary, style: T.meta),
+                if (mother != null) Text('Out of $mother', style: T.meta),
+              ],
+            ),
           ),
-        ),
-        Icon(Icons.chevron_right, size: 18, color: T.n500),
-      ],
-    ),
-  );
+          Icon(Icons.chevron_right, size: 18, color: T.n500),
+        ],
+      ),
+    );
+  }
 }
 
 class _Chip extends StatelessWidget {

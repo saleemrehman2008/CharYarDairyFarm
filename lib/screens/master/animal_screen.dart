@@ -192,6 +192,9 @@ class _HeaderState extends State<_Header> {
   @override
   Widget build(BuildContext context) {
     final a = widget.animal;
+    // Her mother as she is called today, not as she was called the day he
+    // was written down. See FarmStore.motherNameOf.
+    final mother = context.watch<FarmStore>().motherNameOf(a);
     return RegCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,7 +224,7 @@ class _HeaderState extends State<_Header> {
                     Text(a.summary, style: T.meta),
                     // Her mother, and a way through to her. The register
                     // knew the link and only ever printed it.
-                    if (a.motherTag != null)
+                    if (mother != null)
                       InkWell(
                         onTap: () => _openAnimal(
                           context,
@@ -235,7 +238,7 @@ class _HeaderState extends State<_Header> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Out of ${a.motherTag}',
+                                'Out of $mother',
                                 style: T.meta.copyWith(color: T.accent700),
                               ),
                               const SizedBox(width: 3),
@@ -753,6 +756,8 @@ class _EventRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = event;
+    // The calf as he is called today. See FarmStore.calfNameOf.
+    final calf = context.watch<FarmStore>().calfNameOf(e);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
       decoration: BoxDecoration(
@@ -795,7 +800,7 @@ class _EventRow extends StatelessWidget {
                   [
                     if (e.litres > 0) '${qty(e.litres)} L a day',
                     if (e.weightKg > 0) '${qty(e.weightKg)} kg',
-                    if (e.calfTag != null) 'Calf ${e.calfTag}',
+                    if (calf != null) 'Calf $calf',
                     if (e.hasCost)
                       '${rs(e.cost)}${e.isBooked ? ' · in the books' : ' · not booked'}',
                     if (e.nextDueOn != null) 'Next ${fmtDate(e.nextDueOn!)}',

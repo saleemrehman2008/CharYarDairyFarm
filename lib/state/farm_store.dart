@@ -327,6 +327,41 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   int get milkingCount => herd.where((a) => a.isMilking).length;
 
+  /// What a calf's mother is called today.
+  ///
+  /// Her tag and her name are written onto the calf as well, the day he is
+  /// registered, and that copy is only rewritten when the link between them
+  /// is changed. Rename the mother, or give her a new tag — the numbers are
+  /// the farm's to type now, so it does — and every calf went on printing
+  /// what she used to be called. Two names for one buffalo, and the register
+  /// is the one place the farm goes to settle which animal is which.
+  ///
+  /// So it is read off her own record, which is the only copy that can be
+  /// wrong about her. The stored one is kept as the answer for a mother who
+  /// is no longer in the register at all: she was somebody, and "Out of
+  /// nobody" is worse than an old name.
+  String? motherNameOf(Animal calf) {
+    final live = animalById(calf.motherId);
+    return live?.label ?? calf.motherTag;
+  }
+
+  /// What the calf named in an event is called today.
+  ///
+  /// The birth line on a mother's page — "Calf 24-07" — was the tag copied
+  /// onto the event the evening he was born. The farm renamed him and his
+  /// mother's page went on calling him by the old name, which is the
+  /// complaint that found this and [motherNameOf] both: a name written down
+  /// twice is a name that can be two things at once.
+  ///
+  /// The event keeps the copy and keeps it on purpose — it is what the
+  /// Sheet carries and what a calf sold on years ago is still called in the
+  /// history. It is the answer here only when he is no longer in the
+  /// register to ask.
+  String? calfNameOf(AnimalEvent event) {
+    if (event.calfId == null) return event.calfTag;
+    return animalById(event.calfId)?.label ?? event.calfTag;
+  }
+
   Animal? animalById(String? id) {
     if (id == null) return null;
     for (final a in _animals) {
