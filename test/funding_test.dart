@@ -701,6 +701,18 @@ void main() {
       // writes a line against the entry, which both credits his hands and
       // takes the money back out on the row — so he is holding nothing and
       // the farm is not asked to count it again.
+      //
+      // The ten lakh nobody has claimed is the farm's own, and it comes off
+      // the farm's own account. It used to land on Ghulam Ali, because his
+      // name was on the entry, and read as ten lakh of his own money the
+      // farm owed him back. That is the bug the farm found on a purchase of
+      // 15,09,000: writing a split is the farm saying this much was these
+      // men's own, so the rest, by its own account, was nobody's own.
+      //
+      // Here the farm account has taken nothing in, so it goes below
+      // nothing, and that is worth seeing: the books are saying the farm's
+      // account paid ten lakh it never held. Somebody else's money did, and
+      // has not been written down.
       final ali = _p(name: 'Ghulam Ali', pledged: 2000000);
       final cows = spentBy(1700000, 'Ghulam Ali');
       final line = Contribution(
@@ -716,8 +728,17 @@ void main() {
       );
 
       final hands = cashInHands([cows], putIn: [line]);
+
+      num holdingOf(String name) =>
+          hands.where((h) => partyKey(h.who) == partyKey(name)).single.holding;
+
       expect(
-        hands.single.holding,
+        holdingOf('Ghulam Ali'),
+        0,
+        reason: 'his own money went in and straight out again',
+      );
+      expect(
+        holdingOf(farmAccountName),
         -1000000,
         reason: 'what is left of the cattle is still unaccounted for',
       );

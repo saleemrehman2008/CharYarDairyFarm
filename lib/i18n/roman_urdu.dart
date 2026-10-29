@@ -1544,4 +1544,7 @@ const Map<String, String> romanUrdu = {
       'Jo paisa aap pakren wo farm ka hai. Nayi entry me "kis ne handle kiya" farm ka account aayega, aur accounts ka safha farm ke account per khulega. Aap ke apne paas jo hai wo wese hi rehta hai, aur log me naam aap ka hi aata hai.',
   'Money you handle is your own. Turn this on while you are running the farm\'s account and %s goes back to being just you.':
       'Jo paisa aap pakren wo aap ka apna hai. Jab farm ka account chala rahe hon to ye on kar lein, aur band karte hi %s sirf aap reh jate hain.',
+  'paid out more than came in': 'jitna aaya us se zyada diya',
+  'The farm\'s own account paid this part, and it comes off the farm\'s balance. Type against a man above and this comes down by it.':
+      'Ye hissa farm ke apne account ne diya, aur farm ke balance se hi katega. Uper kisi ke saamne likhen to ye utna kam ho jayega.',
 };

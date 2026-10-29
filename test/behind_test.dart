@@ -232,13 +232,20 @@ void main() {
         expect(his.single.amount, 4000);
         expect(his.single.txnId, feed.id);
 
+        // And the rest of it is the farm's own, on the farm's own account —
+        // not on Ghulam Ali, whose name is merely the one on the entry.
+        expect(
+          inHand([feed], who: 'Ghulam Ali', incoming: false, putIn: putIn),
+          isEmpty,
+        );
         final rest = inHand(
           [feed],
-          who: 'Ghulam Ali',
+          who: farmAccountName,
           incoming: false,
           putIn: putIn,
         );
         expect(rest.single.amount, 5000);
+        expect(rest.single.txnId, feed.id);
       },
     );
   });

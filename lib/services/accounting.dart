@@ -338,14 +338,31 @@ List<HandsOn> cashInHands(
 
     // An entry carries one name as the payer, and three men can have paid
     // for it. Where the farm has written down who found the money, that is
-    // who it comes out of — anything left over belongs to the one name on
-    // the entry, which is the farm's own cash going out through his hands.
+    // who it comes out of.
+    //
+    // What is left over is the farm's own, and it comes off the farm's own
+    // account. Writing a split is the farm saying "this much was these
+    // men's own money" — so the rest, by its own account of it, was not
+    // anybody's own money. The sheet has said so from the first day: "that
+    // part came out of the farm's own cash."
+    //
+    // It used to go against whoever handled the entry, and that is the bug
+    // the farm hit. A purchase of 15,09,000 split two ways left 3,41,500
+    // sitting on Rafeeq as money out of his own pocket, because his name
+    // was on the entry — while the sheet he had just saved told him the
+    // farm's own cash had paid it. One purchase, two answers, and the one
+    // on screen was not the one in the books.
+    //
+    // Without a split nothing changes: the whole of it goes out through
+    // the hands the entry names, which is an ordinary payment and is what
+    // brings a man's holding down when he spends the farm's cash.
     var left = t.amount;
-    for (final c in split[t.id] ?? const <Contribution>[]) {
+    final shared = split[t.id] ?? const <Contribution>[];
+    for (final c in shared) {
       note(c.partnerName, c.amount, incoming: false);
       left -= c.amount;
     }
-    note(t.handledBy, left, incoming: false);
+    note(shared.isEmpty ? t.handledBy : farmAccountName, left, incoming: false);
   }
   for (final c in putIn) {
     if (c.isDeleted) continue;
@@ -957,14 +974,19 @@ List<InHand> inHand(
 
     // An entry carries one payer's name and three men can have paid for it.
     // Where the farm has written down who found the money, that is whose
-    // row this is; the rest belongs to the name on the entry.
+    // row this is; what is left over is the farm's own and belongs to the
+    // farm's own account. Split the same way [cashInHands] splits it, or
+    // the list behind a figure would not be the list the figure was added
+    // up from.
     var left = t.amount;
-    for (final c in split[t.id] ?? const <Contribution>[]) {
+    final shared = split[t.id] ?? const <Contribution>[];
+    for (final c in shared) {
       left -= c.amount;
       if (partyKey(c.partnerName) != key || c.amount <= 0) continue;
       out.add(line(t, c.amount, false));
     }
-    if (left > 0 && partyKey(t.handledBy) == key) {
+    final rest = shared.isEmpty ? t.handledBy : farmAccountName;
+    if (left > 0 && partyKey(rest) == key) {
       out.add(line(t, left, false));
     }
   }

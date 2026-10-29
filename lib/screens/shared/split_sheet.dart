@@ -206,11 +206,7 @@ class _SplitSheetState extends State<_SplitSheet> {
                 // No box, because its figure is not a separate fact: it is
                 // the entry less what the men have claimed. Type against a
                 // man above and this comes down by it, in front of you.
-                _LeftLine(
-                  handler: widget.entry.handledBy,
-                  amount: over ? 0 : left,
-                  short: over,
-                ),
+                _LeftLine(amount: over ? 0 : left, short: over),
                 const SizedBox(height: T.gap),
 
                 // What is typed against what the entry is for. The farm
@@ -288,11 +284,9 @@ class _SplitSheetState extends State<_SplitSheet> {
                     padding: const EdgeInsets.only(bottom: 5),
                     child: Text(
                       l.t3(
-                        '%s — %s of the farm\'s own cash goes out through '
-                        'their hands, so nobody\'s investment moves.',
-                        widget.entry.handledBy.trim().isEmpty
-                            ? l.t('Nobody named')
-                            : widget.entry.handledBy,
+                        '%s — %s came out of the farm\'s own cash, so '
+                        'nobody\'s investment moves.',
+                        l.t(farmAccountName),
                         rs(left),
                       ),
                       style: T.meta.copyWith(color: T.accent700),
@@ -356,28 +350,23 @@ class _SplitSheetState extends State<_SplitSheet> {
   }
 }
 
-/// Whatever is left of the entry, against the hands it goes out through.
+/// The farm's own account, carrying whatever the men have not claimed.
 ///
-/// It looks like the others and takes no typing, because its figure is not a
-/// separate fact: an entry is paid for by the men who claim part of it and
-/// by the farm, and whatever none of them claims is the farm's by
-/// arithmetic. Given a box of its own it could be made to disagree with the
-/// men above it, and a sheet that can show two answers to one purchase is
-/// the thing these books exist to stop.
+/// It takes no typing, because its figure is not a separate fact: an entry
+/// is paid for by the men who claim part of it and by the farm, and whatever
+/// none of them claims is the farm's by arithmetic. Given a box of its own
+/// it could be made to disagree with the men above it, and a sheet that can
+/// show two answers to one purchase is the thing these books exist to stop.
 ///
-/// Who it comes off is not arithmetic though, and this line had been quiet
-/// about it. The farm's cash leaves through one pair of hands and the entry
-/// already says whose: that is what [handler] is, and it is a name the
-/// entry can be corrected to say differently.
+/// For one release this line carried the name of whoever handled the entry
+/// instead, because that is where the books were putting the money. That was
+/// the wrong half to change. Writing a split is the farm saying this much
+/// was these men's own — so the rest, by its own account, was not anybody's
+/// own, and it now comes off the farm's account where it always said it did.
+/// It also put Rafeeq on the list twice, once as a man with a box and once
+/// as this line, which is how a thing that is wrong usually announces itself.
 class _LeftLine extends StatelessWidget {
-  const _LeftLine({
-    required this.handler,
-    required this.amount,
-    required this.short,
-  });
-
-  /// The name on the entry as having handled the money.
-  final String handler;
+  const _LeftLine({required this.amount, required this.short});
 
   final num amount;
 
@@ -394,13 +383,10 @@ class _LeftLine extends StatelessWidget {
         ? T.accent700
         : T.n500;
 
-    final named = handler.trim().isNotEmpty;
-    final isFarm = partyKey(handler) == partyKey(farmAccountName);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Kicker(named ? handler : l.t('Nobody named')),
+        Kicker(l.t(farmAccountName)),
         const SizedBox(height: 5),
         Container(
           height: T.tap,
@@ -413,13 +399,7 @@ class _LeftLine extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isFarm
-                    ? Icons.account_balance_outlined
-                    : Icons.pan_tool_alt_outlined,
-                size: 16,
-                color: tone,
-              ),
+              Icon(Icons.account_balance_outlined, size: 16, color: tone),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -440,24 +420,10 @@ class _LeftLine extends StatelessWidget {
                 )
               : amount <= 0
               ? l.t('The four of them paid all of it between them.')
-              : !named
-              ? l.t(
-                  'Nobody is named on the entry as having handled this, so '
-                  'this much is the farm\'s cash with no pair of hands '
-                  'against it. Put a name on the entry.',
-                )
-              : isFarm
-              ? l.t(
+              : l.t(
                   'The farm\'s own account paid this part, and it comes off '
-                  'the farm account. Type against a man above and this '
+                  'the farm\'s balance. Type against a man above and this '
                   'comes down by it.',
-                )
-              : l.t2(
-                  'The farm\'s cash, out through %s\'s hands — it comes off '
-                  'what they are holding, not off the farm account. If the '
-                  'farm\'s own account paid it, change who handled the '
-                  'entry to the farm account.',
-                  handler,
                 ),
           style: T.meta.copyWith(color: tone),
         ),

@@ -443,10 +443,16 @@ void main() {
         ).single.amount,
         500000,
       );
+      // The rest of it is the farm's own and sits on the farm's own
+      // account, not on the man whose name is on the entry.
+      expect(
+        inHand([cows], who: 'Ghulam Ali', incoming: false, putIn: [asifPaid]),
+        isEmpty,
+      );
       expect(
         inHand(
           [cows],
-          who: 'Ghulam Ali',
+          who: farmAccountName,
           incoming: false,
           putIn: [asifPaid],
         ).single.amount,

@@ -324,9 +324,15 @@ class _HandRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    hand.outOfPocket
-                        ? l.t('farm owes them')
-                        : l.t('in their hand'),
+                    // The farm owing itself money is not a sentence. Its own
+                    // account below nothing means it has paid out more than
+                    // has come into it, which is worth saying and is a
+                    // different thing from a man being out of pocket.
+                    !hand.outOfPocket
+                        ? l.t('in their hand')
+                        : partyKey(hand.who) == partyKey(farmAccountName)
+                        ? l.t('paid out more than came in')
+                        : l.t('farm owes them'),
                     style: T.meta.copyWith(color: tone),
                   ),
                 ],
