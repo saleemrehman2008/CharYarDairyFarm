@@ -1514,4 +1514,15 @@ const Map<String, String> romanUrdu = {
       'har wo entry jis per in charon me se kisi ne paisa liya',
   'every farm cost one of them paid for himself':
       'farm ka har wo kharcha jo in me se kisi ne apni jaib se diya',
+  // ---- The farm's own account on the "who paid" list ----
+  'Farm account': 'Farm ka account',
+  'whatever is left': 'jo bache',
+  'The farm\'s own cash paid this part. Type against a man above and this comes down by it.':
+      'Ye hissa farm ki apni cash se gaya. Uper kisi ke saamne likhen to ye utna hi kam ho jayega.',
+  'Nothing left for the farm — more has been put against the men above than the entry comes to.':
+      'Farm ke liye kuch nahi bacha — uper walon ke saamne entry se zyada likh diya gaya hai.',
+  'The four of them paid all of it between them.':
+      'Poora kharcha in logon ne aapas me hi diya hai.',
+  '%s — %s came out of the farm\'s own cash, so nobody\'s investment moves.':
+      '%s — %s farm ki apni cash se gaya, is liye kisi ka investment nahi badalta.',
 };

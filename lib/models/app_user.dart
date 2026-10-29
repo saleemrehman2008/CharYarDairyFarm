@@ -56,6 +56,21 @@ enum Role {
   /// Everyone whose money is in the farm, and who may therefore read it.
   bool get seesTheBooks => isPartner || this == Role.silent;
 
+  /// Everyone who has money in the farm, and therefore a capital record.
+  ///
+  /// The same people as [seesTheBooks] today, and deliberately a second
+  /// getter: one asks what a person may read and the other asks whether the
+  /// farm owes him anything, and the day somebody is let in to look at the
+  /// books without a rupee in them those two part company.
+  ///
+  /// A silent investor was left off this list, and leaving him off did not
+  /// quietly do nothing — it left him out of the share ratios, off the
+  /// Co-founders page, and out of the list of people who could have paid for
+  /// a purchase, which is where the farm noticed. His money is in the farm
+  /// exactly as the others' is. That he cannot move a rupee is a different
+  /// question from whether any of them are his.
+  bool get holdsCapital => isPartner || this == Role.silent;
+
   /// Whether this person may change anything at all.
   bool get readOnly => this == Role.silent;
 

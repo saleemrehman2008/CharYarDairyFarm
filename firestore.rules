@@ -592,8 +592,15 @@ service cloud.firestore {
       allow read: if canSee();
       allow create, delete: if isMaster();
 
+      // Saying you have read your own share is not a change to the books,
+      // so it is canSee() and not isPartner(): a silent investor has a
+      // slice like the rest of them and must be able to say he has seen it,
+      // or the notice sits on his home page for ever and the button under
+      // it fails every time he presses it. He is still held to his own key
+      // by the last clause — he may mark his own slot and nobody else's,
+      // and not one figure in the period moves either way.
       allow update: if isMaster()
-        || (isPartner()
+        || (canSee()
             && resource.data.status == 'closed'
             && changedKeys().hasOnly(['seen'])
             && request.resource.data.get('seen', {})

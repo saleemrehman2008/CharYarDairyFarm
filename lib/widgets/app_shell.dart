@@ -186,7 +186,10 @@ class _SubLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (user.role != Role.investor && user.role != Role.master) {
+    // Anybody whose money is in the farm gets their share on the line under
+    // the title, the silent investor included — he owns his slice exactly as
+    // the others own theirs, and reading his own share is not moving it.
+    if (!user.role.holdsCapital) {
       return Text(user.role.label, style: T.meta.copyWith(fontSize: 11));
     }
     return StreamBuilder<List<Partner>>(

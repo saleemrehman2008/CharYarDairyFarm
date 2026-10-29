@@ -68,4 +68,42 @@ void main() {
       }
     });
   });
+
+  group('his money is in the farm like anybody else\'s', () {
+    /// The farm found this one by opening "Who paid for this?" and not
+    /// seeing him on the list. He had been given a role that reads the books
+    /// and no capital record to read them against — so he was out of the
+    /// share ratios, off the Co-founders page, and not one of the names that
+    /// could have paid for a purchase. Reading and owning are two questions
+    /// and the app had been answering only the first.
+
+    test(
+      'he holds capital, which is not the same as being able to move it',
+      () {
+        expect(Role.silent.holdsCapital, isTrue);
+        expect(Role.silent.readOnly, isTrue);
+      },
+    );
+
+    test('so do the master and the co-founders', () {
+      expect(Role.master.holdsCapital, isTrue);
+      expect(Role.investor.holdsCapital, isTrue);
+    });
+
+    test('and nobody on the other side of the gate does', () {
+      // A rider carries the farm's cash home every evening and owns none of
+      // it; a customer owes it money and owns none of it either.
+      expect(Role.staff.holdsCapital, isFalse);
+      expect(Role.customer.holdsCapital, isFalse);
+    });
+
+    test('exactly the people the books are open to, and said separately', () {
+      // The two lists agree today. They are asked apart because they are
+      // different questions: one is what a man may read, the other is
+      // whether the farm owes him anything.
+      for (final r in Role.values) {
+        expect(r.holdsCapital, r.seesTheBooks, reason: r.name);
+      }
+    });
+  });
 }

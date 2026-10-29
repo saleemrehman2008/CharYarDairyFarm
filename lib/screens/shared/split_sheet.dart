@@ -186,6 +186,25 @@ class _SplitSheetState extends State<_SplitSheet> {
                   const SizedBox(height: T.gap),
                 ],
 
+                // The farm's own account, which was missing from this list
+                // and should never have been.
+                //
+                // The farm buys things with its own cash now, not only out
+                // of four pockets, and this sheet asked whose money paid
+                // while offering no way to answer "the farm's". It was there
+                // all along as the leftover at the bottom — "that part came
+                // out of the farm's own cash" — which is a true sentence
+                // nobody reads as a name on the list.
+                //
+                // So it is a line like the others and it has no box: its
+                // figure is whatever the four of them have not claimed. A
+                // box would be a second place to say the same thing, and
+                // two places to write one figure is how they come to
+                // disagree. Type against a man and the farm's share comes
+                // down by it, in front of you.
+                _FarmLine(amount: over ? 0 : left, short: over),
+                const SizedBox(height: T.gap),
+
                 // What is typed against what the entry is for. The farm
                 // asked for rupees and not percentages, so the only
                 // arithmetic on the page is the one that has to add up.
@@ -256,6 +275,19 @@ class _SplitSheetState extends State<_SplitSheet> {
                 const SizedBox(height: T.pad),
                 Kicker(l.t('What this does')),
                 const SizedBox(height: 6),
+                if (!over && left > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Text(
+                      l.t3(
+                        '%s — %s came out of the farm\'s own cash, so '
+                        'nobody\'s investment moves.',
+                        l.t(farmAccountName),
+                        rs(left),
+                      ),
+                      style: T.meta.copyWith(color: T.accent700),
+                    ),
+                  ),
                 for (final p in partners)
                   Builder(
                     builder: (context) {
@@ -310,6 +342,80 @@ class _SplitSheetState extends State<_SplitSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The farm's own account on the list, carrying whatever is left.
+///
+/// It looks like the others and takes no typing, because its figure is not a
+/// separate fact: an entry is paid for by the four of them and by the farm,
+/// and whatever none of the four claims is the farm's by arithmetic. Given a
+/// box of its own it could be made to disagree with the men above it, and a
+/// sheet that can show two answers to one purchase is the thing these books
+/// exist to stop.
+class _FarmLine extends StatelessWidget {
+  const _FarmLine({required this.amount, required this.short});
+
+  final num amount;
+
+  /// More has been typed than the entry comes to, so there is nothing left
+  /// for the farm and a figure above has to come down first.
+  final bool short;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final tone = short
+        ? T.moneyOut
+        : amount > 0
+        ? T.accent700
+        : T.n500;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Kicker(l.t(farmAccountName)),
+        const SizedBox(height: 5),
+        Container(
+          height: T.tap,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: T.n100,
+            borderRadius: T.roundSm,
+            border: Border.all(color: T.divider),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.account_balance_outlined, size: 16, color: tone),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  rs(short ? 0 : amount),
+                  style: T.body.copyWith(color: tone),
+                ),
+              ),
+              Text(l.t('whatever is left'), style: T.meta),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          short
+              ? l.t(
+                  'Nothing left for the farm — more has been put against '
+                  'the men above than the entry comes to.',
+                )
+              : amount > 0
+              ? l.t(
+                  'The farm\'s own cash paid this part. Type against a man '
+                  'above and this comes down by it.',
+                )
+              : l.t('The four of them paid all of it between them.'),
+          style: T.meta.copyWith(color: tone),
+        ),
+      ],
     );
   }
 }

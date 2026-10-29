@@ -43,7 +43,7 @@ class UserRepo {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if (listed == Role.investor) {
+      if (listed != null && listed.holdsCapital) {
         await _ensurePartner(actor, email: user.email ?? '');
       }
       await Log.write(
@@ -98,8 +98,9 @@ class UserRepo {
 
     // Anyone on the farm side holds capital — the master is a co-founder too,
     // so they need a partner record or they would be left out of the ratios.
+    // A silent investor is on that side as well: see [Role.holdsCapital].
     final finalRole = upgrade ? listed.name : role;
-    if (finalRole == 'master' || finalRole == 'investor') {
+    if (Role.parse(finalRole).holdsCapital) {
       await _ensurePartner(actor, email: user.email ?? '');
     }
 
@@ -257,9 +258,24 @@ class UserRepo {
       refId: user.uid,
     );
 
-    // A new co-founder needs a partner record to hold their capital.
-    if (role == Role.investor) {
-      await _ensurePartner(Actor(uid: user.uid, name: user.name));
+    // A new co-founder needs a partner record to hold their capital, and so
+    // does a silent investor — his money is in the farm the same as theirs.
+    //
+    // Written here, by the master, rather than waiting for the man's own
+    // sign-in to write it: the rules let only the master and the co-founders
+    // open a capital record, so a silent investor cannot open his own. His
+    // own sign-in then claims this one and keeps its name and email fresh,
+    // which the rules do allow him.
+    //
+    // The email goes with it so a record the master opened for him before he
+    // ever signed in is claimed instead of a second one starting at zero
+    // beside it. It was missing, and that is how two records for one man
+    // begin.
+    if (role.holdsCapital) {
+      await _ensurePartner(
+        Actor(uid: user.uid, name: user.name),
+        email: user.email,
+      );
     }
   }
 
