@@ -409,6 +409,11 @@ class AnimalRepo {
 
     await Db.animals.doc(animal.id).update(fresh);
 
+    // A new number has to reach the copies of the old one.
+    if (current != animal.tag) {
+      await _retagCopies(animal.id, current);
+    }
+
     // On her own page as well as in the log, because the question "why does
     // this say cow when the ear says B" is asked standing in the shed.
     await _writeEvent(
@@ -431,6 +436,55 @@ class AnimalRepo {
 
     final snap = await Db.animals.doc(animal.id).get();
     return Animal.fromDoc(snap);
+  }
+
+  /// Carries a new tag out to every copy of the old one.
+  ///
+  /// The register keeps the number in three places besides the animal's own
+  /// record: on each of her calves, as the mother they came out of; on every
+  /// event of her own; and on the birth line of whichever animal she came out
+  /// of. Written the day each of those was made, and until now never written
+  /// again — so a retagged buffalo went on being called by her old number
+  /// everywhere except her own page.
+  ///
+  /// The screens read her own record now and never these, which is the fix
+  /// that matters and the one that stands whatever happens here. This is the
+  /// other half: a copy left wrong in the register is a wrong fact sitting
+  /// there waiting for the one reader who does trust it — which is this app
+  /// itself, on the day she is sold and taken off the list and the copy is
+  /// all that is left of her name.
+  ///
+  /// It does not touch the words of a correction note. "Tag B-05 to C-04" is
+  /// the sentence that lets somebody standing in the shed work out which
+  /// animal this used to be, and rewriting it would rub out the only record
+  /// that she was ever called anything else.
+  ///
+  /// In batches, because a cow of eight years has a hundred events and
+  /// Firestore takes five hundred writes at a time.
+  static Future<void> _retagCopies(String id, String tag) async {
+    final writes = <(DocumentReference<Map<String, dynamic>>, String)>[];
+
+    for (final d
+        in (await Db.animals.where('motherId', isEqualTo: id).get()).docs) {
+      writes.add((d.reference, 'motherTag'));
+    }
+    for (final d
+        in (await Db.animalEvents.where('animalId', isEqualTo: id).get())
+            .docs) {
+      writes.add((d.reference, 'animalTag'));
+    }
+    for (final d
+        in (await Db.animalEvents.where('calfId', isEqualTo: id).get()).docs) {
+      writes.add((d.reference, 'calfTag'));
+    }
+
+    for (var i = 0; i < writes.length; i += 400) {
+      final batch = Db.fs.batch();
+      for (final (ref, field) in writes.skip(i).take(400)) {
+        batch.update(ref, {field: tag});
+      }
+      await batch.commit();
+    }
   }
 
   static String _said(Object? v) {
