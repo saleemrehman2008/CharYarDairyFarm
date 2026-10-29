@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../i18n/words.dart';
 import '../models/models.dart';
 import '../services/sheet_sync.dart';
 import '../services/db.dart';
@@ -78,6 +79,7 @@ class FarmScaffold extends StatelessWidget {
               child: Column(
                 children: [
                   _TopBar(title: title, showBack: showBack, user: user),
+                  const FarmHatBand(),
                   const UpdateBanner(),
                 ],
               ),
@@ -254,6 +256,67 @@ class _SheetsTag extends StatelessWidget {
 ///
 /// The farm installs by hand, so left to itself a fix would sit on the Releases
 /// page unnoticed. Dismissing it lasts for this run of the app.
+/// Says, for as long as it is true, that this phone is working as the farm.
+///
+/// Whoever keeps the farm's cash runs its account beside his own, and while
+/// that hat is on, every rupee he handles is the farm's and not his. A mode
+/// that changes what an entry says about whose hands the money passed
+/// through cannot be a setting buried on a settings page: a man who forgets
+/// he is wearing it books a week of the farm's cash against himself, or his
+/// own against the farm, and finds out at the end of the month.
+///
+/// So it sits under the title on every page, in the farm's own colour, with
+/// the way out on it. Nobody has to go looking for the switch they left on.
+class FarmHatBand extends StatelessWidget {
+  const FarmHatBand({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final session = context.watch<Session>();
+    if (!session.asFarm) return const SizedBox.shrink();
+    final l = L.of(context);
+
+    return Material(
+      color: T.accent700,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MyAccountScreen()),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(T.pad, 7, T.pad, 7),
+          child: Row(
+            children: [
+              Icon(
+                Icons.account_balance,
+                size: 15,
+                color: T.inkOn(T.accent700),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l.t('You are working as the farm account'),
+                  style: T.meta.copyWith(
+                    color: T.inkOn(T.accent700),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                l.t('Change'),
+                style: T.meta.copyWith(
+                  color: T.inkOn(T.accent700),
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class UpdateBanner extends StatefulWidget {
   const UpdateBanner({super.key});
 

@@ -1534,4 +1534,14 @@ const Map<String, String> romanUrdu = {
       'Farm ki cash, %s ke haath se — ye un ke paas jo hai us me se katti hai, farm account se nahi. Agar farm ke apne account ne di hai to entry me "kis ne handle kiya" badal kar Farm account kar dein.',
   '%s — %s of the farm\'s own cash goes out through their hands, so nobody\'s investment moves.':
       '%s — farm ki apni cash me se %s un ke haath se gaya, is liye kisi ka investment nahi badalta.',
+  // ---- Working as the farm's own account ----
+  'Whose hands': 'Kis ke haath',
+  'You are working as the farm account':
+      'Aap farm ke account ki taraf se kaam kar rahe hain',
+  'Working as the farm account now': 'Ab farm ke account ki taraf se',
+  'Working as %s again': 'Dobara %s ki taraf se',
+  'Money you handle is the farm\'s. New entries open with the farm account as the hands it passed through, and the accounts page opens on the farm\'s. Your own holding is untouched, and the log still names you.':
+      'Jo paisa aap pakren wo farm ka hai. Nayi entry me "kis ne handle kiya" farm ka account aayega, aur accounts ka safha farm ke account per khulega. Aap ke apne paas jo hai wo wese hi rehta hai, aur log me naam aap ka hi aata hai.',
+  'Money you handle is your own. Turn this on while you are running the farm\'s account and %s goes back to being just you.':
+      'Jo paisa aap pakren wo aap ka apna hai. Jab farm ka account chala rahe hon to ye on kar lein, aur band karte hi %s sirf aap reh jate hain.',
 };

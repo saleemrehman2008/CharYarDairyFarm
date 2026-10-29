@@ -110,6 +110,18 @@ class Session extends ChangeNotifier {
 
   /// And the plain opposite, which reads better at a call site.
   bool get canWrite => !readOnly;
+
+  /// Working as the farm's own account rather than as himself.
+  ///
+  /// See [AppUser.asFarm] for what the hat is and why it is worn visibly.
+  bool get asFarm => _user?.asFarm ?? false;
+
+  /// Whose hands the money this person handles passes through.
+  ///
+  /// His own name, or the farm's own account while the hat is on. Every
+  /// place that asks "who handled this" asks here, so there is one answer
+  /// to it and not one per screen.
+  String get handsOf => asFarm ? farmAccountName : (_user?.name ?? '');
   Actor get actor => Actor(
     uid: _fbUser?.uid ?? '',
     name: _user?.name ?? _fbUser?.displayName ?? 'Someone',

@@ -39,9 +39,16 @@ class _AccountStripState extends State<AccountStrip> {
   String _openOn(FarmStore store, String me) {
     final picked = _chosen;
     if (picked != null) return picked;
+
+    // A man working as the farm's account opens on the farm's account. He
+    // has said which of the two he is being, and this page asking him again
+    // every time he opens it is the app not listening.
+    final session = context.read<Session>();
+    if (session.asFarm) return farmAccountName;
+
     // His own, if he is one of them. The master's job is the whole farm, so
     // his own name is one tap away rather than the one in front of him.
-    final isMaster = context.read<Session>().role == Role.master;
+    final isMaster = session.role == Role.master;
     if (!isMaster && me.trim().isNotEmpty) {
       for (final name in store.moneyHolders) {
         if (partyKey(name) == partyKey(me)) return name;

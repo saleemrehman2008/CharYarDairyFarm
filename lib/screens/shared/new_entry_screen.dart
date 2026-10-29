@@ -90,6 +90,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   final _rate = TextEditingController();
   final _total = TextEditingController();
   final _note = TextEditingController();
+
+  /// Starts empty, and the farm asked for that: nothing in this form is
+  /// filled in for somebody, because a figure nobody chose is a figure
+  /// nobody checked.
+  ///
+  /// The one exception is a man who has said out loud that he is working as
+  /// the farm's account. That is not the app guessing — it is him having
+  /// answered this question already, on a switch he can see across the top
+  /// of every page for as long as it is on.
   final _handledBy = TextEditingController();
 
   /// Guards the qty/rate/total loop so each edit only drives the others once.
@@ -101,6 +110,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     _crewWatch = EmployeeRepo.watch().listen((crew) {
       if (mounted) setState(() => _crew = crew);
     });
+
+    // The hands he has said he is working as. Only when he has said it —
+    // see [_handledBy]. Still a field he can type over, like every other.
+    final session = context.read<Session>();
+    if (session.asFarm) _handledBy.text = session.handsOf;
   }
 
   @override

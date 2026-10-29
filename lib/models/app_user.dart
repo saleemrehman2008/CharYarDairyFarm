@@ -128,9 +128,30 @@ class AppUser {
     this.partnerId,
     required this.lang,
     required this.skin,
+    this.asFarm = false,
     required this.chatSeenAt,
     required this.createdAt,
   });
+
+  /// Working as the farm's own account rather than as himself.
+  ///
+  /// Rafeeq keeps the farm's cash and runs its account as well as his own,
+  /// and the farm gave him that job before the app had any way of saying
+  /// so. Every entry he made came out under his own name, and the farm's
+  /// own account could only ever be reached by typing its name into the
+  /// handler field and remembering to.
+  ///
+  /// With this on, the money he handles is the farm's: entries open with
+  /// the farm account as the hands they passed through, and the account
+  /// page opens on the farm's. It changes nothing about who he is — he
+  /// signs in as himself, the log names him, and his own holding is still
+  /// his own. It is the hat he is wearing, not the man.
+  ///
+  /// Kept on his record rather than in the app's memory so a day's work
+  /// does not end halfway through it; and shown in a band across the top
+  /// the whole time it is on, because a hat nobody can see is one he will
+  /// forget he is wearing.
+  final bool asFarm;
 
   final String uid;
   final String name;
@@ -184,6 +205,7 @@ class AppUser {
       partnerId: m['partnerId'] == null ? null : s(m['partnerId']),
       lang: Lang.parse(m['lang']),
       skin: Skin.byName(m['skin'] as String?),
+      asFarm: m['asFarm'] == true,
       chatSeenAt: m['chatSeenAt'] == null ? null : dtOr(m['chatSeenAt']),
       createdAt: dtOr(m['createdAt']),
     );

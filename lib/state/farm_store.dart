@@ -575,6 +575,15 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// The one who keeps the farm's cash, if the master has named anybody.
   Partner? get cashKeeper => _partners.where((p) => p.keepsCash).firstOrNull;
 
+  /// Whether this account runs the farm's own account beside its own.
+  ///
+  /// Whoever keeps the farm's cash does: it is the job the farm gave him,
+  /// and the rules already let him answer for the farm account's money.
+  /// This is the same fact asked on the phone, so the switch between his
+  /// own hands and the farm's is offered to him and to nobody else.
+  bool runsTheFarmAccount(String uid) =>
+      uid.isNotEmpty && cashKeeper?.userId == uid;
+
   /// What is waiting on one person's word.
   ///
   /// His own handovers, and — for whoever keeps the farm's cash, and for the

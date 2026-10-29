@@ -237,6 +237,32 @@ class UserRepo {
     await Db.users.doc(uid).set({'skin': skin.name}, SetOptions(merge: true));
   }
 
+  /// Puts on, or takes off, the farm's own hat.
+  ///
+  /// Whoever keeps the farm's cash runs its account as well as his own, and
+  /// this is him saying which of the two he is working as. It is his own to
+  /// set — like the language and the skin, it is a setting on his own
+  /// record and the rules let him write his own — because it grants him
+  /// nothing: every figure it touches, he could already have typed the farm
+  /// account's name into by hand. What it does is stop him having to
+  /// remember to.
+  ///
+  /// Written down rather than held in the app's memory, so a day of running
+  /// the farm's account does not quietly end when the phone is locked. It is
+  /// shown in a band across the top for exactly as long as it is on.
+  static Future<void> setAsFarm(Actor actor, String uid, bool on) async {
+    await Db.users.doc(uid).set({'asFarm': on}, SetOptions(merge: true));
+    await Log.write(
+      actor,
+      LogKind.user,
+      on
+          ? 'started working as the farm account'
+          : 'went back to working as themselves',
+      refType: 'user',
+      refId: uid,
+    );
+  }
+
   static Future<void> saveFcmToken(String uid, String token) async {
     try {
       await Db.users.doc(uid).set({

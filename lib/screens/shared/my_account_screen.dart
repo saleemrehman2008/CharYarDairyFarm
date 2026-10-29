@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/user_repo.dart';
+import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/app_shell.dart';
@@ -43,6 +44,30 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
     }
   }
 
+  /// Puts the farm's own hat on, or takes it off.
+  Future<void> _setAsFarm(bool on) async {
+    final session = context.read<Session>();
+    final user = session.user;
+    if (user == null || user.asFarm == on || _busy) return;
+
+    setState(() => _busy = true);
+    try {
+      await UserRepo.setAsFarm(session.actor, user.uid, on);
+      if (mounted) {
+        toast(
+          context,
+          on
+              ? L.read(context).t('Working as the farm account now')
+              : L.read(context).t2('Working as %s again', user.name),
+        );
+      }
+    } catch (e) {
+      if (mounted) toast(context, 'Could not save that. $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _setLang(Lang lang) async {
     final session = context.read<Session>();
     final user = session.user;
@@ -69,6 +94,27 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
       showBack: true,
       body: PageBody(
         children: [
+          // Only for whoever keeps the farm's cash, and the master. It is
+          // not a role — the farm handed Rafeeq that job long before the
+          // app had a way of saying so — it is the hat he puts on while he
+          // is doing it.
+          //
+          // Asked for as nullable on purpose. This page is opened straight
+          // off the top bar, from above the provider the farm's data is
+          // pushed with, and a customer's app has no farm data at all; a
+          // plain watch would throw, and a thrown widget is a grey box half
+          // a screen tall in a release build. No store, no farm, no hat.
+          if (session.role == Role.master ||
+              (context.watch<FarmStore?>()?.runsTheFarmAccount(
+                    user?.uid ?? '',
+                  ) ??
+                  false))
+            _FarmHatCard(
+              on: user?.asFarm ?? false,
+              name: user?.name ?? '',
+              busy: _busy,
+              onChanged: _setAsFarm,
+            ),
           RegCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,4 +365,80 @@ class _LangCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// The switch between a man's own hands and the farm's own account.
+///
+/// Rafeeq keeps the farm's cash. He has his own money in the farm like the
+/// others and he runs the farm's account besides, and until now the app knew
+/// only the first of those: every entry he made came out under his own name,
+/// and the farm's own account could be reached only by typing its name into
+/// the handler field and remembering to. Then a purchase was split two ways
+/// and the rest of it landed on Rafeeq as money out of his own pocket, which
+/// is the day a hat became worth having.
+///
+/// It grants him nothing he did not have. Everything it touches he could
+/// already type by hand; what it does is stop him having to remember to, and
+/// say out loud which of the two he is being.
+class _FarmHatCard extends StatelessWidget {
+  const _FarmHatCard({
+    required this.on,
+    required this.name,
+    required this.busy,
+    required this.onChanged,
+  });
+
+  final bool on;
+  final String name;
+  final bool busy;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return RegCard(
+      stripe: on ? T.accent700 : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Kicker(l.t('Whose hands')),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                on ? Icons.account_balance : Icons.pan_tool_alt_outlined,
+                size: 19,
+                color: on ? T.accent700 : T.n600,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  on ? l.t(farmAccountName) : name,
+                  style: T.bodyMid.copyWith(color: on ? T.accent700 : null),
+                ),
+              ),
+              Switch(value: on, onChanged: busy ? null : onChanged),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            on
+                ? l.t(
+                    'Money you handle is the farm\'s. New entries open with '
+                    'the farm account as the hands it passed through, and '
+                    'the accounts page opens on the farm\'s. Your own '
+                    'holding is untouched, and the log still names you.',
+                  )
+                : l.t2(
+                    'Money you handle is your own. Turn this on while you '
+                    'are running the farm\'s account and %s goes back to '
+                    'being just you.',
+                    name,
+                  ),
+            style: T.meta,
+          ),
+        ],
+      ),
+    );
+  }
 }
