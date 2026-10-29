@@ -1525,4 +1525,13 @@ const Map<String, String> romanUrdu = {
       'Poora kharcha in logon ne aapas me hi diya hai.',
   '%s — %s came out of the farm\'s own cash, so nobody\'s investment moves.':
       '%s — %s farm ki apni cash se gaya, is liye kisi ka investment nahi badalta.',
+  // ---- Whose hands the rest of a split goes out through ----
+  'Nobody is named on the entry as having handled this, so this much is the farm\'s cash with no pair of hands against it. Put a name on the entry.':
+      'Entry per kisi ka naam nahi ke ye kis ne handle kiya, is liye itni farm ki cash bina kisi haath ke pari hai. Entry per naam daal dein.',
+  'The farm\'s own account paid this part, and it comes off the farm account. Type against a man above and this comes down by it.':
+      'Ye hissa farm ke apne account ne diya, aur farm account hi se katega. Uper kisi ke saamne likhen to ye utna kam ho jayega.',
+  'The farm\'s cash, out through %s\'s hands — it comes off what they are holding, not off the farm account. If the farm\'s own account paid it, change who handled the entry to the farm account.':
+      'Farm ki cash, %s ke haath se — ye un ke paas jo hai us me se katti hai, farm account se nahi. Agar farm ke apne account ne di hai to entry me "kis ne handle kiya" badal kar Farm account kar dein.',
+  '%s — %s of the farm\'s own cash goes out through their hands, so nobody\'s investment moves.':
+      '%s — farm ki apni cash me se %s un ke haath se gaya, is liye kisi ka investment nahi badalta.',
 };
