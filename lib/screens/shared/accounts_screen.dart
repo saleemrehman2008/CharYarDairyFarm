@@ -114,7 +114,26 @@ class AccountsScreen extends StatefulWidget {
     super.key,
     this.initialFilter = AccountsFilter.all,
     this.initialParty,
+    this.inShell = false,
   });
+
+  /// True only where the shell has already put a page around this.
+  ///
+  /// The two tab bodies pass it; nothing else does, and that is the point of
+  /// which way round the default sits. Opened as a page of its own this
+  /// screen was a bare body with no Scaffold over it, and Flutter draws text
+  /// with no Material above it the way it draws a mistake: black ground,
+  /// yellow underline under every line. It is the debug paint for "this
+  /// widget is not inside a page", and the farm met it by tapping a figure
+  /// on its own Co-founders page.
+  ///
+  /// Every other screen reached this way — the report, a statement — carries
+  /// its own [FarmScaffold] and always did. This one did not, because it had
+  /// only ever been a tab. Defaulting to a page means the next person to
+  /// push it, having forgotten this field exists, gets a page; the opposite
+  /// default means they get the yellow underlines, and they will not know
+  /// why.
+  final bool inShell;
 
   /// Opened already narrowed to one name.
   ///
@@ -190,7 +209,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     // One ledger, held by the store and read by everything that wants it.
     // Opening a second listener on the same query here only meant the same
     // rows arriving twice.
-    return StreamBuilder<List<FarmMonth>>(
+    final ledger = StreamBuilder<List<FarmMonth>>(
       stream: Db.watchPeriods(),
       builder: (context, periodSnap) {
         final periods = periodSnap.data ?? const <FarmMonth>[];
@@ -401,6 +420,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
         );
       },
     );
+
+    return widget.inShell
+        ? ledger
+        : FarmScaffold(title: l.t('Accounts'), showBack: true, body: ledger);
   }
 
   /// The tab's rows, narrowed to one name, one kind, or both.

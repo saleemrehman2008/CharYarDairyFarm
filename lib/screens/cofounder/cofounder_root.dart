@@ -68,7 +68,7 @@ class _CofounderTabsState extends State<_CofounderTabs> {
         label: l.t('Accounts'),
         icon: Icons.account_balance_wallet_outlined,
         title: l.t('Accounts'),
-        body: const AccountsScreen(),
+        body: const AccountsScreen(inShell: true),
       ),
       TabDef(
         id: 'partners',

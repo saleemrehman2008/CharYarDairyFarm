@@ -21,7 +21,49 @@ import 'animal_form.dart';
 /// Opens another animal's page from a link on this one — her mother, or one
 /// of her calves. The store is carried through, the same as everywhere else
 /// a page is pushed from inside the register.
-void _openAnimal(BuildContext context, String id) {
+///
+/// A mother links to her calf and the calf links back to his mother, so
+/// following those links is a circle and pushing every step of it is how a
+/// register turns into a pile. The farm walked one: a cow, her calf, his
+/// mother again, and then five presses of Back to reach the home screen,
+/// through pages it had already read.
+///
+/// So a page already open underneath is returned to rather than opened a
+/// second time. [trail] is the animals whose pages are below this one,
+/// bottom first; finding the one being asked for in it says exactly how
+/// many pages to come back through, and not finding it means this is
+/// somewhere new and is pushed.
+/// How many pages to come back through to reach an animal already open.
+///
+/// Zero when it is not open below this one, which means the link leads
+/// somewhere new and a page is pushed. Otherwise it counts this page and
+/// every page standing between it and that one — the whole point being that
+/// the farm is put back on a page it has already read rather than handed a
+/// second copy of it, with the first still underneath.
+int stepsBackTo(String id, List<String> trail) {
+  final at = trail.indexOf(id);
+  return at < 0 ? 0 : trail.length - at;
+}
+
+void _openAnimal(
+  BuildContext context,
+  String id, {
+  required String from,
+  required List<String> trail,
+}) {
+  // The page it is already on. Tapping it should do nothing rather than
+  // lay a second copy of this page over this page.
+  if (id == from) return;
+
+  final back = stepsBackTo(id, trail);
+  if (back > 0) {
+    // This page, and every page between it and that one.
+    for (var i = 0; i < back; i++) {
+      Navigator.pop(context);
+    }
+    return;
+  }
+
   final store = context.read<FarmStore>();
   final animal = store.animalById(id);
   if (animal == null) return;
@@ -30,7 +72,7 @@ void _openAnimal(BuildContext context, String id) {
     MaterialPageRoute(
       builder: (_) => ChangeNotifierProvider<FarmStore>.value(
         value: store,
-        child: AnimalScreen(animal: animal),
+        child: AnimalScreen(animal: animal, trail: [...trail, from]),
       ),
     ),
   );
@@ -38,9 +80,16 @@ void _openAnimal(BuildContext context, String id) {
 
 /// One animal: its picture, its tag, and everything that has happened to it.
 class AnimalScreen extends StatelessWidget {
-  const AnimalScreen({super.key, required this.animal});
+  const AnimalScreen({super.key, required this.animal, this.trail = const []});
 
   final Animal animal;
+
+  /// The animals whose pages are open below this one, bottom first.
+  ///
+  /// Empty from the register's own list, which is the floor of the stack.
+  /// It grows by one every time a link is followed somewhere new, and a
+  /// link back into it comes back rather than going on. See [_openAnimal].
+  final List<String> trail;
 
   @override
   Widget build(BuildContext context) {
@@ -59,9 +108,9 @@ class AnimalScreen extends StatelessWidget {
 
           return PageBody(
             children: [
-              _Header(animal: a),
+              _Header(animal: a, trail: trail),
               const SizedBox(height: T.pad),
-              _Figures(animal: a, spent: spent, store: store),
+              _Figures(animal: a, spent: spent, store: store, trail: trail),
               const SizedBox(height: T.pad),
               _Actions(animal: a, store: store),
 
@@ -86,7 +135,9 @@ class AnimalScreen extends StatelessWidget {
 }
 
 class _Header extends StatefulWidget {
-  const _Header({required this.animal});
+  const _Header({required this.animal, this.trail = const []});
+
+  final List<String> trail;
 
   final Animal animal;
 
@@ -172,7 +223,12 @@ class _HeaderState extends State<_Header> {
                     // knew the link and only ever printed it.
                     if (a.motherTag != null)
                       InkWell(
-                        onTap: () => _openAnimal(context, a.motherId!),
+                        onTap: () => _openAnimal(
+                          context,
+                          a.motherId!,
+                          from: a.id,
+                          trail: widget.trail,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Row(
@@ -344,11 +400,13 @@ class _Figures extends StatelessWidget {
     required this.animal,
     required this.spent,
     required this.store,
+    this.trail = const [],
   });
 
   final Animal animal;
   final num spent;
   final FarmStore store;
+  final List<String> trail;
 
   @override
   Widget build(BuildContext context) {
@@ -392,7 +450,15 @@ class _Figures extends StatelessWidget {
               runSpacing: 7,
               children: [
                 for (final c in calves)
-                  _CalfChip(calf: c, onTap: () => _openAnimal(context, c.id)),
+                  _CalfChip(
+                    calf: c,
+                    onTap: () => _openAnimal(
+                      context,
+                      c.id,
+                      from: animal.id,
+                      trail: trail,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 3),

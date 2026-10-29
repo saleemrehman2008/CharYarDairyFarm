@@ -81,7 +81,7 @@ class _MasterTabsState extends State<_MasterTabs> {
         label: l.t('Accounts'),
         icon: Icons.account_balance_wallet_outlined,
         title: l.t('Accounts'),
-        body: AccountsScreen(initialFilter: _accountsFilter),
+        body: AccountsScreen(initialFilter: _accountsFilter, inShell: true),
       ),
       TabDef(
         id: 'partners',
