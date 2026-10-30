@@ -128,6 +128,12 @@ class FarmStore extends ChangeNotifier implements RoundData {
       }),
       Db.watchPartners().listen((v) {
         _partners = v;
+        // A capital record opened for somebody who has never signed in is
+        // the farm adding a co-founder, and the list of names every phone
+        // picks from has to hear about it. It used to be rewritten only
+        // when a user document changed, and a man with no user document
+        // never changed one.
+        _publishFounders();
         notifyListeners();
       }),
       Db.watchProducts().listen((v) {
@@ -974,12 +980,48 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// everyone can see them, and rewrites them whenever they change.
   Future<void> _publishFounders() async {
     if (!isMaster) return;
-    final live =
-        _users
-            .where((u) => u.role.isPartner && u.status != UserStatus.blocked)
-            .map((u) => FarmPerson(uid: u.uid, name: u.name))
-            .toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
+
+    // One row per man, under the spelling the farm uses for him, so nobody
+    // is on the list twice.
+    final byKey = <String, FarmPerson>{};
+
+    final shutOut = {
+      for (final u in _users)
+        if (u.status == UserStatus.blocked) u.uid,
+    };
+
+    // Everybody with a capital record, signed in or not.
+    //
+    // The list used to be built from the users collection alone, and that
+    // is a list of people who have opened the app. The farm opens a man's
+    // capital record months before he ever does — Munawar had put five
+    // lakh in and was on the Co-founders page and in "Who paid for this?",
+    // and was not among the names the entry form offered, because there
+    // was no user document to find him in. He is on the farm's books; that
+    // is what makes him one of the names.
+    for (final p in _partners) {
+      final name = p.name.trim();
+      if (name.isEmpty || shutOut.contains(p.userId)) continue;
+      byKey[partyKey(name)] = FarmPerson(
+        uid: p.userId.isNotEmpty ? p.userId : p.id,
+        name: name,
+      );
+    }
+
+    // And everybody on the farm's side who has signed in, which is where a
+    // name is freshest: a man who has signed in has told the app how he
+    // spells it. A silent investor is on this side too — his money is in
+    // the farm like anybody else's, so his name is offered like anybody
+    // else's. See [Role.holdsCapital].
+    for (final u in _users) {
+      if (!u.role.holdsCapital || u.status == UserStatus.blocked) continue;
+      final name = u.name.trim();
+      if (name.isEmpty) continue;
+      byKey[partyKey(name)] = FarmPerson(uid: u.uid, name: name);
+    }
+
+    final live = byKey.values.toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
     if (live.isEmpty) return;
 
     final known = _settings.founders;
