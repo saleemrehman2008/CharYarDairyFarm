@@ -1555,4 +1555,5 @@ const Map<String, String> romanUrdu = {
   'Could not bring it back. %s': 'Wapas nahi la sake. %s',
   'Open the entry': 'Entry kholen',
   'Back on the books': 'Wapas kitaab me',
+  'Not paid after all': 'Paisa aaya hi nahi',
 };

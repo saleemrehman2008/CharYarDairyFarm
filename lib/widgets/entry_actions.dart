@@ -314,6 +314,7 @@ Future<void> openEntry(BuildContext context, Txn txn) {
     txn: txn,
     isMaster: session.role == Role.master,
     onMarkPaid: () => markEntryPaid(context, txn),
+    onUnsettle: () => unsettleEntry(context, txn),
     onDelete: () => deleteEntry(context, txn),
     onEdit: () => editEntry(context, txn),
     onGiveUp: () => giveUpOnEntry(context, txn),
@@ -351,6 +352,40 @@ Future<void> markEntryPaid(BuildContext context, Txn txn) async {
     if (context.mounted) toast(context, '${txn.party} marked paid');
   } catch (e) {
     if (context.mounted) toast(context, 'Could not mark it paid. $e');
+  }
+}
+
+/// Say the money never came on an entry that is marked settled.
+///
+/// Every way of marking an entry paid was there and no way back out of it,
+/// so an entry wrongly settled stayed settled — and the only cure anybody
+/// could find was deleting it. See [TxnRepo.unsettle] for what it undoes.
+Future<void> unsettleEntry(BuildContext context, Txn txn) async {
+  final store = context.read<FarmStore>();
+  final actor = context.read<Session>().actor;
+  final open =
+      store.periods.where((p) => p.id == txn.monthId).firstOrNull?.isOpen ??
+      true;
+
+  final ok = await confirm(
+    context,
+    title: 'The money never came?',
+    body:
+        '${txn.party} · ${rs(txn.amount)}\n\n'
+        'Every receipt taken against this entry comes off the books, and '
+        'the entry goes back to owing all of it. The cash comes down by '
+        'what those receipts brought in.\n\n'
+        'Each of them can be brought back from the activity log if this '
+        'was not what you meant.',
+    confirmLabel: 'It never came',
+  );
+  if (!ok || !context.mounted) return;
+
+  try {
+    await TxnRepo.unsettle(actor, txn, periodIsOpen: open);
+    if (context.mounted) toast(context, 'Back to unpaid');
+  } catch (e) {
+    if (context.mounted) toast(context, 'Could not do it. $e');
   }
 }
 

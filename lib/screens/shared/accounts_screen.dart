@@ -508,6 +508,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           isMaster: isMaster,
           busy: _busyId == txn.id,
           onMarkPaid: () => _markPaid(txn),
+          onUnsettle: () => _around(txn, () => unsettleEntry(context, txn)),
           onDelete: () => _delete(txn),
           onEdit: () => _edit(txn),
           onGiveUp: () => _giveUp(txn),
@@ -1376,6 +1377,7 @@ class _LedgerRow extends StatelessWidget {
     required this.isMaster,
     required this.busy,
     required this.onMarkPaid,
+    required this.onUnsettle,
     required this.onDelete,
     required this.onEdit,
     required this.onGiveUp,
@@ -1391,6 +1393,7 @@ class _LedgerRow extends StatelessWidget {
   final bool isMaster;
   final bool busy;
   final VoidCallback onMarkPaid;
+  final VoidCallback onUnsettle;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
 
@@ -1697,6 +1700,7 @@ class _LedgerRow extends StatelessWidget {
             txn: txn,
             isMaster: isMaster,
             onMarkPaid: onMarkPaid,
+            onUnsettle: onUnsettle,
             onDelete: onDelete,
             onEdit: onEdit,
             onGiveUp: onGiveUp,
@@ -1780,6 +1784,10 @@ Future<void> showEntryDetail(
   required Txn txn,
   required bool isMaster,
   required VoidCallback onMarkPaid,
+
+  /// Saying the money never came, on an entry that says it did. The
+  /// master's: it rewrites what the farm has been paid.
+  required VoidCallback onUnsettle,
   required VoidCallback onDelete,
   required VoidCallback onEdit,
 
@@ -2190,6 +2198,25 @@ Future<void> showEntryDetail(
                         },
                       ),
                     ),
+                  // The way back out of settled, which there was none of.
+                  // An entry wrongly marked paid could only be deleted,
+                  // and deleting is what cost the farm six real sales.
+                  if (canEdit &&
+                      isMaster &&
+                      txn.paid &&
+                      !txn.type.isSettlement) ...[
+                    Expanded(
+                      child: GhostButton(
+                        label: l.t('Not paid after all'),
+                        icon: Icons.undo,
+                        onPressed: () {
+                          Navigator.pop(sheet);
+                          onUnsettle();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   if (!txn.paid && !txn.type.isSettlement && isMaster)
                     const SizedBox(width: 8),
                   // Not in a settled period, and the line above this row

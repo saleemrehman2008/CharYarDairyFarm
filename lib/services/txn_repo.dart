@@ -723,6 +723,76 @@ class TxnRepo {
     );
   }
 
+  /// Says the money never came, and takes back everything that said it had.
+  ///
+  /// The farm's own words, looking at the correction sheet: "ab batao is me
+  /// unpaid kahan hai — ye paid hi nahi hui to paid kyun dikha raha hai?"
+  /// Every way of marking an entry settled was there and no way back out of
+  /// it. An entry wrongly settled — by a payment that landed on it, or by a
+  /// thumb on Mark paid — stayed settled for good, and the only cure anybody
+  /// could find was deleting the entry, which is what cost the farm six real
+  /// sales.
+  ///
+  /// Whether it is settled is not a flag to be flipped. It is what its
+  /// receipts come to, so this takes the receipts down — marked as taken by
+  /// this, so an undo brings every one of them back — and counts again. An
+  /// entry settled on the spot has no receipt to take down; for that one the
+  /// figure itself is what said so, and it is what is put right.
+  ///
+  /// The master's alone. It rewrites what the farm has been paid.
+  static Future<void> unsettle(
+    Actor actor,
+    Txn txn, {
+    bool periodIsOpen = true,
+  }) async {
+    if (!periodIsOpen) {
+      throw StateError(
+        'That entry belongs to a period that is already settled. Put a '
+        'correcting entry in the open period instead.',
+      );
+    }
+    if (txn.paidSoFar <= 0 && !txn.paid) {
+      throw StateError('Nothing has been taken against that entry.');
+    }
+
+    try {
+      final rows = await Db.transactions
+          .where('settlesTxnId', isEqualTo: txn.id)
+          .get();
+      for (final doc in rows.docs) {
+        if (Txn.fromDoc(doc).isDeleted) continue;
+        await doc.reference.update({
+          'deletedAt': FieldValue.serverTimestamp(),
+          'deletedWith': txn.id,
+        });
+      }
+    } catch (_) {
+      // The entry is put right below either way; a receipt left standing
+      // shows in the ledger, where it can be taken off on its own.
+    }
+
+    await Db.transactions.doc(txn.id).update({
+      'paidSoFar': 0,
+      'paid': false,
+      'paidAt': FieldValue.delete(),
+      // What this said about the day the money moved is no longer true of
+      // any day, and the cash book reads this rather than the flag.
+      'paidOnCreate': false,
+    });
+
+    // What he owes goes back up by it.
+    if (txn.type == TxnType.sale) await _moveKhaata(txn, txn.amount);
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      'said the money never came on ${txn.type.label.toLowerCase()} '
+      '"${txn.party}" ${rs(txn.amount)} of ${fmtDateFull(txn.date)}',
+      refType: 'transaction',
+      refId: txn.id,
+    );
+  }
+
   /// Puts a deleted entry back, and everything it had done with it.
   ///
   /// The farm asked for this the hour it lost six sales, and the asking was
