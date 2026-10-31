@@ -220,6 +220,34 @@ void main() {
       );
     });
 
+    test('a part-settled sale comes back owing exactly what it owed', () {
+      // The first version of this undo got this wrong, and the shape of the
+      // mistake is worth keeping: deleting a sale took its receipts down
+      // without taking their money off it, so the money sat there while the
+      // sale was gone and the undo put it on a second time. A sale of
+      // 50,000 with 10,000 against it came back owing 30,000 instead of
+      // 40,000. A fully settled one was saved only by the clamp, which is
+      // luck and not a rule — so this one is part settled.
+      const amount = 50000;
+      const already = 10000;
+
+      final sale = _sale(amount: amount, day: 9, paidSoFar: already);
+      final receipt = _receipt(amount: already, settles: sale.id);
+
+      // Deleting the sale takes the receipt down, and takes the receipt's
+      // money off the sale with it.
+      final whileGone = _moved(sale, -receipt.amount);
+      expect(whileGone.paidSoFar, 0);
+
+      // And bringing it back puts that money on once, not twice.
+      final back = _moved(
+        _sale(amount: amount, day: 9, paidSoFar: whileGone.paidSoFar),
+        receipt.amount,
+      );
+      expect(back.paidSoFar, already);
+      expect(amount - back.paidSoFar, 40000, reason: 'what was owed before');
+    });
+
     test(
       'a receipt is dated the day the money came, not the day of the milk',
       () {

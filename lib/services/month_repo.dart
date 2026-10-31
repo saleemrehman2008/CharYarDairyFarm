@@ -307,6 +307,17 @@ class MonthRepo {
               'note':
                   'Loan instalment – ${share.name} · '
                   '${periodLabel(period, short: true)}',
+              // Whose hands it passed through. The farm's own account
+              // keeps a man's instalment out of his share, so it is the
+              // farm's account that takes it in.
+              //
+              // Left blank, these rows fell into the "Nobody named" line
+              // on the card that asks who is holding the farm's cash, and
+              // that line went further out of true with every month the
+              // farm closed — an instalment on one side and a whole
+              // period's profit share on the other, against a name that
+              // is not a person.
+              'handledBy': farmAccountName,
               'createdBy': actor.uid,
               'createdByName': actor.name,
               'createdAt': FieldValue.serverTimestamp(),
@@ -332,6 +343,9 @@ class MonthRepo {
           'note':
               'Profit share – ${share.name} · '
               '${periodLabel(period, short: true)}',
+          // Paid out of the farm's own account, which is where the money
+          // a period made has been sitting. See the instalment above.
+          'handledBy': farmAccountName,
           'createdBy': actor.uid,
           'createdByName': actor.name,
           'createdAt': FieldValue.serverTimestamp(),

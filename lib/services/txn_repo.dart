@@ -483,7 +483,26 @@ class TxnRepo {
           'already settled against this entry.',
         );
       }
-      if (txn.paid) fresh['paidSoFar'] = amount;
+      // What was actually received does not change because the entry's
+      // figure was corrected. `paidSoFar` is money that came in and is
+      // vouched for by a receipt; the correction says the milk was worth
+      // more or less than first written, not that more or less was paid.
+      //
+      // This used to write `paidSoFar = amount` on a settled entry. A sale
+      // of 20,000 settled in full and then corrected up to 25,000 came out
+      // saying 25,000 had been paid, against a receipt for 20,000 — the
+      // farm was owed five thousand rupees and not one figure anywhere
+      // said so, so nobody would ever have asked for it.
+      //
+      // So the money stands and `paid` is worked out again from it, the
+      // same rule as everywhere else: an entry is settled when nothing is
+      // left owing on it. Lowering it below what has come in is refused
+      // above, which is the other half of the same thought.
+      final settledInFull = txn.paidSoFar >= amount;
+      if (settledInFull != txn.paid) {
+        fresh['paid'] = settledInFull;
+        if (!settledInFull) fresh['paidAt'] = FieldValue.delete();
+      }
       changes.add((
         field: 'Amount',
         from: _said(txn.amount),
@@ -534,6 +553,19 @@ class TxnRepo {
     fresh['edits'] = FieldValue.arrayUnion([record.toMap()]);
 
     await Db.transactions.doc(txn.id).update(fresh);
+
+    // A settlement corrected has to move the entry it settled, by whatever
+    // the correction moved it.
+    //
+    // This is the deleting bug reached through the other door. A receipt of
+    // 20,000 typed for a sale of 20,000, corrected down to 4,000: the
+    // receipt said four and the sale went on saying paid in full, so the
+    // farm was owed sixteen thousand that nothing on the books mentioned.
+    // The same rupees, one row apart, and the two rows disagreeing.
+    if (amount != null && amount != txn.amount && txn.settlesAnotherEntry) {
+      await _moveSettled(txn, amount - txn.amount);
+    }
+
     await Log.write(
       actor,
       LogKind.correction,
@@ -582,7 +614,19 @@ class TxnRepo {
           .where('settlesTxnId', isEqualTo: txn.id)
           .get();
       for (final doc in settlements.docs) {
-        if (Txn.fromDoc(doc).isDeleted) continue;
+        final row = Txn.fromDoc(doc);
+        if (row.isDeleted) continue;
+        // Each of these carries money it put onto this entry, and each has
+        // to give it back — the same rule as above, applied to the rows
+        // being taken down with it rather than to the row itself.
+        //
+        // Left out, delete and undo stopped being each other's opposite:
+        // the money stayed on the entry while it was gone and [restore]
+        // added it a second time on the way back, so a sale part settled
+        // by 10,000 came back owing 10,000 less than it did. A fully
+        // settled one was saved only by the clamp in [_moveSettled], which
+        // is luck, not a rule.
+        await _unsettle(row);
         await doc.reference.update({
           'deletedAt': FieldValue.serverTimestamp(),
           // Which deletion took it, so undoing that one brings back exactly
@@ -594,6 +638,9 @@ class TxnRepo {
     } catch (_) {
       // Worst case the settlement row stays; the master can delete it too.
     }
+
+    await _moveSplit(txn, keep: false);
+
     await Log.write(
       actor,
       LogKind.entryDeleted,
@@ -639,6 +686,8 @@ class TxnRepo {
       // on its own line in the log.
     }
 
+    await _moveSplit(txn, keep: true);
+
     await Log.write(
       actor,
       LogKind.entryDeleted,
@@ -647,6 +696,64 @@ class TxnRepo {
       refType: 'transaction',
       refId: txn.id,
     );
+  }
+
+  /// Takes the split written against an entry down with it, or puts it back.
+  ///
+  /// "Who paid for this?" writes a line per man against a purchase, and each
+  /// line is money of his own that went in — it moves his capital, his share
+  /// ratio and what the farm is worth. Deleting the purchase used to leave
+  /// every one of those standing: a duplicate cattle entry of 15,09,000
+  /// taken off the books left two co-founders credited with having paid for
+  /// it, the farm's cash reading fifteen lakh high, and nothing on the page
+  /// to say which fifteen lakh.
+  ///
+  /// The purchase is the reason those lines exist. It goes, they go; it
+  /// comes back, they come back — and each takes its capital with it, the
+  /// same way [ContributionRepo.remove] does when a line is taken off on
+  /// its own.
+  static Future<void> _moveSplit(Txn txn, {required bool keep}) async {
+    try {
+      final lines = await Db.contributions
+          .where('txnId', isEqualTo: txn.id)
+          .get();
+
+      for (final doc in lines.docs) {
+        final line = Contribution.fromDoc(doc);
+        // Only the ones this deletion is answerable for. A line taken off
+        // by hand before any of this stays off.
+        if (keep ? s(doc.data()['deletedWith']) != txn.id : line.isDeleted) {
+          continue;
+        }
+
+        await doc.reference.update(
+          keep
+              ? {
+                  'deletedAt': FieldValue.delete(),
+                  'deletedWith': FieldValue.delete(),
+                }
+              : {
+                  'deletedAt': FieldValue.serverTimestamp(),
+                  'deletedWith': txn.id,
+                },
+        );
+
+        // Opening lines are the difference between what a card says and
+        // what the lines come to; they are not money anybody put in, so
+        // they move no capital. See [ContributionSource.opening].
+        if (!line.isInvestment ||
+            line.source == ContributionSource.opening ||
+            line.partnerId.isEmpty) {
+          continue;
+        }
+        await Db.partners.doc(line.partnerId).update({
+          'invested': FieldValue.increment(keep ? line.amount : -line.amount),
+        });
+      }
+    } catch (_) {
+      // The entry is off the books either way. A split left standing shows
+      // on the co-founder's own card, where it can be taken off by hand.
+    }
   }
 
   /// Takes a settlement's money back off the entry it had paid.
