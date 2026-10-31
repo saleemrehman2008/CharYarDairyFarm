@@ -6,10 +6,12 @@ import '../../models/models.dart';
 import '../../services/db.dart';
 import '../../services/log_service.dart';
 import '../../services/txn_repo.dart';
+import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
+import '../../widgets/entry_actions.dart';
 import '../../widgets/ui.dart';
 
 /// Which of the two lists is on screen.
@@ -294,21 +296,78 @@ class _LogRow extends StatelessWidget {
               ),
             ],
           ),
-          // The way back from a deletion.
+          // The way back from a deletion, and the way in to the entry
+          // itself.
           //
           // The farm deleted six real sales in one minute, hunting a figure
           // that was wrong for a reason none of them was. Nothing in these
           // books is ever truly thrown away, so every one of those lines
           // could be walked back — there was simply nothing to press.
-          if (entry.undoable) ...[
+          //
+          // Once it is back the button goes and the line says so. A button
+          // that stays put after it has worked is a button somebody presses
+          // twice, wondering whether the first one took.
+          if (entry.touchedAnEntry) ...[
             const SizedBox(height: 7),
             Padding(
               padding: const EdgeInsets.only(left: 92),
-              child: _UndoButton(entry: entry),
+              child: _LogActions(entry: entry),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// What can be done from one line of the log.
+///
+/// Opening the entry it names, which the farm asked for in as many words —
+/// a log that says a figure moved and will not show you the figure is a
+/// log you have to go and look something up from. And, on a deletion,
+/// putting it back.
+class _LogActions extends StatelessWidget {
+  const _LogActions({required this.entry});
+
+  final LogEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final id = entry.refId ?? '';
+    // Deleted rows are not in the ledger this phone carries, so a row that
+    // is there is a row that is back.
+    final live = context
+        .watch<FarmStore>()
+        .ledger
+        .where((t) => t.id == id)
+        .firstOrNull;
+
+    return Row(
+      children: [
+        if (live != null)
+          GhostButton(
+            label: l.t('Open the entry'),
+            icon: Icons.open_in_new,
+            compact: true,
+            onPressed: () => openEntry(context, live),
+          ),
+        if (live != null && entry.undoable) const SizedBox(width: 8),
+        if (entry.undoable)
+          live == null
+              ? _UndoButton(entry: entry)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, size: 14, color: T.done),
+                    const SizedBox(width: 5),
+                    Text(
+                      l.t('Back on the books'),
+                      style: T.meta.copyWith(color: T.done),
+                    ),
+                  ],
+                ),
+      ],
     );
   }
 }

@@ -601,7 +601,7 @@ class TxnRepo {
     // farm was owed sixteen thousand that nothing on the books mentioned.
     // The same rupees, one row apart, and the two rows disagreeing.
     if (amount != null && amount != txn.amount && txn.settlesAnotherEntry) {
-      await _moveSettled(txn, amount - txn.amount);
+      await _moveSettled(txn, amount);
     }
 
     await Log.write(
@@ -758,6 +758,37 @@ class TxnRepo {
       // on its own line in the log.
     }
 
+    // Receipts taken down by a build that never said which deletion took
+    // them.
+    //
+    // Everything deleted before this was written carries no mark, so the
+    // query above finds nothing and the sale comes home alone — settled in
+    // full against receipts that are not there. The farm met exactly that
+    // undoing the ninth and the eleventh of October.
+    //
+    // A deleted receipt with no mark on it and nothing else to belong to
+    // came off with this entry, because that is the only way it could have
+    // got that way. It is a one-time kindness to the books as they stand,
+    // and it costs nothing once every deletion marks its own.
+    if (!txn.settlesAnotherEntry) {
+      try {
+        final orphans = await Db.transactions
+            .where('settlesTxnId', isEqualTo: txn.id)
+            .get();
+        for (final doc in orphans.docs) {
+          final row = Txn.fromDoc(doc);
+          if (!row.isDeleted) continue;
+          if (s(doc.data()['deletedWith']).isNotEmpty) continue;
+          await doc.reference.update({'deletedAt': FieldValue.delete()});
+        }
+      } catch (_) {
+        // The entry is back; a receipt left down shows on its own log line.
+      }
+
+      // And whatever came back, the entry is told what it adds up to.
+      await _resync(txn.id);
+    }
+
     await _moveSplit(txn, keep: true);
     await _movePair(txn, keep: true);
     if (txn.type == TxnType.sale) {
@@ -899,38 +930,77 @@ class TxnRepo {
   }
 
   /// Takes a settlement's money back off the entry it had paid.
-  static Future<void> _unsettle(Txn txn) => _moveSettled(txn, -txn.amount);
+  static Future<void> _unsettle(Txn txn) => _moveSettled(txn, 0);
 
   /// Puts it back on.
   static Future<void> _resettle(Txn txn) => _moveSettled(txn, txn.amount);
 
-  /// Moves what one settlement had paid on or off the entry it settles.
+  /// Counts up what an entry has actually been paid, and writes that.
   ///
-  /// `paid` is worked out again from the figure rather than carried along
-  /// beside it: an entry is settled when nothing is left owing on it, and
-  /// that is one fact, not two that can come apart.
+  /// Not "add this much" or "take that much off" — counted again, from the
+  /// receipts that are on the books at this moment. [by] is only a figure
+  /// about to be written that the register has not been told about yet; a
+  /// correction in flight, which the caller knows and the query cannot see.
+  ///
+  /// Adding and subtracting was the first way of doing this and it was
+  /// wrong in the way that matters: it believes the figure already there.
+  /// The farm had receipts deleted by a build that never marked which
+  /// deletion took them, so bringing a sale back could not bring its
+  /// receipts back — and the stale "paid in full" rode home on the sale,
+  /// which is exactly what the farm saw when it undid the ninth and the
+  /// eleventh of October and they came back settled against nothing.
+  ///
+  /// Counted again, that cannot happen. Whatever the receipts on the books
+  /// come to is what the entry has been paid, and an entry is settled when
+  /// nothing is left owing on it. A figure that is wrong for any reason at
+  /// all — a half-finished write, an old build, two phones at once — comes
+  /// right the next time anything touches it.
   static Future<void> _moveSettled(Txn txn, num by) async {
     final target = txn.settlesTxnId;
-    if (target == null || by == 0) return;
+    if (target == null) return;
+    await _resync(target, except: txn.id, counting: by);
+  }
+
+  /// Writes what one entry has actually been paid, counted from its own
+  /// receipts.
+  ///
+  /// [except] is a row the register's copy of which is out of date — the
+  /// one being written this moment — and [counting] is what that row is
+  /// about to be worth: nothing when it is going, its amount when it is
+  /// coming back or being corrected.
+  static Future<void> _resync(
+    String entryId, {
+    String? except,
+    num counting = 0,
+  }) async {
     try {
-      final doc = await Db.transactions.doc(target).get();
+      final doc = await Db.transactions.doc(entryId).get();
       if (!doc.exists) return;
       final entry = Txn.fromDoc(doc);
 
-      var paid = entry.paidSoFar + by;
+      final rows = await Db.transactions
+          .where('settlesTxnId', isEqualTo: entryId)
+          .get();
+
+      var paid = counting;
+      for (final r in rows.docs) {
+        final row = Txn.fromDoc(r);
+        if (row.id == except || row.isDeleted) continue;
+        paid += row.amount;
+      }
+
       if (paid < 0) paid = 0;
       if (paid > entry.amount) paid = entry.amount;
       final settledInFull = paid >= entry.amount;
 
-      await Db.transactions.doc(target).update({
+      await Db.transactions.doc(entryId).update({
         'paidSoFar': paid,
         'paid': settledInFull,
         if (!settledInFull) 'paidAt': FieldValue.delete(),
       });
     } catch (_) {
-      // Offline. The figure on the entry is wrong until this is retried,
-      // which is why it is the first thing the delete does and the first
-      // thing the undo does.
+      // Offline. The figure comes right the next time anything touches
+      // this entry, which is the point of counting rather than nudging.
     }
   }
 

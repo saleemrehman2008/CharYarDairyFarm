@@ -7,6 +7,7 @@ import '../services/sheet_sync.dart';
 import '../services/db.dart';
 import '../services/links.dart';
 import '../services/update_check.dart';
+import '../state/farm_store.dart';
 import '../state/session.dart';
 import '../theme/tokens.dart';
 import '../screens/shared/my_account_screen.dart';
@@ -513,10 +514,52 @@ class PageBody extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (_, c) {
       final side = sidePad(c.maxWidth);
-      return ListView(
-        padding: EdgeInsets.fromLTRB(side, T.pad, side, padBottom),
-        children: children,
+      return RefreshIndicator(
+        // Pulled down from the top, the way every phone does it: the circle
+        // comes down, turns while the farm asks the register again, and
+        // goes when the answer is in.
+        //
+        // The pages are live already — Firestore pushes a change as it is
+        // written — but live is not the same as instant. A phone on a weak
+        // signal at the gate, or one that has been in a pocket, can sit a
+        // minute or two behind, and the farm has four of them: one man
+        // enters the milk and another is looking at a figure that has not
+        // caught up. This is him saying "ask now", and it is also the only
+        // honest answer to "is this the latest" — ask, and see.
+        onRefresh: () => _askAgain(context),
+        color: T.accent700,
+        backgroundColor: T.surface,
+        child: ListView(
+          // So the pull works even on a page too short to scroll — which
+          // is most of them on a tablet, and any of them while the farm
+          // is still loading.
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(side, T.pad, side, padBottom),
+          children: children,
+        ),
       );
     },
   );
+
+  /// Asks the register again, and takes long enough to be seen doing it.
+  ///
+  /// Nullable on purpose: this page is a customer's as well, and a
+  /// customer's app carries no farm data at all. A plain watch would throw,
+  /// and a thrown widget is a grey box half a screen tall in a release
+  /// build.
+  static Future<void> _askAgain(BuildContext context) async {
+    final store = context.read<FarmStore?>();
+    final asked = DateTime.now();
+    try {
+      await store?.askAgain();
+    } catch (_) {
+      // No signal. The circle goes either way, and the page is no worse
+      // off than it was.
+    }
+    // A circle that vanishes the instant it appears reads as a button that
+    // did nothing. Half a second is long enough to have happened.
+    final took = DateTime.now().difference(asked);
+    const least = Duration(milliseconds: 500);
+    if (took < least) await Future<void>.delayed(least - took);
+  }
 }

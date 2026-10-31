@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show SetOptions;
+import 'package:cloud_firestore/cloud_firestore.dart'
+    show GetOptions, SetOptions, Source;
 import 'package:flutter/foundation.dart';
 
 import '../models/models.dart';
@@ -580,6 +581,28 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// What this person is being asked to confirm.
   /// The one who keeps the farm's cash, if the master has named anybody.
   Partner? get cashKeeper => _partners.where((p) => p.keepsCash).firstOrNull;
+
+  /// Asks the register for the newest of everything, now.
+  ///
+  /// Every list on these pages is live — Firestore pushes a change the
+  /// moment it is written — but live is not the same as instant. A phone
+  /// on a weak signal at the gate, or one that has been asleep in a
+  /// pocket, can sit a minute or two behind, and the farm has four of
+  /// them: one man writes the milk down and another is reading a figure
+  /// that has not caught up yet.
+  ///
+  /// Read from the server rather than from what the phone has cached,
+  /// which is the whole point — a cached answer is the one he already has.
+  /// The listeners deliver the same rows a moment later and the pages
+  /// repaint themselves; this is what wakes a connection that had gone
+  /// quiet.
+  Future<void> askAgain() async {
+    await Future.wait([
+      Db.transactions.limit(1).get(const GetOptions(source: Source.server)),
+      Db.partners.limit(1).get(const GetOptions(source: Source.server)),
+    ]);
+    notifyListeners();
+  }
 
   /// Whether this account runs the farm's own account beside its own.
   ///

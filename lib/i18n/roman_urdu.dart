@@ -1553,4 +1553,6 @@ const Map<String, String> romanUrdu = {
   'That entry is no longer there.': 'Wo entry ab mojood hi nahi.',
   'That entry is already back.': 'Wo entry pehle hi wapas aa chuki hai.',
   'Could not bring it back. %s': 'Wapas nahi la sake. %s',
+  'Open the entry': 'Entry kholen',
+  'Back on the books': 'Wapas kitaab me',
 };

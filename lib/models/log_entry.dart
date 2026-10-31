@@ -81,6 +81,16 @@ class LogEntry {
   final String? refType;
   final String? refId;
 
+  /// Whether this line names an entry that can be opened from here.
+  ///
+  /// A log that says a figure moved and will not show you the figure is a
+  /// log you have to go and look something up from — which is what the farm
+  /// said about it. Corrections are logged under `txn` and deletions under
+  /// `transaction`; both name a real entry, so both open one.
+  bool get touchedAnEntry =>
+      (refType == 'transaction' || refType == 'txn') &&
+      (refId?.isNotEmpty ?? false);
+
   /// Whether this line is a deletion that can still be walked back.
   ///
   /// Nothing in these books is ever truly thrown away — an entry taken out
