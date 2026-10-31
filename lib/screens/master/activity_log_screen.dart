@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/db.dart';
 import '../../services/log_service.dart';
+import '../../services/txn_repo.dart';
+import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
@@ -262,22 +265,107 @@ class _LogRow extends StatelessWidget {
   final LogEntry entry;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    decoration: BoxDecoration(
-      border: Border(bottom: BorderSide(color: T.divider, width: 1)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: 92, child: Text(fmtStamp(entry.at), style: T.meta)),
-        Expanded(child: Text('${entry.who} ${entry.what}', style: T.body)),
-        const SizedBox(width: 8),
-        Tag(
-          L.of(context).t(entry.kind.label),
-          tone: entry.kind.changedAnEntry ? TagTone.warn : TagTone.neutral,
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: T.divider, width: 1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 92,
+                child: Text(fmtStamp(entry.at), style: T.meta),
+              ),
+              Expanded(
+                child: Text('${entry.who} ${entry.what}', style: T.body),
+              ),
+              const SizedBox(width: 8),
+              Tag(
+                l.t(entry.kind.label),
+                tone: entry.kind.changedAnEntry
+                    ? TagTone.warn
+                    : TagTone.neutral,
+              ),
+            ],
+          ),
+          // The way back from a deletion.
+          //
+          // The farm deleted six real sales in one minute, hunting a figure
+          // that was wrong for a reason none of them was. Nothing in these
+          // books is ever truly thrown away, so every one of those lines
+          // could be walked back — there was simply nothing to press.
+          if (entry.undoable) ...[
+            const SizedBox(height: 7),
+            Padding(
+              padding: const EdgeInsets.only(left: 92),
+              child: _UndoButton(entry: entry),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Puts one deleted entry back, and everything it had done with it.
+class _UndoButton extends StatefulWidget {
+  const _UndoButton({required this.entry});
+
+  final LogEntry entry;
+
+  @override
+  State<_UndoButton> createState() => _UndoButtonState();
+}
+
+class _UndoButtonState extends State<_UndoButton> {
+  bool _busy = false;
+
+  Future<void> _undo() async {
+    final l = L.read(context);
+    // Read before the register is, so nothing asks this widget's context
+    // for anything after the first await.
+    final actor = context.read<Session>().actor;
+    final id = widget.entry.refId;
+    if (id == null || id.isEmpty) return;
+
+    setState(() => _busy = true);
+    try {
+      // Read straight from the register rather than from this phone's
+      // ledger, which leaves deleted rows out — the whole point here is a
+      // row this phone is not carrying.
+      final doc = await Db.transactions.doc(id).get();
+      if (!doc.exists) {
+        if (mounted) toast(context, l.t('That entry is no longer there.'));
+        return;
+      }
+      final txn = Txn.fromDoc(doc);
+      if (!txn.isDeleted) {
+        if (mounted) toast(context, l.t('That entry is already back.'));
+        return;
+      }
+
+      await TxnRepo.restore(actor, txn);
+      if (mounted) {
+        toast(context, l.t2('%s is back on the books', txn.party));
+      }
+    } catch (e) {
+      if (mounted) toast(context, l.t2('Could not bring it back. %s', e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => GhostButton(
+    label: L.of(context).t('Bring it back'),
+    icon: Icons.undo,
+    compact: true,
+    onPressed: _busy ? null : _undo,
   );
 }

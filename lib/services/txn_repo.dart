@@ -560,6 +560,19 @@ class TxnRepo {
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   static Future<void> softDelete(Actor actor, Txn txn) async {
+    // Taking a settlement off the books has to take back what it settled.
+    //
+    // This is the bug that cost the farm six real sales. A receipt carries
+    // the money it put onto the entry it was paying; deleting the receipt
+    // used to leave that money sitting on the entry, so the sale went on
+    // saying "paid in full" with nothing on the books that had paid it. The
+    // balance read short, the farm assumed it had typed a figure wrong, and
+    // deleted the sales themselves trying to put it right.
+    //
+    // A row and the figures that row moved go together, both ways. See
+    // [restore], which is the same thing in reverse.
+    await _unsettle(txn);
+
     await Db.transactions.doc(txn.id).update({
       'deletedAt': FieldValue.serverTimestamp(),
     });
@@ -569,7 +582,14 @@ class TxnRepo {
           .where('settlesTxnId', isEqualTo: txn.id)
           .get();
       for (final doc in settlements.docs) {
-        await doc.reference.update({'deletedAt': FieldValue.serverTimestamp()});
+        if (Txn.fromDoc(doc).isDeleted) continue;
+        await doc.reference.update({
+          'deletedAt': FieldValue.serverTimestamp(),
+          // Which deletion took it, so undoing that one brings back exactly
+          // the rows it took and not a settlement deleted separately an
+          // hour earlier for a reason of its own.
+          'deletedWith': txn.id,
+        });
       }
     } catch (_) {
       // Worst case the settlement row stays; the master can delete it too.
@@ -582,6 +602,87 @@ class TxnRepo {
       refType: 'transaction',
       refId: txn.id,
     );
+  }
+
+  /// Puts a deleted entry back, and everything it had done with it.
+  ///
+  /// The farm asked for this the hour it lost six sales, and the asking was
+  /// exact: "agar entry undo ho rahi hy to sab kuch us entry ke hisaab se
+  /// hona chahiye" — if an entry comes back, everything it did comes back
+  /// with it. A row returned without its effects is the same half-a-job that
+  /// deleting used to do, pointing the other way.
+  ///
+  /// So: the row itself; the money it had put onto the entry it settled, if
+  /// it was a settlement; and the settlements that were taken down with it,
+  /// each with the money they had put on. Nothing is hard-deleted in these
+  /// books, which is the only reason any of this can be undone at all.
+  static Future<void> restore(Actor actor, Txn txn) async {
+    await Db.transactions.doc(txn.id).update({
+      'deletedAt': FieldValue.delete(),
+      'deletedWith': FieldValue.delete(),
+    });
+    await _resettle(txn);
+
+    try {
+      final taken = await Db.transactions
+          .where('deletedWith', isEqualTo: txn.id)
+          .get();
+      for (final doc in taken.docs) {
+        await doc.reference.update({
+          'deletedAt': FieldValue.delete(),
+          'deletedWith': FieldValue.delete(),
+        });
+        await _resettle(Txn.fromDoc(doc));
+      }
+    } catch (_) {
+      // The entry is back either way; a settlement left down can be undone
+      // on its own line in the log.
+    }
+
+    await Log.write(
+      actor,
+      LogKind.entryDeleted,
+      'brought back ${txn.type.label.toLowerCase()} "${txn.party}" '
+      '${rs(txn.amount)} of ${fmtDateFull(txn.date)}',
+      refType: 'transaction',
+      refId: txn.id,
+    );
+  }
+
+  /// Takes a settlement's money back off the entry it had paid.
+  static Future<void> _unsettle(Txn txn) => _moveSettled(txn, -txn.amount);
+
+  /// Puts it back on.
+  static Future<void> _resettle(Txn txn) => _moveSettled(txn, txn.amount);
+
+  /// Moves what one settlement had paid on or off the entry it settles.
+  ///
+  /// `paid` is worked out again from the figure rather than carried along
+  /// beside it: an entry is settled when nothing is left owing on it, and
+  /// that is one fact, not two that can come apart.
+  static Future<void> _moveSettled(Txn txn, num by) async {
+    final target = txn.settlesTxnId;
+    if (target == null || by == 0) return;
+    try {
+      final doc = await Db.transactions.doc(target).get();
+      if (!doc.exists) return;
+      final entry = Txn.fromDoc(doc);
+
+      var paid = entry.paidSoFar + by;
+      if (paid < 0) paid = 0;
+      if (paid > entry.amount) paid = entry.amount;
+      final settledInFull = paid >= entry.amount;
+
+      await Db.transactions.doc(target).update({
+        'paidSoFar': paid,
+        'paid': settledInFull,
+        if (!settledInFull) 'paidAt': FieldValue.delete(),
+      });
+    } catch (_) {
+      // Offline. The figure on the entry is wrong until this is retried,
+      // which is why it is the first thing the delete does and the first
+      // thing the undo does.
+    }
   }
 
   static String _paymentCategory(Txn txn) {

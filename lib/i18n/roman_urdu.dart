@@ -1547,4 +1547,10 @@ const Map<String, String> romanUrdu = {
   'paid out more than came in': 'jitna aaya us se zyada diya',
   'The farm\'s own account paid this part, and it comes off the farm\'s balance. Type against a man above and this comes down by it.':
       'Ye hissa farm ke apne account ne diya, aur farm ke balance se hi katega. Uper kisi ke saamne likhen to ye utna kam ho jayega.',
+  // ---- Bringing a deleted entry back ----
+  'Bring it back': 'Wapas lao',
+  '%s is back on the books': '%s wapas kitaab me aa gaya',
+  'That entry is no longer there.': 'Wo entry ab mojood hi nahi.',
+  'That entry is already back.': 'Wo entry pehle hi wapas aa chuki hai.',
+  'Could not bring it back. %s': 'Wapas nahi la sake. %s',
 };

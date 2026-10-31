@@ -451,7 +451,16 @@ service cloud.firestore {
                         && !changedKeys().hasAny(['deletedAt'])
                         && (!changedKeys().hasAny(['date'])
                             || datedInside(resource.data.monthId)))))
-            || (isMaster() && changedKeys().hasOnly(['deletedAt'])));
+            // Taking an entry off the books, and putting it back.
+            //
+            // `deletedWith` is which deletion took a settlement down, so
+            // undoing that one brings back exactly the rows it took. Both
+            // keys move together and both are the master's: taking an
+            // entry out rewrites what the farm earned, and so does putting
+            // one back. What the row had settled is moved by the same
+            // writes as any other settling — see settlingOnly().
+            || (isMaster()
+                && changedKeys().hasOnly(['deletedAt', 'deletedWith'])));
 
       allow delete: if false;
     }

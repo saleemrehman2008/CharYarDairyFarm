@@ -81,6 +81,25 @@ class LogEntry {
   final String? refType;
   final String? refId;
 
+  /// Whether this line is a deletion that can still be walked back.
+  ///
+  /// Nothing in these books is ever truly thrown away — an entry taken out
+  /// is only marked as taken out — so every deletion can be undone, and the
+  /// farm needed that the hour it deleted six real sales in one minute
+  /// hunting a figure that was wrong for a reason none of them was.
+  ///
+  /// Undoing is itself written to the log, under this same kind, and a line
+  /// about putting something back has nothing to put back. It is told by
+  /// its wording, which is written in one place — see [TxnRepo.restore] —
+  /// and the button checks the entry itself before it does anything, so the
+  /// worst this can get wrong is to offer a press that answers "that one is
+  /// already back".
+  bool get undoable =>
+      kind == LogKind.entryDeleted &&
+      refType == 'transaction' &&
+      (refId?.isNotEmpty ?? false) &&
+      !what.startsWith('brought back');
+
   factory LogEntry.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final m = doc.data() ?? const {};
     return LogEntry(
