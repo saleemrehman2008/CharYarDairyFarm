@@ -895,6 +895,47 @@ Set<String> twinnedHandovers(List<Txn> ledger) {
   return hidden;
 }
 
+/// The rows of one handful of money, kept behind the first of them.
+///
+/// A customer pays 43,000 against thirty-eight unpaid days and the books
+/// write a receipt per day, because the question a month later is which
+/// days he has paid for. On the day the question is the other one — what
+/// did he hand over — and the ledger could not answer it: twenty-three
+/// rows, none of them 43,000.
+///
+/// So the ledger draws the handful once and the days sit behind it. Every
+/// row is still on the books and every balance is still worked out from
+/// all of them; this says which ones not to draw a second time. The oldest
+/// stands for the handful, because that is the one the money reached first
+/// and the one its own id is written against.
+Set<String> rowsBehindATake(List<Txn> ledger) {
+  final first = <String, Txn>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    final held = first[t.takeId!];
+    if (held == null || t.date.isBefore(held.date)) first[t.takeId!] = t;
+  }
+
+  final hidden = <String>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    if (first[t.takeId!]?.id != t.id) hidden.add(t.id);
+  }
+  return hidden;
+}
+
+/// What one handful came to, and how many entries it reached.
+({num amount, int rows}) theTake(List<Txn> ledger, String takeId) {
+  var amount = 0 as num;
+  var rows = 0;
+  for (final t in ledger) {
+    if (t.isDeleted || t.takeId != takeId) continue;
+    amount += t.amount;
+    rows++;
+  }
+  return (amount: amount, rows: rows);
+}
+
 String _twinKey(DateTime on, num amount, String from, String to) =>
     '${on.year}-${on.month}-${on.day}|$amount|'
     '${partyKey(from)}|${partyKey(to)}';

@@ -597,7 +597,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
     // this page draws the pair once.
     AccountsFilter.all => () {
       final twins = twinnedHandovers(monthTxns);
-      return monthTxns.where((t) => !twins.contains(t.id)).toList();
+      // And one handful of money is drawn once, not once per day it
+      // reached. See [rowsBehindATake].
+      final behind = rowsBehindATake(monthTxns);
+      return monthTxns
+          .where((t) => !twins.contains(t.id) && !behind.contains(t.id))
+          .toList();
     }(),
     // Loose receipts are in here for the same reason loose payments are in
     // the list below: money came in and nothing else on the books says so.
@@ -623,10 +628,22 @@ class _AccountsScreenState extends State<AccountsScreen> {
     // Ghulam Ali paid into its own account — it already had it, in his
     // pocket. Both halves go, so the two lists still differ by exactly the
     // cash the farm holds.
-    AccountsFilter.received =>
-      monthTxns.where((t) => movedCashIn(t) && !t.isHandover).toList(),
-    AccountsFilter.paidOut =>
-      monthTxns.where((t) => movedCashOut(t) && !t.isHandover).toList(),
+    AccountsFilter.received => () {
+      final behind = rowsBehindATake(monthTxns);
+      return monthTxns
+          .where(
+            (t) => movedCashIn(t) && !t.isHandover && !behind.contains(t.id),
+          )
+          .toList();
+    }(),
+    AccountsFilter.paidOut => () {
+      final behind = rowsBehindATake(monthTxns);
+      return monthTxns
+          .where(
+            (t) => movedCashOut(t) && !t.isHandover && !behind.contains(t.id),
+          )
+          .toList();
+    }(),
     AccountsFilter.receivable => store.receivablesDue,
     AccountsFilter.payable => store.payablesDue,
 
@@ -1451,6 +1468,14 @@ class _LedgerRow extends StatelessWidget {
     // is real.
     final settling = txn.settlesAnotherEntry;
 
+    // This row stands for one handful of money, spread over the entries it
+    // reached. Only the first of them is drawn — see [rowsBehindATake] —
+    // so it carries the whole figure and says how many days it covered.
+    final take = txn.isPartOfATake
+        ? theTake(context.watch<FarmStore>().ledger, txn.takeId!)
+        : null;
+    final handful = take != null && take.rows > 1;
+
     // Money that only changed hands. It wears the farm's own blue and
     // carries no sign, because nothing was earned and nothing was spent —
     // the farm had exactly as much before it as after.
@@ -1499,7 +1524,12 @@ class _LedgerRow extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            l.t('Money against an entry written earlier'),
+                            handful
+                                ? l.t2(
+                                    'One payment, across %s entries',
+                                    take.rows,
+                                  )
+                                : l.t('Money against an entry written earlier'),
                             style: T.meta.copyWith(color: T.accent600),
                           ),
                         ),
@@ -1659,9 +1689,15 @@ class _LedgerRow extends StatelessWidget {
               // owed — and unsigned when it only changed hands, because the
               // farm neither gained nor lost it.
               Text(
+                // The whole handful, where this row stands for one. Every
+                // rupee of it is on the books; this is the figure the farm
+                // actually handed over, which no row carried before.
                 moved != null
                     ? rs(txn.amount)
-                    : signedRs(txn.amount, incoming: txn.type.isIncoming),
+                    : signedRs(
+                        handful ? take.amount : txn.amount,
+                        incoming: txn.type.isIncoming,
+                      ),
                 style: T.bodyMid.copyWith(
                   color: moved != null
                       ? T.accent700
@@ -1695,20 +1731,33 @@ class _LedgerRow extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          onTap: () => showEntryDetail(
-            context,
-            txn: txn,
-            isMaster: isMaster,
-            onMarkPaid: onMarkPaid,
-            onUnsettle: onUnsettle,
-            onDelete: onDelete,
-            onEdit: onEdit,
-            onGiveUp: onGiveUp,
-            onSplit: onSplit,
-            paidBy: paidBy,
-            handedOn: handedOn,
-            canEdit: canEdit,
-          ),
+          // A handful opens the days it was spread across; one of them
+          // opens that day's entry, which is where it always went.
+          onTap: () => handful
+              ? showBehind(
+                  context,
+                  title: txn.party,
+                  figure: take.amount,
+                  note: l.t2('One payment, across %s entries', take.rows),
+                  rows: [
+                    for (final r in context.read<FarmStore>().ledger)
+                      if (!r.isDeleted && r.takeId == txn.takeId) Behind.txn(r),
+                  ],
+                )
+              : showEntryDetail(
+                  context,
+                  txn: txn,
+                  isMaster: isMaster,
+                  onMarkPaid: onMarkPaid,
+                  onUnsettle: onUnsettle,
+                  onDelete: onDelete,
+                  onEdit: onEdit,
+                  onGiveUp: onGiveUp,
+                  onSplit: onSplit,
+                  paidBy: paidBy,
+                  handedOn: handedOn,
+                  canEdit: canEdit,
+                ),
           borderRadius: T.round,
           child: card,
         ),

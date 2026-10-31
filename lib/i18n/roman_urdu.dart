@@ -1556,4 +1556,5 @@ const Map<String, String> romanUrdu = {
   'Open the entry': 'Entry kholen',
   'Back on the books': 'Wapas kitaab me',
   'Not paid after all': 'Paisa aaya hi nahi',
+  'One payment, across %s entries': 'Ek hi payment, %s entries per',
 };

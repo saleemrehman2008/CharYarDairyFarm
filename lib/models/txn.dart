@@ -637,6 +637,7 @@ class Txn {
     this.orderId,
     this.settlesTxnId,
     this.pairId,
+    this.takeId,
     this.capital,
     this.shift,
     this.edits = const [],
@@ -740,6 +741,21 @@ class Txn {
   final String? pairId;
 
   bool get hasPair => (pairId ?? '').isNotEmpty;
+
+  /// One handful of money, written as a receipt against each entry it
+  /// reached. Every row of one carries the same.
+  ///
+  /// A customer pays 43,000 against thirty-eight unpaid days of milk and
+  /// the books write twenty-three receipts, because the question a month
+  /// later is "which days has he paid for". The question on the day is the
+  /// other one — "what did he hand over on Friday" — and the ledger could
+  /// not answer it at all: twenty-three rows, none of them 43,000, and no
+  /// way to take the payment back off except one row at a time. The farm
+  /// did exactly that, could not get back to where it started, and deleted
+  /// six real sales trying.
+  final String? takeId;
+
+  bool get isPartOfATake => (takeId ?? '').isNotEmpty;
 
   /// Named apart from `type.isSettlement`, which asks a different question:
   /// whether this is a receipt or payment at all.
@@ -977,6 +993,7 @@ class Txn {
       orderId: m['orderId'] == null ? null : s(m['orderId']),
       settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
       pairId: m['pairId'] == null ? null : s(m['pairId']),
+      takeId: m['takeId'] == null ? null : s(m['takeId']),
       capital: m['capital'] == null ? null : b(m['capital']),
       shift: MilkShift.parse(m['shift']),
       edits: TxnEdit.listFrom(m['edits']),

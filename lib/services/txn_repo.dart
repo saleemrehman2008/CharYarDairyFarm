@@ -82,6 +82,10 @@ class TxnRepo {
     /// cash went out by the difference. Delete one half and the cash went
     /// out by the whole handover. A shared id is the pair saying so itself.
     String? pairId,
+
+    /// One handful of money, spread over the entries it reached. See
+    /// [Txn.takeId].
+    String? takeId,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
     DateTime? date,
@@ -117,6 +121,7 @@ class TxnRepo {
       'orderId': ?orderId,
       'settlesTxnId': ?settlesTxnId,
       'pairId': ?pairId,
+      'takeId': ?takeId,
       // Whether the money moved as this row was written. Cash reads this
       // rather than the paid flag, so an entry settled months later is
       // counted on the day it was actually settled.
@@ -199,6 +204,12 @@ class TxnRepo {
     final landings = allocate(entries, amount);
     if (landings.isEmpty) return 0;
 
+    // What the farm handed over, as one thing. Every receipt this writes
+    // carries it, so the ledger can draw the handful rather than only the
+    // days it was spread across, and taking it back off is one act again
+    // instead of twenty-three.
+    final handful = Db.transactions.doc().id;
+
     var taken = 0 as num;
     var finished = 0;
 
@@ -241,6 +252,7 @@ class TxnRepo {
         // Tagging this row keeps it in the ledger and the Sheet without the
         // balance counting the same rupees twice.
         settlesTxnId: txn.id,
+        takeId: handful,
         payVia: payVia,
         handledBy: handledBy,
         date: now,
@@ -704,6 +716,7 @@ class TxnRepo {
 
     await _moveSplit(txn, keep: false);
     await _movePair(txn, keep: false);
+    await _moveTake(txn, keep: false);
     // What he owes goes down by a sale taken off the books, and up again
     // by a payment taken off — the receipts of this sale came down with
     // it just above, so only the sale itself is counted here.
@@ -861,6 +874,7 @@ class TxnRepo {
 
     await _moveSplit(txn, keep: true);
     await _movePair(txn, keep: true);
+    await _moveTake(txn, keep: true);
     if (txn.type == TxnType.sale) {
       await _moveKhaata(txn, txn.outstanding);
     } else if (txn.settlesAnotherEntry) {
@@ -996,6 +1010,47 @@ class TxnRepo {
       });
     } catch (_) {
       // No udhaar account for this party — nothing to move.
+    }
+  }
+
+  /// Takes the rest of one handful of money down with this row, or back.
+  ///
+  /// A payment of 43,000 reaches twenty-three days and writes a receipt
+  /// against each. Taking it back off used to be twenty-three deletions,
+  /// and the farm — halfway through, with the figures in a state neither
+  /// one thing nor the other — could not get back to where it started and
+  /// deleted six real sales trying. One handful went out together; it
+  /// comes off together.
+  static Future<void> _moveTake(Txn txn, {required bool keep}) async {
+    if (!txn.isPartOfATake) return;
+    try {
+      final rows = await Db.transactions
+          .where('takeId', isEqualTo: txn.takeId)
+          .get();
+      for (final doc in rows.docs) {
+        if (doc.id == txn.id) continue;
+        final row = Txn.fromDoc(doc);
+        if (keep ? s(doc.data()['deletedWith']) != txn.id : row.isDeleted) {
+          continue;
+        }
+        if (!keep) await _unsettle(row);
+        await doc.reference.update(
+          keep
+              ? {
+                  'deletedAt': FieldValue.delete(),
+                  'deletedWith': FieldValue.delete(),
+                }
+              : {
+                  'deletedAt': FieldValue.serverTimestamp(),
+                  'deletedWith': txn.id,
+                },
+        );
+        if (keep) await _resettle(row);
+        await _moveKhaata(row, keep ? -row.amount : row.amount);
+      }
+    } catch (_) {
+      // The rest of the handful stays on the books, each row with its own
+      // line in the ledger and its own way off it.
     }
   }
 
