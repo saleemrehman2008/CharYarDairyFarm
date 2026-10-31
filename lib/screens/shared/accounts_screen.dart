@@ -546,6 +546,24 @@ class _AccountsScreenState extends State<AccountsScreen> {
       );
 
       if (open && days != null) {
+        // The payment as one thing, correctable as one thing. Changing it
+        // lays it across the days again from scratch — see
+        // [TxnRepo.editTake] — because twenty-four figures that have to
+        // come to a new total between them is not a correction anybody
+        // can make by hand.
+        if (isMaster) {
+          out.add(
+            Padding(
+              padding: const EdgeInsets.only(left: 22, bottom: 9),
+              child: GhostButton(
+                label: l.t('Change this payment'),
+                icon: Icons.edit_outlined,
+                compact: true,
+                onPressed: () => editTake(context, txn),
+              ),
+            ),
+          );
+        }
         for (final day in days) {
           out.add(
             _LedgerRow(

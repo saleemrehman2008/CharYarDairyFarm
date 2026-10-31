@@ -355,6 +355,48 @@ Future<void> markEntryPaid(BuildContext context, Txn txn) async {
   }
 }
 
+/// Change what one handful of money came to, and lay it out again.
+///
+/// A payment is one act and is corrected as one. Correcting the slices by
+/// hand is the thing that cannot be done: twenty-four figures that have to
+/// come to the new total between them, landing in different places the
+/// moment the total moves. See [TxnRepo.editTake].
+Future<void> editTake(BuildContext context, Txn slice) async {
+  final l = L.read(context);
+  final store = context.read<FarmStore>();
+  final actor = context.read<Session>().actor;
+  final takeId = slice.takeId;
+  if (takeId == null) return;
+
+  final whole = theTake(store.ledger, takeId);
+  final said = await askForMoney(
+    context,
+    title: l.t('What was handed over?'),
+    note: l.t2(
+      'It is laid across what they owe, oldest first — the same as when it '
+      'was first taken in. Raise it and it reaches further down the days; '
+      'lower it and it stops sooner. The day stays %s.',
+      fmtDateFull(slice.date),
+    ),
+    starting: whole.amount,
+  );
+  if (said == null || said == whole.amount || !context.mounted) return;
+
+  try {
+    final finished = await TxnRepo.editTake(
+      actor,
+      takeId: takeId,
+      amount: said,
+      ledger: store.ledger,
+    );
+    if (context.mounted) {
+      toast(context, l.t3('%s · %s entries settled', rs(said), finished));
+    }
+  } catch (e) {
+    if (context.mounted) toast(context, l.t2('Could not change it. %s', e));
+  }
+}
+
 /// Say the money never came on an entry that is marked settled.
 ///
 /// Every way of marking an entry paid was there and no way back out of it,

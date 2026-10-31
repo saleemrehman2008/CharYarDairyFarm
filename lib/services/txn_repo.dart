@@ -197,8 +197,15 @@ class TxnRepo {
     required num amount,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
+
+    /// The day the money came, where it is not today — a payment being
+    /// laid out again keeps the day it was handed over on.
+    DateTime? on,
+
+    /// The handful this belongs to, where it is one being written again.
+    String? takeId,
   }) async {
-    final now = DateTime.now();
+    final now = on ?? DateTime.now();
     // Where the money goes is worked out apart from the writing of it, so the
     // rule can be tested on its own — see `allocation.dart`.
     final landings = allocate(entries, amount);
@@ -208,7 +215,7 @@ class TxnRepo {
     // carries it, so the ledger can draw the handful rather than only the
     // days it was spread across, and taking it back off is one act again
     // instead of twenty-three.
-    final handful = Db.transactions.doc().id;
+    final handful = takeId ?? Db.transactions.doc().id;
 
     var taken = 0 as num;
     var finished = 0;
@@ -733,6 +740,94 @@ class TxnRepo {
       '${rs(txn.amount)} of ${fmtDateFull(txn.date)}',
       refType: 'transaction',
       refId: txn.id,
+    );
+  }
+
+  /// Changes what one handful of money came to, and lays it out again.
+  ///
+  /// A payment is one act and the farm wants to correct it as one: "single
+  /// entry me edit ka option hona chahiye, agar us me change ho to auto me
+  /// us se related sub entry bhi update ho jani chahiye." Correcting the
+  /// slices one at a time is the thing that cannot be done — twenty-four
+  /// figures that have to come to the new total between them, and the money
+  /// landing in a different place once the total moves.
+  ///
+  /// So it is taken off and handed over again. Every receipt of it comes
+  /// down, each putting its money back on the day it had paid for; what the
+  /// party owes is then what it owed before the payment; and the new figure
+  /// is laid across that, oldest first, under the same id. A payment raised
+  /// reaches further down the days, one lowered stops sooner, and neither
+  /// is anybody's arithmetic.
+  ///
+  /// The day it was handed over does not move: this is a correction to what
+  /// was written, not a claim that the money came on some other day.
+  static Future<int> editTake(
+    Actor actor, {
+    required String takeId,
+    required num amount,
+    required List<Txn> ledger,
+  }) async {
+    if (amount <= 0) throw StateError('How much was handed over?');
+
+    final slices = ledger
+        .where((t) => !t.isDeleted && t.takeId == takeId)
+        .toList();
+    if (slices.isEmpty) throw StateError('That payment is no longer there.');
+
+    final party = slices.first.party;
+    final on = slices
+        .map((t) => t.date)
+        .reduce((a, b) => a.isBefore(b) ? a : b);
+    final payVia = slices.first.payVia;
+    final handledBy = slices.first.handledBy;
+
+    // Off the books, each slice giving back what it had paid.
+    for (final slice in slices) {
+      await _unsettle(slice);
+      await Db.transactions.doc(slice.id).update({
+        'deletedAt': FieldValue.serverTimestamp(),
+      });
+      await _moveKhaata(slice, slice.amount);
+    }
+
+    // What he owes now, which is what he owed before the payment. Read from
+    // the register rather than from the copy this phone is holding, which
+    // still has the slices on it.
+    final owing = <Txn>[];
+    try {
+      final his = await Db.transactions
+          .where('party', isEqualTo: party)
+          .where('paid', isEqualTo: false)
+          .get();
+      for (final doc in his.docs) {
+        final t = Txn.fromDoc(doc);
+        if (!t.isDeleted && t.outstanding > 0) owing.add(t);
+      }
+    } catch (_) {
+      // Falling back to what this phone knows. The slices above are off it
+      // by now, so the entries read as owing again.
+      for (final t in ledger) {
+        if (t.isDeleted || partyKey(t.party) != partyKey(party)) continue;
+        if (t.outstanding > 0) owing.add(t);
+      }
+    }
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      'changed the payment from "$party" to ${rs(amount)}',
+      refType: 'transaction',
+      refId: slices.first.id,
+    );
+
+    return settle(
+      actor,
+      owing,
+      amount: amount,
+      payVia: payVia,
+      handledBy: handledBy,
+      on: on,
+      takeId: takeId,
     );
   }
 

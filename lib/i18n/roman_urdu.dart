@@ -1564,4 +1564,11 @@ const Map<String, String> romanUrdu = {
       'Ek hi payment, %s entries per — kholne ke liye dabayen',
   'One payment, across %s entries — tap to close':
       'Ek hi payment, %s entries per — band karne ke liye dabayen',
+  // ---- Correcting one handful of money ----
+  'Change this payment': 'Ye payment badlen',
+  'What was handed over?': 'Kitna diya gaya tha?',
+  'It is laid across what they owe, oldest first — the same as when it was first taken in. Raise it and it reaches further down the days; lower it and it stops sooner. The day stays %s.':
+      'Ye un ke baqaya per bichhaya jata hai, sab se purane se shuru — wese hi jese pehli bar liya gaya tha. Barha den to aur agle dinon tak pohnchega; kam kar den to pehle ruk jayega. Tareekh %s hi rahegi.',
+  '%s · %s entries settled': '%s · %s entries chukta hueen',
+  'Could not change it. %s': 'Badal nahi sake. %s',
 };
