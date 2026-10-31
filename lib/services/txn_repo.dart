@@ -73,6 +73,15 @@ class TxnRepo {
     String? customerId,
     String? orderId,
     String? settlesTxnId,
+
+    /// The other half of a handover, which is one act written as two rows.
+    ///
+    /// The pair used to be told apart by nothing but day, amount and the
+    /// two names. Correct one row's amount and the key stopped matching:
+    /// both halves appeared in the ledger as two trades, and the farm's
+    /// cash went out by the difference. Delete one half and the cash went
+    /// out by the whole handover. A shared id is the pair saying so itself.
+    String? pairId,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
     DateTime? date,
@@ -107,6 +116,7 @@ class TxnRepo {
       'note': note,
       'orderId': ?orderId,
       'settlesTxnId': ?settlesTxnId,
+      'pairId': ?pairId,
       // Whether the money moved as this row was written. Cash reads this
       // rather than the paid flag, so an entry settled months later is
       // counted on the day it was actually settled.
@@ -237,15 +247,8 @@ class TxnRepo {
       );
 
       // An udhaar customer's balance drops by whatever just landed on it.
-      final customerId = txn.customerId;
-      if (isSale && customerId != null && customerId.isNotEmpty) {
-        try {
-          await Db.udhaarAccounts.doc(customerId).update({
-            'balance': FieldValue.increment(-take),
-          });
-        } catch (_) {
-          // No udhaar account for this party — nothing to reduce.
-        }
+      if (isSale) {
+        await _moveKhaata(txn, -take);
       }
     }
 
@@ -298,6 +301,11 @@ class TxnRepo {
       'paid': settledInFull,
       if (settledInFull) 'paidAt': Timestamp.fromDate(now),
     });
+
+    // Written off is written off. Left on his khaata the farm takes the
+    // loss and then asks him for the money anyway on the next bill, and
+    // takes the loss a second time when he does not pay it.
+    if (txn.type == TxnType.sale) await _moveKhaata(txn, -given);
 
     await add(
       actor: actor,
@@ -354,6 +362,10 @@ class TxnRepo {
     final on = date ?? DateTime.now();
     final monthId = MonthRepo.bookingId;
 
+    // One act, two rows, and they say so. Firestore hands out an id for a
+    // document that does not exist yet, which is all this needs to be.
+    final pair = Db.transactions.doc().id;
+
     await add(
       actor: actor,
       monthId: monthId,
@@ -363,6 +375,7 @@ class TxnRepo {
       amount: amount,
       paid: true,
       note: note.isEmpty ? 'Handed to $to' : note,
+      pairId: pair,
       payVia: payVia,
       handledBy: from,
       date: on,
@@ -377,6 +390,7 @@ class TxnRepo {
       amount: amount,
       paid: true,
       note: note.isEmpty ? 'Taken from $from' : note,
+      pairId: pair,
       payVia: payVia,
       handledBy: to,
       date: on,
@@ -452,6 +466,30 @@ class TxnRepo {
         periodStart: earliest,
       );
       if (refused != null) throw StateError(refused);
+    }
+
+    // Half of a handover cannot be corrected on its own.
+    //
+    // It is one act written as two rows, and the two have to agree about
+    // what passed and on what day or the farm's cash changes without a
+    // rupee going anywhere: a handover of 8,600 entered as 8,000 and
+    // corrected on one side left the books 600 out and the two men 600
+    // apart in opposite directions, with both rows then showing in the
+    // ledger as separate trades.
+    //
+    // Correcting both from here would mean deciding which fields mirror and
+    // which swap — the names do swap — and getting that wrong is the same
+    // bug wearing a hat. Deleting it takes both halves now, so the way to
+    // fix one is to take it off and hand the money over again, which is
+    // also the plainest thing to tell somebody standing in the shed.
+    if (txn.hasPair &&
+        ((amount != null && amount != txn.amount) ||
+            (date != null && !_sameDay(date, txn.date)))) {
+      throw StateError(
+        'This is one half of money handed between two of you, and the two '
+        'halves have to agree. Delete it — both halves go together — and '
+        'hand it over again with the right figure.',
+      );
     }
 
     final fresh = <String, dynamic>{};
@@ -591,7 +629,32 @@ class TxnRepo {
   static bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  static Future<void> softDelete(Actor actor, Txn txn) async {
+  /// Takes an entry off the books.
+  ///
+  /// [periodIsOpen] is held to for everybody, the master included, the same
+  /// as [edit] is. A settled period's figures are what four people were paid
+  /// out of, and the sheet this button sits on says so in as many words —
+  /// while the button worked. It did not move the period's frozen figures,
+  /// which are written once; it moved every all-time figure built on the
+  /// ledger instead. A cattle purchase of twelve lakh taken out of a closed
+  /// month left what the farm owns twelve lakh lighter against shares
+  /// already paid, and the check that says the books add up quietly stopped
+  /// saying it.
+  ///
+  /// So a mistake in a settled period is answered the way a book of accounts
+  /// has always answered one: an entry in the period that is open.
+  static Future<void> softDelete(
+    Actor actor,
+    Txn txn, {
+    bool periodIsOpen = true,
+  }) async {
+    if (!periodIsOpen) {
+      throw StateError(
+        'That entry belongs to a period that is already settled, and four '
+        'people have been paid out of its figures. Put a correcting entry '
+        'in the open period instead.',
+      );
+    }
     // Taking a settlement off the books has to take back what it settled.
     //
     // This is the bug that cost the farm six real sales. A receipt carries
@@ -640,6 +703,15 @@ class TxnRepo {
     }
 
     await _moveSplit(txn, keep: false);
+    await _movePair(txn, keep: false);
+    // What he owes goes down by a sale taken off the books, and up again
+    // by a payment taken off — the receipts of this sale came down with
+    // it just above, so only the sale itself is counted here.
+    if (txn.type == TxnType.sale) {
+      await _moveKhaata(txn, -txn.outstanding);
+    } else if (txn.settlesAnotherEntry) {
+      await _moveKhaata(txn, txn.amount);
+    }
 
     await Log.write(
       actor,
@@ -687,6 +759,12 @@ class TxnRepo {
     }
 
     await _moveSplit(txn, keep: true);
+    await _movePair(txn, keep: true);
+    if (txn.type == TxnType.sale) {
+      await _moveKhaata(txn, txn.outstanding);
+    } else if (txn.settlesAnotherEntry) {
+      await _moveKhaata(txn, -txn.amount);
+    }
 
     await Log.write(
       actor,
@@ -753,6 +831,70 @@ class TxnRepo {
     } catch (_) {
       // The entry is off the books either way. A split left standing shows
       // on the co-founder's own card, where it can be taken off by hand.
+    }
+  }
+
+  /// Takes the other half of a handover down with this one, or brings it back.
+  ///
+  /// Money passing between two of them is one act written as two rows, and
+  /// half an act is not a smaller version of it — it is a farm whose cash
+  /// has changed by the whole handover without a rupee going anywhere.
+  /// Delete the "Taken from" row and the books lose the amount; delete the
+  /// "Handed to" row and they gain it. One of them goes, both go.
+  static Future<void> _movePair(Txn txn, {required bool keep}) async {
+    if (!txn.hasPair) return;
+    try {
+      final rows = await Db.transactions
+          .where('pairId', isEqualTo: txn.pairId)
+          .get();
+      for (final doc in rows.docs) {
+        if (doc.id == txn.id) continue;
+        final other = Txn.fromDoc(doc);
+        if (keep ? s(doc.data()['deletedWith']) != txn.id : other.isDeleted) {
+          continue;
+        }
+        await doc.reference.update(
+          keep
+              ? {
+                  'deletedAt': FieldValue.delete(),
+                  'deletedWith': FieldValue.delete(),
+                }
+              : {
+                  'deletedAt': FieldValue.serverTimestamp(),
+                  'deletedWith': txn.id,
+                },
+        );
+      }
+    } catch (_) {
+      // Half a handover left on the books is visible on the page that shows
+      // who is holding the farm's cash, where it can be taken off by hand.
+    }
+  }
+
+  /// Moves a khaata customer's running balance by what just happened.
+  ///
+  /// His balance is the one figure in these books kept in a field of its
+  /// own rather than worked out from the ledger, and the only place it ever
+  /// came down was money landing on one of his sales. Everything else left
+  /// it where it was:
+  ///
+  ///   - Delete one of his sales and he was billed again, for ever, for
+  ///     milk he had already paid for — and the receipt went with the sale,
+  ///     so the money came out of the books too.
+  ///   - Give up on a thousand rupees of his and the farm booked the loss,
+  ///     then asked him for the thousand on the next bill, and took the
+  ///     loss again when he did not pay.
+  ///
+  /// So every one of them moves it now, in whichever direction it went.
+  static Future<void> _moveKhaata(Txn txn, num by) async {
+    final customerId = txn.customerId;
+    if (by == 0 || customerId == null || customerId.isEmpty) return;
+    try {
+      await Db.udhaarAccounts.doc(customerId).update({
+        'balance': FieldValue.increment(by),
+      });
+    } catch (_) {
+      // No udhaar account for this party — nothing to move.
     }
   }
 

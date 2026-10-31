@@ -636,6 +636,7 @@ class Txn {
     required this.note,
     this.orderId,
     this.settlesTxnId,
+    this.pairId,
     this.capital,
     this.shift,
     this.edits = const [],
@@ -727,6 +728,18 @@ class Txn {
   /// the balance must not count this row a second time. It exists so the ledger
   /// and the Google Sheet still show when the money actually changed hands.
   final String? settlesTxnId;
+
+  /// The other half of a handover. Both rows of one carry the same.
+  ///
+  /// Money passing between two of them is one act and reaches the books as
+  /// two rows, because one pair of hands goes down by it and another goes
+  /// up and no single row can say both. Which two rows belong together used
+  /// to be worked out from the day, the amount and the two names — so a
+  /// correction to either row broke the pair, and a deletion left half an
+  /// act on the books with the farm's cash out by the whole of it.
+  final String? pairId;
+
+  bool get hasPair => (pairId ?? '').isNotEmpty;
 
   /// Named apart from `type.isSettlement`, which asks a different question:
   /// whether this is a receipt or payment at all.
@@ -963,6 +976,7 @@ class Txn {
       note: s(m['note']),
       orderId: m['orderId'] == null ? null : s(m['orderId']),
       settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
+      pairId: m['pairId'] == null ? null : s(m['pairId']),
       capital: m['capital'] == null ? null : b(m['capital']),
       shift: MilkShift.parse(m['shift']),
       edits: TxnEdit.listFrom(m['edits']),

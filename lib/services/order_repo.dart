@@ -262,11 +262,20 @@ class OrderRepo {
       // hand from the ledger if this could not find it.
     }
 
-    if (order.isUdhaar) {
-      await Db.udhaarAccounts.doc(order.customerId).set({
-        'balance': FieldValue.increment(-amount),
-      }, SetOptions(merge: true));
-    }
+    // His khaata is not touched here any more: deleting the sale above
+    // takes it off, which it has to do wherever a sale is deleted from.
+    // Doing both took the day off his balance twice.
+
+    // The day's tally has to come back off too, the way it went on. Left
+    // alone, the cash the rider was credited with collecting stayed on
+    // his day — so the farm's cash read low by it and the rider stood
+    // accused of a shortage he never had.
+    await RiderRepo.countDelivery(
+      actor,
+      dayKey: dayKey,
+      litres: -RiderRepo.milkIn(order, dayKey),
+      cash: order.isUdhaar ? 0 : -amount,
+    );
 
     await Db.orders.doc(order.id).update({
       'doneDays': FieldValue.arrayRemove([dayKey]),

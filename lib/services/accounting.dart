@@ -173,8 +173,21 @@ class Books {
   /// way out and never put back on the way in, and a credit sale ends up
   /// shared by nobody, ever. With it the two cancel period by period and every
   /// rupee is shared exactly once.
+  ///
+  /// [carriedReceivable] comes in either way, and that is the part this used
+  /// to get wrong. It was added only when this period was being shared on
+  /// cash, so a period shared on cash followed by one shared as earned — and
+  /// shared as earned is what the screen offers first — dropped whatever the
+  /// first had held back. Fifty thousand rolled forward in September was in
+  /// neither September's shares nor October's, and the chain was broken for
+  /// good: every partner short his ratio of it, for ever, with no figure
+  /// anywhere left saying so.
+  ///
+  /// It belongs in both because it is not about this period at all. It is
+  /// money a period before took off its own shares and promised to the next
+  /// one, and that promise is owed whichever way this one is settled.
   num profitToShare({required bool arIncluded, num carriedReceivable = 0}) =>
-      arIncluded ? profit : profit - receivable + carriedReceivable;
+      carriedReceivable + (arIncluded ? profit : profit - receivable);
 
   static num _sum(
     List<Txn> txns,
@@ -854,14 +867,24 @@ Set<String> twinnedHandovers(List<Txn> ledger) {
   for (final t in ledger) {
     if (t.isDeleted || !t.isHandoverOut) continue;
     final s = handoverSides(t)!;
-    outs.putIfAbsent(_twinKey(t.date, t.amount, s.from, s.to), () => []).add(t);
+    // By the id the pair was written with, where there is one. Day, amount
+    // and the two names were all the older rows ever had, and a correction
+    // to either of them was enough to tell the books these were two
+    // separate trades.
+    final key = t.hasPair
+        ? t.pairId!
+        : _twinKey(t.date, t.amount, s.from, s.to);
+    outs.putIfAbsent(key, () => []).add(t);
   }
 
   final hidden = <String>{};
   for (final t in ledger) {
     if (t.isDeleted || !t.isHandoverIn) continue;
     final s = handoverSides(t)!;
-    final mates = outs[_twinKey(t.date, t.amount, s.from, s.to)];
+    final key = t.hasPair
+        ? t.pairId!
+        : _twinKey(t.date, t.amount, s.from, s.to);
+    final mates = outs[key];
     if (mates == null || mates.isEmpty) continue;
 
     // One for one. Two men handing the same amount to the same place on the

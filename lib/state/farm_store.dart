@@ -812,16 +812,46 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// Not stored on the loan itself: an instalment the close took and one the
   /// founder paid in over the counter are the same money, and a figure kept
   /// in two places is a figure that will one day disagree with itself.
-  List<FounderLoan> get loans => [
-    for (final loan in _loans)
-      loan.withRepaid(
-        _loanTxns
-            .where(
-              (t) => t.isLoanBack && partyKey(t.party) == partyKey(loan.name),
-            )
-            .fold<num>(0, (a, t) => a + t.amount),
-      ),
-  ];
+  /// A man's repayments fill his loans oldest first.
+  ///
+  /// Every instalment used to count against every loan of his at once, which
+  /// is only ever right while he has one. Rafeeq borrows a lakh and pays all
+  /// of it back; he borrows fifty thousand more, and the new loan reads as
+  /// already repaid — cleared, no instalment taken at a close, the card
+  /// saying it is finished. Fifty thousand never collected, while the figure
+  /// for what the farm has lent out says, correctly, that it is still out.
+  /// Two figures about one loan, disagreeing by the whole of it.
+  ///
+  /// Oldest first is the rule a customer's payments already follow through
+  /// the ledger, and it needs nothing written down: the first loan is paid
+  /// off before the second starts coming down, which is what either of them
+  /// would say happened if asked.
+  List<FounderLoan> get loans {
+    final purse = <String, num>{};
+    for (final t in _loanTxns) {
+      if (!t.isLoanBack) continue;
+      final key = partyKey(t.party);
+      purse[key] = (purse[key] ?? 0) + t.amount;
+    }
+
+    // Worked out oldest first, and handed back in the order they came, so
+    // nothing on screen jumps about because a repayment landed.
+    final order = [..._loans]
+      ..sort(
+        (a, b) => (a.givenAt ?? a.askedAt).compareTo(b.givenAt ?? b.askedAt),
+      );
+
+    final repaid = <String, num>{};
+    for (final loan in order) {
+      final key = partyKey(loan.name);
+      final left = purse[key] ?? 0;
+      final take = left < loan.amount ? left : loan.amount;
+      purse[key] = left - take;
+      repaid[loan.id] = take;
+    }
+
+    return [for (final loan in _loans) loan.withRepaid(repaid[loan.id] ?? 0)];
+  }
 
   /// The loan running against a name, however it is spelled.
   ///

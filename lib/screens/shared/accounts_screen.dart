@@ -2192,7 +2192,10 @@ Future<void> showEntryDetail(
                     ),
                   if (!txn.paid && !txn.type.isSettlement && isMaster)
                     const SizedBox(width: 8),
-                  if (isMaster)
+                  // Not in a settled period, and the line above this row
+                  // has said so all along — while this button worked. Four
+                  // people have been paid out of those figures.
+                  if (isMaster && canEdit)
                     Expanded(
                       child: GhostButton(
                         label: l.t('Delete'),

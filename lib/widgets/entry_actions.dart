@@ -402,7 +402,22 @@ Future<void> giveUpOnEntry(BuildContext context, Txn txn) async {
 }
 
 /// Take one entry off the books.
+///
+/// Refused in a settled period, for the master too — see
+/// [TxnRepo.softDelete]. Asked of the store here rather than carried in,
+/// because this is called from the entry sheet and from the ledger's own
+/// rows, and a guard each caller has to remember is a guard one of them
+/// will forget.
 Future<void> deleteEntry(BuildContext context, Txn txn) async {
+  final open =
+      context
+          .read<FarmStore>()
+          .periods
+          .where((p) => p.id == txn.monthId)
+          .firstOrNull
+          ?.isOpen ??
+      true;
+
   final ok = await confirm(
     context,
     title: 'Delete this entry?',
@@ -420,7 +435,11 @@ Future<void> deleteEntry(BuildContext context, Txn txn) async {
   if (!ok || !context.mounted) return;
 
   try {
-    await TxnRepo.softDelete(context.read<Session>().actor, txn);
+    await TxnRepo.softDelete(
+      context.read<Session>().actor,
+      txn,
+      periodIsOpen: open,
+    );
     if (context.mounted) toast(context, 'Entry deleted');
   } catch (e) {
     if (context.mounted) toast(context, 'Could not delete it. $e');

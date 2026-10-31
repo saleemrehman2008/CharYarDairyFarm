@@ -389,6 +389,43 @@ class MonthRepo {
   }) async {
     if (!period.isSealed) return;
 
+    // Sealing opens the next period. Unsealing has to shut it again, or the
+    // farm is left with two periods open at once — and `watchOpen` takes the
+    // oldest, so the books go back into this one while anything written
+    // between the seal and the unseal sits in a period nothing reads. Seal
+    // on the last day of the month and the one the seal made never closes
+    // at all: it keeps the opening cash of a seal that was undone, and every
+    // entry the farm makes from then on is booked into it.
+    //
+    // Only if it is still empty. An entry written into it after the seal was
+    // booked there on purpose and an entry's period never moves — not even
+    // for the master, because a period's frozen figures were worked out from
+    // it. So where there is anything in it, the unseal is refused and says
+    // why, which leaves the farm with a choice it can see rather than two
+    // open periods it cannot.
+    final nextId = period.sealedAt == null
+        ? null
+        : nextPeriodId(period.id, period.sealedAt!);
+
+    if (nextId != null && nextId != period.id) {
+      final next = await Db.months.doc(nextId).get();
+      if (next.exists && FarmMonth.fromDoc(next).isOpen) {
+        final written = await Db.transactions
+            .where('monthId', isEqualTo: nextId)
+            .limit(1)
+            .get();
+        final live = written.docs.where((d) => !Txn.fromDoc(d).isDeleted);
+        if (live.isNotEmpty) {
+          throw StateError(
+            'The period after this one already has entries in it, so this '
+            'one cannot be reopened — an entry never moves between periods. '
+            'Correct it in the open period instead.',
+          );
+        }
+        await Db.months.doc(nextId).delete();
+      }
+    }
+
     await Db.months.doc(period.id).update({
       'status': 'open',
       'to': FieldValue.delete(),
@@ -396,6 +433,7 @@ class MonthRepo {
       'shares': <Map<String, dynamic>>[],
       'decisions': <String, dynamic>{},
     });
+    _bookingId = period.id;
 
     await Log.write(
       actor,
