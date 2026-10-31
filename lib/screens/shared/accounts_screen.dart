@@ -496,15 +496,34 @@ class _AccountsScreenState extends State<AccountsScreen> {
     // closed October twice.
     final drawn = <String>{};
 
+    final behind = daysBehindTakes(context.read<FarmStore>().ledger);
+
     for (final txn in rows) {
       if (txn.monthId != current && drawn.add(txn.monthId)) {
         final period = periods.where((p) => p.id == txn.monthId).firstOrNull;
         out.add(_divider(period, txn.monthId, l));
       }
       current = txn.monthId;
+
+      // A handful of money opens the days it paid for, here under it,
+      // rather than in a sheet over the top of the page. The farm asked
+      // for it that way and it is right: these are ledger rows and they
+      // belong in the ledger, where the eye is already reading down.
+      final days = txn.isPartOfATake ? behind[txn.takeId!] : null;
+      final open = txn.isPartOfATake && _openTakes.contains(txn.takeId);
+
       out.add(
         _LedgerRow(
           txn: txn,
+          days: days,
+          open: open,
+          onOpen: days == null || days.isEmpty
+              ? null
+              : () => setState(() {
+                  if (!_openTakes.remove(txn.takeId)) {
+                    _openTakes.add(txn.takeId!);
+                  }
+                }),
           isMaster: isMaster,
           busy: _busyId == txn.id,
           onMarkPaid: () => _markPaid(txn),
@@ -525,6 +544,35 @@ class _AccountsScreenState extends State<AccountsScreen> {
           reached: reach[txn.id] ?? 0,
         ),
       );
+
+      if (open && days != null) {
+        for (final day in days) {
+          out.add(
+            _LedgerRow(
+              txn: day,
+              inset: true,
+              isMaster: isMaster,
+              busy: _busyId == day.id,
+              onMarkPaid: () => _markPaid(day),
+              onUnsettle: () => _around(day, () => unsettleEntry(context, day)),
+              onDelete: () => _delete(day),
+              onEdit: () => _edit(day),
+              onGiveUp: () => _giveUp(day),
+              onSplit: () => showSplitSheet(context, day),
+              paidBy: context.read<FarmStore>().paidForEntry(day.id),
+              handedOn: context.read<FarmStore>().handoverFor(day.id),
+              canEdit:
+                  periods
+                      .where((p) => p.id == day.monthId)
+                      .firstOrNull
+                      ?.isOpen ??
+                  true,
+              showMark: false,
+              reached: 0,
+            ),
+          );
+        }
+      }
     }
     return out;
   }
@@ -600,8 +648,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
       // And one handful of money is drawn once, not once per day it
       // reached. See [rowsBehindATake].
       final behind = rowsBehindATake(monthTxns);
+      // And the days that handful paid for, which are the same money
+      // again. They open under it — see [daysBehindTakes].
+      final days = {
+        for (final list in daysBehindTakes(monthTxns).values)
+          for (final d in list) d.id,
+      };
       return monthTxns
-          .where((t) => !twins.contains(t.id) && !behind.contains(t.id))
+          .where(
+            (t) =>
+                !twins.contains(t.id) &&
+                !behind.contains(t.id) &&
+                !days.contains(t.id),
+          )
           .toList();
     }(),
     // Loose receipts are in here for the same reason loose payments are in
@@ -678,6 +737,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   /// The two tabs that are about what is still owed rather than what was
   /// booked.
+  /// Which handfuls are open, showing the days they paid for.
+  ///
+  /// Shut to begin with: the point of drawing the handful once is that the
+  /// list is not twenty-five lines about one payment.
+  final _openTakes = <String>{};
+
   bool get _owedTab =>
       _filter == AccountsFilter.receivable || _filter == AccountsFilter.payable;
 
@@ -1393,6 +1458,10 @@ class _LedgerRow extends StatelessWidget {
     required this.txn,
     required this.isMaster,
     required this.busy,
+    this.days,
+    this.open = false,
+    this.onOpen,
+    this.inset = false,
     required this.onMarkPaid,
     required this.onUnsettle,
     required this.onDelete,
@@ -1409,6 +1478,20 @@ class _LedgerRow extends StatelessWidget {
   final Txn txn;
   final bool isMaster;
   final bool busy;
+
+  /// The days one handful of money paid for, where this row is that
+  /// handful. Null on every other row.
+  final List<Txn>? days;
+
+  /// Whether those days are showing underneath.
+  final bool open;
+
+  /// Opens them, or shuts them again. Null where there are none.
+  final VoidCallback? onOpen;
+
+  /// One of the days, drawn stepped in under the handful it belongs to.
+  final bool inset;
+
   final VoidCallback onMarkPaid;
   final VoidCallback onUnsettle;
   final VoidCallback onDelete;
@@ -1526,7 +1609,9 @@ class _LedgerRow extends StatelessWidget {
                           child: Text(
                             handful
                                 ? l.t2(
-                                    'One payment, across %s entries',
+                                    open
+                                        ? 'One payment, across %s entries — tap to close'
+                                        : 'One payment, across %s entries — tap to open',
                                     take.rows,
                                   )
                                 : l.t('Money against an entry written earlier'),
@@ -1727,23 +1812,16 @@ class _LedgerRow extends StatelessWidget {
     return Padding(
       // Stepped in from the margin when it is money against an earlier
       // entry, so the two are not read as two trades.
-      padding: EdgeInsets.only(left: settling ? 22 : 0, bottom: 9),
+      padding: EdgeInsets.only(left: settling || inset ? 22 : 0, bottom: 9),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          // A handful opens the days it was spread across; one of them
-          // opens that day's entry, which is where it always went.
-          onTap: () => handful
-              ? showBehind(
-                  context,
-                  title: txn.party,
-                  figure: take.amount,
-                  note: l.t2('One payment, across %s entries', take.rows),
-                  rows: [
-                    for (final r in context.read<FarmStore>().ledger)
-                      if (!r.isDeleted && r.takeId == txn.takeId) Behind.txn(r),
-                  ],
-                )
+          // A handful opens the days it paid for, here under it in the
+          // list, rather than in a sheet over the top of the page. These
+          // are ledger rows and they belong in the ledger, where the eye
+          // is already reading down — which is how the farm asked for it.
+          onTap: () => onOpen != null
+              ? onOpen!()
               : showEntryDetail(
                   context,
                   txn: txn,

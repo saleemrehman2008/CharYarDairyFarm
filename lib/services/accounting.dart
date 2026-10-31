@@ -768,16 +768,43 @@ List<AccountLine> accountLines(
     split.putIfAbsent(id, () => []).add(c);
   }
 
+  // One handful of money is one line here too. The farm opened the farm
+  // account and found twenty-four "Khaata receipt" lines of Babar Dairy,
+  // all dated the same day, each a slice of one payment of 43,000 — a
+  // statement you cannot read down because the thing that happened is not
+  // on it. What happened is that Babar paid 43,000.
+  final takes = <String, Txn>{};
+  final takeTotals = <String, num>{};
+  final takeRows = <String, int>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    if (!movedCashIn(t) && !movedCashOut(t)) continue;
+    if (partyKey(t.handledBy) != key) continue;
+    final id = t.takeId!;
+    final held = takes[id];
+    if (held == null || t.date.isBefore(held.date)) takes[id] = t;
+    takeTotals[id] = (takeTotals[id] ?? 0) + t.amount;
+    takeRows[id] = (takeRows[id] ?? 0) + 1;
+  }
+
   for (final t in ledger) {
     if (t.isDeleted) continue;
+
+    // Drawn once, against the first slice of it; the rest are the same
+    // money and are already in that line.
+    if (t.isPartOfATake && takes[t.takeId]?.id != t.id) continue;
+    final rows = t.isPartOfATake ? (takeRows[t.takeId] ?? 1) : 1;
+    final whole = t.isPartOfATake ? (takeTotals[t.takeId] ?? t.amount) : null;
 
     if (movedCashIn(t) && partyKey(t.handledBy) == key) {
       out.add(
         AccountLine(
           date: t.date,
           what: t.party.isEmpty ? t.category : t.party,
-          detail: handoverWords(t, who),
-          amount: t.amount,
+          detail: rows > 1
+              ? '${t.category} · $rows entries'
+              : handoverWords(t, who),
+          amount: whole ?? t.amount,
         ),
       );
       continue;
@@ -802,8 +829,11 @@ List<AccountLine> accountLines(
         AccountLine(
           date: t.date,
           what: t.party.isEmpty ? t.category : t.party,
-          detail: handoverWords(t, who),
-          amount: -left,
+          detail: rows > 1
+              ? '${t.category} · $rows entries'
+              : handoverWords(t, who),
+          // A handful paid out is one line as much as one taken in.
+          amount: whole != null ? -whole : -left,
         ),
       );
     }
@@ -922,6 +952,34 @@ Set<String> rowsBehindATake(List<Txn> ledger) {
     if (first[t.takeId!]?.id != t.id) hidden.add(t.id);
   }
   return hidden;
+}
+
+/// The days one handful of money paid for, by the handful's own id.
+///
+/// A sale and the receipt that settles it are the same money, and the
+/// ledger showing both reads as two trades — "double entry, meri samajh se
+/// bahar", which is what the farm said the first time it met this, about a
+/// handover. One payment of 43,000 made it twenty-five times over: its own
+/// line, and twenty-four days of milk each marked received.
+///
+/// So the days sit behind the handful, the way the second half of a
+/// handover sits behind the first. They are still on the books, still in
+/// every balance, and still their own line under Sales and under the name
+/// — this is about the one list that tries to show everything at once, and
+/// about showing each rupee of it once.
+Map<String, List<Txn>> daysBehindTakes(List<Txn> ledger) {
+  final byId = {for (final t in ledger) t.id: t};
+  final out = <String, List<Txn>>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    final day = byId[t.settlesTxnId];
+    if (day == null || day.isDeleted) continue;
+    out.putIfAbsent(t.takeId!, () => []).add(day);
+  }
+  for (final days in out.values) {
+    days.sort((a, b) => b.date.compareTo(a.date));
+  }
+  return out;
 }
 
 /// What one handful came to, and how many entries it reached.

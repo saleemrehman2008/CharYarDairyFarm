@@ -1557,4 +1557,11 @@ const Map<String, String> romanUrdu = {
   'Back on the books': 'Wapas kitaab me',
   'Not paid after all': 'Paisa aaya hi nahi',
   'One payment, across %s entries': 'Ek hi payment, %s entries per',
+  // check_words cannot see a phrase inside a conditional, so these two
+  // are written in by hand. They are one line in the ledger standing for
+  // one handful of money.
+  'One payment, across %s entries — tap to open':
+      'Ek hi payment, %s entries per — kholne ke liye dabayen',
+  'One payment, across %s entries — tap to close':
+      'Ek hi payment, %s entries per — band karne ke liye dabayen',
 };
