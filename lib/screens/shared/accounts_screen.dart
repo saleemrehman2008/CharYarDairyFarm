@@ -369,7 +369,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   _owedTab ? l.t(_filter.heading) : l.t('Still open'),
                 ),
                 const SizedBox(height: 6),
-                ..._withDividers(open, periods, l, isMaster, _reach(rows)),
+                ..._byName(
+                  open,
+                  periods,
+                  l,
+                  isMaster,
+                  _reach(rows),
+                  owing: true,
+                ),
                 const SizedBox(height: 4),
                 _TotalStrip(
                   count: open.length,
@@ -397,7 +404,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   open.isEmpty ? l.t('Everything here') : l.t('Done with'),
                 ),
                 const SizedBox(height: 6),
-                ..._withDividers(done, periods, l, isMaster, const {}),
+                ..._byName(done, periods, l, isMaster, const {}, owing: false),
                 const SizedBox(height: 4),
                 _TotalStrip(
                   count: done.length,
@@ -595,6 +602,85 @@ class _AccountsScreenState extends State<AccountsScreen> {
     return out;
   }
 
+  /// The rows of one section, a line per name.
+  ///
+  /// The farm read its ledger as one long column in date order and could
+  /// not answer the question it opens the page to ask: how much does Babar
+  /// owe. Twenty-one of his entries, in three places down the page, and
+  /// nothing anywhere adding them up — "account wise like babar, urooj aur
+  /// wande wala", said twice.
+  ///
+  /// So each name is one line carrying its own total, and the days are
+  /// under it. Newest first, both ways: the names by the last thing that
+  /// happened with them, and the days inside by their own date.
+  ///
+  /// A line per name and not per kind, which is the choice the farm made
+  /// looking at both: the electricity and a month's salary each keep their
+  /// own line rather than going into a bag marked other, because a name is
+  /// a name.
+  ///
+  /// The period dividers are not drawn here. They mark where one period's
+  /// entries end going down a list in date order, and a name is not in
+  /// date order — it spans whatever periods it traded in. Each entry still
+  /// carries its own date, and the page says which period is open.
+  List<Widget> _byName(
+    List<Txn> rows,
+    List<FarmMonth> periods,
+    L l,
+    bool isMaster,
+    Map<String, num> reach, {
+    required bool owing,
+  }) {
+    final held = <String, List<Txn>>{};
+    final names = <String, String>{};
+    for (final txn in rows) {
+      final said = txn.party.trim().isEmpty ? txn.category : txn.party.trim();
+      final key = partyKey(said);
+      held.putIfAbsent(key, () => []).add(txn);
+      names[key] = said;
+    }
+
+    for (final list in held.values) {
+      list.sort((a, b) => b.date.compareTo(a.date));
+    }
+
+    final keys = held.keys.toList()
+      ..sort((a, b) => held[b]!.first.date.compareTo(held[a]!.first.date));
+
+    final out = <Widget>[];
+    for (final key in keys) {
+      final mine = held[key]!;
+      final open = _openNames.contains(key);
+
+      // What this name comes to. Still owed is what is left on it; done
+      // with is what moved, which way counting for something.
+      final total = owing
+          ? mine.fold<num>(0, (a, t) => a + t.outstanding)
+          : mine.fold<num>(
+              0,
+              (a, t) => a + (t.type.isIncoming ? t.amount : -t.amount),
+            );
+
+      out.add(
+        _NameRow(
+          name: names[key]!,
+          count: mine.length,
+          total: total,
+          owing: owing,
+          open: open,
+          onTap: () => setState(() {
+            if (!_openNames.remove(key)) _openNames.add(key);
+          }),
+        ),
+      );
+
+      if (open) {
+        out.addAll(_withDividers(mine, periods, l, isMaster, reach));
+      }
+    }
+    return out;
+  }
+
   Widget _divider(FarmMonth? period, String id, L l) {
     if (period == null) {
       // A period document the farm never wrote, from before periods were
@@ -755,6 +841,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
   /// The two tabs that are about what is still owed rather than what was
   /// booked.
+  /// Which names are open, showing their entries.
+  ///
+  /// Shut to begin with. The page is a list of who the farm is square with
+  /// and who it is not; the days under a name are the working, and the
+  /// working is what you go and look at.
+  final _openNames = <String>{};
+
   /// Which handfuls are open, showing the days they paid for.
   ///
   /// Shut to begin with: the point of drawing the handful once is that the
@@ -2815,4 +2908,81 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
   /// Milk wants its milking said, the same as a new entry does.
   bool get _needsShift =>
       _category == milkCategory || _category == milkBoughtInCategory;
+}
+
+/// One name on the accounts page, with what it comes to.
+///
+/// The line the farm opens the page to read: who it is square with and who
+/// it is not. The days behind it open underneath when this is pressed.
+class _NameRow extends StatelessWidget {
+  const _NameRow({
+    required this.name,
+    required this.count,
+    required this.total,
+    required this.owing,
+    required this.open,
+    required this.onTap,
+  });
+
+  final String name;
+  final int count;
+  final num total;
+
+  /// Still owed, as against done with. It decides the colour and what the
+  /// figure means: what is left on it, or what moved.
+  final bool owing;
+
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final tone = owing
+        ? T.moneyDue
+        : total < 0
+        ? T.moneyOut
+        : T.moneyIn;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RegCard(
+        stripe: tone,
+        padding: const EdgeInsets.all(12),
+        onTap: onTap,
+        child: Row(
+          children: [
+            // Turned down when the name is open, which is the one thing
+            // on the row that says whether a press will show or hide.
+            Icon(
+              open ? Icons.keyboard_arrow_down : Icons.chevron_right,
+              size: 17,
+              color: T.n500,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: T.bodyMid,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 1),
+                  Text(l.t2('%s entries', count), style: T.meta),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              owing ? rs(total) : signedRs(total.abs(), incoming: total >= 0),
+              style: T.num22.copyWith(color: tone),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
