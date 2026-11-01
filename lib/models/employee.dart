@@ -285,6 +285,34 @@ String? mobileWrong(String v) {
   return null;
 }
 
+/// How much of a standing advance a wage actually takes off.
+///
+/// [asked] is what somebody typed, and it is held to two things it cannot
+/// go past. It cannot be more than he owes: typing fifty thousand against
+/// a sixteen thousand advance would have the farm recover money it never
+/// advanced and under-pay a man by the difference. And it cannot be more
+/// than the wage can carry: above that it is not a deduction but a figure,
+/// and the part the wage could not reach has to stay owed.
+///
+/// Zero is a real answer, and the common one the farm asked for: leave the
+/// advance alone this month and let it come off a later wage. Nothing is
+/// lost by it — what is not recovered is still owed, and the next wage
+/// finds it.
+///
+/// One function because the figure is needed in three places — the card
+/// that shows it, the box it is typed in, and the entry that is saved —
+/// and three clamps against three slightly different wages is exactly how
+/// this app has ever come to show one number and store another.
+num advanceComingOff({
+  required num asked,
+  required num owed,
+  required num wage,
+}) {
+  if (asked <= 0 || owed <= 0 || wage <= 0) return 0;
+  final ceiling = owed < wage ? owed : wage;
+  return asked > ceiling ? ceiling : asked;
+}
+
 /// What is actually handed to a man on payday.
 ///
 /// The wage for the days being paid for, less what he has already drawn

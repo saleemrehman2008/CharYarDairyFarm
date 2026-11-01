@@ -166,34 +166,21 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   num _owesBy(Employee who) =>
       advanceOwed(context.read<FarmStore>().ledger, who: who.name);
 
-  /// How much of that debt this wage is taking off, as typed.
-  ///
-  /// Never more than the wage can carry: above that it is a figure and not
-  /// a deduction, and the part it could not reach has to stay owed.
-  num _cutFor(Employee who) {
-    final said = num.tryParse(_advCut.text.trim()) ?? 0;
-    if (said <= 0) return 0;
-    final wage = who.payForWindow(
-      from: _payStart,
-      to: _payEnd,
-      daysOff: _daysOff,
-    );
-    return said > wage ? wage : said;
-  }
+  /// How much of that debt this wage is taking off, as typed — held to
+  /// what he owes and to what the wage can carry. See [advanceComingOff].
+  num _cutFor(Employee who) => advanceComingOff(
+    asked: num.tryParse(_advCut.text.trim()) ?? 0,
+    owed: _owesBy(who),
+    wage: who.payForWindow(from: _payStart, to: _payEnd, daysOff: _daysOff),
+  );
 
-  /// What the saved wage says it recovered.
-  ///
-  /// Held to what he actually owes as well as to what the wage can carry,
-  /// so a slip of the thumb cannot record the farm recovering money that
-  /// was never advanced.
+  /// What the saved wage says it recovered — the same figure the card
+  /// showed, worked out by the same function.
   num get _cutSaved {
     final who = _crew
         .where((e) => partyKey(e.name) == partyKey(_party.text.trim()))
         .firstOrNull;
-    if (who == null) return 0;
-    final owed = _owesBy(who);
-    final said = _cutFor(who);
-    return said > owed ? owed : said;
+    return who == null ? 0 : _cutFor(who);
   }
 
   bool _wageDone(Employee who) => wagePaidIn(

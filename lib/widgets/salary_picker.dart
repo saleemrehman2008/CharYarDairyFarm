@@ -128,26 +128,35 @@ class SalaryPicker extends StatelessWidget {
         from: _monthStart,
         to: _monthEnd,
         daysOff: daysOff,
-        drawn: cut,
-        wagePaidAlready: alreadyPaid?.call(who) ?? false,
+        drawn: _held(who, daysOff: daysOff, cut: cut),
+      );
+
+  /// A deduction held to what he owes and to what the wage can carry.
+  ///
+  /// Done through one function — [advanceComingOff] — because every place
+  /// that needs this figure used to work it out for itself: the box as it
+  /// was typed, the days-off buttons from what was typed before the days
+  /// came off, and the saved entry again on the form.
+  num _held(Employee who, {required int daysOff, required num cut}) =>
+      advanceComingOff(
+        asked: cut,
+        owed: owesAdvance?.call(who) ?? 0,
+        wage: who.payForWindow(
+          from: _monthStart,
+          to: _monthEnd,
+          daysOff: daysOff,
+        ),
       );
 
   /// What the farm would take off if nobody said otherwise: the whole of
   /// what he owes, or the whole of the wage, whichever runs out first.
   ///
-  /// Taking more than the wage is not a deduction, it is a figure that
-  /// cannot be paid — the wage stops at nothing owing and the rest of the
-  /// advance stays on his name.
-  num _wouldTake(Employee who, {required int daysOff}) {
-    final owed = owesAdvance?.call(who) ?? 0;
-    if (owed <= 0 || (alreadyPaid?.call(who) ?? false)) return 0;
-    final wage = who.payForWindow(
-      from: _monthStart,
-      to: _monthEnd,
-      daysOff: daysOff,
-    );
-    return owed < wage ? owed : wage;
-  }
+  /// Offered, not imposed. Zero is a real answer — the farm may want a man
+  /// to keep his whole wage this month and the advance to wait — and so is
+  /// any figure between. What is not taken stays owed, so nothing is lost
+  /// by leaving it.
+  num _wouldTake(Employee who, {required int daysOff}) =>
+      _held(who, daysOff: daysOff, cut: owesAdvance?.call(who) ?? 0);
 
   @override
   Widget build(BuildContext context) {
@@ -216,13 +225,17 @@ class SalaryPicker extends StatelessWidget {
         // Never more than the wage can carry. Anything above it is not a
         // deduction, only a figure — and the part it could not reach is
         // still owed, which is the whole point of counting it this way.
-        final comesOff = settled
+        //
+        // A wage already on the books no longer stops this. It had to,
+        // once: the deduction was worked out afresh from the month's
+        // advances every time, so a second entry would have taken the
+        // same money off twice. Now what a wage recovered is written on
+        // the wage, and what is left owing is what is left owing — so a
+        // second payment can take some of it and the farm is not told no
+        // by a rule that was protecting a sum it no longer does.
+        final comesOff = who == null
             ? 0
-            : cut < 0
-            ? 0
-            : cut > wage
-            ? wage
-            : cut;
+            : _held(who, daysOff: daysOff, cut: cut);
         final carried = owed - comesOff;
         final toHand = who == null
             ? 0
@@ -445,7 +458,7 @@ class SalaryPicker extends StatelessWidget {
                 // not agreed to that. So the figure is offered in full and
                 // then it is theirs to set, and what they leave stays on
                 // his name for the next wage to find.
-                if (owed > 0 && !settled) ...[
+                if (owed > 0) ...[
                   const SizedBox(height: 10),
                   const Divider(height: 1),
                   const SizedBox(height: 10),
@@ -500,12 +513,12 @@ class SalaryPicker extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (settled && owed > 0) ...[
+                if (settled) ...[
                   const SizedBox(height: 7),
                   Text(
-                    'His wage for this month is already on the books. The '
-                    '${rs(owed)} he still owes is not taken off again here — '
-                    'it comes off the next wage.',
+                    'A wage for this month is already on the books. Check '
+                    'this is a second part of it and not the same payment '
+                    'written twice.',
                     style: T.meta.copyWith(color: T.moneyDue),
                   ),
                 ],
