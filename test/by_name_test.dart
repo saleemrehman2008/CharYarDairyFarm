@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
+import 'package:char_yar_dairy_farm/services/accounting.dart';
 
 /// A line per name, and what that line comes to.
 ///
@@ -62,6 +63,71 @@ num _owedBy(List<Txn> mine) => mine.fold<num>(0, (a, t) => a + t.outstanding);
 
 num _movedBy(List<Txn> mine) =>
     mine.fold<num>(0, (a, t) => a + (t.type.isIncoming ? t.amount : -t.amount));
+
+/// A receipt that is one slice of a handful of money.
+Txn _slice({
+  required String takeId,
+  required String settles,
+  required num amount,
+  required int day,
+  String party = 'Babar Dairy',
+}) => Txn(
+  id: 'r${_n++}',
+  date: DateTime(2026, 10, day),
+  monthId: '2026-10',
+  type: TxnType.receipt,
+  party: party,
+  category: 'Khaata receipt',
+  amount: amount,
+  paid: true,
+  paidOnCreate: true,
+  paidSoFar: amount,
+  note: '',
+  createdBy: 'u1',
+  createdAt: DateTime(2026, 10, day),
+  settlesTxnId: settles,
+  takeId: takeId,
+);
+
+/// What the page puts on a name's line: the figure, and what is under it.
+///
+/// A handful of money reaches the page as one row — [rowsBehindATake] hides
+/// the other slices — so that row's own amount is a share and not the
+/// payment. This is the sum the line actually has to show.
+({num total, int entries, int payments}) _line(
+  List<Txn> mine,
+  List<Txn> ledger, {
+  required bool owing,
+}) {
+  final whole = <String, num>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    whole[t.takeId!] = (whole[t.takeId!] ?? 0) + t.amount;
+  }
+  final reached = {
+    for (final e in daysBehindTakes(ledger).entries) e.key: e.value.length,
+  };
+
+  var total = 0 as num;
+  var entries = 0;
+  var payments = 0;
+  for (final t in mine) {
+    final take = t.isPartOfATake ? t.takeId : null;
+    if (take != null) {
+      payments++;
+      entries += reached[take] ?? 0;
+    } else {
+      entries++;
+    }
+    final amount = take == null ? t.amount : whole[take] ?? t.amount;
+    total += owing ? t.outstanding : (t.type.isIncoming ? amount : -amount);
+  }
+  return (total: total, entries: entries, payments: payments);
+}
+
+/// The set the page remembers open names in, keyed the way it keys them.
+String _shelf(String name, {required bool owing}) =>
+    '${owing ? 'open' : 'done'}|${partyKey(name)}';
 
 void main() {
   group('entries fall into names', () {
@@ -226,6 +292,119 @@ void main() {
       final byName = g.held.values.fold<num>(0, (a, l) => a + _owedBy(l));
       expect(byName, _owedBy(rows));
       expect(byName, 3600);
+    });
+  });
+
+  group('a handful of money on a name line', () {
+    test('the line shows the whole payment, not the slice standing for it', () {
+      // Babar's month settled by one payment laid across three days. Two
+      // slices are hidden; the line read 1,600 — the first day the money
+      // happened to land on — against a month paid in full.
+      final sales = [
+        _txn(
+          type: TxnType.sale,
+          amount: 1600,
+          day: 9,
+          paidSoFar: 1600,
+          paid: true,
+        ),
+        _txn(
+          type: TxnType.sale,
+          amount: 2000,
+          day: 10,
+          paidSoFar: 2000,
+          paid: true,
+        ),
+        _txn(
+          type: TxnType.sale,
+          amount: 2400,
+          day: 11,
+          paidSoFar: 2400,
+          paid: true,
+        ),
+      ];
+      final slices = [
+        for (final sale in sales)
+          _slice(takeId: 'T1', settles: sale.id, amount: sale.amount, day: 31),
+      ];
+      final ledger = [...sales, ...slices];
+
+      // What the page is left holding once the hidden rows come out.
+      final hidden = rowsBehindATake(ledger);
+      final shown = slices.where((t) => !hidden.contains(t.id)).toList();
+      expect(shown, hasLength(1));
+
+      final line = _line(shown, ledger, owing: false);
+      expect(line.total, 6000);
+      expect(line.payments, 1);
+      expect(line.entries, 3);
+    });
+
+    test('a name with no payment behind it counts its own rows', () {
+      final mine = [
+        _txn(
+          type: TxnType.purchase,
+          amount: 5800,
+          party: 'Khalid Kutar',
+          day: 30,
+        ),
+        _txn(
+          type: TxnType.payment,
+          amount: 5800,
+          party: 'Khalid Kutar',
+          day: 30,
+        ),
+      ];
+      final line = _line(mine, mine, owing: false);
+      expect(line.total, -11600);
+      expect(line.payments, 0);
+      expect(line.entries, 2);
+    });
+
+    test('and a payment and a loose entry on one name add up together', () {
+      final sale = _txn(
+        type: TxnType.sale,
+        amount: 1600,
+        day: 9,
+        paidSoFar: 1600,
+        paid: true,
+      );
+      final slice = _slice(
+        takeId: 'T1',
+        settles: sale.id,
+        amount: 1600,
+        day: 31,
+      );
+      final loose = _txn(
+        type: TxnType.receipt,
+        amount: 1600,
+        day: 12,
+        paidSoFar: 1600,
+        paid: true,
+      );
+      final ledger = [sale, slice, loose];
+      final line = _line([slice, loose], ledger, owing: false);
+      expect(line.total, 3200);
+      expect(line.payments, 1);
+      expect(line.entries, 2);
+    });
+  });
+
+  group('one name, two sections', () {
+    test('open and done keep their own shelf', () {
+      // Babar is owed 67,600 and has settled 43,000. Keyed on the name
+      // alone, opening the settled line opened the owing one under it.
+      expect(
+        _shelf('Babar Dairy', owing: true),
+        isNot(_shelf('Babar Dairy', owing: false)),
+      );
+    });
+
+    test('and one spelling still finds its own shelf', () {
+      expect(
+        _shelf('babar dairy', owing: true),
+        _shelf('Babar Dairy', owing: true),
+      );
     });
   });
 }

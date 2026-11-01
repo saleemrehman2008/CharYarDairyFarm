@@ -640,6 +640,29 @@ class _AccountsScreenState extends State<AccountsScreen> {
       names[key] = said;
     }
 
+    // One handful of money is one row here, and that row is a slice.
+    //
+    // [rowsBehindATake] keeps the earliest receipt of a handful and hides
+    // the rest, so the row standing in for Babar's 43,000 carries 1,600 —
+    // its own share, the first day the money happened to land on. Adding
+    // the rows up gave the name a total of 1,600 against a month that was
+    // paid in full, which is the page's whole job read wrong.
+    //
+    // So a take is counted whole, and the days it paid for are counted as
+    // what they are: entries, hidden under the payment but under this name
+    // all the same. A line that says "1 payment · 24 entries · Rs 43,000"
+    // is the one a man can check against his own book.
+    final ledger = context.read<FarmStore>().ledger;
+    final whole = <String, num>{};
+    final reached = <String, int>{};
+    for (final t in ledger) {
+      if (t.isDeleted || !t.isPartOfATake) continue;
+      whole[t.takeId!] = (whole[t.takeId!] ?? 0) + t.amount;
+    }
+    for (final entry in daysBehindTakes(ledger).entries) {
+      reached[entry.key] = entry.value.length;
+    }
+
     for (final list in held.values) {
       list.sort((a, b) => b.date.compareTo(a.date));
     }
@@ -650,26 +673,45 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final out = <Widget>[];
     for (final key in keys) {
       final mine = held[key]!;
-      final open = _openNames.contains(key);
+
+      // A name stands in both sections at once — Babar is owed 67,600 and
+      // settled 43,000 — and the two lines are not the same line. Keyed on
+      // the name alone, opening one opened the other, and the days under a
+      // paid total came out mixed with the days still owing.
+      final shelf = '${owing ? 'open' : 'done'}|$key';
+      final open = _openNames.contains(shelf);
 
       // What this name comes to. Still owed is what is left on it; done
-      // with is what moved, which way counting for something.
-      final total = owing
-          ? mine.fold<num>(0, (a, t) => a + t.outstanding)
-          : mine.fold<num>(
-              0,
-              (a, t) => a + (t.type.isIncoming ? t.amount : -t.amount),
-            );
+      // with is what moved, which way counting for something — and a
+      // handful of money moves all of itself, not the slice standing for
+      // it on the page.
+      var total = 0 as num;
+      var entries = 0;
+      var payments = 0;
+      for (final t in mine) {
+        final take = t.isPartOfATake ? t.takeId : null;
+        if (take != null) {
+          payments++;
+          entries += reached[take] ?? 0;
+        } else {
+          entries++;
+        }
+        final amount = take == null ? t.amount : whole[take] ?? t.amount;
+        total += owing ? t.outstanding : (t.type.isIncoming ? amount : -amount);
+      }
 
       out.add(
         _NameRow(
           name: names[key]!,
-          count: mine.length,
+          note: payments == 0
+              ? _count(l, entries)
+              : '${l.t2(payments == 1 ? '%s payment' : '%s payments', '$payments')}'
+                    ' · ${_count(l, entries)}',
           total: total,
           owing: owing,
           open: open,
           onTap: () => setState(() {
-            if (!_openNames.remove(key)) _openNames.add(key);
+            if (!_openNames.remove(shelf)) _openNames.add(shelf);
           }),
         ),
       );
@@ -2914,10 +2956,13 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
 ///
 /// The line the farm opens the page to read: who it is square with and who
 /// it is not. The days behind it open underneath when this is pressed.
+/// "1 entry", "24 entries" — said the way a man says it.
+String _count(L l, int n) => l.t2(n == 1 ? '%s entry' : '%s entries', '$n');
+
 class _NameRow extends StatelessWidget {
   const _NameRow({
     required this.name,
-    required this.count,
+    required this.note,
     required this.total,
     required this.owing,
     required this.open,
@@ -2925,7 +2970,11 @@ class _NameRow extends StatelessWidget {
   });
 
   final String name;
-  final int count;
+
+  /// What is under this name, counted: the entries, and the payments that
+  /// hold them if any.
+  final String note;
+
   final num total;
 
   /// Still owed, as against done with. It decides the colour and what the
@@ -2937,7 +2986,6 @@ class _NameRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = L.of(context);
     final tone = owing
         ? T.moneyDue
         : total < 0
@@ -2971,7 +3019,7 @@ class _NameRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 1),
-                  Text(l.t2('%s entries', count), style: T.meta),
+                  Text(note, style: T.meta),
                 ],
               ),
             ),

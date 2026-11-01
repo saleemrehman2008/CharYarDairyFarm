@@ -126,6 +126,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     _total.dispose();
     _note.dispose();
     _handledBy.dispose();
+    _advCut.dispose();
     super.dispose();
   }
 
@@ -159,12 +160,41 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   DateTime get _payEnd =>
       _spanTo ?? DateTime(_wageMonth.year, _wageMonth.month + 1, 0);
 
-  num _drawnBy(Employee who) => advanceTaken(
-    context.read<FarmStore>().ledger,
-    who: who.name,
-    from: _payStart,
-    to: _payEnd,
-  );
+  /// What he still owes against advances already drawn — all of them, not
+  /// only this month's. An advance is a debt until it is recovered; see
+  /// [advanceOwed].
+  num _owesBy(Employee who) =>
+      advanceOwed(context.read<FarmStore>().ledger, who: who.name);
+
+  /// How much of that debt this wage is taking off, as typed.
+  ///
+  /// Never more than the wage can carry: above that it is a figure and not
+  /// a deduction, and the part it could not reach has to stay owed.
+  num _cutFor(Employee who) {
+    final said = num.tryParse(_advCut.text.trim()) ?? 0;
+    if (said <= 0) return 0;
+    final wage = who.payForWindow(
+      from: _payStart,
+      to: _payEnd,
+      daysOff: _daysOff,
+    );
+    return said > wage ? wage : said;
+  }
+
+  /// What the saved wage says it recovered.
+  ///
+  /// Held to what he actually owes as well as to what the wage can carry,
+  /// so a slip of the thumb cannot record the farm recovering money that
+  /// was never advanced.
+  num get _cutSaved {
+    final who = _crew
+        .where((e) => partyKey(e.name) == partyKey(_party.text.trim()))
+        .firstOrNull;
+    if (who == null) return 0;
+    final owed = _owesBy(who);
+    final said = _cutFor(who);
+    return said > owed ? owed : said;
+  }
 
   bool _wageDone(Employee who) => wagePaidIn(
     context.read<FarmStore>().ledger,
@@ -181,7 +211,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     from: _payStart,
     to: _payEnd,
     daysOff: daysOff,
-    drawn: _drawnBy(who),
+    drawn: _cutFor(who),
     wagePaidAlready: _wageDone(who),
   );
 
@@ -210,6 +240,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// The one thing about a wage that changes month to month, and the one
   /// thing the farm was working out on the back of a receipt every time.
   int _daysOff = 0;
+
+  /// How much of his standing advance this wage takes off.
+  ///
+  /// Offered in full when the man is picked and then theirs to change. The
+  /// farm asked for exactly this — "16k advance di hy, user choose kar sake
+  /// ke is month kitni deduction ho, baqi next month carry forward" — and
+  /// it is also the only way an advance larger than one month's wage can be
+  /// recovered at all.
+  final _advCut = TextEditingController();
 
   /// Something the farm keeps. Off the list when it was picked off the list,
   /// and off what was said at the time when it was written out.
@@ -466,6 +505,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         // other.
         date: _when,
         receipt: _receipt,
+        // What this wage took off his advance. Written on every wage, zero
+        // and all, because what is not recorded as recovered is what the
+        // next wage will offer to recover — see [advanceOwed].
+        advanceCut: _category == salariesCategory ? _cutSaved : null,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -565,13 +608,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               onMonth: (_) {},
               onSpan: (_, _) {},
               advance: true,
-              drawnAlready: (who) => advanceTaken(
-                context.read<FarmStore>().ledger,
-                who: who.name,
-                from: DateTime(_when.year, _when.month, 1),
-                to: DateTime(_when.year, _when.month + 1, 0),
-              ),
-              onPicked: (who, _) => setState(() => _party.text = who.name),
+              owesAdvance: _owesBy,
+              onPicked: (who, _, _) => setState(() => _party.text = who.name),
               onDaysOff: (_, _, _) {},
             ),
           ],
@@ -602,15 +640,25 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 });
                 _fromTotal();
               },
-              drawnAlready: _drawnBy,
+              owesAdvance: _owesBy,
               alreadyPaid: _wageDone,
+              cut: num.tryParse(_advCut.text.trim()) ?? 0,
+              cutBox: _advCut,
+              // Typed by hand. The card has already held it to what the
+              // wage can carry; the box keeps what was typed so a man
+              // correcting a digit is not fought with.
+              onCut: (who, _, toHand) {
+                setState(() => _total.text = '${toHand.round()}');
+                _fromTotal();
+              },
               // The card works the figure out and hands it over. Doing
               // the same sum again here is how a farm comes to see one
               // number on the card and save another in the box.
-              onPicked: (who, toHand) {
+              onPicked: (who, toHand, cut) {
                 setState(() {
                   _party.text = who.name;
                   _daysOff = 0;
+                  _advCut.text = cut > 0 ? '${cut.round()}' : '';
                   _total.text = '${toHand.round()}';
                 });
                 _fromTotal();

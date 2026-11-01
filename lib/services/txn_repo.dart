@@ -86,6 +86,10 @@ class TxnRepo {
     /// One handful of money, spread over the entries it reached. See
     /// [Txn.takeId].
     String? takeId,
+
+    /// How much of a man's standing advance this wage recovered. See
+    /// [Txn.advanceCut].
+    num? advanceCut,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
     DateTime? date,
@@ -122,6 +126,11 @@ class TxnRepo {
       'settlesTxnId': ?settlesTxnId,
       'pairId': ?pairId,
       'takeId': ?takeId,
+      // Always written on a wage, zero included: a wage that says it took
+      // nothing off is the farm's record that the advance is still owed,
+      // and a wage that says nothing at all is read as one of the old ones
+      // that swallowed its whole month. See [advanceOwed].
+      'advanceCut': ?advanceCut,
       // Whether the money moved as this row was written. Cash reads this
       // rather than the paid flag, so an entry settled months later is
       // counted on the day it was actually settled.

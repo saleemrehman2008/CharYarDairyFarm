@@ -638,6 +638,7 @@ class Txn {
     this.settlesTxnId,
     this.pairId,
     this.takeId,
+    this.advanceCut,
     this.capital,
     this.shift,
     this.edits = const [],
@@ -756,6 +757,22 @@ class Txn {
   final String? takeId;
 
   bool get isPartOfATake => (takeId ?? '').isNotEmpty;
+
+  /// How much of a man's outstanding advance this wage took off.
+  ///
+  /// An advance used to come off the wage of the month it was drawn in,
+  /// all of it, with nothing said and no choice about it. Sixteen thousand
+  /// drawn against a twenty-four thousand wage left a man eight thousand
+  /// for the month, which is not what the farm agreed with him — and an
+  /// advance it could not take off in one month had nowhere to go: the
+  /// next month's window did not reach back to it, so the rest simply
+  /// vanished off the books in the farm's favour.
+  ///
+  /// So the wage says what it recovered, and what it did not recover is
+  /// still owed. Null on an entry written before this was asked for; those
+  /// took the whole of their own month's advances, which is what
+  /// [advanceOwed] assumes of them.
+  final num? advanceCut;
 
   /// Named apart from `type.isSettlement`, which asks a different question:
   /// whether this is a receipt or payment at all.
@@ -994,6 +1011,7 @@ class Txn {
       settlesTxnId: m['settlesTxnId'] == null ? null : s(m['settlesTxnId']),
       pairId: m['pairId'] == null ? null : s(m['pairId']),
       takeId: m['takeId'] == null ? null : s(m['takeId']),
+      advanceCut: m['advanceCut'] == null ? null : n(m['advanceCut']),
       capital: m['capital'] == null ? null : b(m['capital']),
       shift: MilkShift.parse(m['shift']),
       edits: TxnEdit.listFrom(m['edits']),

@@ -709,6 +709,68 @@ num advanceTaken(
       .fold<num>(0, (a, t) => a + t.amount);
 }
 
+/// What a man still owes the farm against advances he has drawn.
+///
+/// An advance was money against a particular month, and it came off that
+/// month's wage in one piece whether or not there was a wage left to take
+/// it out of. Sixteen thousand against a twenty-four thousand wage handed
+/// a man eight thousand to live on for a month, and an advance bigger than
+/// the wage was worse than that: the next month's window did not reach
+/// back to it, so whatever could not be recovered simply fell off the
+/// books — in the farm's favour, against a man who had already spent it.
+///
+/// So an advance is a debt and stays one until it is recovered. Each wage
+/// says how much of it it took — [Txn.advanceCut] — and what is left here
+/// is what the next wage will be offered.
+///
+/// [ignoring] is the entry being corrected, left out so that editing a
+/// wage sees the debt as it stood before that wage was written.
+num advanceOwed(List<Txn> ledger, {required String who, String? ignoring}) {
+  final key = partyKey(who);
+  var drawn = 0 as num;
+  var back = 0 as num;
+
+  for (final t in ledger) {
+    if (t.isDeleted || t.id == ignoring) continue;
+    if (partyKey(t.party) != key) continue;
+    if (t.category == salaryAdvanceCategory) {
+      drawn += t.amount;
+    } else if (t.category == salariesCategory) {
+      back += t.advanceCut ?? _tookItsOwnMonth(ledger, t);
+    }
+  }
+
+  final left = drawn - back;
+  return left <= 0 ? 0 : left;
+}
+
+/// What a wage written before any of this took off, which was all of its
+/// own month's advances and nothing else.
+///
+/// The month is guessed the way the form guessed it — paying in the first
+/// days of a month means the month just gone — because that is the window
+/// the figure was worked out against.
+///
+/// And it stops at the day the wage was paid. An advance drawn on the 25th
+/// was not taken off a wage handed over on the 20th; the window reached
+/// over it because a window is a month, and the man would have had the
+/// money taken off him by a payment made before he asked for it. Where
+/// this guess is wrong it is wrong in the direction that shows: an advance
+/// read as still owed appears on the next wage, where somebody can see it
+/// and set it to nothing.
+num _tookItsOwnMonth(List<Txn> ledger, Txn wage) {
+  final start = wage.date.day <= 10
+      ? DateTime(wage.date.year, wage.date.month - 1, 1)
+      : DateTime(wage.date.year, wage.date.month, 1);
+  final monthEnd = DateTime(start.year, start.month + 1, 0);
+  return advanceTaken(
+    ledger,
+    who: wage.party,
+    from: start,
+    to: wage.date.isBefore(monthEnd) ? wage.date : monthEnd,
+  );
+}
+
 /// Whether his wage for that month has already been paid.
 ///
 /// Once it has, the advance has come off it and must not come off again —

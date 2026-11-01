@@ -33,8 +33,11 @@ class SalaryPicker extends StatelessWidget {
     required this.onPicked,
     required this.onDaysOff,
     this.advance = false,
-    this.drawnAlready,
+    this.owesAdvance,
     this.alreadyPaid,
+    this.cut = 0,
+    this.cutBox,
+    this.onCut,
   });
 
   /// Handing out part of a wage before the month is out, rather than paying
@@ -72,15 +75,31 @@ class SalaryPicker extends StatelessWidget {
   final DateTime? spanTo;
   final void Function(DateTime? from, DateTime? to) onSpan;
 
-  /// Picked, with what the card says is left to hand him.
-  final void Function(Employee who, num toHand) onPicked;
+  /// Picked, with what the card says is left to hand him and how much of
+  /// his advance that figure has taken off.
+  final void Function(Employee who, num toHand, num cut) onPicked;
 
   /// Days off changed, with the figure that leaves.
   final void Function(Employee who, int days, num toHand) onDaysOff;
 
-  /// What he has already drawn against this month, which the wage takes off
-  /// by itself. Handed in by the screen, which has the ledger.
-  final num Function(Employee who)? drawnAlready;
+  /// What he still owes against advances already drawn. Handed in by the
+  /// screen, which has the ledger.
+  final num Function(Employee who)? owesAdvance;
+
+  /// How much of that debt is coming off this wage.
+  ///
+  /// It used to be all of it, with no say in the matter: sixteen thousand
+  /// off a twenty-four thousand wage left a man eight thousand for the
+  /// month. The farm settles up with a man — so the figure is offered in
+  /// full and then it is theirs, and what is not taken stays owed.
+  final num cut;
+
+  /// The box that figure is typed into, owned by the form so what is typed
+  /// and what is saved are one thing.
+  final TextEditingController? cutBox;
+
+  /// Changed by hand, with the figure that leaves.
+  final void Function(Employee who, num cut, num toHand)? onCut;
 
   /// Whether his wage for this month has already been paid, in which case
   /// the advance has come off it and must not come off again.
@@ -103,14 +122,32 @@ class SalaryPicker extends StatelessWidget {
   /// farm and again on the form to fill the box — from the same functions
   /// over the same window, which agreed today and is exactly the shape of
   /// every figure this app has ever given two answers to.
-  num _toHand(Employee who, {required int daysOff}) => wageToHand(
-    who: who,
-    from: _monthStart,
-    to: _monthEnd,
-    daysOff: daysOff,
-    drawn: drawnAlready?.call(who) ?? 0,
-    wagePaidAlready: alreadyPaid?.call(who) ?? false,
-  );
+  num _toHand(Employee who, {required int daysOff, required num cut}) =>
+      wageToHand(
+        who: who,
+        from: _monthStart,
+        to: _monthEnd,
+        daysOff: daysOff,
+        drawn: cut,
+        wagePaidAlready: alreadyPaid?.call(who) ?? false,
+      );
+
+  /// What the farm would take off if nobody said otherwise: the whole of
+  /// what he owes, or the whole of the wage, whichever runs out first.
+  ///
+  /// Taking more than the wage is not a deduction, it is a figure that
+  /// cannot be paid — the wage stops at nothing owing and the rest of the
+  /// advance stays on his name.
+  num _wouldTake(Employee who, {required int daysOff}) {
+    final owed = owesAdvance?.call(who) ?? 0;
+    if (owed <= 0 || (alreadyPaid?.call(who) ?? false)) return 0;
+    final wage = who.payForWindow(
+      from: _monthStart,
+      to: _monthEnd,
+      daysOff: daysOff,
+    );
+    return owed < wage ? owed : wage;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,9 +204,8 @@ class SalaryPicker extends StatelessWidget {
         // by itself, which is the whole point — the farm has always said yes
         // to an advance and then had to remember, so whether it was deducted
         // depended on who was doing the paying at month end.
-        final drawn = who == null ? 0 : (drawnAlready?.call(who) ?? 0);
+        final owed = who == null ? 0 : (owesAdvance?.call(who) ?? 0);
         final settled = who != null && (alreadyPaid?.call(who) ?? false);
-        final comesOff = settled ? 0 : drawn;
         final wage = who == null
             ? 0
             : who.payForWindow(
@@ -177,7 +213,20 @@ class SalaryPicker extends StatelessWidget {
                 to: _monthEnd,
                 daysOff: daysOff,
               );
-        final toHand = who == null ? 0 : _toHand(who, daysOff: daysOff);
+        // Never more than the wage can carry. Anything above it is not a
+        // deduction, only a figure — and the part it could not reach is
+        // still owed, which is the whole point of counting it this way.
+        final comesOff = settled
+            ? 0
+            : cut < 0
+            ? 0
+            : cut > wage
+            ? wage
+            : cut;
+        final carried = owed - comesOff;
+        final toHand = who == null
+            ? 0
+            : _toHand(who, daysOff: daysOff, cut: comesOff);
 
         return RegCard(
           stripe: T.accent600,
@@ -269,7 +318,12 @@ class SalaryPicker extends StatelessWidget {
                     _Who(
                       who: e,
                       on: who?.id == e.id,
-                      onTap: () => onPicked(e, _toHand(e, daysOff: 0)),
+                      onTap: () {
+                        // Offered in full the moment he is picked, so the
+                        // common case — take the lot — needs nothing typed.
+                        final take = _wouldTake(e, daysOff: 0);
+                        onPicked(e, _toHand(e, daysOff: 0, cut: take), take);
+                      },
                     ),
                 ],
               ),
@@ -277,10 +331,10 @@ class SalaryPicker extends StatelessWidget {
               if (who != null && advance) ...[
                 const SizedBox(height: 10),
                 Text(
-                  drawn > 0
-                      ? 'He is on ${rs(who.monthly)} a month and has already '
-                            'taken ${rs(drawn)} against it. Whatever goes out '
-                            'now comes off the same wage.'
+                  owed > 0
+                      ? 'He is on ${rs(who.monthly)} a month and still owes '
+                            '${rs(owed)} against earlier advances. Whatever '
+                            'goes out now is added to that.'
                       : 'He is on ${rs(who.monthly)} a month. Whatever goes '
                             'out now comes off that wage at the end of the '
                             'month, by itself — nobody has to remember.',
@@ -361,7 +415,8 @@ class SalaryPicker extends StatelessWidget {
                 const SizedBox(height: 8),
                 _Days(
                   days: daysOff,
-                  onPick: (d) => onDaysOff(who, d, _toHand(who, daysOff: d)),
+                  onPick: (d) =>
+                      onDaysOff(who, d, _toHand(who, daysOff: d, cut: cut)),
                 ),
 
                 if (daysOff > 0) ...[
@@ -382,29 +437,75 @@ class SalaryPicker extends StatelessWidget {
                   ),
                 ],
 
-                if (comesOff > 0) ...[
-                  const SizedBox(height: 7),
+                // The advance, and how much of it this wage is taking.
+                //
+                // It came off whole, every rupee of it, the month it was
+                // drawn — a man who took sixteen thousand against a wage of
+                // twenty-four was handed eight thousand to live on and had
+                // not agreed to that. So the figure is offered in full and
+                // then it is theirs to set, and what they leave stays on
+                // his name for the next wage to find.
+                if (owed > 0 && !settled) ...[
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          'Advance already taken this month',
-                          style: T.meta.copyWith(color: T.moneyDue),
+                          'Advance he still owes',
+                          style: T.bodyMid.copyWith(color: T.moneyDue),
                         ),
                       ),
                       Text(
-                        '− ${rs(comesOff)}',
+                        rs(owed),
                         style: T.bodyMid.copyWith(color: T.moneyDue),
                       ),
                     ],
                   ),
+                  if (cutBox != null) ...[
+                    const SizedBox(height: 8),
+                    Field(
+                      label: 'Coming off this wage',
+                      controller: cutBox!,
+                      keyboardType: TextInputType.number,
+                      prefix: 'Rs ',
+                      onChanged: (v) {
+                        final said = num.tryParse(v.trim()) ?? 0;
+                        final take = said < 0
+                            ? 0
+                            : said > wage
+                            ? wage
+                            : said;
+                        onCut?.call(
+                          who,
+                          take,
+                          _toHand(who, daysOff: daysOff, cut: take),
+                        );
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Text(
+                    carried <= 0
+                        ? 'That clears his advance.'
+                        : cut > wage
+                        ? 'This month cannot carry more than ${rs(wage)}. '
+                              '${rs(carried)} stays on his advance and comes '
+                              'off a later wage.'
+                        : '${rs(carried)} stays on his advance and comes off '
+                              'a later wage. Nothing is lost by leaving it.',
+                    style: T.meta.copyWith(
+                      color: carried > 0 ? T.moneyDue : null,
+                    ),
+                  ),
                 ],
-                if (settled && drawn > 0) ...[
+                if (settled && owed > 0) ...[
                   const SizedBox(height: 7),
                   Text(
-                    'His wage for this month is already on the books, so the '
-                    '${rs(drawn)} advance has come off it once. It is not '
-                    'taken off again here.',
+                    'His wage for this month is already on the books. The '
+                    '${rs(owed)} he still owes is not taken off again here — '
+                    'it comes off the next wage.',
                     style: T.meta.copyWith(color: T.moneyDue),
                   ),
                 ],
@@ -439,14 +540,9 @@ class SalaryPicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  toHand < 0
-                      ? 'He has drawn ${rs(-toHand)} more than this month '
-                            'comes to. Nothing is owed to him now, and that '
-                            'much is still to come off next month — put it '
-                            'in by hand when you pay it.'
-                      : 'Filled in above and still yours to change. The farm '
-                            'settles up with a man, not with a sum.',
-                  style: T.meta.copyWith(color: toHand < 0 ? T.moneyDue : null),
+                  'Filled in above and still yours to change. The farm '
+                  'settles up with a man, not with a sum.',
+                  style: T.meta,
                 ),
               ],
             ],
