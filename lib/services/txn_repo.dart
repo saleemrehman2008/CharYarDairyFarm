@@ -549,6 +549,24 @@ class TxnRepo {
           'already settled against this entry.',
         );
       }
+
+      // Nor below what the co-founders have between them put into it.
+      //
+      // [ContributionRepo.setSplit] refuses a split bigger than the entry,
+      // and then the entry could be shrunk underneath one. A purchase of
+      // 10,000 paid half by Jalbani and half by Rafeeq, corrected to
+      // 3,000, left the two of them credited with 10,000 of their own
+      // money put into a 3,000 load of feed — so the farm owed them 7,000
+      // that never left anybody's pocket, and every profit share after
+      // that was worked out on it.
+      final putIn = await _splitAgainst(txn.id);
+      if (putIn > amount) {
+        throw StateError(
+          'Rs ${amount.round()} is less than the Rs ${putIn.round()} the '
+          'co-founders have put into this entry. Change who paid for it '
+          'first, then the amount.',
+        );
+      }
       // What was actually received does not change because the entry's
       // figure was corrected. `paidSoFar` is money that came in and is
       // vouched for by a receipt; the correction says the milk was worth
@@ -1105,6 +1123,25 @@ class TxnRepo {
   ///     loss again when he did not pay.
   ///
   /// So every one of them moves it now, in whichever direction it went.
+  /// What the co-founders have put into one entry out of their own pockets.
+  ///
+  /// Read from the books rather than passed in, because the one place that
+  /// must not get this wrong is the correction itself: a screen can hand
+  /// over a stale figure and the refusal would let the entry through.
+  static Future<num> _splitAgainst(String entryId) async {
+    try {
+      final q = await Db.contributions.where('txnId', isEqualTo: entryId).get();
+      return q.docs
+          .map(Contribution.fromDoc)
+          .where((c) => !c.isDeleted)
+          .fold<num>(0, (a, c) => a + c.amount);
+    } catch (_) {
+      // Unreadable. Nothing is refused on a figure that could not be read —
+      // a correction blocked by a dropped connection is its own trouble.
+      return 0;
+    }
+  }
+
   static Future<void> _moveKhaata(Txn txn, num by) async {
     final customerId = txn.customerId;
     if (by == 0 || customerId == null || customerId.isEmpty) return;

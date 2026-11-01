@@ -183,6 +183,32 @@ class PartnerRepo {
         'That record holds money. Only an empty one can be removed.',
       );
     }
+    // His lines go with him.
+    //
+    // The two figures were read out of two different places: the farm's
+    // capital off the co-founder records, and what the farm owes its
+    // co-founders off their contribution lines. Deleting the record took
+    // his capital out of the books and left every line he had pointing at
+    // a man who was no longer there — so the farm went on owing money it
+    // had just written off owing, every split he had paid for showed with
+    // no name against it, and the two halves of the balance disagreed by
+    // exactly what he had put in.
+    //
+    // Marked deleted rather than destroyed, so what was there is still
+    // readable beside the log line that says who took it off.
+    try {
+      final his = await Db.contributions
+          .where('partnerId', isEqualTo: partner.id)
+          .get();
+      for (final doc in his.docs) {
+        if (Contribution.fromDoc(doc).isDeleted) continue;
+        await doc.reference.update({'deletedAt': FieldValue.serverTimestamp()});
+      }
+    } catch (_) {
+      // Better a record removed with its lines left behind than a record
+      // half removed. The log line below names every figure either way.
+    }
+
     await Db.partners.doc(partner.id).delete();
 
     // The user document points at this record so the rules can tell whose

@@ -414,10 +414,24 @@ service cloud.firestore {
       // A new entry may be dated back inside the period it is booked into —
       // the milk nobody wrote down on Tuesday — and no further. Reaching
       // past that is the master's, the same as moving an existing entry.
-      allow create: if (isPartner()
-            && (isMaster() || datedInside(request.resource.data.monthId)))
-        || (isDelivery()
-            && request.resource.data.type in ['sale', 'receipt']);
+      // And never into a period that has been sealed, for anybody.
+      //
+      // Which period an entry is booked into is decided by the phone, from
+      // a copy of the open period it keeps in step over a stream. Two
+      // phones, and one of them seals the period: until the other's stream
+      // catches up it goes on stamping entries with the period just
+      // closed — whose figures are frozen and already out with four
+      // co-founders. The entry would be counted by nobody, and the month
+      // somebody was paid out of would quietly stop adding up.
+      //
+      // The server knows which period is open without having to be told.
+      // A period nobody has written a document for yet counts as open, so
+      // the farm's first entry of a month is never refused.
+      allow create: if openPeriod(request.resource.data.monthId)
+        && ((isPartner()
+              && (isMaster() || datedInside(request.resource.data.monthId)))
+            || (isDelivery()
+                && request.resource.data.type in ['sale', 'receipt']));
 
       // Correcting an entry.
       //

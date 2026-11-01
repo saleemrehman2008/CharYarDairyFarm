@@ -74,6 +74,8 @@ class Animal {
     required this.species,
     required this.sex,
     required this.status,
+    this.writeOffTxnId,
+    this.saleTxnId,
     required this.photoUrl,
     required this.thumb,
     required this.dailyLitres,
@@ -101,6 +103,18 @@ class Animal {
   final Species species;
   final Sex sex;
   final AnimalStatus status;
+
+  /// The entry that took her off the books when she died or was sold, and
+  /// the entry that booked the sale — each by its own id.
+  ///
+  /// Written down because putting her back has to find them again, and the
+  /// only thing it had to go on was her name. A name is not an identity:
+  /// the write-off carries the name she had the day she died, and she can
+  /// be renamed or re-tagged afterwards. Either one and the write-off is
+  /// never found, so the farm goes on carrying the loss of an animal
+  /// standing in its own shed.
+  final String? writeOffTxnId;
+  final String? saleTxnId;
 
   /// A Storage link, from before pictures moved into the record itself.
   final String photoUrl;
@@ -210,6 +224,8 @@ class Animal {
       species: Species.parse(m['species']),
       sex: Sex.parse(m['sex']),
       status: AnimalStatus.parse(m['status']),
+      writeOffTxnId: m['writeOffTxnId'] == null ? null : s(m['writeOffTxnId']),
+      saleTxnId: m['saleTxnId'] == null ? null : s(m['saleTxnId']),
       photoUrl: s(m['photoUrl']),
       thumb: s(m['thumb']),
       dailyLitres: n(m['dailyLitres']),

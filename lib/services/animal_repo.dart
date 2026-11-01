@@ -40,6 +40,31 @@ num cattleAssigned(List<Animal> animals, String txnId) => animals
     .where((a) => a.purchaseTxnId == txnId)
     .fold<num>(0, (a, animal) => a + animal.price);
 
+/// The same question asked of the register itself rather than of whatever
+/// this phone has loaded.
+///
+/// Null when it cannot be asked — a missing entry, or a read that failed.
+/// Nothing is refused on a figure that could not be read.
+Future<num?> _roomLeftOn(String txnId, {required Animal except}) async {
+  try {
+    final doc = await Db.transactions.doc(txnId).get();
+    if (!doc.exists) return null;
+    final entry = Txn.fromDoc(doc);
+    if (entry.isDeleted) return null;
+    final others = await Db.animals
+        .where('purchaseTxnId', isEqualTo: txnId)
+        .get();
+    final taken = others.docs
+        .map(Animal.fromDoc)
+        .where((a) => a.id != except.id)
+        .fold<num>(0, (a, animal) => a + animal.price);
+    final left = entry.amount - taken;
+    return left > 0 ? left : 0;
+  } catch (_) {
+    return null;
+  }
+}
+
 num cattleLeftOn(Txn entry, List<Animal> animals, {Animal? except}) {
   final taken = animals
       .where((a) => a.purchaseTxnId == entry.id && a.id != except?.id)
@@ -336,6 +361,40 @@ class AnimalRepo {
       changes.add('$what ${_said(was)} to ${_said(now)}');
     }
 
+    // What she cost, and the two things that figure is already holding up.
+    //
+    // Both rules were on the correction screen and nowhere else, which is
+    // to say they were on whoever happened to be typing. They belong here,
+    // where everything that moves this figure has to pass.
+    if (price != null && price != animal.price) {
+      // She is off the books already, at what she cost. The loss is in a
+      // period's figures — possibly a settled one that four people have
+      // been paid out of — and changing the register now would leave the
+      // books saying one thing and her page another, for ever.
+      if (animal.status != AnimalStatus.onFarm) {
+        throw StateError(
+          'She is already off the books at ${rs(animal.price)}. Put her '
+          'back on the farm first, or correct the entry under Accounts.',
+        );
+      }
+
+      // Her price is a share of one entry, and the shares on an entry
+      // cannot come to more than the entry. Four cows on one payment of
+      // 400,000 and one of them raised to 350,000 would have the farm
+      // owning 650,000 of cattle it paid 400,000 for. Her own share is
+      // left out of the sum, or raising it is measured against itself.
+      final tiedTo = animal.purchaseTxnId;
+      if (price > 0 && tiedTo != null && tiedTo.isNotEmpty) {
+        final room = await _roomLeftOn(tiedTo, except: animal);
+        if (room != null && price > room) {
+          throw StateError(
+            'Only ${rs(room)} is left on that entry. Correct the entry '
+            'under Accounts if the whole price was wrong.',
+          );
+        }
+      }
+    }
+
     moved('Name', animal.name, name?.trim(), 'name');
     moved('Note', animal.note, note?.trim(), 'note');
     moved('Price', animal.price, price, 'price');
@@ -539,8 +598,9 @@ class AnimalRepo {
     //
     // Nothing is written for an animal born here. She cost nothing to come
     // by, so there is nothing to give up.
+    String? writeOffId;
     if (animal.price > 0) {
-      await TxnRepo.add(
+      writeOffId = await TxnRepo.add(
         actor: actor,
         monthId: MonthRepo.bookingId,
         type: TxnType.expense,
@@ -560,6 +620,9 @@ class AnimalRepo {
       'dailyLitres': 0,
       'nextDueOn': null,
       'nextDueWhat': null,
+      // Which rows this wrote, so putting her back can find exactly them.
+      'writeOffTxnId': writeOffId,
+      'saleTxnId': txnId,
     });
 
     await _writeEvent(
@@ -599,17 +662,34 @@ class AnimalRepo {
       'status': AnimalStatus.onFarm.name,
     });
 
-    try {
-      final written = await Db.transactions
-          .where('category', isEqualTo: writeOffCategory)
-          .where('party', isEqualTo: animal.label)
-          .get();
-      for (final doc in written.docs) {
-        if (Txn.fromDoc(doc).isDeleted) continue;
-        await doc.reference.update({'deletedAt': FieldValue.serverTimestamp()});
+    // Exactly the rows this animal's own status change wrote, by their
+    // ids. They were found by her name before, and a name is not an
+    // identity: the write-off carries the name she had the day she died,
+    // and the register lets anybody rename her or give her a new tag
+    // afterwards. Either one and the match found nothing, so the farm
+    // went on carrying the loss of an animal standing in its own shed,
+    // with no sign anywhere that it had.
+    //
+    // An animal written off before her ids were kept has none to find. The
+    // write-off stays and the master takes it off by hand, which is better
+    // than a guess that can take the wrong one.
+    for (final id in [animal.writeOffTxnId, animal.saleTxnId]) {
+      if (id == null || id.isEmpty) continue;
+      try {
+        await Db.transactions.doc(id).update({
+          'deletedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (_) {
+        // Already gone, or not ours to touch.
       }
+    }
+    try {
+      await Db.animals.doc(animal.id).update({
+        'writeOffTxnId': null,
+        'saleTxnId': null,
+      });
     } catch (_) {
-      // Worst case the write-off stays and the master deletes it by hand.
+      // The status is what matters; the ids are only a trail.
     }
     await Log.write(
       actor,

@@ -102,6 +102,47 @@ class BillRepo {
 
     if (!billed) return null;
 
+    // The milk reaches the farm's own books here, and until now it never
+    // did. The daily round writes a delivery and the bill writes a balance,
+    // and between the two the ledger was never told a thing — so a month's
+    // khaata milk was not in what the farm had earned, not in what it was
+    // owed, and not in what it was worth. It appeared, all at once and as
+    // income of its own, on the day somebody paid.
+    //
+    // One sale for what this statement adds, unpaid, against the customer.
+    // That puts the debt on the ledger where every other debt lives, which
+    // is also what lets a payment settle it instead of landing loose.
+    //
+    // Outside the transaction above, because an entry cannot be written
+    // inside one. If this fails the bill still stands and the money is
+    // still caught — a payment with no entry to land on comes in as a
+    // receipt of its own. See [takePayment].
+    if (thisMonth > 0) {
+      try {
+        await TxnRepo.add(
+          actor: actor,
+          monthId: MonthRepo.bookingId,
+          type: TxnType.sale,
+          party: account.name,
+          customerId: account.uid,
+          category: milkCategory,
+          amount: thisMonth,
+          paid: false,
+          qty: litres,
+          unit: 'litre',
+          rate: litres > 0 ? thisMonth / litres : null,
+          note:
+              'Khaata bill ${monthShort(monthId)}'
+              '${topUp ? ' (added)' : ''}',
+          date: DateTime.now(),
+        );
+      } catch (_) {
+        // The bill is raised and the customer owes it. The ledger entry is
+        // the farm's copy, and a payment finds its way on to the books
+        // either way.
+      }
+    }
+
     await Log.write(
       actor,
       LogKind.udhaar,
@@ -222,8 +263,20 @@ class BillRepo {
 
   /// Takes money against a bill — in full or in part.
   ///
-  /// Books a receipt so the payment lands in the farm's cash, drops the
-  /// customer's running balance, and records what is still owing.
+  /// The money has to land on the entries it is paying for, and for a long
+  /// while it did not. This posted one receipt tied to nothing, which the
+  /// books read as income of its own — so a khaata order, which books a
+  /// sale the day the milk goes out, earned the farm its money twice: once
+  /// as the sale and again as this receipt. The sale stayed unpaid for
+  /// ever besides, so the farm went on being owed money it had already
+  /// been handed.
+  ///
+  /// So what the customer owes on the ledger is settled first, oldest
+  /// first, exactly as the Accounts page settles it — one handful of money
+  /// across the days it reaches. Only what is left over comes in as a
+  /// receipt of its own, because the daily round books no sale when the
+  /// milk goes out: for that milk this receipt is the only record of the
+  /// money, and it has to stay one.
   static Future<void> takePayment(
     Actor actor, {
     required Bill bill,
@@ -240,26 +293,51 @@ class BillRepo {
       if (settles) 'settledAt': Timestamp.fromDate(now),
     }, SetOptions(merge: true));
 
-    await Db.udhaarAccounts.doc(bill.customerId).set({
-      'balance': FieldValue.increment(-amount),
-    }, SetOptions(merge: true));
+    var left = amount;
 
-    await TxnRepo.add(
-      actor: actor,
-      monthId: MonthRepo.bookingId,
-      type: TxnType.receipt,
-      party: bill.customerName,
-      customerId: bill.customerId,
-      category: khaataReceiptCategory,
-      amount: amount,
-      paid: true,
-      note:
-          'Khaata bill ${monthShort(bill.monthId)}'
-          '${settles ? '' : ' (part payment)'}',
-      payVia: payVia,
-      handledBy: handledBy,
-      date: now,
-    );
+    // Entries this customer has on the books and has not paid for. Settled
+    // through the same door as everything else, so each one is marked off,
+    // the receipts are tied to what they settle, and the khaata balance is
+    // moved by the settling rather than by hand here.
+    final owing = await _owedOnTheLedgerBy(bill.customerId);
+    if (owing.isNotEmpty) {
+      final against = owing.fold<num>(0, (a, t) => a + t.outstanding);
+      final put = left < against ? left : against;
+      if (put > 0) {
+        await TxnRepo.settle(
+          actor,
+          owing,
+          amount: put,
+          payVia: payVia,
+          handledBy: handledBy,
+          on: now,
+        );
+        left -= put;
+      }
+    }
+
+    if (left > 0) {
+      await Db.udhaarAccounts.doc(bill.customerId).set({
+        'balance': FieldValue.increment(-left),
+      }, SetOptions(merge: true));
+
+      await TxnRepo.add(
+        actor: actor,
+        monthId: MonthRepo.bookingId,
+        type: TxnType.receipt,
+        party: bill.customerName,
+        customerId: bill.customerId,
+        category: khaataReceiptCategory,
+        amount: left,
+        paid: true,
+        note:
+            'Khaata bill ${monthShort(bill.monthId)}'
+            '${settles ? '' : ' (part payment)'}',
+        payVia: payVia,
+        handledBy: handledBy,
+        date: now,
+      );
+    }
 
     await Log.write(
       actor,
@@ -270,5 +348,36 @@ class BillRepo {
       refType: 'bill',
       refId: bill.id,
     );
+  }
+
+  /// What one customer still owes on the ledger, oldest first.
+  ///
+  /// Asked on `customerId` alone and sifted here rather than asked on both
+  /// fields: one equality is a query every Firestore project already has
+  /// an index for, and a khaata customer's entries are a handful. A bill
+  /// that cannot be paid because an index is missing is worse than a
+  /// query that reads a few rows it does not need.
+  static Future<List<Txn>> _owedOnTheLedgerBy(String customerId) async {
+    if (customerId.isEmpty) return const [];
+    try {
+      final q = await Db.transactions
+          .where('customerId', isEqualTo: customerId)
+          .get();
+      final mine =
+          q.docs
+              .map(Txn.fromDoc)
+              .where(
+                (t) =>
+                    !t.isDeleted && t.type == TxnType.sale && t.outstanding > 0,
+              )
+              .toList()
+            ..sort((a, b) => a.date.compareTo(b.date));
+      return mine;
+    } catch (_) {
+      // Unreadable is not the same as nothing owed, but a payment that
+      // cannot be taken helps nobody. The leftover path still records the
+      // money, which is the part the farm cannot afford to lose.
+      return const [];
+    }
   }
 }
