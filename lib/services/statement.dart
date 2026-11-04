@@ -373,6 +373,16 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
   final key = partyKey(party);
   num owesUs = 0, weOwe = 0;
   for (final t in ledger) {
+    // An entry taken off the books is owed by nobody.
+    //
+    // Everything else that reads a ledger says this, [buildStatement]
+    // included, and this one did not. It happens to be handed a list the
+    // store has already sifted, so nothing on screen was ever wrong —
+    // but a figure that is only right because of where it is called from
+    // is a figure waiting for its second caller. The card at the head of
+    // a man's account would have said he owed money for an entry the
+    // page under it no longer showed.
+    if (t.isDeleted) continue;
     if (partyKey(t.party) != key) continue;
     if (t.isReceivable) owesUs += t.outstanding;
     if (t.isPayable) weOwe += t.outstanding;

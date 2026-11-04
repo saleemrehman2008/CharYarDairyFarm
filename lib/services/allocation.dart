@@ -36,7 +36,15 @@ class Landed {
 List<Landed> allocate(List<Txn> entries, num amount) {
   if (amount <= 0) return const [];
 
-  final owing = entries.where((t) => t.outstanding > 0).toList()
+  // An entry taken off the books is owed by nobody, so no money lands on
+  // it. Both callers today hand over a list the store has already sifted,
+  // so nothing has ever landed wrong — but this is the rule the whole
+  // ledger turns on, and a rule that is only true because of where it is
+  // called from is not a rule. A payment landing on a deleted sale would
+  // mark that sale settled and leave the live one still owing, with the
+  // cash on the books either way: the farm chasing money it had been
+  // handed, which is the exact shape of what cost it six sales.
+  final owing = entries.where((t) => !t.isDeleted && t.outstanding > 0).toList()
     ..sort((a, b) {
       final byDate = a.date.compareTo(b.date);
       return byDate != 0 ? byDate : a.createdAt.compareTo(b.createdAt);

@@ -53,6 +53,8 @@ class Farm {
     required bool paid,
     num? litres,
     String? settles,
+    String? take,
+    num? advanceCut,
     bool? capital,
     MilkShift? shift,
   }) {
@@ -74,6 +76,8 @@ class Farm {
       paidAt: paid ? on : null,
       note: '',
       settlesTxnId: settles,
+      takeId: take,
+      advanceCut: advanceCut,
       paidOnCreate: paid,
       createdBy: 'u0',
       createdByName: 'Saleem Rehman',
@@ -86,8 +90,20 @@ class Farm {
   /// Replaces an entry in place, which is what a Firestore update comes back
   /// as once the stream redelivers it.
   void _replace(Txn old, Txn fresh) {
-    ledger[ledger.indexOf(old)] = fresh;
+    // Found by id, not by being the same object. A row that has already
+    // been moved once is a different object with the same id, and the app
+    // never holds a row any other way — it writes to a document id and
+    // the stream hands back whatever is there now. Matching on the object
+    // made the harness refuse a second change to one entry, which is not
+    // a rule the farm has.
+    final at = ledger.indexWhere((t) => t.id == old.id);
+    if (at < 0) return;
+    ledger[at] = fresh;
   }
+
+  /// The row with this id as it stands now, or null if it has gone.
+  Txn? live(String id) =>
+      ledger.where((t) => t.id == id && !t.isDeleted).firstOrNull;
 
   /// An entry corrected after the fact — what the master would be doing
   /// with an edit button.
@@ -348,6 +364,265 @@ class Farm {
     category: securityBackCategory,
     amount: amount,
     paid: true,
+  );
+
+  // ---- a wage, and the advance standing against it ----
+
+  /// Part of a wage handed over before the month is out.
+  void wageAdvance({
+    required DateTime on,
+    required String to,
+    required num amount,
+  }) => _write(
+    on: on,
+    type: TxnType.expense,
+    party: to,
+    category: salaryAdvanceCategory,
+    amount: amount,
+    paid: true,
+  );
+
+  /// Payday. Takes off as much of his standing advance as the farm says,
+  /// held to what he owes and what the wage can carry, and hands over the
+  /// rest — which is what the card and the form both do, through the same
+  /// two functions they use.
+  ({num took, num handed}) payWage({
+    required DateTime on,
+    required Employee who,
+    required DateTime from,
+    required DateTime to,
+    required num asked,
+    int daysOff = 0,
+  }) {
+    final wage = who.payForWindow(from: from, to: to, daysOff: daysOff);
+    final took = advanceComingOff(
+      asked: asked,
+      owed: advanceOwed(ledger, who: who.name),
+      wage: wage,
+    );
+    final handed = wageToHand(
+      who: who,
+      from: from,
+      to: to,
+      daysOff: daysOff,
+      drawn: took,
+    );
+    _write(
+      on: on,
+      type: TxnType.expense,
+      party: who.name,
+      category: salariesCategory,
+      amount: handed,
+      paid: true,
+      advanceCut: took,
+    );
+    return (took: took, handed: handed);
+  }
+
+  // ---- one handful of money across the days it reaches ----
+
+  /// What the farm actually does when a customer hands over a month at
+  /// once: one payment, spread over the entries it reaches, every slice
+  /// stamped with the same handful so the ledger can draw it as one thing
+  /// and take it back off as one thing.
+  ///
+  /// Returns the handful's id.
+  String takeInOneGo({
+    required DateTime on,
+    required String party,
+    required num amount,
+  }) {
+    final theirs = ledger
+        .where(
+          (t) =>
+              partyKey(t.party) == partyKey(party) &&
+              !t.isDeleted &&
+              t.outstanding > 0 &&
+              t.isReceivable,
+        )
+        .toList();
+    final landings = allocate(theirs, amount);
+    final handful = 'take${_seq++}';
+
+    for (final landing in landings) {
+      final txn = landing.entry;
+      _replace(
+        txn,
+        Txn(
+          id: txn.id,
+          date: txn.date,
+          monthId: txn.monthId,
+          type: txn.type,
+          party: txn.party,
+          category: txn.category,
+          qty: txn.qty,
+          unit: txn.unit,
+          rate: txn.rate,
+          amount: txn.amount,
+          paid: landing.finishes,
+          paidSoFar: landing.paidAfter,
+          paidAt: landing.finishes ? on : null,
+          note: txn.note,
+          paidOnCreate: false,
+          createdBy: txn.createdBy,
+          createdByName: txn.createdByName,
+          createdAt: txn.createdAt,
+        ),
+      );
+      _write(
+        on: on,
+        type: TxnType.receipt,
+        party: txn.party,
+        category: khaataReceiptCategory,
+        amount: landing.take,
+        paid: true,
+        settles: txn.id,
+        take: handful,
+      );
+    }
+    return handful;
+  }
+
+  // ---- taking an entry off the books, and putting it back ----
+
+  /// Marks an entry deleted and unwinds what it had done, the way
+  /// `TxnRepo.softDelete` does: the rows it settled go back to owing, and
+  /// the rest of its handful goes down with it.
+  List<String> takeOff(Txn entry, {required DateTime on}) {
+    final going = <String>[entry.id];
+
+    // The rest of the handful this belongs to. One payment went out
+    // together and it comes off together — the farm took one off a row
+    // at a time, could not get back to where it started, and deleted six
+    // real sales trying.
+    if (entry.isPartOfATake) {
+      for (final t in _live) {
+        if (t.takeId == entry.takeId && !going.contains(t.id)) {
+          going.add(t.id);
+        }
+      }
+    }
+
+    // And whatever settled any of them. A receipt carries the money it
+    // put onto the entry it was paying; leaving it live would have the
+    // farm holding cash against a sale that is no longer on the books.
+    for (final id in [...going]) {
+      for (final t in _live) {
+        if (t.settlesTxnId == id && !going.contains(t.id)) going.add(t.id);
+      }
+    }
+
+    // Each one gives back what it put on, then goes.
+    for (final id in going) {
+      final row = live(id);
+      if (row == null || row.settlesTxnId == null) continue;
+      final paid = live(row.settlesTxnId!);
+      if (paid == null) continue;
+      _replace(paid, _withPaid(paid, paid.paidSoFar - row.amount));
+    }
+    for (final id in going) {
+      final row = live(id);
+      if (row != null) _replace(row, _asDeleted(row, on));
+    }
+    return going;
+  }
+
+  /// And back on again, every figure where it was.
+  void putBack(List<String> ids, {required DateTime on}) {
+    for (final id in ids) {
+      final row = ledger.where((t) => t.id == id).firstOrNull;
+      if (row == null || !row.isDeleted) continue;
+      _replace(row, _asLive(row));
+    }
+    for (final id in ids) {
+      final row = live(id);
+      if (row == null || row.settlesTxnId == null) continue;
+      final paid = live(row.settlesTxnId!);
+      if (paid == null) continue;
+      _replace(paid, _withPaid(paid, paid.paidSoFar + row.amount));
+    }
+  }
+
+  Txn _withPaid(Txn t, num paid) {
+    final held = paid < 0 ? 0 as num : (paid > t.amount ? t.amount : paid);
+    return Txn(
+      id: t.id,
+      date: t.date,
+      monthId: t.monthId,
+      type: t.type,
+      party: t.party,
+      category: t.category,
+      qty: t.qty,
+      unit: t.unit,
+      rate: t.rate,
+      amount: t.amount,
+      capital: t.capital,
+      shift: t.shift,
+      paid: held >= t.amount,
+      paidSoFar: held,
+      paidAt: held >= t.amount ? t.paidAt ?? t.date : null,
+      note: t.note,
+      settlesTxnId: t.settlesTxnId,
+      takeId: t.takeId,
+      advanceCut: t.advanceCut,
+      paidOnCreate: t.paidOnCreate,
+      createdBy: t.createdBy,
+      createdByName: t.createdByName,
+      createdAt: t.createdAt,
+    );
+  }
+
+  Txn _asDeleted(Txn t, DateTime on) => Txn(
+    id: t.id,
+    date: t.date,
+    monthId: t.monthId,
+    type: t.type,
+    party: t.party,
+    category: t.category,
+    qty: t.qty,
+    unit: t.unit,
+    rate: t.rate,
+    amount: t.amount,
+    capital: t.capital,
+    shift: t.shift,
+    paid: t.paid,
+    paidSoFar: t.paidSoFar,
+    paidAt: t.paidAt,
+    note: t.note,
+    settlesTxnId: t.settlesTxnId,
+    takeId: t.takeId,
+    advanceCut: t.advanceCut,
+    paidOnCreate: t.paidOnCreate,
+    createdBy: t.createdBy,
+    createdByName: t.createdByName,
+    createdAt: t.createdAt,
+    deletedAt: on,
+  );
+
+  Txn _asLive(Txn t) => Txn(
+    id: t.id,
+    date: t.date,
+    monthId: t.monthId,
+    type: t.type,
+    party: t.party,
+    category: t.category,
+    qty: t.qty,
+    unit: t.unit,
+    rate: t.rate,
+    amount: t.amount,
+    capital: t.capital,
+    shift: t.shift,
+    paid: t.paid,
+    paidSoFar: t.paidSoFar,
+    paidAt: t.paidAt,
+    note: t.note,
+    settlesTxnId: t.settlesTxnId,
+    takeId: t.takeId,
+    advanceCut: t.advanceCut,
+    paidOnCreate: t.paidOnCreate,
+    createdBy: t.createdBy,
+    createdByName: t.createdByName,
+    createdAt: t.createdAt,
   );
 
   /// One lump of money against everything this party still owes, or is owed.
@@ -641,7 +916,86 @@ void audit(Farm farm, String when) {
   ).closing;
   expect(cashBook, b.cash, reason: '$when — the cash book is not the cash');
 
-  // 6. An advance is never income and never a cost.
+  // 6. A handful of money is worth what its slices are worth, and every
+  //    slice is tied to what it settled.
+  //
+  //    This is the one the ledger page reads to draw a payment as one
+  //    line. A slice that lost its tie would read as income of its own, on
+  //    top of the sale it was paying for — the same rupees earned twice.
+  final handfuls = <String, List<Txn>>{};
+  for (final t in farm.ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    handfuls.putIfAbsent(t.takeId!, () => []).add(t);
+  }
+  for (final slices in handfuls.values) {
+    for (final slice in slices) {
+      expect(
+        slice.settlesAnotherEntry,
+        isTrue,
+        reason: '$when — a slice of a payment settles nothing',
+      );
+      expect(
+        slice.isLooseReceipt,
+        isFalse,
+        reason: '$when — a slice of a payment reads as income of its own',
+      );
+    }
+    final whole = theTake(farm.ledger, slices.first.takeId!);
+    expect(
+      whole.amount,
+      slices.fold<num>(0, (a, t) => a + t.amount),
+      reason: '$when — a payment is not what its slices come to',
+    );
+    // And the page draws exactly one of them.
+    final hidden = rowsBehindATake(farm.ledger);
+    expect(
+      slices.where((t) => !hidden.contains(t.id)).length,
+      1,
+      reason: '$when — a payment is drawn more than once, or not at all',
+    );
+  }
+
+  // 7. Every rupee advanced against a wage is either recovered or still
+  //    owed — never both, and never neither.
+  //
+  //    The one that goes wrong quietly over months: an advance that could
+  //    not come off this month's wage used to fall off the books in the
+  //    farm's favour, and nothing anywhere said so.
+  final crew = farm.ledger
+      .where((t) => t.category == salaryAdvanceCategory && !t.isDeleted)
+      .map((t) => partyKey(t.party))
+      .toSet();
+  for (final man in crew) {
+    final name = farm.ledger.firstWhere((t) => partyKey(t.party) == man).party;
+    final advanced = farm.ledger
+        .where(
+          (t) =>
+              !t.isDeleted &&
+              t.category == salaryAdvanceCategory &&
+              partyKey(t.party) == man,
+        )
+        .fold<num>(0, (a, t) => a + t.amount);
+    final recovered = farm.ledger
+        .where(
+          (t) =>
+              !t.isDeleted &&
+              t.category == salariesCategory &&
+              partyKey(t.party) == man,
+        )
+        .fold<num>(0, (a, t) => a + (t.advanceCut ?? 0));
+    expect(
+      recovered + advanceOwed(farm.ledger, who: name),
+      advanced,
+      reason: '$when — $name: advanced $advanced, recovered $recovered',
+    );
+    expect(
+      advanceOwed(farm.ledger, who: name),
+      greaterThanOrEqualTo(0),
+      reason: '$when — $name is owed money against an advance',
+    );
+  }
+
+  // 8. An advance is never income and never a cost.
   final advanceIn = farm.ledger
       .where((t) => t.isSecurityIn)
       .fold<num>(0, (a, t) => a + t.amount);
