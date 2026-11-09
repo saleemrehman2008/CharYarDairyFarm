@@ -36,25 +36,51 @@ class PartnerRepo {
   /// co-founder signs in and the app opens them a fresh empty record while
   /// their capital sits on the old one under nobody. Correcting it is how
   /// that is undone, so it has to be correctable.
+  /// [alsoKnownAs] is every other way he has been written down on real
+  /// entries. Nothing in the books is touched by setting it: the rows keep
+  /// the names they were saved with, and the man carries those names so
+  /// that every figure about him finds all of them. The farm's own case
+  /// was Munawar, whose record says "Munawar Ali" while three lakh
+  /// eighty-five of the farm's money went through his hands on entries
+  /// that say "Munawar Soomro".
   static Future<void> rename(
     Actor actor,
     Partner partner, {
     required String name,
     required String email,
+    List<String>? alsoKnownAs,
   }) async {
     final to = name.trim();
     final mail = email.trim().toLowerCase();
     if (to.isEmpty) throw StateError('A record needs a name.');
-    if (to == partner.name && mail == partner.email.trim().toLowerCase()) {
-      return;
+
+    // His own name is not one of his other names, and nor is a repeat.
+    final others = <String>[];
+    for (final said in alsoKnownAs ?? partner.alsoKnownAs) {
+      final other = said.trim();
+      if (other.isEmpty || partyKey(other) == partyKey(to)) continue;
+      if (others.any((o) => partyKey(o) == partyKey(other))) continue;
+      others.add(other);
     }
-    await Db.partners.doc(partner.id).update({'name': to, 'email': mail});
+
+    final same =
+        to == partner.name &&
+        mail == partner.email.trim().toLowerCase() &&
+        others.join('|') == partner.alsoKnownAs.join('|');
+    if (same) return;
+
+    await Db.partners.doc(partner.id).update({
+      'name': to,
+      'email': mail,
+      'alsoKnownAs': others,
+    });
     await Log.write(
       actor,
       LogKind.investment,
       'changed the co-founder record "${partner.name}"'
       '${partner.email.isEmpty ? '' : ' (${partner.email})'} to "$to"'
-      '${mail.isEmpty ? '' : ' ($mail)'}',
+      '${mail.isEmpty ? '' : ' ($mail)'}'
+      '${others.isEmpty ? '' : ', also written as ${others.join(', ')}'}',
       refType: 'partner',
       refId: partner.id,
     );

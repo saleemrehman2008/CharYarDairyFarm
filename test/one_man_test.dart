@@ -210,4 +210,99 @@ void main() {
       expect(_held(led, 'Munawar Ali'), isNull);
     });
   });
+
+  group('a name the master says is also him', () {
+    /// Munawar's own case. His record is "Munawar Ali"; 3,85,675 of the
+    /// farm's money went through his hands on entries that say "Munawar
+    /// Soomro", and 48,100 on entries that say "Munawar Ali". His
+    /// capital already counted both, because contributions hang off his
+    /// record — only the card that reads the name on each row split him.
+    final led = [
+      _in(48100, handledBy: 'Munawar Ali'),
+      _out(48100, handledBy: 'Munawar Ali'),
+      _in(385675, handledBy: 'Munawar Soomro'),
+      _out(385675, handledBy: 'Munawar Soomro'),
+      _in(51600, handledBy: 'Farm account'),
+    ];
+
+    /// Before the master says anything: two rows, as the farm saw it.
+    final apart = [FarmPerson(uid: 'u-munawar', name: 'Munawar Ali')];
+
+    /// After: the one name added to his record travels with him.
+    final together = [
+      FarmPerson(
+        uid: 'u-munawar',
+        name: 'Munawar Ali',
+        alsoKnownAs: const ['Munawar Soomro'],
+      ),
+    ];
+
+    test('without it he stands in two places', () {
+      final hands = cashInHands(led, founders: apart);
+      expect(hands.where((h) => h.who.startsWith('Munawar')), hasLength(2));
+    });
+
+    test('with it he is one line, under his own name', () {
+      final hands = cashInHands(led, founders: together);
+      final his = hands.where((h) => h.who.startsWith('Munawar')).toList();
+      expect(his, hasLength(1));
+      expect(his.first.who, 'Munawar Ali');
+    });
+
+    test('and his two sides add up', () {
+      final his = cashInHands(
+        led,
+        founders: together,
+      ).firstWhere((h) => h.who == 'Munawar Ali');
+      expect(his.received, 433775);
+      expect(his.paid, 433775);
+      expect(his.holding, 0);
+    });
+
+    test('the total does not move — which is the whole point', () {
+      // The farm's instruction, in its own words: the values go onto
+      // Munawar Ali and the total must not change. Nothing in the books
+      // is touched to do it, so nothing in the books can move.
+      num held(List<FarmPerson> crew) => cashInHands(
+        led,
+        founders: crew,
+      ).fold<num>(0, (a, h) => a + h.holding);
+
+      expect(held(apart), held(together));
+      expect(held(together), 51600);
+    });
+
+    test('and every rupee that went through hands is still counted once', () {
+      num through(List<FarmPerson> crew) => cashInHands(
+        led,
+        founders: crew,
+      ).fold<num>(0, (a, h) => a + h.received + h.paid);
+
+      expect(through(apart), through(together));
+    });
+
+    test('one row fewer, and nobody else is touched', () {
+      expect(
+        cashInHands(led, founders: together).length,
+        cashInHands(led, founders: apart).length - 1,
+      );
+      expect(
+        cashInHands(
+          led,
+          founders: together,
+        ).firstWhere((h) => h.who == 'Farm account').holding,
+        51600,
+      );
+    });
+
+    test('a stranger is not swept in with him', () {
+      final withAStranger = [
+        ...led,
+        _in(9000, handledBy: 'Munawar Utero Booh'),
+      ];
+      final hands = cashInHands(withAStranger, founders: together);
+      expect(hands.where((h) => h.who.startsWith('Munawar')), hasLength(2));
+      expect(hands.firstWhere((h) => h.who == 'Munawar Ali').received, 433775);
+    });
+  });
 }

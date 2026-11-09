@@ -25,11 +25,27 @@ class Partner {
     this.pledged = 0,
     this.keepsCash = false,
     this.takingsSettled = 0,
+    this.alsoKnownAs = const [],
   });
 
   final String id;
   final String userId;
   final String name;
+
+  /// Other ways this man has been written down on real entries.
+  ///
+  /// The farm's own case: Munawar's record is "Munawar Ali" and three
+  /// lakh eighty-five of the farm's money passed through his hands on
+  /// entries that say "Munawar Soomro". His capital already counted both
+  /// — contributions hang off his record — but the card that says who is
+  /// holding what reads the name written on each entry, so one man stood
+  /// in two places.
+  ///
+  /// The entries are not rewritten. A month of real rows corrected in
+  /// bulk to fix a label is how a total goes wrong, and the total here is
+  /// right. The man carries the names instead, and everything that asks a
+  /// question about him knows all of them. See [isHim].
+  final List<String> alsoKnownAs;
 
   /// The account this record belongs to, shown under the name.
   ///
@@ -161,6 +177,10 @@ class Partner {
       createdAt: dtOr(m['createdAt']),
       keepsCash: m['keepsCash'] == true,
       takingsSettled: n(m['takingsSettled']),
+      alsoKnownAs: ((m['alsoKnownAs'] as List?) ?? const [])
+          .map((e) => s(e).trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     );
   }
 }

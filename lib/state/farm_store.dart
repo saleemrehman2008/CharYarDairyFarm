@@ -1140,6 +1140,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
       if (name.isEmpty || shutOut.contains(p.userId)) continue;
       final key = whoIs(partnerId: p.id, name: name);
       alsoCalled(key, name);
+      // And every name the master has said is also him.
+      for (final other in p.alsoKnownAs) {
+        alsoCalled(key, other);
+      }
       byKey[key] = FarmPerson(
         uid: p.userId.isNotEmpty ? p.userId : p.id,
         name: name,

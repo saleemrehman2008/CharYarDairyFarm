@@ -561,6 +561,7 @@ class _PartnerCardState extends State<_PartnerCard> {
     final p = widget.partner;
     final name = TextEditingController(text: p.name);
     final mail = TextEditingController(text: p.email);
+    final also = TextEditingController(text: p.alsoKnownAs.join(', '));
 
     final ok = await showDialog<bool>(
       context: context,
@@ -587,6 +588,21 @@ class _PartnerCardState extends State<_PartnerCard> {
               'app opens them an empty one instead.',
               style: T.meta,
             ),
+            const SizedBox(height: T.gap),
+            Field(
+              label: 'Also written as',
+              controller: also,
+              hint: 'Munawar Soomro, M. Ali',
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Only for a name that is already on entries. Nothing in the '
+              'books changes — the rows keep what they were saved with — '
+              'but every figure about this person will count those rows as '
+              'his instead of showing him twice. Separate names with a '
+              'comma.',
+              style: T.meta,
+            ),
           ],
         ),
         actions: [
@@ -604,8 +620,14 @@ class _PartnerCardState extends State<_PartnerCard> {
 
     final to = name.text.trim();
     final toMail = mail.text.trim();
+    final others = also.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     name.dispose();
     mail.dispose();
+    also.dispose();
     if (ok != true || !mounted) return;
     if (to.isEmpty) {
       toast(context, 'A record needs a name.');
@@ -619,6 +641,7 @@ class _PartnerCardState extends State<_PartnerCard> {
         p,
         name: to,
         email: toMail,
+        alsoKnownAs: others,
       );
       if (mounted) toast(context, 'Saved');
     } catch (e) {
