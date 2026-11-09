@@ -309,16 +309,41 @@ List<HandsOn> cashInHands(
   /// balance and does not go onto the receiver's — in between it is in
   /// neither pair of hands, which is where it actually is.
   List<CashTransfer> moving = const [],
+
+  /// The farm's own people, each with the spellings he has been written
+  /// under. A co-founder is known by his record and never by the letters
+  /// on a row: his capital record and his sign-in can spell him two ways,
+  /// and the card showed one man standing in two places because of it.
+  ///
+  /// It cuts the other way too, which is the half that matters more: a
+  /// customer or a supplier whose name happens to match a co-founder's is
+  /// not that co-founder, and only the fields that mean "one of us" are
+  /// put through this at all.
+  List<FarmPerson> founders = const [],
 }) {
   final received = <String, num>{};
   final paid = <String, num>{};
   final rows = <String, int>{};
   final spellings = <String, Map<String, int>>{};
 
+  /// What to file a written name under: the man's own id where the farm
+  /// knows him, and the name itself for everybody else.
+  String keyFor(String name) {
+    if (name.isEmpty) return '';
+    final mine = founderNamed(name, founders);
+    return mine == null ? partyKey(name) : 'uid:${mine.uid}';
+  }
+
+  /// And what to call him on screen, which for one of the farm's own is
+  /// the name on his record rather than whichever spelling a row carries.
+  final shownAs = <String, String>{
+    for (final p in founders) 'uid:${p.uid}': p.name,
+  };
+
   void note(String said, num amount, {required bool incoming}) {
     if (amount <= 0) return;
     final name = said.trim();
-    final key = name.isEmpty ? '' : partyKey(name);
+    final key = keyFor(name);
     (incoming ? received : paid).update(
       key,
       (v) => v + amount,
@@ -396,7 +421,7 @@ List<HandsOn> cashInHands(
     final who = c.wasHandedOver ? c.receivedBy : c.partnerName;
     if (who.trim().isEmpty) continue;
 
-    final key = partyKey(who);
+    final key = keyFor(who.trim());
     received.update(key, (v) => v + c.amount, ifAbsent: () => c.amount);
     rows.update(key, (v) => v + 1, ifAbsent: () => 1);
     spellings
@@ -410,8 +435,8 @@ List<HandsOn> cashInHands(
   final waiting = <String, String>{};
   for (final t in moving) {
     if (!t.isWaiting) continue;
-    waiting.putIfAbsent(partyKey(t.from), () => t.from);
-    waiting.putIfAbsent(partyKey(t.to), () => t.to);
+    waiting.putIfAbsent(keyFor(t.from.trim()), () => t.from);
+    waiting.putIfAbsent(keyFor(t.to.trim()), () => t.to);
   }
 
   final out = [
@@ -419,7 +444,12 @@ List<HandsOn> cashInHands(
       HandsOn(
         who: key.isEmpty
             ? unnamed
-            : _mostWritten(spellings[key]) ?? waiting[key] ?? key,
+            // One of the farm's own is shown under the name on his
+            // record, whatever a row happens to spell him.
+            : shownAs[key] ??
+                  _mostWritten(spellings[key]) ??
+                  waiting[key] ??
+                  key,
         received: received[key] ?? 0,
         paid: paid[key] ?? 0,
         rows: rows[key] ?? 0,
@@ -1529,13 +1559,22 @@ num securitiesOutIn(List<Txn> rows) =>
 /// comes off the deposit: a shop with fifty thousand on deposit and a
 /// seven-thousand-six-hundred milk bill showed forty-two thousand four
 /// hundred of deposit, which is a figure from nowhere.
-num _heldBy(Txn t) => t.isSecurityIn
+/// A row taken off the books holds nothing and is owed nothing, the same
+/// as everywhere else. The store hands these a list it has already sifted,
+/// so no deposit has ever read wrong — but the comment above records what
+/// happens when one of these is handed a list nobody expected, and a rule
+/// that holds only for today's caller is the one that breaks tomorrow.
+num _heldBy(Txn t) => t.isDeleted
+    ? 0
+    : t.isSecurityIn
     ? t.amount
     : t.isSecurityBack
     ? -t.amount
     : 0;
 
-num _outWith(Txn t) => t.isSecurityOut
+num _outWith(Txn t) => t.isDeleted
+    ? 0
+    : t.isSecurityOut
     ? t.amount
     : t.isSecurityRefund
     ? -t.amount

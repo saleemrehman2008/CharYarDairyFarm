@@ -379,8 +379,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 ),
                 const SizedBox(height: 4),
                 _TotalStrip(
-                  count: open.length,
-                  total: open.fold<num>(0, (a, t) => a + t.outstanding),
+                  said: _comesTo(open, owing: true),
                   tone: _filter.tone,
                 ),
                 if (_canTick) ...[
@@ -406,11 +405,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 const SizedBox(height: 6),
                 ..._byName(done, periods, l, isMaster, const {}, owing: false),
                 const SizedBox(height: 4),
-                _TotalStrip(
-                  count: done.length,
-                  total: done.fold<num>(0, (a, t) => a + t.amount),
-                  tone: T.n600,
-                ),
+                _TotalStrip(said: _comesTo(done), tone: T.n600),
               ],
             ],
 
@@ -640,29 +635,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
       names[key] = said;
     }
 
-    // One handful of money is one row here, and that row is a slice.
-    //
-    // [rowsBehindATake] keeps the earliest receipt of a handful and hides
-    // the rest, so the row standing in for Babar's 43,000 carries 1,600 —
-    // its own share, the first day the money happened to land on. Adding
-    // the rows up gave the name a total of 1,600 against a month that was
-    // paid in full, which is the page's whole job read wrong.
-    //
-    // So a take is counted whole, and the days it paid for are counted as
-    // what they are: entries, hidden under the payment but under this name
-    // all the same. A line that says "1 payment · 24 entries · Rs 43,000"
-    // is the one a man can check against his own book.
-    final ledger = context.read<FarmStore>().ledger;
-    final whole = <String, num>{};
-    final reached = <String, int>{};
-    for (final t in ledger) {
-      if (t.isDeleted || !t.isPartOfATake) continue;
-      whole[t.takeId!] = (whole[t.takeId!] ?? 0) + t.amount;
-    }
-    for (final entry in daysBehindTakes(ledger).entries) {
-      reached[entry.key] = entry.value.length;
-    }
-
     for (final list in held.values) {
       list.sort((a, b) => b.date.compareTo(a.date));
     }
@@ -681,33 +653,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
       final shelf = '${owing ? 'open' : 'done'}|$key';
       final open = _openNames.contains(shelf);
 
-      // What this name comes to. Still owed is what is left on it; done
-      // with is what moved, which way counting for something — and a
-      // handful of money moves all of itself, not the slice standing for
-      // it on the page.
-      var total = 0 as num;
-      var entries = 0;
-      var payments = 0;
-      for (final t in mine) {
-        final take = t.isPartOfATake ? t.takeId : null;
-        if (take != null) {
-          payments++;
-          entries += reached[take] ?? 0;
-        } else {
-          entries++;
-        }
-        final amount = take == null ? t.amount : whole[take] ?? t.amount;
-        total += owing ? t.outstanding : (t.type.isIncoming ? amount : -amount);
-      }
+      // What this name comes to, by the same count as the heading and the
+      // strip at the foot. Still owed is what is left on it; done with is
+      // what moved, which way counting for something — and a handful of
+      // money moves all of itself, not the slice standing for it here.
+      final said = _comesTo(mine, owing: owing, signed: true);
 
       out.add(
         _NameRow(
           name: names[key]!,
-          note: payments == 0
-              ? _count(l, entries)
-              : '${l.t2(payments == 1 ? '%s payment' : '%s payments', '$payments')}'
-                    ' · ${_count(l, entries)}',
-          total: total,
+          note: _counted(l, said),
+          total: said.total,
           owing: owing,
           open: open,
           onTap: () => setState(() {
@@ -762,13 +718,67 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
   }
 
+  /// What a list of rows comes to, and how many things are under it,
+  /// counting one handful of money as the whole of itself.
+  ///
+  /// A payment that landed across a month reaches the page as one row —
+  /// [rowsBehindATake] hides the other slices — and that row carries its
+  /// own slice, not the payment. Adding the rows up gave Babar's 43,000 as
+  /// 1,600: the heading read "Money received Rs 10,200" over two lines
+  /// that came to 51,600, which is also what the Co-founders page said the
+  /// farm account had taken in. A page cannot disagree with itself about
+  /// money; that is the one thing it is for.
+  ///
+  /// Every figure on the page is worked out here — the heading, the strip
+  /// at the foot, and each name's line — so the three can only ever say
+  /// the same thing.
+  ({num total, int entries, int payments}) _comesTo(
+    List<Txn> rows, {
+    bool owing = false,
+    bool signed = false,
+  }) {
+    final ledger = context.read<FarmStore>().ledger;
+    final whole = <String, num>{};
+    for (final t in ledger) {
+      if (t.isDeleted || !t.isPartOfATake) continue;
+      whole[t.takeId!] = (whole[t.takeId!] ?? 0) + t.amount;
+    }
+    final reached = {
+      for (final e in daysBehindTakes(ledger).entries) e.key: e.value.length,
+    };
+
+    var total = 0 as num;
+    var entries = 0;
+    var payments = 0;
+    final counted = <String>{};
+
+    for (final t in rows) {
+      final take = t.isPartOfATake ? t.takeId! : null;
+      if (take != null) {
+        // One handful, once, however many of its slices are in the list.
+        if (!counted.add(take)) continue;
+        payments++;
+        entries += reached[take] ?? 1;
+      } else {
+        entries++;
+      }
+      if (owing) {
+        total += t.outstanding;
+        continue;
+      }
+      final amount = take == null ? t.amount : whole[take] ?? t.amount;
+      total += signed && !t.type.isIncoming ? -amount : amount;
+    }
+    return (total: total, entries: entries, payments: payments);
+  }
+
   /// The one figure above the list, matching whatever the filter is showing.
   num _total(Books books, List<Txn> rows) {
     // Narrowed to one name or one kind, the farm's own balances answer
     // nothing — what is on screen does. Only the unnarrowed view shows the
     // balance the rest of the app shows.
     if (_party != null || _category != null) {
-      return rows.fold<num>(0, (a, t) => a + t.amount);
+      return _comesTo(rows).total;
     }
     return switch (_filter) {
       // Balances, which belong to the farm rather than to a period.
@@ -776,7 +786,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       AccountsFilter.receivable => books.receivable,
       AccountsFilter.payable => books.payable,
       // Totals of what is actually on screen.
-      _ => rows.fold<num>(0, (a, t) => a + t.amount),
+      _ => _comesTo(rows).total,
     };
   }
 
@@ -1571,14 +1581,12 @@ class _PartyLine extends StatelessWidget {
 /// where you are when you have finished reading it — and because a total you
 /// have to scroll back up for is a total you will add up yourself instead.
 class _TotalStrip extends StatelessWidget {
-  const _TotalStrip({
-    required this.count,
-    required this.total,
-    required this.tone,
-  });
+  const _TotalStrip({required this.said, required this.tone});
 
-  final int count;
-  final num total;
+  /// Worked out by the page's one counting function, so the foot of the
+  /// list can never disagree with the lines above it or with the heading.
+  final ({num total, int entries, int payments}) said;
+
   final Color tone;
 
   @override
@@ -1595,11 +1603,11 @@ class _TotalStrip extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              l.t2('%s entries', count),
+              _counted(l, said),
               style: T.bodyMid.copyWith(color: tone),
             ),
           ),
-          Text(rs(total), style: T.num22.copyWith(color: tone)),
+          Text(rs(said.total), style: T.num22.copyWith(color: tone)),
         ],
       ),
     );
@@ -2958,6 +2966,18 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
 /// it is not. The days behind it open underneath when this is pressed.
 /// "1 entry", "24 entries" — said the way a man says it.
 String _count(L l, int n) => l.t2(n == 1 ? '%s entry' : '%s entries', '$n');
+
+/// What is under a line, in words: the entries, and the payments holding
+/// them where a handful of money is one of them.
+String _counted(L l, ({num total, int entries, int payments}) said) {
+  final entries = _count(l, said.entries);
+  if (said.payments == 0) return entries;
+  final paid = l.t2(
+    said.payments == 1 ? '%s payment' : '%s payments',
+    '${said.payments}',
+  );
+  return '$paid · $entries';
+}
 
 class _NameRow extends StatelessWidget {
   const _NameRow({

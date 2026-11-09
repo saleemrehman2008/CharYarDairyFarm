@@ -247,19 +247,76 @@ class FarmSettings {
 
 /// Somebody the app has to name without being able to read the users list.
 class FarmPerson {
-  const FarmPerson({required this.uid, required this.name});
+  const FarmPerson({
+    required this.uid,
+    required this.name,
+    this.alsoKnownAs = const [],
+  });
 
   final String uid;
   final String name;
 
-  Map<String, dynamic> toMap() => {'uid': uid, 'name': name};
+  /// Every other way this one man has been written down.
+  ///
+  /// A co-founder has two records — the capital record the master opened
+  /// for him and the user document his own sign-in made — and they can
+  /// carry different spellings. The master wrote "Munawar Soomro" into
+  /// the sheet; Google told the app his account was "Munawar Ali". Both
+  /// names are on entries now, and both are him.
+  ///
+  /// The entry form offers one name and the books are read by the id, but
+  /// what is already written down is a name, so the man has to carry the
+  /// names he has been written under or the old rows never find him.
+  final List<String> alsoKnownAs;
+
+  /// Whether this written name is this man, whichever way it was spelled.
+  bool answersTo(String said) {
+    final key = partyKey(said);
+    if (key.isEmpty) return false;
+    if (partyKey(name) == key) return true;
+    for (final other in alsoKnownAs) {
+      if (partyKey(other) == key) return true;
+    }
+    return false;
+  }
+
+  Map<String, dynamic> toMap() => {
+    'uid': uid,
+    'name': name,
+    if (alsoKnownAs.isNotEmpty) 'alsoKnownAs': alsoKnownAs,
+  };
 
   static List<FarmPerson> listFrom(Object? value) =>
       ((value as List?) ?? const [])
           .map((e) => (e as Map?)?.cast<String, dynamic>() ?? const {})
-          .map((m) => FarmPerson(uid: s(m['uid']), name: s(m['name'])))
+          .map(
+            (m) => FarmPerson(
+              uid: s(m['uid']),
+              name: s(m['name']),
+              alsoKnownAs: _strings(m['alsoKnownAs']),
+            ),
+          )
           .where((p) => p.uid.isNotEmpty)
           .toList();
+}
+
+/// Which co-founder a written name belongs to, or null for anybody else.
+///
+/// The farm's own people are known by their records, never by the letters
+/// somebody typed. That cuts both ways and the second way is the one that
+/// matters: a customer called Munawar, or a supplier whose name happens to
+/// match a co-founder's, is not a co-founder and none of his money is
+/// counted as passing through one of their hands.
+///
+/// Only the fields that mean "one of us" are ever put through this — who
+/// handled the cash, whose own money paid for an entry, who a transfer
+/// was between. Who the farm traded with is a different question and is
+/// never resolved against this list.
+FarmPerson? founderNamed(String said, List<FarmPerson> founders) {
+  for (final p in founders) {
+    if (p.answersTo(said)) return p;
+  }
+  return null;
 }
 
 /// Firestore arrays arrive loosely typed and sometimes with blanks in them.

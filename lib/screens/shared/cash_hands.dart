@@ -45,6 +45,7 @@ class CashHands extends StatelessWidget {
       // account strip and the co-founder cards all count it, because a man
       // who has handed money on is not holding it any more.
       moving: store.transfers,
+      founders: store.settings.founders,
     );
 
     if (hands.isEmpty) {
@@ -591,6 +592,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
         store.ledger,
         putIn: store.contributions,
         moving: store.transfers,
+        founders: store.settings.founders,
       ))
         partyKey(h.who): h,
     };

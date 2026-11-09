@@ -129,6 +129,52 @@ Txn _slice({
 String _shelf(String name, {required bool owing}) =>
     '${owing ? 'open' : 'done'}|${partyKey(name)}';
 
+/// What the page says a list comes to, by the one function that counts.
+///
+/// The heading, the strip at the foot and every name's line all read this.
+/// They did not: each added the rows up itself, and a handful of money
+/// reaches the page as one row carrying one slice. Babar's month paid in
+/// one go of 6,000 read as 1,600 at the top and 6,000 on his line, over a
+/// page whose whole job is to be checkable against a man's own book.
+({num total, int entries, int payments}) _comesTo(
+  List<Txn> rows,
+  List<Txn> ledger, {
+  bool owing = false,
+  bool signed = false,
+}) {
+  final whole = <String, num>{};
+  for (final t in ledger) {
+    if (t.isDeleted || !t.isPartOfATake) continue;
+    whole[t.takeId!] = (whole[t.takeId!] ?? 0) + t.amount;
+  }
+  final reached = {
+    for (final e in daysBehindTakes(ledger).entries) e.key: e.value.length,
+  };
+
+  var total = 0 as num;
+  var entries = 0;
+  var payments = 0;
+  final counted = <String>{};
+
+  for (final t in rows) {
+    final take = t.isPartOfATake ? t.takeId! : null;
+    if (take != null) {
+      if (!counted.add(take)) continue;
+      payments++;
+      entries += reached[take] ?? 1;
+    } else {
+      entries++;
+    }
+    if (owing) {
+      total += t.outstanding;
+      continue;
+    }
+    final amount = take == null ? t.amount : whole[take] ?? t.amount;
+    total += signed && !t.type.isIncoming ? -amount : amount;
+  }
+  return (total: total, entries: entries, payments: payments);
+}
+
 void main() {
   group('entries fall into names', () {
     test('one name gathers every entry of its own', () {
@@ -405,6 +451,111 @@ void main() {
         _shelf('babar dairy', owing: true),
         _shelf('Babar Dairy', owing: true),
       );
+    });
+  });
+
+  group('the page cannot disagree with itself', () {
+    /// Babar's month: three sales settled by one payment of 6,000, plus
+    /// four loose receipts from another shop. What the page is left
+    /// holding after [rowsBehindATake] hides the slices.
+    ({List<Txn> shown, List<Txn> ledger}) aPage() {
+      final sales = [
+        for (final (day, amount) in [(9, 1600), (10, 2000), (11, 2400)])
+          _txn(
+            type: TxnType.sale,
+            amount: amount,
+            day: day,
+            paidSoFar: amount,
+            paid: true,
+          ),
+      ];
+      final slices = [
+        for (final sale in sales)
+          _slice(takeId: 'T1', settles: sale.id, amount: sale.amount, day: 31),
+      ];
+      final urooj = [
+        for (var i = 0; i < 4; i++)
+          _txn(
+            type: TxnType.receipt,
+            amount: 2150,
+            party: 'Urooj Dairy Shop',
+            day: 12,
+            paidSoFar: 2150,
+            paid: true,
+          ),
+      ];
+      final ledger = [...sales, ...slices, ...urooj];
+      final hidden = rowsBehindATake(ledger);
+      final shown = [...slices.where((t) => !hidden.contains(t.id)), ...urooj];
+      return (shown: shown, ledger: ledger);
+    }
+
+    test('the heading counts a payment whole, not the slice on the page', () {
+      // The heading read 1,600 + 8,600 = 10,200 over lines that came to
+      // 6,000 + 8,600. This is that sum.
+      final page = aPage();
+      expect(_comesTo(page.shown, page.ledger).total, 14600);
+    });
+
+    test('and it is the sum of the lines under it', () {
+      final page = aPage();
+      final held = <String, List<Txn>>{};
+      for (final t in page.shown) {
+        held.putIfAbsent(partyKey(t.party), () => []).add(t);
+      }
+      final lines = held.values
+          .map((mine) => _comesTo(mine, page.ledger, signed: true).total)
+          .fold<num>(0, (a, v) => a + v);
+      expect(lines, _comesTo(page.shown, page.ledger).total);
+    });
+
+    test('and the entries it says are the entries the lines say', () {
+      final page = aPage();
+      final held = <String, List<Txn>>{};
+      for (final t in page.shown) {
+        held.putIfAbsent(partyKey(t.party), () => []).add(t);
+      }
+      final lines = held.values
+          .map((mine) => _comesTo(mine, page.ledger).entries)
+          .fold<int>(0, (a, v) => a + v);
+      expect(lines, _comesTo(page.shown, page.ledger).entries);
+      expect(lines, 7, reason: 'three days of Babar and four of Urooj');
+    });
+
+    test('one payment is counted once, however many slices reach it', () {
+      // The page hides the others, but nothing may double count if one
+      // ever does not get hidden.
+      final page = aPage();
+      final everySlice = page.ledger.where((t) => t.isPartOfATake).toList();
+      final said = _comesTo(everySlice, page.ledger);
+      expect(said.total, 6000);
+      expect(said.payments, 1);
+      expect(said.entries, 3);
+    });
+
+    test('still owed counts what is left, not what a payment was for', () {
+      final owed = [
+        _txn(type: TxnType.sale, amount: 2000, day: 20),
+        _txn(type: TxnType.sale, amount: 2000, paidSoFar: 1200, day: 19),
+      ];
+      expect(_comesTo(owed, owed, owing: true).total, 2800);
+      expect(_comesTo(owed, owed, owing: true).entries, 2);
+    });
+
+    test('and money out reads the other way on a line', () {
+      final mine = [
+        _txn(
+          type: TxnType.purchase,
+          amount: 5800,
+          party: 'Khalid Kutar',
+          day: 30,
+          paid: true,
+          paidSoFar: 5800,
+        ),
+      ];
+      expect(_comesTo(mine, mine, signed: true).total, -5800);
+      // The heading adds up what is on the page, which is not a direction.
+      expect(_comesTo(mine, mine).total, 5800);
     });
   });
 }

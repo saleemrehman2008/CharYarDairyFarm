@@ -664,6 +664,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
       _ledger,
       putIn: _contributions,
       moving: _transfers,
+      founders: _settings.founders,
     )) {
       if (names.containsKey(partyKey(h.who))) continue;
       if (partyKey(h.who) == partyKey(farmAccountName)) continue;
@@ -678,13 +679,21 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// co-founder's own card and the list of who is holding what can never
   /// disagree — they did, and the farm spotted it on the first screen.
   HandsOn? handsOf(String name) {
-    final key = partyKey(name);
+    // Asked by whichever name the caller has, answered for the man.
+    // A co-founder's own card asks with the name on his record; a row in
+    // the books may carry another spelling of him, and both are him.
+    final mine = founderNamed(name, _settings.founders);
     for (final h in cashInHands(
       _ledger,
       putIn: _contributions,
       moving: _transfers,
+      founders: _settings.founders,
     )) {
-      if (partyKey(h.who) == key) return h;
+      if (mine != null
+          ? mine.answersTo(h.who)
+          : partyKey(h.who) == partyKey(name)) {
+        return h;
+      }
     }
     return null;
   }
@@ -1036,7 +1045,36 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
     // One row per man, under the spelling the farm uses for him, so nobody
     // is on the list twice.
+    //
+    // Keyed on who he is, not on how his name is written. A man has two
+    // records — the capital record the master opened for him, and the user
+    // document his own sign-in made — and the two can carry different
+    // spellings of him. The master wrote "Munawar Soomro" into the sheet;
+    // Google told the app his account was "Munawar Ali"; the list keyed on
+    // the name put both on it, the entry form offered both, and the card
+    // that says who is holding the farm's cash showed one man standing in
+    // two places.
+    //
+    // The two records already know about each other — the capital record
+    // carries his uid and the user document carries its id — so that tie
+    // is what the key is made of, and the name is only what is shown.
     final byKey = <String, FarmPerson>{};
+
+    /// Which man a record belongs to. His capital record's id where there
+    /// is one, because that is the thing his money hangs off; otherwise
+    /// the sign-in, and otherwise his name, which is all a record opened
+    /// before any of this has.
+    String whoIs({String partnerId = '', String uid = '', String name = ''}) {
+      if (partnerId.isNotEmpty) return 'p:$partnerId';
+      if (uid.isNotEmpty) return 'u:$uid';
+      return 'n:${partyKey(name)}';
+    }
+
+    // His capital record, looked up by the sign-in it was claimed with.
+    final recordOf = <String, Partner>{
+      for (final p in _partners)
+        if (p.userId.isNotEmpty) p.userId: p,
+    };
 
     final shutOut = {
       for (final u in _users)
@@ -1052,10 +1090,23 @@ class FarmStore extends ChangeNotifier implements RoundData {
     // and was not among the names the entry form offered, because there
     // was no user document to find him in. He is on the farm's books; that
     // is what makes him one of the names.
+    // Every way one man has been written down, against the man. The books
+    // already hold both spellings on real entries, and those rows cannot
+    // be asked to spell him differently now.
+    final spellings = <String, List<String>>{};
+    void alsoCalled(String key, String name) {
+      final said = name.trim();
+      if (said.isEmpty) return;
+      final his = spellings.putIfAbsent(key, () => []);
+      if (!his.any((o) => partyKey(o) == partyKey(said))) his.add(said);
+    }
+
     for (final p in _partners) {
       final name = p.name.trim();
       if (name.isEmpty || shutOut.contains(p.userId)) continue;
-      byKey[partyKey(name)] = FarmPerson(
+      final key = whoIs(partnerId: p.id, name: name);
+      alsoCalled(key, name);
+      byKey[key] = FarmPerson(
         uid: p.userId.isNotEmpty ? p.userId : p.id,
         name: name,
       );
@@ -1070,7 +1121,29 @@ class FarmStore extends ChangeNotifier implements RoundData {
       if (!u.role.holdsCapital || u.status == UserStatus.blocked) continue;
       final name = u.name.trim();
       if (name.isEmpty) continue;
-      byKey[partyKey(name)] = FarmPerson(uid: u.uid, name: name);
+      // His own capital record, found through either side of the tie, so
+      // signing in refreshes the name on the man already on the list
+      // instead of putting a second one beside him.
+      final mine = u.partnerId ?? recordOf[u.uid]?.id ?? '';
+      final key = whoIs(partnerId: mine, uid: u.uid, name: name);
+      alsoCalled(key, name);
+      byKey[key] = FarmPerson(uid: u.uid, name: name);
+    }
+
+    // The name he is shown under is the one above; the rest are how the
+    // books may already have him.
+    for (final key in byKey.keys.toList()) {
+      final shown = byKey[key]!;
+      final others = [
+        for (final said in spellings[key] ?? const <String>[])
+          if (partyKey(said) != partyKey(shown.name)) said,
+      ];
+      if (others.isEmpty) continue;
+      byKey[key] = FarmPerson(
+        uid: shown.uid,
+        name: shown.name,
+        alsoKnownAs: others,
+      );
     }
 
     final live = byKey.values.toList()
@@ -1082,7 +1155,10 @@ class FarmStore extends ChangeNotifier implements RoundData {
         known.length == live.length &&
         List.generate(
           live.length,
-          (i) => known[i].uid == live[i].uid && known[i].name == live[i].name,
+          (i) =>
+              known[i].uid == live[i].uid &&
+              known[i].name == live[i].name &&
+              known[i].alsoKnownAs.join('|') == live[i].alsoKnownAs.join('|'),
         ).every((x) => x);
     if (same) return;
 
