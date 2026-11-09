@@ -320,6 +320,10 @@ List<HandsOn> cashInHands(
   /// not that co-founder, and only the fields that mean "one of us" are
   /// put through this at all.
   List<FarmPerson> founders = const [],
+
+  /// What each co-founder record is called today, by its id. A line
+  /// carries the name it was written under; this is who that is now.
+  Map<String, String> nameOf = const {},
 }) {
   final received = <String, num>{};
   final paid = <String, num>{};
@@ -397,7 +401,7 @@ List<HandsOn> cashInHands(
     var left = t.amount;
     final shared = split[t.id] ?? const <Contribution>[];
     for (final c in shared) {
-      note(c.partnerName, c.amount, incoming: false);
+      note(whoseLine(c, nameOf), c.amount, incoming: false);
       left -= c.amount;
     }
     note(shared.isEmpty ? t.handledBy : farmAccountName, left, incoming: false);
@@ -418,7 +422,7 @@ List<HandsOn> cashInHands(
     // carries his name as the payer. Without this half of it his account
     // reads as though he had paid eighteen lakh of the farm's costs with
     // the farm's money, when it was his own and is already his capital.
-    final who = c.wasHandedOver ? c.receivedBy : c.partnerName;
+    final who = c.wasHandedOver ? c.receivedBy : whoseLine(c, nameOf);
     if (who.trim().isEmpty) continue;
 
     final key = keyFor(who.trim());
@@ -626,6 +630,28 @@ class AccountLine {
 /// was, which is the half that matters most: a customer or a supplier
 /// whose name happens to match a co-founder's is still only himself.
 /// See [FarmPerson.alsoKnownAs].
+/// Whose line this is, by the record it hangs off rather than the name
+/// written on it.
+///
+/// A contribution stores the man's name as it stood the day it was
+/// written, so a line still reads properly on its own. Renaming his
+/// record does not go back and change them — and it should not: those
+/// are what the books said at the time.
+///
+/// But a figure about a man is not a line read on its own. The farm
+/// opened Munawar's record as "Munawar Soomro", wrote 3,85,675 of
+/// capital against it, and later put the name right to "Munawar Ali".
+/// His card still totalled everything, because capital hangs off the
+/// record — but the card that says who is holding what read the name on
+/// each line, so he stood in two places and the farm was asked to
+/// believe its own books disagreed about who he was.
+///
+/// The line carries his record's id. That is what he is.
+String whoseLine(Contribution c, Map<String, String> nameOf) {
+  final live = nameOf[c.partnerId];
+  return live == null || live.trim().isEmpty ? c.partnerName : live.trim();
+}
+
 bool Function(String) isHim(String who, List<String> alsoCalled) {
   final keys = <String>{
     partyKey(who),
@@ -881,6 +907,10 @@ List<AccountLine> accountLines(
   List<Txn> ledger, {
   required String who,
 
+  /// What each co-founder record is called today, by its id. See
+  /// [whoseLine].
+  Map<String, String> nameOf = const {},
+
   /// Every other way this man has been written down. See [isHim].
   List<String> alsoCalled = const [],
   List<Contribution> putIn = const [],
@@ -941,7 +971,7 @@ List<AccountLine> accountLines(
     var left = t.amount;
     for (final c in split[t.id] ?? const <Contribution>[]) {
       left -= c.amount;
-      if (!mine(c.partnerName)) continue;
+      if (!mine(whoseLine(c, nameOf))) continue;
       out.add(
         AccountLine(
           date: t.date,
@@ -972,14 +1002,14 @@ List<AccountLine> accountLines(
   for (final c in putIn) {
     if (c.isDeleted) continue;
     if (c.source == ContributionSource.correction || c.amount <= 0) continue;
-    final landedOn = c.wasHandedOver ? c.receivedBy : c.partnerName;
+    final landedOn = c.wasHandedOver ? c.receivedBy : whoseLine(c, nameOf);
     if (!mine(landedOn)) continue;
     out.add(
       AccountLine(
         date: c.date,
         what: c.wasHandedOver
-            ? '${c.partnerName} put money in'
-            : '${c.partnerName} paid for something',
+            ? '${whoseLine(c, nameOf)} put money in'
+            : '${whoseLine(c, nameOf)} paid for something',
         detail: c.kind.label,
         amount: c.amount,
       ),
@@ -1175,6 +1205,10 @@ List<InHand> inHand(
   List<Txn> ledger, {
   required String who,
 
+  /// What each co-founder record is called today, by its id. See
+  /// [whoseLine].
+  Map<String, String> nameOf = const {},
+
   /// Every other way this man has been written down. See [isHim].
   List<String> alsoCalled = const [],
   required bool incoming,
@@ -1234,7 +1268,7 @@ List<InHand> inHand(
     final shared = split[t.id] ?? const <Contribution>[];
     for (final c in shared) {
       left -= c.amount;
-      if (!mine(c.partnerName) || c.amount <= 0) continue;
+      if (!mine(whoseLine(c, nameOf)) || c.amount <= 0) continue;
       out.add(line(t, c.amount, false));
     }
     final rest = shared.isEmpty ? t.handledBy : farmAccountName;

@@ -665,6 +665,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
       putIn: _contributions,
       moving: _transfers,
       founders: _settings.founders,
+      nameOf: nameOf,
     )) {
       if (names.containsKey(partyKey(h.who))) continue;
       if (partyKey(h.who) == partyKey(farmAccountName)) continue;
@@ -688,6 +689,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
       putIn: _contributions,
       moving: _transfers,
       founders: _settings.founders,
+      nameOf: nameOf,
     )) {
       if (mine != null
           ? mine.answersTo(h.who)
@@ -697,6 +699,13 @@ class FarmStore extends ChangeNotifier implements RoundData {
     }
     return null;
   }
+
+  /// What each co-founder record is called today, by its id.
+  ///
+  /// A capital line stores the name as it stood the day it was written,
+  /// which is right for reading that line on its own and wrong for
+  /// adding a man up. See [whoseLine].
+  Map<String, String> get nameOf => {for (final p in _partners) p.id: p.name};
 
   /// Every other way one of the farm's own people has been written down.
   ///
@@ -723,6 +732,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     _ledger,
     who: name,
     alsoCalled: alsoCalled(name),
+    nameOf: nameOf,
     incoming: true,
     putIn: _contributions,
     moving: _transfers,
@@ -738,6 +748,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     _ledger,
     who: name,
     alsoCalled: alsoCalled(name),
+    nameOf: nameOf,
     incoming: false,
     putIn: _contributions,
     moving: _transfers,

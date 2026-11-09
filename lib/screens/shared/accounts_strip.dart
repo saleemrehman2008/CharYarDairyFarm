@@ -360,6 +360,7 @@ class _Statement extends StatelessWidget {
       store.ledger,
       who: name,
       alsoCalled: store.alsoCalled(name),
+      nameOf: store.nameOf,
       putIn: store.contributions,
     );
 

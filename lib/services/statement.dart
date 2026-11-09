@@ -412,6 +412,9 @@ Statement founderAccount({
 
   /// Every other way this co-founder has been written down. See [isHim].
   List<String> alsoCalled = const [],
+
+  /// What each co-founder record is called today. See [whoseLine].
+  Map<String, String> nameOf = const {},
 }) {
   // Oldest first here. [accountLines] hands them back newest first, which is
   // right for a card you glance at and wrong for a statement, where the
@@ -420,6 +423,7 @@ Statement founderAccount({
     rows,
     who: partner.name,
     alsoCalled: alsoCalled,
+    nameOf: nameOf,
     putIn: putIn,
   ).reversed;
 

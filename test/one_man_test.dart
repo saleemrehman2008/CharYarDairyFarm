@@ -305,4 +305,111 @@ void main() {
       expect(hands.firstWhere((h) => h.who == 'Munawar Ali').received, 433775);
     });
   });
+
+  group('a record renamed after its lines were written', () {
+    /// The farm's real case, and the one the alias was not needed for.
+    ///
+    /// Munawar's record was opened as "Munawar Soomro". 3,85,675 of
+    /// capital went in against it. The master later put the name right
+    /// to "Munawar Ali", and 48,100 more went in after that. A capital
+    /// line keeps the name it was written under — which is right for
+    /// reading that line — so the card that says who is holding what saw
+    /// two men. His own card never did: capital hangs off the record.
+    final his = [
+      Contribution(
+        id: 'c1',
+        partnerId: 'p-munawar',
+        partnerName: 'Munawar Soomro',
+        amount: 385675,
+        source: ContributionSource.spent,
+        kind: ContributionKind.investment,
+        date: DateTime(2026, 9, 20),
+        createdAt: DateTime(2026, 9, 20),
+        createdBy: 'u1',
+      ),
+      Contribution(
+        id: 'c2',
+        partnerId: 'p-munawar',
+        partnerName: 'Munawar Ali',
+        amount: 48100,
+        source: ContributionSource.spent,
+        kind: ContributionKind.investment,
+        date: DateTime(2026, 10, 20),
+        createdAt: DateTime(2026, 10, 20),
+        createdBy: 'u1',
+      ),
+    ];
+
+    /// What his record is called today.
+    const today = {'p-munawar': 'Munawar Ali'};
+
+    test('without the record, his old lines read as another man', () {
+      final hands = cashInHands([], putIn: his);
+      expect(
+        hands.map((h) => h.who),
+        containsAll(['Munawar Soomro', 'Munawar Ali']),
+      );
+    });
+
+    test('read through the record, he is one man', () {
+      final hands = cashInHands([], putIn: his, nameOf: today);
+      expect(hands, hasLength(1));
+      expect(hands.first.who, 'Munawar Ali');
+    });
+
+    test('and every rupee of his is on him', () {
+      final hands = cashInHands([], putIn: his, nameOf: today);
+      expect(hands.first.received, 433775);
+    });
+
+    test('the total does not move', () {
+      // Nothing in the books is touched to do this: the lines keep the
+      // names they were written under. Only who they are read as moves.
+      num all(Map<String, String> names) => cashInHands(
+        [],
+        putIn: his,
+        nameOf: names,
+      ).fold<num>(0, (a, h) => a + h.received);
+
+      expect(all(const {}), all(today));
+      expect(all(today), 433775);
+    });
+
+    test('a line whose record is gone keeps the name it was written with', () {
+      // Nothing is lost when a record cannot be found: the line still
+      // says who it was for.
+      final hands = cashInHands(
+        [],
+        putIn: his,
+        nameOf: const {'somebody-else': 'Asif Soomro'},
+      );
+      expect(
+        hands.map((h) => h.who),
+        containsAll(['Munawar Soomro', 'Munawar Ali']),
+      );
+    });
+
+    test('and two real co-founders are still two', () {
+      final two = [
+        his.first,
+        Contribution(
+          id: 'c3',
+          partnerId: 'p-asif',
+          partnerName: 'Asif Soomro',
+          amount: 100000,
+          source: ContributionSource.spent,
+          kind: ContributionKind.investment,
+          date: DateTime(2026, 9, 21),
+          createdAt: DateTime(2026, 9, 21),
+          createdBy: 'u1',
+        ),
+      ];
+      final hands = cashInHands(
+        [],
+        putIn: two,
+        nameOf: const {'p-munawar': 'Munawar Ali', 'p-asif': 'Asif Soomro'},
+      );
+      expect(hands, hasLength(2));
+    });
+  });
 }

@@ -209,6 +209,7 @@ class _StatementScreenState extends State<StatementScreen> {
               partner: founder,
               rows: store.ledger,
               alsoCalled: store.alsoCalled(founder.name),
+              nameOf: store.nameOf,
               putIn: store.contributions,
             ),
             FounderView.profit => profitAccount(
@@ -568,6 +569,7 @@ class _StatementScreenState extends State<StatementScreen> {
                   partner: _founder(store)!,
                   rows: store.ledger,
                   alsoCalled: store.alsoCalled(_founder(store)!.name),
+                  nameOf: store.nameOf,
                   putIn: store.contributions,
                 ),
               }
