@@ -262,8 +262,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     ? l.t('Loading…')
                     : l.t3(
                         '%s entries · %s on this page',
-                        '${rows.length}',
-                        rs(rows.fold<num>(0, (a, t) => a + t.amount)),
+                        '${_comesTo(rows).entries}',
+                        rs(_comesTo(rows).total),
                       ),
                 trailing: Tag(periodLabel(store.month, short: true)),
               ),

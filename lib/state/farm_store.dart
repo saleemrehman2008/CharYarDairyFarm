@@ -698,6 +698,23 @@ class FarmStore extends ChangeNotifier implements RoundData {
     return null;
   }
 
+  /// Every other way one of the farm's own people has been written down.
+  ///
+  /// A co-founder's capital record and his sign-in can spell him
+  /// differently, and both spellings end up on real rows. Everything that
+  /// asks a question about one man passes these, so the answer is about
+  /// the man and not about the letters. Empty for anybody the farm does
+  /// not know as one of its own, which is the half that matters most.
+  List<String> alsoCalled(String name) {
+    final mine = founderNamed(name, _settings.founders);
+    if (mine == null) return const [];
+    return [
+      if (partyKey(mine.name) != partyKey(name)) mine.name,
+      for (final other in mine.alsoKnownAs)
+        if (partyKey(other) != partyKey(name)) other,
+    ];
+  }
+
   /// The entries behind what a man is holding, latest first.
   ///
   /// So a handover can name the money it is made of instead of being a bare
@@ -705,6 +722,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<InHand> heldBy(String name) => inHand(
     _ledger,
     who: name,
+    alsoCalled: alsoCalled(name),
     incoming: true,
     putIn: _contributions,
     moving: _transfers,
@@ -719,6 +737,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<InHand> spentBy(String name) => inHand(
     _ledger,
     who: name,
+    alsoCalled: alsoCalled(name),
     incoming: false,
     putIn: _contributions,
     moving: _transfers,
@@ -730,10 +749,13 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// is that whatever of its money he takes in stands on its own as money
   /// to be paid in. See [toPayIntoFarm].
   num owedToFarmBy(String name) {
-    final owed = toPayIntoFarm(_ledger, who: name);
-    final p = _partners
-        .where((p) => partyKey(p.name) == partyKey(name))
-        .firstOrNull;
+    final owed = toPayIntoFarm(
+      _ledger,
+      who: name,
+      alsoCalled: alsoCalled(name),
+    );
+    final his = isHim(name, alsoCalled(name));
+    final p = _partners.where((p) => his(p.name)).firstOrNull;
     final settled = p?.takingsSettled ?? 0;
     final left = owed - settled;
     return left < 0 ? 0 : left;
@@ -742,7 +764,11 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// What a man's old mixed-up takings and spending cancel down to, and
   /// has not been squared yet.
   num stillToSquare(Partner p) {
-    final cancels = takingsSpentOnFarm(_ledger, who: p.name);
+    final cancels = takingsSpentOnFarm(
+      _ledger,
+      who: p.name,
+      alsoCalled: alsoCalled(p.name),
+    );
     final left = cancels - p.takingsSettled;
     return left < 0 ? 0 : left;
   }
@@ -859,10 +885,18 @@ class FarmStore extends ChangeNotifier implements RoundData {
   /// off before the second starts coming down, which is what either of them
   /// would say happened if asked.
   List<FounderLoan> get loans {
+    // An instalment coming back is filed under the man, not under the
+    // spelling on the row — a loan written against one of his names and
+    // repaid under the other would never have found itself.
+    String under(String name) {
+      final mine = founderNamed(name, _settings.founders);
+      return mine == null ? partyKey(name) : 'uid:${mine.uid}';
+    }
+
     final purse = <String, num>{};
     for (final t in _loanTxns) {
       if (!t.isLoanBack) continue;
-      final key = partyKey(t.party);
+      final key = under(t.party);
       purse[key] = (purse[key] ?? 0) + t.amount;
     }
 
@@ -875,7 +909,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
     final repaid = <String, num>{};
     for (final loan in order) {
-      final key = partyKey(loan.name);
+      final key = under(loan.name);
       final left = purse[key] ?? 0;
       final take = left < loan.amount ? left : loan.amount;
       purse[key] = left - take;
@@ -894,7 +928,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     for (final loan in loans) {
       if (loan.state.isOpen &&
           !loan.isCleared &&
-          partyKey(loan.name) == partyKey(party)) {
+          isHim(party, alsoCalled(party))(loan.name)) {
         return loan;
       }
     }
@@ -917,7 +951,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
 
   /// What one co-founder still owes on money the farm lent them.
   num loanOwedBy(String party) => _loanTxns
-      .where((t) => partyKey(t.party) == partyKey(party))
+      .where((t) => isHim(party, alsoCalled(party))(t.party))
       .fold<num>(0, (a, t) => t.isLoanOut ? a + t.amount : a - t.amount);
 
   /// What one customer has left with the farm, and not had back.

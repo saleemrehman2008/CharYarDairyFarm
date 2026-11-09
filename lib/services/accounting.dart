@@ -614,14 +614,40 @@ class AccountLine {
 ///
 /// What he spent of his own is a separate matter with a separate answer —
 /// see [splitByPledge]. The two never touch.
-num toPayIntoFarm(List<Txn> ledger, {required String who}) {
+/// Whether a written name is the man being asked about.
+///
+/// A co-founder has two records — the capital record the master opened
+/// and the user document his own sign-in made — and they can spell him
+/// differently. Both spellings end up on real rows, so asking "is this
+/// his?" has to know every name he has been written under.
+///
+/// [alsoCalled] carries them, and it is empty for everybody who is not
+/// one of the farm's own. Then this is the plain comparison it always
+/// was, which is the half that matters most: a customer or a supplier
+/// whose name happens to match a co-founder's is still only himself.
+/// See [FarmPerson.alsoKnownAs].
+bool Function(String) isHim(String who, List<String> alsoCalled) {
+  final keys = <String>{
+    partyKey(who),
+    for (final other in alsoCalled) partyKey(other),
+  }..remove('');
+  return (said) => keys.contains(partyKey(said));
+}
+
+num toPayIntoFarm(
+  List<Txn> ledger, {
+  required String who,
+
+  /// Every other way this man has been written down. See [isHim].
+  List<String> alsoCalled = const [],
+}) {
   // The farm's own account is where this money is going. Asked the same
   // question it answered that it had 8,600 of its own to pay into itself,
   // for money that had just arrived there — the one place on the page where
   // the figure could only ever be nothing.
   if (partyKey(who) == partyKey(farmAccountName)) return 0;
 
-  final key = partyKey(who);
+  final mine = isHim(who, alsoCalled);
   var owed = 0 as num;
 
   for (final t in ledger) {
@@ -629,14 +655,14 @@ num toPayIntoFarm(List<Txn> ledger, {required String who}) {
 
     // Farm money reaching him: takings at the gate, and cash another of
     // them has passed to him.
-    if (movedCashIn(t) && partyKey(t.handledBy) == key) {
+    if (movedCashIn(t) && mine(t.handledBy)) {
       owed += t.amount;
       continue;
     }
 
     // Money he has passed on — into the farm's account, or to whoever is
     // holding the cash this week. Either way it is no longer his to deposit.
-    if (t.isHandoverOut && partyKey(t.handledBy) == key) {
+    if (t.isHandoverOut && mine(t.handledBy)) {
       owed -= t.amount;
     }
   }
@@ -671,17 +697,23 @@ Map<String, num> toPayIntoFarmByName(
 ///
 /// What is left over after it is the real answer either way — his own money
 /// if he spent more than he collected, the farm's if he collected more.
-num takingsSpentOnFarm(List<Txn> ledger, {required String who}) {
+num takingsSpentOnFarm(
+  List<Txn> ledger, {
+  required String who,
+
+  /// Every other way this man has been written down. See [isHim].
+  List<String> alsoCalled = const [],
+}) {
   if (partyKey(who) == partyKey(farmAccountName)) return 0;
 
-  final key = partyKey(who);
+  final mine = isHim(who, alsoCalled);
   var tookIn = 0 as num;
   var paidOut = 0 as num;
   var handedOn = 0 as num;
 
   for (final t in ledger) {
     if (t.isDeleted) continue;
-    if (partyKey(t.handledBy) != key) continue;
+    if (!mine(t.handledBy)) continue;
 
     // Money he has actually paid over is settled the proper way and is no
     // part of this. Counted in, the farm was offered the chance to square
@@ -848,9 +880,12 @@ String handoverWords(Txn t, String forWhom) {
 List<AccountLine> accountLines(
   List<Txn> ledger, {
   required String who,
+
+  /// Every other way this man has been written down. See [isHim].
+  List<String> alsoCalled = const [],
   List<Contribution> putIn = const [],
 }) {
-  final key = partyKey(who);
+  final mine = isHim(who, alsoCalled);
   final out = <AccountLine>[];
 
   final split = <String, List<Contribution>>{};
@@ -871,7 +906,7 @@ List<AccountLine> accountLines(
   for (final t in ledger) {
     if (t.isDeleted || !t.isPartOfATake) continue;
     if (!movedCashIn(t) && !movedCashOut(t)) continue;
-    if (partyKey(t.handledBy) != key) continue;
+    if (!mine(t.handledBy)) continue;
     final id = t.takeId!;
     final held = takes[id];
     if (held == null || t.date.isBefore(held.date)) takes[id] = t;
@@ -888,7 +923,7 @@ List<AccountLine> accountLines(
     final rows = t.isPartOfATake ? (takeRows[t.takeId] ?? 1) : 1;
     final whole = t.isPartOfATake ? (takeTotals[t.takeId] ?? t.amount) : null;
 
-    if (movedCashIn(t) && partyKey(t.handledBy) == key) {
+    if (movedCashIn(t) && mine(t.handledBy)) {
       out.add(
         AccountLine(
           date: t.date,
@@ -906,7 +941,7 @@ List<AccountLine> accountLines(
     var left = t.amount;
     for (final c in split[t.id] ?? const <Contribution>[]) {
       left -= c.amount;
-      if (partyKey(c.partnerName) != key) continue;
+      if (!mine(c.partnerName)) continue;
       out.add(
         AccountLine(
           date: t.date,
@@ -916,7 +951,7 @@ List<AccountLine> accountLines(
         ),
       );
     }
-    if (left > 0 && partyKey(t.handledBy) == key) {
+    if (left > 0 && mine(t.handledBy)) {
       out.add(
         AccountLine(
           date: t.date,
@@ -938,7 +973,7 @@ List<AccountLine> accountLines(
     if (c.isDeleted) continue;
     if (c.source == ContributionSource.correction || c.amount <= 0) continue;
     final landedOn = c.wasHandedOver ? c.receivedBy : c.partnerName;
-    if (partyKey(landedOn) != key) continue;
+    if (!mine(landedOn)) continue;
     out.add(
       AccountLine(
         date: c.date,
@@ -1139,11 +1174,14 @@ class InHand {
 List<InHand> inHand(
   List<Txn> ledger, {
   required String who,
+
+  /// Every other way this man has been written down. See [isHim].
+  List<String> alsoCalled = const [],
   required bool incoming,
   List<Contribution> putIn = const [],
   List<CashTransfer> moving = const [],
 }) {
-  final key = partyKey(who);
+  final mine = isHim(who, alsoCalled);
   final spokenFor = <String, String>{};
   for (final t in moving) {
     if (t.state == TransferState.refused) continue;
@@ -1178,7 +1216,7 @@ List<InHand> inHand(
     if (t.isHandoverOut || t.isHandoverIn) continue;
 
     if (movedCashIn(t)) {
-      if (incoming && partyKey(t.handledBy) == key && t.amount > 0) {
+      if (incoming && mine(t.handledBy) && t.amount > 0) {
         out.add(line(t, t.amount, true));
       }
       continue;
@@ -1196,11 +1234,11 @@ List<InHand> inHand(
     final shared = split[t.id] ?? const <Contribution>[];
     for (final c in shared) {
       left -= c.amount;
-      if (partyKey(c.partnerName) != key || c.amount <= 0) continue;
+      if (!mine(c.partnerName) || c.amount <= 0) continue;
       out.add(line(t, c.amount, false));
     }
     final rest = shared.isEmpty ? t.handledBy : farmAccountName;
-    if (left > 0 && partyKey(rest) == key) {
+    if (left > 0 && mine(rest)) {
       out.add(line(t, left, false));
     }
   }

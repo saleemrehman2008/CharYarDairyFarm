@@ -359,6 +359,7 @@ class _Statement extends StatelessWidget {
     final lines = accountLines(
       store.ledger,
       who: name,
+      alsoCalled: store.alsoCalled(name),
       putIn: store.contributions,
     );
 

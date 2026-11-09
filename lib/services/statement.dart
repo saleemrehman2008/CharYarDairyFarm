@@ -409,11 +409,19 @@ Statement founderAccount({
   required Partner partner,
   required List<Txn> rows,
   List<Contribution> putIn = const [],
+
+  /// Every other way this co-founder has been written down. See [isHim].
+  List<String> alsoCalled = const [],
 }) {
   // Oldest first here. [accountLines] hands them back newest first, which is
   // right for a card you glance at and wrong for a statement, where the
   // running balance has to build from the top of the page downwards.
-  final walked = accountLines(rows, who: partner.name, putIn: putIn).reversed;
+  final walked = accountLines(
+    rows,
+    who: partner.name,
+    alsoCalled: alsoCalled,
+    putIn: putIn,
+  ).reversed;
 
   num balance = 0;
   num debits = 0;
