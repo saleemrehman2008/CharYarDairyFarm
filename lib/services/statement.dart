@@ -177,8 +177,39 @@ num _settledOnTheSpot(Txn t) => t.isBadDebt
         TxnType.payment => t.settlesAnotherEntry ? 0 : t.amount,
       };
 
-({num debit, num credit}) _partySides(Txn t) {
+({num debit, num credit}) _partySides(Txn t, num tookBack) {
+  // A wage advance is a debt of his, and the only one of these rows that
+  // leaves anything standing between him and the farm.
+  //
+  // Everything else on a wage settles as it is written — the wage is
+  // earned and paid the same day — so each nets to nothing and his page
+  // closes at zero. That is right for the wage and wrong for the advance:
+  // he walked away with sixteen thousand of the farm's money, and a page
+  // that says he and the farm are square is a page nobody can use.
+  //
+  // So the advance puts up what he owes, and the taking-back brings it
+  // down. His statement then closes at exactly what is still on him, which
+  // is the figure the wage list shows and the next wage will offer.
+  if (t.isWageAdvance) return (debit: t.amount, credit: 0);
+  if (t.isWageAdvanceBack) return (debit: 0, credit: t.amount);
+
+  // Given up on. He owes it no longer — not because he paid it, but
+  // because the farm has stopped asking.
+  if (t.isAdvanceGivenUpOn) return (debit: 0, credit: t.amount);
+
   final settled = _settledOnTheSpot(t);
+
+  // A wage written before the taking-back had a row of its own came out
+  // already net of it: fourteen thousand handed over against a twenty-four
+  // thousand month, with the other ten off his advance. The row says so on
+  // itself — see [Txn.advanceCut] — and nothing else on the page does, so
+  // the credit for it rides on the wage.
+  //
+  // A wage written since carries a zero and its own row does the saying,
+  // which is why this adds nothing to those.
+  if (tookBack > 0 && t.category == salariesCategory) {
+    return (debit: settled, credit: t.amount + tookBack);
+  }
   return switch (t.type) {
     // Sold to them: they owe the farm, less whatever they paid on the spot.
     TxnType.sale => (debit: t.amount, credit: settled),
@@ -281,6 +312,20 @@ Statement buildStatement({
           return byDate != 0 ? byDate : a.createdAt.compareTo(b.createdAt);
         });
 
+  // What each wage took back off an advance without a row to say it.
+  //
+  // Only the ones written before the taking-back had a row of its own.
+  // Those came out already net of it, so the page has to put it back or
+  // his advance reads as never recovered. See [advanceOwed], which reads
+  // these the same way.
+  final tookBack = <String, num>{};
+  if (forOneParty) {
+    for (final t in mine) {
+      if (t.category != salariesCategory || t.advanceCut != null) continue;
+      tookBack[t.id] = advanceTakenInMonthOf(rows, t);
+    }
+  }
+
   // Midnight either end, so a day picked is the whole of that day.
   final start = from == null ? null : DateTime(from.year, from.month, from.day);
   final end = to == null
@@ -297,7 +342,9 @@ Statement buildStatement({
   // which is what the "brought forward" line on a bank statement is.
   if (start != null) {
     for (final t in mine.where((t) => t.date.isBefore(start))) {
-      final sides = forOneParty ? _partySides(t) : _cashSides(t);
+      final sides = forOneParty
+          ? _partySides(t, tookBack[t.id] ?? 0)
+          : _cashSides(t);
       balance += _moves(sides, forOneParty);
     }
     opening = balance;
@@ -311,7 +358,9 @@ Statement buildStatement({
     if (start != null && t.date.isBefore(start)) continue;
     if (end != null && t.date.isAfter(end)) continue;
 
-    final sides = forOneParty ? _partySides(t) : _cashSides(t);
+    final sides = forOneParty
+        ? _partySides(t, tookBack[t.id] ?? 0)
+        : _cashSides(t);
     balance += _moves(sides, forOneParty);
     debits += sides.debit;
     credits += sides.credit;
@@ -387,6 +436,12 @@ String _showing(Set<TxnType>? kinds, String? category, bool everything) {
     if (t.isReceivable) owesUs += t.outstanding;
     if (t.isPayable) weOwe += t.outstanding;
   }
+  // And what he owes against a wage advance. It is not a receivable —
+  // nothing was sold to him — but it is his debt to the farm all the
+  // same, and the card at the head of his account has to say the same
+  // thing his statement closes at. See [advanceOwed].
+  owesUs += advanceOwed(ledger, who: party);
+
   return (owesUs: owesUs, weOwe: weOwe);
 }
 

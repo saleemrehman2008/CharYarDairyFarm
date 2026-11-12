@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:char_yar_dairy_farm/models/models.dart';
 import 'package:char_yar_dairy_farm/services/accounting.dart';
+import 'package:char_yar_dairy_farm/services/statement.dart';
 
 /// A wage advance is money lent, and the taking back of it is a row.
 ///
@@ -283,6 +284,78 @@ void main() {
       final wage = led.firstWhere((t) => t.category == salariesCategory);
       expect(wage.advanceCut, 0);
       expect(advanceOwed(led, who: 'Gul Din'), 0);
+    });
+  });
+
+  group('his own statement', () {
+    // Gul Din: 16,000 drawn on the 14th, a 24,000 wage on the 31st with
+    // 6,000 taken back off it. Ten thousand is still on him.
+    final led = [_advance(16000), _wage(24000), _back(6000)];
+
+    test('every line of his is on it', () {
+      final paper = buildStatement(rows: led, party: 'Gul Din');
+      expect(paper.lines, hasLength(3));
+    });
+
+    test('and it closes at what he still owes', () {
+      // It closed at nothing. Everything on a wage settles the day it is
+      // written, so each row netted to zero and the page said he and the
+      // farm were square — while he had ten thousand of theirs.
+      final paper = buildStatement(rows: led, party: 'Gul Din');
+      expect(paper.closing, 10000);
+    });
+
+    test('which is the figure the wage list shows', () {
+      final paper = buildStatement(rows: led, party: 'Gul Din');
+      expect(paper.closing, advanceOwed(led, who: 'Gul Din'));
+    });
+
+    test('a man with no advance closes at nothing', () {
+      final clean = [_wage(24000)];
+      expect(buildStatement(rows: clean, party: 'Gul Din').closing, 0);
+      expect(advanceOwed(clean, who: 'Gul Din'), 0);
+    });
+
+    test('and one who has worked it all off closes at nothing too', () {
+      final done = [_advance(16000), _wage(24000), _back(16000)];
+      expect(buildStatement(rows: done, party: 'Gul Din').closing, 0);
+      expect(advanceOwed(done, who: 'Gul Din'), 0);
+    });
+
+    test('giving up on it closes his page as well', () {
+      final gone = [
+        _advance(16000),
+        _row(
+          type: TxnType.expense,
+          category: advanceGivenUpCategory,
+          amount: 16000,
+          month: 11,
+          day: 5,
+        ),
+      ];
+      expect(buildStatement(rows: gone, party: 'Gul Din').closing, 0);
+      expect(advanceOwed(gone, who: 'Gul Din'), 0);
+    });
+
+    test('the two sides agree however the months fall', () {
+      // The one that has to hold whatever happens: what his page closes
+      // at is what the wage list says he owes.
+      for (final led in [
+        <Txn>[_advance(16000)],
+        <Txn>[_advance(16000), _back(4000)],
+        <Txn>[_advance(16000), _wage(24000), _back(6000)],
+        <Txn>[_advance(16000), _advance(5000, day: 20), _back(9000)],
+        <Txn>[
+          _advance(16000),
+          _wage(24000, month: 11),
+          _back(16000, month: 11),
+        ],
+      ]) {
+        expect(
+          buildStatement(rows: led, party: 'Gul Din').closing,
+          advanceOwed(led, who: 'Gul Din'),
+        );
+      }
     });
   });
 }

@@ -899,6 +899,9 @@ num wageAdvancesOwed(List<Txn> ledger) {
 /// this guess is wrong it is wrong in the direction that shows: an advance
 /// read as still owed appears on the next wage, where somebody can see it
 /// and set it to nothing.
+num advanceTakenInMonthOf(List<Txn> ledger, Txn wage) =>
+    _tookItsOwnMonth(ledger, wage);
+
 num _tookItsOwnMonth(List<Txn> ledger, Txn wage) {
   final start = wage.date.day <= 10
       ? DateTime(wage.date.year, wage.date.month - 1, 1)
