@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/words.dart';
 import '../../models/models.dart';
+import '../../services/accounting.dart';
+import '../../services/txn_repo.dart';
 import '../../services/employee_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -182,6 +184,82 @@ class _CardState extends State<_Card> {
     }
   }
 
+  /// Gives up on what a man still owes against advances.
+  ///
+  /// Named in figures and confirmed, because it is a loss the farm is
+  /// taking and the only person who sees it is whoever pressed this.
+  Future<void> _giveUp(Employee e, num owed) async {
+    final box = TextEditingController(text: '${owed.round()}');
+    final said = await showDialog<num>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: T.surface,
+        title: Text('Not coming back?', style: T.cardTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${e.name} still owes ${rs(owed)} against advances. Give up '
+              'on it and the farm takes it as a loss on today, the advance '
+              'is closed, and it stops being offered against his wages.',
+              style: T.meta,
+            ),
+            const SizedBox(height: T.gap),
+            Field(
+              label: 'How much is not coming back',
+              controller: box,
+              keyboardType: TextInputType.number,
+              prefix: 'Rs ',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No money moves. It went the day the advance went — this '
+              'only says it is not coming back.',
+              style: T.meta,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: T.bodyMid),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, num.tryParse(box.text.trim()) ?? 0),
+            child: Text(
+              'Give up on it',
+              style: T.bodyMid.copyWith(color: T.moneyDue),
+            ),
+          ),
+        ],
+      ),
+    );
+    box.dispose();
+    if (said == null || !mounted) return;
+
+    final take = said > owed ? owed : said;
+    if (take <= 0) {
+      toast(context, 'Put a figure in.');
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await TxnRepo.giveUpOnAdvance(
+        context.read<Session>().actor,
+        who: e.name,
+        amount: take,
+      );
+      if (mounted) toast(context, 'Written off ${rs(take)}');
+    } catch (err) {
+      if (mounted) toast(context, 'Could not do it. $err');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
@@ -254,6 +332,57 @@ class _CardState extends State<_Card> {
             const SizedBox(height: 4),
             Text(e.note, style: T.meta),
           ],
+
+          // What he still owes against advances already drawn.
+          //
+          // It was only ever shown inside the salary entry, which is one
+          // screen too late: whoever is paying decides what to hand a man
+          // before opening the form, and cannot decide it without knowing
+          // what he is already carrying.
+          Builder(
+            builder: (context) {
+              final owed = advanceOwed(
+                context.watch<FarmStore>().ledger,
+                who: e.name,
+              );
+              if (owed <= 0) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 7),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.schedule, size: 14, color: T.moneyDue),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            l.t('Advance still owed'),
+                            style: T.meta.copyWith(color: T.moneyDue),
+                          ),
+                        ),
+                        Text(
+                          rs(owed),
+                          style: T.bodyMid.copyWith(color: T.moneyDue),
+                        ),
+                      ],
+                    ),
+                    // When it is not coming back. The same act as giving
+                    // up on money a customer owes, and the only way to
+                    // close an advance that will never come off a wage.
+                    const SizedBox(height: 7),
+                    GhostButton(
+                      label: l.t('Not coming back'),
+                      icon: Icons.money_off,
+                      compact: true,
+                      danger: true,
+                      onPressed: _busy ? null : () => _giveUp(e, owed),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           const SizedBox(height: 11),
           Wrap(

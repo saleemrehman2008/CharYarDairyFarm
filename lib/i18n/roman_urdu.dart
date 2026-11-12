@@ -222,6 +222,8 @@ const Map<String, String> romanUrdu = {
   '%s unpaid': '%s baqaya',
   '%s bills': '%s bill',
   '%s entries': '%s entries',
+  'Advance still owed': 'Advance abhi baqi hai',
+  'Not coming back': 'Wapas nahi aana',
   '%s payment': '%s payment',
   '%s payments': '%s payment',
   'Where the money is': 'Paisa kahan kahan hai',

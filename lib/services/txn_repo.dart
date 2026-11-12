@@ -310,6 +310,46 @@ class TxnRepo {
   ///
   /// The master's alone. Every other correction can be argued about
   /// afterwards; this one hands somebody else the farm's money.
+  /// Gives up on a wage advance that is not coming back.
+  ///
+  /// A man leaves owing one. There is nothing to settle — the money went
+  /// the day the advance went — so this is not [giveUpOn], which works on
+  /// an entry somebody still owes against. It is the same act all the
+  /// same, and reads the same way: a cost on the day the farm decides,
+  /// no rupee moving, and the debt closed.
+  ///
+  /// Part of it may be given up on and the rest left standing, for a man
+  /// who has promised to bring some of it back.
+  static Future<void> giveUpOnAdvance(
+    Actor actor, {
+    required String who,
+    required num amount,
+    String note = '',
+  }) async {
+    final said = who.trim();
+    if (said.isEmpty) throw StateError('Whose advance?');
+    if (amount <= 0) throw StateError('There is nothing to give up on.');
+
+    await add(
+      actor: actor,
+      monthId: MonthRepo.bookingId,
+      type: TxnType.expense,
+      party: said,
+      category: advanceGivenUpCategory,
+      amount: amount,
+      paid: true,
+      note: note.isEmpty ? 'Advance not coming back' : note,
+    );
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      'gave up on ${rs(amount)} of "$said" advance — not coming back',
+      refType: 'employee',
+      refId: said,
+    );
+  }
+
   static Future<void> giveUpOn(
     Actor actor,
     Txn txn, {

@@ -541,6 +541,13 @@ class FarmStore extends ChangeNotifier implements RoundData {
   List<Contribution> paidForEntry(String txnId) =>
       paidFor(_contributions, txnId);
 
+  /// Advances handed out against wages and not yet worked off.
+  ///
+  /// The farm's money in a farm hand's pocket. It went out of the cash and
+  /// is coming back off a wage, so it stands in what the farm is worth
+  /// exactly as a loan to a co-founder does.
+  num get wagesAdvanced => wageAdvancesOwed(_ledger);
+
   /// Co-founders' own money the farm is holding and has to give back.
   ///
   /// The mirror of a customer's security, and it sits on the same side of
@@ -1031,6 +1038,7 @@ class FarmStore extends ChangeNotifier implements RoundData {
     owedToFounders: owedToFounders,
     loansOut: loansOut,
     securitiesOut: securitiesOut,
+    wagesAdvanced: wagesAdvanced,
     profitHeld: profitHeldByFounders,
   );
 

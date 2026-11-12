@@ -24,17 +24,18 @@ class SalaryPicker extends StatelessWidget {
   const SalaryPicker({
     super.key,
     required this.chosen,
-    required this.daysOff,
     required this.payingFor,
     required this.onMonth,
     required this.onSpan,
     this.spanFrom,
     this.spanTo,
     required this.onPicked,
-    required this.onDaysOff,
     this.advance = false,
     this.owesAdvance,
     this.alreadyPaid,
+    this.wage = 0,
+    this.wageBox,
+    this.onWage,
     this.cut = 0,
     this.cutBox,
     this.onCut,
@@ -50,7 +51,28 @@ class SalaryPicker extends StatelessWidget {
 
   /// The name in the party field, which is what ties this to the entry.
   final String chosen;
-  final int daysOff;
+
+  /// What this month's wage comes to, typed.
+  ///
+  /// The card used to work it out: his record times the days of the
+  /// window, less a tap for each day off, capped at a whole month. It was
+  /// right every time and the farm still asked for it to go. A wage is
+  /// settled between two men — a short week forgiven, a good month paid
+  /// over, a day's help from his brother — and a figure that argues back
+  /// is a figure somebody works around. So the sum is theirs and the card
+  /// only holds what it is told.
+  ///
+  /// What his record says he is on is still shown beside it, because a
+  /// figure typed from memory is worth checking against one that was
+  /// agreed.
+  final num wage;
+
+  /// The box it is typed into, owned by the form so what is typed and
+  /// what is saved are one thing.
+  final TextEditingController? wageBox;
+
+  /// Typed, with the figure that leaves after his advance comes off.
+  final void Function(Employee who, num wage, num toHand)? onWage;
 
   /// The month whose wage this is, which is not the day it is handed over.
   ///
@@ -78,9 +100,6 @@ class SalaryPicker extends StatelessWidget {
   /// Picked, with what the card says is left to hand him and how much of
   /// his advance that figure has taken off.
   final void Function(Employee who, num toHand, num cut) onPicked;
-
-  /// Days off changed, with the figure that leaves.
-  final void Function(Employee who, int days, num toHand) onDaysOff;
 
   /// What he still owes against advances already drawn. Handed in by the
   /// screen, which has the ledger.
@@ -122,30 +141,24 @@ class SalaryPicker extends StatelessWidget {
   /// farm and again on the form to fill the box — from the same functions
   /// over the same window, which agreed today and is exactly the shape of
   /// every figure this app has ever given two answers to.
-  num _toHand(Employee who, {required int daysOff, required num cut}) =>
-      wageToHand(
-        who: who,
-        from: _monthStart,
-        to: _monthEnd,
-        daysOff: daysOff,
-        drawn: _held(who, daysOff: daysOff, cut: cut),
-      );
+  /// What is actually handed over: the wage typed for this month, less
+  /// whatever of his advance is coming off it, and never less than
+  /// nothing.
+  num _toHand(Employee who, {required num wage, required num cut}) {
+    final left = wage - _held(who, wage: wage, cut: cut);
+    return left < 0 ? 0 : left;
+  }
 
   /// A deduction held to what he owes and to what the wage can carry.
   ///
   /// Done through one function — [advanceComingOff] — because every place
   /// that needs this figure used to work it out for itself: the box as it
-  /// was typed, the days-off buttons from what was typed before the days
-  /// came off, and the saved entry again on the form.
-  num _held(Employee who, {required int daysOff, required num cut}) =>
+  /// was typed, and the saved entry again on the form.
+  num _held(Employee who, {required num wage, required num cut}) =>
       advanceComingOff(
         asked: cut,
         owed: owesAdvance?.call(who) ?? 0,
-        wage: who.payForWindow(
-          from: _monthStart,
-          to: _monthEnd,
-          daysOff: daysOff,
-        ),
+        wage: wage,
       );
 
   /// What the farm would take off if nobody said otherwise: the whole of
@@ -155,8 +168,18 @@ class SalaryPicker extends StatelessWidget {
   /// to keep his whole wage this month and the advance to wait — and so is
   /// any figure between. What is not taken stays owed, so nothing is lost
   /// by leaving it.
-  num _wouldTake(Employee who, {required int daysOff}) =>
-      _held(who, daysOff: daysOff, cut: owesAdvance?.call(who) ?? 0);
+  ///
+  /// Nothing is offered until a wage has been typed, because until then
+  /// there is nothing for it to come out of.
+  num _wouldTake(Employee who, {required num wage}) =>
+      _held(who, wage: wage, cut: owesAdvance?.call(who) ?? 0);
+
+  /// How many days this payment covers, both ends counted.
+  ///
+  /// The farm asked to see it: a window picked on two calendars says
+  /// nothing about how long it is, and "25 Sep to 9 Nov" is not a number
+  /// anybody works out while standing in a shed.
+  int get _days => _monthEnd.difference(_monthStart).inDays + 1;
 
   @override
   Widget build(BuildContext context) {
@@ -205,23 +228,12 @@ class SalaryPicker extends StatelessWidget {
         final who = pickable
             .where((e) => partyKey(e.name) == partyKey(chosen))
             .firstOrNull;
-        final daysOn = who?.daysOnBetween(_monthStart, _monthEnd) ?? 0;
-        final allOfIt = _monthEnd.difference(_monthStart).inDays + 1;
-        final partMonth = who != null && (daysOn < allOfIt || _spanned);
-
         // Wage money he has already taken against this month. It comes off
         // by itself, which is the whole point — the farm has always said yes
         // to an advance and then had to remember, so whether it was deducted
         // depended on who was doing the paying at month end.
         final owed = who == null ? 0 : (owesAdvance?.call(who) ?? 0);
         final settled = who != null && (alreadyPaid?.call(who) ?? false);
-        final wage = who == null
-            ? 0
-            : who.payForWindow(
-                from: _monthStart,
-                to: _monthEnd,
-                daysOff: daysOff,
-              );
         // Never more than the wage can carry. Anything above it is not a
         // deduction, only a figure — and the part it could not reach is
         // still owed, which is the whole point of counting it this way.
@@ -233,13 +245,11 @@ class SalaryPicker extends StatelessWidget {
         // the wage, and what is left owing is what is left owing — so a
         // second payment can take some of it and the farm is not told no
         // by a rule that was protecting a sum it no longer does.
-        final comesOff = who == null
-            ? 0
-            : _held(who, daysOff: daysOff, cut: cut);
+        final comesOff = who == null ? 0 : _held(who, wage: wage, cut: cut);
         final carried = owed - comesOff;
         final toHand = who == null
             ? 0
-            : _toHand(who, daysOff: daysOff, cut: comesOff);
+            : _toHand(who, wage: wage, cut: comesOff);
 
         return RegCard(
           stripe: T.accent600,
@@ -280,13 +290,10 @@ class SalaryPicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _spanned
-                      ? '${fmtDateFull(_monthStart)} to '
-                            '${fmtDateFull(_monthEnd)}'
-                      : 'The month he worked, not the day he is handed it. '
-                            'October\'s wage is October\'s whether it goes '
-                            'out on the 31st, the 1st or the 5th of November.',
-                  style: T.meta.copyWith(color: _spanned ? T.accent700 : null),
+                  'The month he worked, not the day he is handed it. '
+                  'October\'s wage is October\'s whether it goes out on the '
+                  '31st, the 1st or the 5th of November.',
+                  style: T.meta,
                 ),
                 const SizedBox(height: 8),
                 // One payment can cover more than a month — the end of
@@ -317,6 +324,39 @@ class SalaryPicker extends StatelessWidget {
                     ],
                   ],
                 ),
+                const SizedBox(height: 7),
+                // How long the window is, counted. Two dates on two
+                // buttons do not say it, and nobody works out "25 Sep to
+                // 9 Nov" standing in a shed.
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: T.accent600.withValues(alpha: 0.09),
+                    borderRadius: BorderRadius.circular(T.radiusXs),
+                    border: Border.all(
+                      color: T.accent600.withValues(alpha: 0.30),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${fmtDateFull(_monthStart)} to '
+                          '${fmtDateFull(_monthEnd)}',
+                          style: T.meta.copyWith(color: T.accent700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _days == 1 ? '1 day' : '$_days days',
+                        style: T.bodyMid.copyWith(color: T.accent700),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 11),
               ],
               Kicker(
@@ -332,10 +372,11 @@ class SalaryPicker extends StatelessWidget {
                       who: e,
                       on: who?.id == e.id,
                       onTap: () {
-                        // Offered in full the moment he is picked, so the
-                        // common case — take the lot — needs nothing typed.
-                        final take = _wouldTake(e, daysOff: 0);
-                        onPicked(e, _toHand(e, daysOff: 0, cut: take), take);
+                        // Nothing is filled in for him. The wage is typed,
+                        // and until it is there is nothing for an advance
+                        // to come out of either.
+                        final take = _wouldTake(e, wage: wage);
+                        onPicked(e, _toHand(e, wage: wage, cut: take), take);
                       },
                     ),
                 ],
@@ -360,95 +401,51 @@ class SalaryPicker extends StatelessWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 12),
 
+                // What he is on, as a note and nothing more. The card
+                // does not fill the figure in from it: a wage is settled
+                // between two men, and one worked out by an app is one
+                // somebody works around.
                 Row(
                   children: [
                     Expanded(
                       child: Text(
                         who.allowance > 0
-                            ? '${rs(who.basic)} wage · '
+                            ? 'On ${rs(who.basic)} a month plus '
                                   '${rs(who.allowance)} allowance'
-                            : 'A full month',
+                            : 'On ${rs(who.monthly)} a month',
                         style: T.meta,
                       ),
                     ),
-                    Text(rs(who.monthly), style: T.bodyMid),
+                    Text('Started ${fmtDate(who.joinedOn)}', style: T.meta),
                   ],
                 ),
 
-                if (partMonth) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: T.accent600.withValues(alpha: 0.09),
-                      borderRadius: BorderRadius.circular(T.radiusXs),
-                      border: Border.all(
-                        color: T.accent600.withValues(alpha: 0.30),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          daysOn == 1
-                              ? 'Here 1 day of this month'
-                              : 'Here $daysOn days of this month',
-                          style: T.bodyMid.copyWith(color: T.accent700),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          who.leftOn != null
-                              ? 'Started ${fmtDate(who.joinedOn)}, last day '
-                                    '${fmtDate(who.leftOn!)}. Counted off his '
-                                    'record rather than on anybody\'s fingers.'
-                              : 'Started ${fmtDate(who.joinedOn)}, so this is '
-                                    'only part of a month. Counted off his '
-                                    'record.',
-                          style: T.meta,
-                        ),
-                      ],
-                    ),
+                const SizedBox(height: 9),
+                if (wageBox != null)
+                  Field(
+                    label: 'Salary for this month',
+                    controller: wageBox!,
+                    keyboardType: TextInputType.number,
+                    prefix: 'Rs ',
+                    onChanged: (v) {
+                      final said = num.tryParse(v.trim()) ?? 0;
+                      final paid = said < 0 ? 0 as num : said;
+                      onWage?.call(
+                        who,
+                        paid,
+                        _toHand(who, wage: paid, cut: cut),
+                      );
+                    },
                   ),
-                ],
-
-                const SizedBox(height: 11),
-                Kicker(
-                  partMonth ? 'Days off on top of that' : 'Days off this month',
-                ),
                 const SizedBox(height: 6),
                 Text(
-                  'Counted against a thirty day month, which is how the farm '
-                  'has always counted it. The days come off the whole month, '
-                  'allowance and all.',
+                  'The whole wage for these '
+                  '${_days == 1 ? '1 day' : '$_days days'}, before anything '
+                  'comes off it — not the cash you are handing over. '
+                  'Whatever the two of you settled on; nothing is worked '
+                  'out for you.',
                   style: T.meta,
                 ),
-                const SizedBox(height: 8),
-                _Days(
-                  days: daysOff,
-                  onPick: (d) =>
-                      onDaysOff(who, d, _toHand(who, daysOff: d, cut: cut)),
-                ),
-
-                if (daysOff > 0) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          daysOff == 1 ? '1 day off' : '$daysOff days off',
-                          style: T.meta.copyWith(color: T.moneyDue),
-                        ),
-                      ),
-                      Text(
-                        '− ${rs(who.payForWindow(from: _monthStart, to: _monthEnd) - wage)}',
-                        style: T.bodyMid.copyWith(color: T.moneyDue),
-                      ),
-                    ],
-                  ),
-                ],
 
                 // The advance, and how much of it this wage is taking.
                 //
@@ -485,22 +482,21 @@ class SalaryPicker extends StatelessWidget {
                       prefix: 'Rs ',
                       onChanged: (v) {
                         final said = num.tryParse(v.trim()) ?? 0;
-                        final take = said < 0
-                            ? 0
-                            : said > wage
-                            ? wage
-                            : said;
+                        final take = _held(who, wage: wage, cut: said);
                         onCut?.call(
                           who,
                           take,
-                          _toHand(who, daysOff: daysOff, cut: take),
+                          _toHand(who, wage: wage, cut: take),
                         );
                       },
                     ),
                   ],
                   const SizedBox(height: 6),
                   Text(
-                    carried <= 0
+                    wage <= 0
+                        ? 'Put this month\'s salary in first — an advance '
+                              'can only come off something.'
+                        : carried <= 0
                         ? 'That clears his advance.'
                         : cut > wage
                         ? 'This month cannot carry more than ${rs(wage)}. '
@@ -553,8 +549,10 @@ class SalaryPicker extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Filled in above and still yours to change. The farm '
-                  'settles up with a man, not with a sum.',
+                  comesOff > 0
+                      ? 'The salary above, less what came off his advance. '
+                            'This is what goes in the entry.'
+                      : 'This is what goes in the entry.',
                   style: T.meta,
                 ),
               ],
@@ -660,67 +658,6 @@ class _Who extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
-}
-
-/// Days off, as taps rather than as typing.
-///
-/// A man is away one, two, three days; the farm picks the number far more
-/// often than it types it, and every tap is a figure that cannot be fat
-/// fingered into thirty when it meant three.
-class _Days extends StatelessWidget {
-  const _Days({required this.days, required this.onPick});
-
-  final int days;
-  final void Function(int days) onPick;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      _Step(
-        icon: Icons.remove,
-        on: days > 0,
-        onTap: days > 0 ? () => onPick(days - 1) : null,
-      ),
-      Expanded(
-        child: Center(
-          child: Text(
-            '$days',
-            style: T.num22.copyWith(color: days > 0 ? T.moneyDue : T.n600),
-          ),
-        ),
-      ),
-      _Step(
-        icon: Icons.add,
-        on: days < 30,
-        onTap: days < 30 ? () => onPick(days + 1) : null,
-      ),
-    ],
-  );
-}
-
-class _Step extends StatelessWidget {
-  const _Step({required this.icon, required this.on, required this.onTap});
-
-  final IconData icon;
-  final bool on;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(T.radiusXs),
-    child: Container(
-      width: 44,
-      height: 38,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: T.surface,
-        borderRadius: BorderRadius.circular(T.radiusXs),
-        border: Border.all(color: T.divider),
-      ),
-      child: Icon(icon, size: 19, color: on ? T.n900 : T.n400),
     ),
   );
 }

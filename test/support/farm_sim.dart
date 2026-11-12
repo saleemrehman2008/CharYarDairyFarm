@@ -375,7 +375,7 @@ class Farm {
     required num amount,
   }) => _write(
     on: on,
-    type: TxnType.expense,
+    type: TxnType.payment,
     party: to,
     category: salaryAdvanceCategory,
     amount: amount,
@@ -407,15 +407,28 @@ class Farm {
       daysOff: daysOff,
       drawn: took,
     );
+    // The whole wage is the cost, in the month the man worked.
     _write(
       on: on,
       type: TxnType.expense,
       party: who.name,
       category: salariesCategory,
-      amount: handed,
+      amount: wage,
       paid: true,
-      advanceCut: took,
+      advanceCut: 0,
     );
+    // And the taking-back is its own row, which is what the farm asked
+    // for: a wage paid short has to say somewhere where the rest went.
+    if (took > 0) {
+      _write(
+        on: on,
+        type: TxnType.receipt,
+        party: who.name,
+        category: salaryAdvanceBackCategory,
+        amount: took,
+        paid: true,
+      );
+    }
     return (took: took, handed: handed);
   }
 
@@ -768,6 +781,7 @@ class Farm {
     paidOut: paidToFounders,
     securitiesHeld: securitiesHeld,
     securitiesOut: securitiesOut,
+    wagesAdvanced: wageAdvancesOwed(_live),
   );
 
   /// The four of them, as they stand now.
@@ -975,14 +989,20 @@ void audit(Farm farm, String when) {
               partyKey(t.party) == man,
         )
         .fold<num>(0, (a, t) => a + t.amount);
+    // What has come back off him: the rows that say so, and whatever a
+    // wage written before those rows existed says on itself.
     final recovered = farm.ledger
-        .where(
-          (t) =>
-              !t.isDeleted &&
-              t.category == salariesCategory &&
-              partyKey(t.party) == man,
-        )
-        .fold<num>(0, (a, t) => a + (t.advanceCut ?? 0));
+        .where((t) => !t.isDeleted && partyKey(t.party) == man)
+        .fold<num>(
+          0,
+          (a, t) =>
+              a +
+              (t.isWageAdvanceBack || t.isAdvanceGivenUpOn
+                  ? t.amount
+                  : t.category == salariesCategory
+                  ? (t.advanceCut ?? 0)
+                  : 0),
+        );
     expect(
       recovered + advanceOwed(farm.ledger, who: name),
       advanced,

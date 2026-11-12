@@ -13,7 +13,17 @@ class Books {
     this.founderFloat = 0,
   }) : sales = _sum(monthTxns, TxnType.sale),
        purchases = _sum(monthTxns, TxnType.purchase),
-       expenses = _sum(monthTxns, TxnType.expense),
+       // A wage advance is not one of these. It is money lent against a
+       // wage still to come, and the cost is that wage, in the month the
+       // man worked. Written as an expense until the farm asked for the
+       // taking-back to have a row of its own, so it is kept out by what
+       // it is rather than by how it was typed — see [Txn.isWageAdvance].
+       //
+       // The cash still goes, through paidExpenses below. What changes is
+       // only whether the month calls it a cost.
+       expenses = monthTxns
+           .where((t) => t.type == TxnType.expense && !t.isWageAdvance)
+           .fold<num>(0, (a, t) => a + t.amount),
        assetsBought = monthTxns
            .where((t) => t.isCapitalAsset)
            .fold<num>(0, (a, t) => a + t.amount),
@@ -821,15 +831,58 @@ num advanceOwed(List<Txn> ledger, {required String who, String? ignoring}) {
   for (final t in ledger) {
     if (t.isDeleted || t.id == ignoring) continue;
     if (partyKey(t.party) != key) continue;
-    if (t.category == salaryAdvanceCategory) {
+    if (t.isWageAdvance) {
       drawn += t.amount;
+    } else if (t.isWageAdvanceBack || t.isAdvanceGivenUpOn) {
+      // Its own row now: what the wage took back, or what the farm has
+      // written off as not coming back. Both close the debt by what they
+      // say, and both are visible, which is why they exist.
+      back += t.amount;
     } else if (t.category == salariesCategory) {
+      // A wage written before the taking-back had a row of its own says
+      // on itself what it recovered. One written since says nothing —
+      // it carries a zero — because its row does the saying.
       back += t.advanceCut ?? _tookItsOwnMonth(ledger, t);
     }
   }
 
   final left = drawn - back;
   return left <= 0 ? 0 : left;
+}
+
+/// What the wage list owes the farm against advances, all of them.
+///
+/// The farm's money, in somebody else's pocket. It belongs in what the
+/// farm is worth for the same reason a loan to a co-founder does: it went
+/// out of the cash and it is coming back.
+///
+/// Counted man by man and never below nothing for any of them, so one man
+/// who has somehow been recovered from twice cannot quietly pay down
+/// another man's advance.
+num wageAdvancesOwed(List<Txn> ledger) {
+  final drawn = <String, num>{};
+  final back = <String, num>{};
+
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+    final key = partyKey(t.party);
+    if (key.isEmpty) continue;
+    if (t.isWageAdvance) {
+      drawn[key] = (drawn[key] ?? 0) + t.amount;
+    } else if (t.isWageAdvanceBack || t.isAdvanceGivenUpOn) {
+      back[key] = (back[key] ?? 0) + t.amount;
+    } else if (t.category == salariesCategory) {
+      back[key] =
+          (back[key] ?? 0) + (t.advanceCut ?? _tookItsOwnMonth(ledger, t));
+    }
+  }
+
+  var out = 0 as num;
+  for (final entry in drawn.entries) {
+    final left = entry.value - (back[entry.key] ?? 0);
+    if (left > 0) out += left;
+  }
+  return out;
 }
 
 /// What a wage written before any of this took off, which was all of its
@@ -1327,6 +1380,7 @@ class MoneySummary {
     this.securitiesOut = 0,
     this.profitHeld = 0,
     this.owedToFounders = 0,
+    this.wagesAdvanced = 0,
   });
 
   /// Put in by the co-founders, all time.
@@ -1358,6 +1412,10 @@ class MoneySummary {
   /// who pays for the feed himself has lent the farm that much until the
   /// four of them either pay him back or agree it comes off his promise.
   final num owedToFounders;
+
+  /// Advances handed out against wages and not yet worked off. The farm's
+  /// own money, in a farm hand's pocket, and coming back off a wage.
+  final num wagesAdvanced;
 
   /// What the farm has lent its own co-founders and not had back.
   ///
@@ -1412,7 +1470,8 @@ class MoneySummary {
       securitiesHeld -
       owedToFounders +
       loansOut +
-      securitiesOut;
+      securitiesOut +
+      wagesAdvanced;
 
   /// The same figure read down the waterfall — every rupee that came in, less
   /// every rupee that went out or turned into an animal. It should equal

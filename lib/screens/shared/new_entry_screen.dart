@@ -126,6 +126,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     _total.dispose();
     _note.dispose();
     _handledBy.dispose();
+    _wage.dispose();
     _advCut.dispose();
     super.dispose();
   }
@@ -168,10 +169,28 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
   /// How much of that debt this wage is taking off, as typed — held to
   /// what he owes and to what the wage can carry. See [advanceComingOff].
+  /// What the row says, under the figure.
+  ///
+  /// On a wage that had an advance come off it, the farm's own words
+  /// first and whatever was typed after — because what a man was handed
+  /// is the thing somebody will come back to this row for.
+  String _noteOn({required bool wage, required num took, required num handed}) {
+    final said = _note.text.trim();
+    if (!wage || took <= 0) return said;
+    final own = '${rs(took)} advance taken back · ${rs(handed)} handed over';
+    return said.isEmpty ? own : '$own · $said';
+  }
+
+  /// This month's wage as typed, never below nothing.
+  num get _wageSaid {
+    final said = num.tryParse(_wage.text.trim()) ?? 0;
+    return said < 0 ? 0 : said;
+  }
+
   num _cutFor(Employee who) => advanceComingOff(
     asked: num.tryParse(_advCut.text.trim()) ?? 0,
     owed: _owesBy(who),
-    wage: who.payForWindow(from: _payStart, to: _payEnd, daysOff: _daysOff),
+    wage: _wageSaid,
   );
 
   /// What the saved wage says it recovered — the same figure the card
@@ -193,15 +212,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// What is actually handed over: the wage for the days being paid for,
   /// less what he has already drawn against them, and never less than
   /// nothing.
-  num _toHand(Employee who, int daysOff) => wageToHand(
-    who: who,
-    from: _payStart,
-    to: _payEnd,
-    daysOff: daysOff,
-    drawn: _cutFor(who),
-    wagePaidAlready: _wageDone(who),
-  );
-
   /// The men the farm pays a wage to.
   ///
   /// Held here so the name box can offer them the moment Salaries is
@@ -222,11 +232,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   bool get _aboutAWage =>
       _category == salariesCategory || _category == salaryAdvanceCategory;
 
-  /// Days off to come out of this month's wage.
+  /// What this month's wage comes to, typed.
   ///
-  /// The one thing about a wage that changes month to month, and the one
-  /// thing the farm was working out on the back of a receipt every time.
-  int _daysOff = 0;
+  /// The form worked it out — his record times the days of the window,
+  /// less a tap for each day off — and the farm asked for that to go. A
+  /// wage is settled between two men, and a figure the app argues about
+  /// is one somebody works around.
+  final _wage = TextEditingController();
 
   /// How much of his standing advance this wage takes off.
   ///
@@ -471,7 +483,17 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     setState(() => _busy = true);
     try {
       await MonthRepo.ensureOpen(store.month.id);
-      await TxnRepo.add(
+
+      // A wage with an advance coming off it is two things, and the farm
+      // asked to see both: the whole wage going out, and its own money
+      // coming back. The entry the form saves is the whole wage, not the
+      // cash handed over — see [_wageSaid] — and the taking-back is the
+      // row below it.
+      final wage = _category == salariesCategory;
+      final took = wage ? _cutSaved : 0;
+      final handed = wage ? _amount - took : _amount;
+
+      final id = await TxnRepo.add(
         actor: actor,
         monthId: store.month.id,
         type: _type,
@@ -484,7 +506,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         qty: num.tryParse(_qty.text.trim()),
         unit: _unit,
         rate: num.tryParse(_rate.text.trim()),
-        note: _note.text.trim(),
+        // What was actually put in his hand, written on the row itself.
+        // The two figures are both true and neither is the other: 24,000
+        // is what he earned, 8,000 is what he was given, and a month
+        // later nobody remembers which the entry meant.
+        note: _noteOn(wage: wage, took: took, handed: handed),
         payVia: _payVia,
         handledBy: _handledBy.text.trim(),
         // The day the trade happened. The moment it was typed is written
@@ -492,11 +518,30 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         // other.
         date: _when,
         receipt: _receipt,
-        // What this wage took off his advance. Written on every wage, zero
-        // and all, because what is not recorded as recovered is what the
-        // next wage will offer to recover — see [advanceOwed].
-        advanceCut: _category == salariesCategory ? _cutSaved : null,
+        // Nothing, on a wage saved since the taking-back got a row of its
+        // own. The row does the saying now — see [advanceOwed] — and a
+        // figure said twice is a figure counted twice.
+        advanceCut: wage ? 0 : null,
       );
+
+      if (wage && took > 0) {
+        await TxnRepo.add(
+          actor: actor,
+          monthId: store.month.id,
+          type: TxnType.receipt,
+          party: party,
+          category: salaryAdvanceBackCategory,
+          amount: took,
+          paid: true,
+          note:
+              'Off the wage of ${fmtDate(_when)} — '
+              '${rs(handed)} handed over',
+          payVia: _payVia,
+          handledBy: _handledBy.text.trim(),
+          date: _when,
+          settlesTxnId: id,
+        );
+      }
       if (!mounted) return;
       Navigator.pop(context);
       toast(context, '${_type.label} saved · ${rs(_amount)}');
@@ -590,21 +635,18 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             const SizedBox(height: 10),
             SalaryPicker(
               chosen: _party.text.trim(),
-              daysOff: 0,
               payingFor: _when,
               onMonth: (_) {},
               onSpan: (_, _) {},
               advance: true,
               owesAdvance: _owesBy,
               onPicked: (who, _, _) => setState(() => _party.text = who.name),
-              onDaysOff: (_, _, _) {},
             ),
           ],
           if (_category == salariesCategory) ...[
             const SizedBox(height: 10),
             SalaryPicker(
               chosen: _party.text.trim(),
-              daysOff: _daysOff,
               payingFor: _wageMonth,
               onMonth: (m) => setState(() {
                 _payMonth = m;
@@ -613,49 +655,37 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               }),
               spanFrom: _spanFrom,
               spanTo: _spanTo,
-              onSpan: (a, b) {
-                setState(() {
-                  _spanFrom = a;
-                  _spanTo = b;
-                });
-                final who = _crew
-                    .where((e) => partyKey(e.name) == partyKey(_party.text))
-                    .firstOrNull;
-                if (who == null) return;
-                setState(() {
-                  _total.text = '${_toHand(who, _daysOff).round()}';
-                });
-                _fromTotal();
-              },
+              // The window moves and nothing is worked out from it. What
+              // it changes is the count of days the card shows, and the
+              // month an advance is looked for in.
+              onSpan: (a, b) => setState(() {
+                _spanFrom = a;
+                _spanTo = b;
+              }),
               owesAdvance: _owesBy,
               alreadyPaid: _wageDone,
+              wage: _wageSaid,
+              wageBox: _wage,
+              // Typed by hand, and the only figure this month's pay comes
+              // from. What goes in the entry is it, less his advance.
+              onWage: (who, wage, _) {
+                setState(() => _total.text = wage > 0 ? '${wage.round()}' : '');
+                _fromTotal();
+              },
               cut: num.tryParse(_advCut.text.trim()) ?? 0,
               cutBox: _advCut,
               // Typed by hand. The card has already held it to what the
               // wage can carry; the box keeps what was typed so a man
               // correcting a digit is not fought with.
-              onCut: (who, _, toHand) {
-                setState(() => _total.text = '${toHand.round()}');
-                _fromTotal();
-              },
-              // The card works the figure out and hands it over. Doing
-              // the same sum again here is how a farm comes to see one
-              // number on the card and save another in the box.
-              onPicked: (who, toHand, cut) {
+              onCut: (_, _, _) => setState(() {}),
+              // Picking a man fills in nothing but his name. The wage is
+              // typed; until it is, there is nothing for his advance to
+              // come out of either.
+              onPicked: (who, _, cut) {
                 setState(() {
                   _party.text = who.name;
-                  _daysOff = 0;
                   _advCut.text = cut > 0 ? '${cut.round()}' : '';
-                  _total.text = '${toHand.round()}';
                 });
-                _fromTotal();
-              },
-              onDaysOff: (who, days, toHand) {
-                setState(() {
-                  _daysOff = days;
-                  _total.text = '${toHand.round()}';
-                });
-                _fromTotal();
               },
             ),
           ],
