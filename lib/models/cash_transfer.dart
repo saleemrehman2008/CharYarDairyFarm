@@ -54,6 +54,7 @@ class CashTransfer {
     required this.state,
     required this.sentAt,
     this.payVia = PayVia.cash,
+    this.pairId,
     this.note = '',
     this.sentBy = '',
     this.sentByName = '',
@@ -74,6 +75,10 @@ class CashTransfer {
   final TransferState state;
   final DateTime sentAt;
   final PayVia payVia;
+
+  /// The two ledger rows this handover wrote, once it was confirmed.
+  /// Null until then, and on handovers confirmed before the app kept it.
+  final String? pairId;
   final String note;
 
   /// Who typed it in, which is not always the man whose hands it left.
@@ -123,6 +128,7 @@ class CashTransfer {
       state: TransferState.parse(m['state']),
       sentAt: dtOr(m['sentAt']),
       payVia: PayVia.parse(m['payVia']),
+      pairId: m['pairId'] == null ? null : s(m['pairId']),
       note: s(m['note']),
       sentBy: s(m['sentBy']),
       sentByName: s(m['sentByName']),

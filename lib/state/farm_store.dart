@@ -638,6 +638,23 @@ class FarmStore extends ChangeNotifier implements RoundData {
     ]..sort((a, b) => a.sentAt.compareTo(b.sentAt));
   }
 
+  /// Every handover still waiting on anybody at all.
+  ///
+  /// For the master, who answers for the people who cannot answer for
+  /// themselves. A silent investor writes nothing — that is the whole of
+  /// what makes him silent — so money handed to him waits for ever, and a
+  /// co-founder whose capital record was opened before he ever signed in
+  /// has no phone to say it arrived on. Somebody has to be able to.
+  ///
+  /// Never his own. The master saying his own handover arrived is one
+  /// man's word moving his own holding, which is the one thing these books
+  /// exist to stop.
+  List<CashTransfer> waitingOnAnybody(String me) =>
+      _transfers
+          .where((t) => t.isWaiting && partyKey(t.from) != partyKey(me))
+          .toList()
+        ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
   /// Whether this person may say that money reached the farm's own account.
   bool keepsTheFarmCash(String name) {
     final k = cashKeeper;

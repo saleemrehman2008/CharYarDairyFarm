@@ -9,6 +9,7 @@ import '../../models/models.dart';
 import '../../services/accounting.dart';
 import '../../services/employee_repo.dart';
 import '../../services/month_repo.dart';
+import '../../services/contribution_repo.dart';
 import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
@@ -231,6 +232,35 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
   bool get _aboutAWage =>
       _category == salariesCategory || _category == salaryAdvanceCategory;
+
+  /// Whether the co-founder named above paid for this out of his own
+  /// pocket.
+  ///
+  /// The farm's way of working, and the thing it was doing on a second
+  /// screen: a man buys the feed with his own money and afterwards that
+  /// amount goes onto what he has put into the farm. Done over there the
+  /// line stood on its own, tied to nothing — so correcting the entry
+  /// never moved it, and an evening went on 550 that would not budge.
+  ///
+  /// Asked here, the line is tied to this entry. Change whose entry it is
+  /// and the money is asked about with it.
+  bool _ownMoney = false;
+
+  /// The co-founder named in "Paid by", if the name is one of theirs.
+  Partner? get _payer {
+    final said = _handledBy.text.trim();
+    if (said.isEmpty) return null;
+    return context
+        .read<FarmStore>()
+        .partners
+        .where((p) => partyKey(p.name) == partyKey(said))
+        .firstOrNull;
+  }
+
+  /// Whether this entry is the kind a man can pay for out of his own
+  /// pocket: something going out, that is not money being handed on.
+  bool get _canBeOwnMoney =>
+      !_type.isIncoming && !_type.isSettlement && _payer != null;
 
   /// What this month's wage comes to, typed.
   ///
@@ -542,6 +572,46 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           settlesTxnId: id,
         );
       }
+      // His own money, said once and tied to the entry it paid for.
+      //
+      // Done on the Co-founders page instead, the line stands on its own
+      // and nothing ever connects the two again: correct the entry and the
+      // money sits where it was, on a man who did not pay it. That is the
+      // whole of what went wrong with 550 of fodder.
+      final payer = _payer;
+      if (_ownMoney && payer != null && !_type.isIncoming) {
+        try {
+          await ContributionRepo.putIn(
+            actor,
+            partner: payer,
+            amount: _amount,
+            source: ContributionSource.spent,
+            date: _when,
+            payVia: _payVia,
+            entry: Txn(
+              id: id,
+              date: _when,
+              monthId: store.month.id,
+              type: _type,
+              party: party,
+              category: _category,
+              amount: _amount,
+              paid: true,
+              paidOnCreate: true,
+              note: _note.text.trim(),
+              payVia: _payVia,
+              handledBy: _handledBy.text.trim(),
+              createdBy: actor.uid,
+              createdAt: _when,
+            ),
+          );
+        } catch (e) {
+          if (mounted) {
+            toast(context, 'Entry saved, but his money did not go on. $e');
+          }
+        }
+      }
+
       if (!mounted) return;
       Navigator.pop(context);
       toast(context, '${_type.label} saved · ${rs(_amount)}');
@@ -1006,6 +1076,19 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     : null,
               ),
             ),
+
+            // The one question that used to be a second screen.
+            if (_canBeOwnMoney) ...[
+              const SizedBox(height: 10),
+              SwitchRow(
+                title: 'Was this his own money?',
+                note:
+                    'Put it onto what ${_payer!.name} has invested, against '
+                    'this entry. Leave it off if the farm\'s own cash paid.',
+                value: _ownMoney,
+                onChanged: (v) => setState(() => _ownMoney = v),
+              ),
+            ],
           ],
 
           // The receipt that came with the money. A bank slip, a chit from

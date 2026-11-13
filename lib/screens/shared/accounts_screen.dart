@@ -2655,9 +2655,16 @@ class _DetailFact extends StatelessWidget {
 /// Here they sit together, each saying what it moves. The farm asked for
 /// exactly this after an evening spent moving 550 between two men.
 class _WhosePocket extends StatelessWidget {
-  const _WhosePocket({required this.txn});
+  const _WhosePocket({required this.txn, this.payer, this.onOwnMoney});
 
   final Txn txn;
+
+  /// The co-founder named in "Paid by", if the name is one of theirs.
+  final Partner? payer;
+
+  /// Turned on or off, so the whole of it goes onto his investment or
+  /// comes off again.
+  final void Function(bool on)? onOwnMoney;
 
   @override
   Widget build(BuildContext context) {
@@ -2697,10 +2704,39 @@ class _WhosePocket extends StatelessWidget {
                 ],
               ),
             ),
+
+        // The whole of it, on the man whose name is on the entry, in one
+        // tap. The split sheet is still there underneath for the entries
+        // two or three of them clubbed together on.
+        if (payer != null && mine.isEmpty) ...[
+          const SizedBox(height: 8),
+          SwitchRow(
+            title: l.t('Was this his own money?'),
+            note: l.t2(
+              'Put it onto what %s has invested, against this entry.',
+              payer!.name,
+            ),
+            value: false,
+            onChanged: onOwnMoney == null ? null : (v) => onOwnMoney!(v),
+          ),
+        ],
+        if (payer != null && mine.length == 1 && put == txn.amount) ...[
+          const SizedBox(height: 8),
+          SwitchRow(
+            title: l.t('Was this his own money?'),
+            note: l.t2(
+              '%s has it on his investment for this entry.',
+              store.nameOf[mine.first.partnerId] ?? mine.first.partnerName,
+            ),
+            value: true,
+            onChanged: onOwnMoney == null ? null : (v) => onOwnMoney!(v),
+          ),
+        ],
+
         const SizedBox(height: 7),
         GhostButton(
           label: mine.isEmpty
-              ? l.t('Who paid for this?')
+              ? l.t('Split it between them')
               : l.t('Change whose money'),
           icon: Icons.groups_outlined,
           compact: true,
@@ -2865,6 +2901,55 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
       if (!mounted) return;
       Navigator.pop(context);
       toast(context, l.t('Entry corrected'));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The co-founder named in "Paid by", if the name is one of theirs.
+  Partner? _payer(FarmStore store) {
+    final said = _handledBy.text.trim();
+    if (said.isEmpty) return null;
+    return store.partners
+        .where((p) => partyKey(p.name) == partyKey(said))
+        .firstOrNull;
+  }
+
+  /// Put the whole of this entry onto his investment, or take it off.
+  ///
+  /// The one tap that used to be a second screen and a line tied to
+  /// nothing. Tied here, so correcting the entry afterwards asks about
+  /// the money with it.
+  Future<void> _setOwnMoney(FarmStore store, bool on) async {
+    final l = L.read(context);
+    final who = _payer(store);
+    if (who == null) return;
+
+    setState(() => _busy = true);
+    try {
+      final mine = store.contributions
+          .where((c) => c.txnId == widget.txn.id && !c.isDeleted)
+          .toList();
+      await ContributionRepo.setSplit(
+        context.read<Session>().actor,
+        entry: widget.txn,
+        partners: store.partners,
+        existing: mine,
+        amounts: {
+          for (final p in store.partners)
+            p.id: on && p.id == who.id ? widget.txn.amount : 0,
+        },
+      );
+      if (mounted) {
+        toast(
+          context,
+          on
+              ? l.t2('On %s\'s investment', who.name)
+              : l.t2('Off %s\'s investment', who.name),
+        );
+      }
     } catch (e) {
       if (mounted) toast(context, '$e');
     } finally {
@@ -3120,7 +3205,16 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
               // moves what a man has put into the farm.
               if (!t.type.isIncoming && !t.type.isSettlement) ...[
                 const SizedBox(height: T.gap),
-                _WhosePocket(txn: t),
+                Builder(
+                  builder: (context) {
+                    final store = context.watch<FarmStore>();
+                    return _WhosePocket(
+                      txn: t,
+                      payer: _payer(store),
+                      onOwnMoney: (on) => _setOwnMoney(store, on),
+                    );
+                  },
+                ),
               ],
 
               const SizedBox(height: T.gap),

@@ -1297,6 +1297,9 @@ List<InHand> inHand(
     handedOnTo: spokenFor[t.id] ?? '',
   );
 
+  // The entries by id, so a capital line can name what it paid for.
+  final byId = {for (final t in ledger) t.id: t};
+
   final out = <InHand>[];
   for (final t in ledger) {
     if (t.isDeleted) continue;
@@ -1330,6 +1333,41 @@ List<InHand> inHand(
     final rest = shared.isEmpty ? t.handledBy : farmAccountName;
     if (left > 0 && mine(rest)) {
       out.add(line(t, left, false));
+    }
+  }
+
+  // His own money going in, which [cashInHands] counts and this list did
+  // not — so a man could be shown holding 550 and find nothing behind it
+  // when he pressed the figure. That silence is what sent the farm round
+  // an evening of handovers after money that was never in anybody's hand.
+  //
+  // A line tied to an entry says which. One tied to nothing says that
+  // too, in those words, because it is the thing worth knowing: it was
+  // typed onto a card and has no purchase behind it, so correcting an
+  // entry will never move it.
+  if (incoming) {
+    for (final c in putIn) {
+      if (c.isDeleted || c.amount <= 0) continue;
+      if (c.source == ContributionSource.correction) continue;
+      final landedOn = c.wasHandedOver ? c.receivedBy : whoseLine(c, nameOf);
+      if (!mine(landedOn)) continue;
+      final paidFor = c.txnId == null || c.txnId!.isEmpty
+          ? null
+          : byId[c.txnId!];
+      out.add(
+        InHand(
+          txnId: c.txnId ?? '',
+          date: c.date,
+          what: c.wasHandedOver ? 'He handed it in' : 'His own money',
+          detail: paidFor != null
+              ? '${paidFor.category} — ${paidFor.party}'
+              : c.wasHandedOver
+              ? 'Put onto what he has invested'
+              : 'On his investment · no entry behind it',
+          amount: c.amount,
+          incoming: true,
+        ),
+      );
     }
   }
 

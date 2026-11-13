@@ -108,7 +108,7 @@ class TransferRepo {
   static Future<void> take(Actor actor, CashTransfer move) async {
     if (!move.isWaiting) return;
 
-    await TxnRepo.handOver(
+    final pair = await TxnRepo.handOver(
       actor,
       from: move.from,
       to: move.to,
@@ -122,6 +122,9 @@ class TransferRepo {
       'state': TransferState.taken.name,
       'decidedAt': FieldValue.serverTimestamp(),
       'decidedBy': actor.uid,
+      // Which two rows this wrote. Undoing it later is then exact rather
+      // than a hunt by day and amount.
+      'pairId': pair,
     });
 
     await Log.write(
@@ -164,6 +167,46 @@ class TransferRepo {
   }
 
   /// Taking back one that has not been answered yet. The sender's own.
+  /// Undoes a handover the other man has already said he received.
+  ///
+  /// The two rows it wrote come off the books together — they always did,
+  /// since one of them is half an act and half an act is how the farm's
+  /// cash moves without a rupee going anywhere — and the record of the
+  /// handover goes with them.
+  ///
+  /// Only the master. It moves two men's holdings, and neither of them is
+  /// the one pressing it.
+  static Future<void> undo(Actor actor, CashTransfer move) async {
+    final pair = move.pairId;
+    if (pair == null || pair.isEmpty) {
+      throw StateError(
+        'This handover was confirmed before the app kept a mark of the '
+        'rows it wrote, so they cannot be found from here. Take them off '
+        'under Accounts instead — they are the two of them on '
+        '${fmtDate(move.sentAt)}.',
+      );
+    }
+
+    final rows = await Db.transactions.where('pairId', isEqualTo: pair).get();
+    final live = rows.docs.map(Txn.fromDoc).where((t) => !t.isDeleted).toList();
+
+    // One of them is enough: a pair comes off together. See
+    // [TxnRepo.softDelete].
+    if (live.isNotEmpty) {
+      await TxnRepo.softDelete(actor, live.first);
+    }
+
+    await Db.transfers.doc(move.id).delete();
+
+    await Log.write(
+      actor,
+      LogKind.transaction,
+      'undid the ${rs(move.amount)} ${move.from} handed to ${move.to}',
+      refType: 'transfer',
+      refId: move.id,
+    );
+  }
+
   static Future<void> cancel(Actor actor, CashTransfer move) async {
     if (!move.isWaiting) return;
     await Db.transfers.doc(move.id).delete();

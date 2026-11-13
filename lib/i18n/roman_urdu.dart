@@ -225,6 +225,14 @@ const Map<String, String> romanUrdu = {
   'Advance still owed': 'Advance abhi baqi hai',
   'Not coming back': 'Wapas nahi aana',
   'Take it back': 'Wapas le lein',
+  'Was this his own money?': 'Kya ye us ki apni jaib se tha?',
+  'Put it onto what %s has invested, against this entry.':
+      'Is entry ke saath %s ke investment me daal dein.',
+  '%s has it on his investment for this entry.':
+      'Is entry per %s ke investment me hai.',
+  'On %s\'s investment': '%s ke investment me',
+  'Off %s\'s investment': '%s ke investment se bahar',
+  'Split it between them': 'Aapas me baant dein',
   'Whose own money paid for it': 'Kis ki apni jaib se gaya',
   'Change whose money': 'Kis ka paisa tha, badlein',
   'Move his money too?': 'Us ka paisa bhi le jayen?',

@@ -414,7 +414,11 @@ class TxnRepo {
   /// one hands over, the other takes in. The two cancel in the cash, neither
   /// touches the profit — see [handoverOutCategory] — and the only figures
   /// that move are what each of them is holding.
-  static Future<void> handOver(
+  /// Returns the id the two rows share, so whoever asked for the handover
+  /// can find them again. Taking one back used to mean hunting for them by
+  /// day, amount and two names — the same guesswork that let a corrected
+  /// handover read as two separate trades.
+  static Future<String> handOver(
     Actor actor, {
     required String from,
     required String to,
@@ -470,6 +474,7 @@ class TxnRepo {
       '$from handed ${rs(amount)} to $to',
       refType: 'handover',
     );
+    return pair;
   }
 
   /// Master only. Soft delete keeps the row in the Sheet marked `deleted`.

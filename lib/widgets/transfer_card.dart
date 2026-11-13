@@ -41,7 +41,16 @@ class TransferInbox extends StatelessWidget {
     // his own holding down — which is the one thing these books exist to
     // stop.
     final forFarm = session.role == Role.master || store.keepsTheFarmCash(me);
-    final waiting = store.waitingOn(me, alsoForFarm: forFarm);
+
+    // The master answers for whoever cannot answer for himself. A silent
+    // investor writes nothing at all, so money handed to him waited for
+    // ever and there was no screen anywhere that could end it.
+    //
+    // Never his own, which the store enforces: a man saying his own
+    // handover arrived is one word doing the work of two.
+    final waiting = session.role == Role.master
+        ? store.waitingOnAnybody(me)
+        : store.waitingOn(me, alsoForFarm: forFarm);
     if (waiting.isEmpty) return const SizedBox.shrink();
 
     return Column(

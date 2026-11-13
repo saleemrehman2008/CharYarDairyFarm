@@ -249,4 +249,140 @@ void main() {
       },
     );
   });
+
+  group('a capital line is behind the figure too', () {
+    /// The quiet failure this whole file exists for, found in the books.
+    ///
+    /// A co-founder's own money counts towards what he is holding, and
+    /// the list behind that figure did not carry it. So a man showed Rs
+    /// 550 in hand, the farm pressed the figure, and nothing underneath
+    /// explained a rupee of it — which sent it round an evening of
+    /// handovers chasing money that was never in anybody's hand.
+    final him = Partner(
+      id: 'p1',
+      userId: 'u1',
+      name: 'Ghulam Ali',
+      invested: 550,
+      pledged: 0,
+      profitHeld: 0,
+      withdrawn: 0,
+      createdAt: DateTime(2026, 9, 1),
+    );
+
+    Contribution his({String? txnId}) => Contribution(
+      id: 'c1',
+      partnerId: him.id,
+      partnerName: him.name,
+      amount: 550,
+      source: ContributionSource.spent,
+      kind: ContributionKind.investment,
+      date: DateTime(2026, 11, 12),
+      createdAt: DateTime(2026, 11, 12),
+      createdBy: 'u1',
+      txnId: txnId,
+    );
+
+    test('his own money is on the list, not only in the figure', () {
+      final rows = inHand(
+        const [],
+        who: him.name,
+        incoming: true,
+        putIn: [his()],
+      );
+      expect(rows, hasLength(1));
+      expect(rows.first.amount, 550);
+    });
+
+    test('and the list comes to what the figure says', () {
+      final hands = cashInHands(const [], putIn: [his()]);
+      final mine = hands.firstWhere(
+        (h) => partyKey(h.who) == partyKey(him.name),
+      );
+      final rows = inHand(
+        const [],
+        who: him.name,
+        incoming: true,
+        putIn: [his()],
+      );
+      expect(rows.fold<num>(0, (a, r) => a + r.amount), mine.received);
+    });
+
+    test('a line with no entry behind it says so', () {
+      final rows = inHand(
+        const [],
+        who: him.name,
+        incoming: true,
+        putIn: [his()],
+      );
+      expect(rows.first.detail, contains('no entry behind it'));
+    });
+
+    test('and one that paid for something names it', () {
+      final bought = Txn(
+        id: 't1',
+        date: DateTime(2026, 10, 29),
+        monthId: '2026-10',
+        type: TxnType.purchase,
+        party: 'Gaah',
+        category: 'Fodder / feed',
+        amount: 550,
+        paid: true,
+        paidOnCreate: true,
+        paidSoFar: 550,
+        note: '',
+        handledBy: him.name,
+        createdBy: 'u1',
+        createdAt: DateTime(2026, 10, 29),
+      );
+      final rows = inHand(
+        [bought],
+        who: him.name,
+        incoming: true,
+        putIn: [his(txnId: bought.id)],
+      );
+      final said = rows.map((r) => r.detail).join(' ');
+      expect(said, contains('Fodder / feed'));
+      expect(said, isNot(contains('no entry behind it')));
+    });
+
+    test("another man's line is not on his list", () {
+      final hers = Contribution(
+        id: 'c2',
+        partnerId: 'p2',
+        partnerName: 'Munawar Ali',
+        amount: 550,
+        source: ContributionSource.spent,
+        kind: ContributionKind.investment,
+        date: DateTime(2026, 11, 12),
+        createdAt: DateTime(2026, 11, 12),
+        createdBy: 'u1',
+      );
+      final rows = inHand(
+        const [],
+        who: him.name,
+        incoming: true,
+        putIn: [hers],
+      );
+      expect(rows, isEmpty);
+    });
+
+    test('and a line taken off the books is on no list', () {
+      final gone = Contribution(
+        id: 'c3',
+        partnerId: him.id,
+        partnerName: him.name,
+        amount: 550,
+        source: ContributionSource.spent,
+        kind: ContributionKind.investment,
+        date: DateTime(2026, 11, 12),
+        createdAt: DateTime(2026, 11, 12),
+        createdBy: 'u1',
+        deletedAt: DateTime(2026, 11, 13),
+      );
+      expect(
+        inHand(const [], who: him.name, incoming: true, putIn: [gone]),
+        isEmpty,
+      );
+    });
+  });
 }
