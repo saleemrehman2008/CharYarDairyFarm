@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/samjhao.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
@@ -14,6 +15,7 @@ import '../../widgets/entry_actions.dart';
 import '../../widgets/refund_card.dart';
 import '../../widgets/square_card.dart';
 import '../../widgets/ui.dart';
+import 'founder_money.dart';
 
 /// Who is holding the farm's cash, and who is out of pocket.
 ///
@@ -160,9 +162,12 @@ class CashHands extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      l.t('Who is holding the money'),
-                      style: T.cardTitle,
+                    child: Samjhao(
+                      term: 'Who is holding the money',
+                      child: Text(
+                        l.t('Who is holding the money'),
+                        style: T.cardTitle,
+                      ),
                     ),
                   ),
                   Tag(l.t2('%s people', hands.length)),
@@ -297,7 +302,12 @@ class CashHands extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(l.t('On its way'), style: T.bodyMid)),
+                    Expanded(
+                      child: Samjhao(
+                        term: 'On its way',
+                        child: Text(l.t('On its way'), style: T.bodyMid),
+                      ),
+                    ),
                     Text(
                       rs(store.cashInTransit),
                       style: T.num22.copyWith(color: T.moneyDue),
@@ -361,6 +371,17 @@ class _HandRow extends StatelessWidget {
     final took = store.heldBy(hand.who).map(Behind.hand).toList();
     final gave = store.spentBy(hand.who).map(Behind.hand).toList();
 
+    // How much of what he is holding is a capital line with no entry
+    // behind it. That is not cash in his pocket and no handover can move
+    // it; the line itself has to be put right.
+    final loose = store
+        .heldBy(hand.who)
+        .where((r) => r.txnId.isEmpty)
+        .fold<num>(0, (a, r) => a + r.amount);
+    final mine = store.partners
+        .where((p) => partyKey(p.name) == partyKey(hand.who))
+        .firstOrNull;
+
     // His holding is what he took in, less what he handed out, less what he
     // has passed on and nobody has acknowledged yet. All three or the
     // sentence does not reach the figure above it.
@@ -403,17 +424,20 @@ class _HandRow extends StatelessWidget {
                       style: T.meta,
                     ),
                   ),
-                  Text(
-                    // The farm owing itself money is not a sentence. Its own
-                    // account below nothing means it has paid out more than
-                    // has come into it, which is worth saying and is a
-                    // different thing from a man being out of pocket.
-                    !hand.outOfPocket
-                        ? l.t('in their hand')
-                        : partyKey(hand.who) == partyKey(farmAccountName)
-                        ? l.t('paid out more than came in')
-                        : l.t('farm owes them'),
-                    style: T.meta.copyWith(color: tone),
+                  Samjhao(
+                    term: hand.outOfPocket ? 'farm owes them' : 'in their hand',
+                    child: Text(
+                      // The farm owing itself money is not a sentence. Its own
+                      // account below nothing means it has paid out more than
+                      // has come into it, which is worth saying and is a
+                      // different thing from a man being out of pocket.
+                      !hand.outOfPocket
+                          ? l.t('in their hand')
+                          : partyKey(hand.who) == partyKey(farmAccountName)
+                          ? l.t('paid out more than came in')
+                          : l.t('farm owes them'),
+                      style: T.meta.copyWith(color: tone),
+                    ),
                   ),
                 ],
               ),
@@ -450,12 +474,57 @@ class _HandRow extends StatelessWidget {
           ),
         ],
 
+        // A figure that is not the farm's cash at all, and must not be
+        // offered a handover.
+        //
+        // The farm met this and it cost an evening. A co-founder's own
+        // money put onto his investment from the Co-founders page writes a
+        // line tied to no entry, and that line counts towards what he is
+        // holding. So a man showed 550 in hand, the card offered to move
+        // it into the farm account, and the farm did — handing over money
+        // that had never been in anybody's pocket, down two rows of names
+        // that look the same, the wrong way round.
+        //
+        // The money is not misplaced. The line is. So the card says that
+        // and opens the place it is in, instead of pointing at a handover
+        // that cannot help.
+        if (!hand.outOfPocket && loose >= hand.holding && hand.holding > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.t2(
+                    'This is not the farm\'s cash in his pocket. It is %s '
+                    'of his own money put onto his investment with no entry '
+                    'behind it — so a handover cannot put it right.',
+                    rs(loose),
+                  ),
+                  style: T.meta.copyWith(color: T.moneyDue),
+                ),
+                if (mine != null) ...[
+                  const SizedBox(height: 7),
+                  IfCanWrite(
+                    child: GhostButton(
+                      label: l.t('Open his lines'),
+                      icon: Icons.list_alt_outlined,
+                      compact: true,
+                      onPressed: () => showMoneyLines(context, mine),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
         // Farm money sitting in a man's pocket. It is the farm's until the
         // month closes and the profit is shared, so it belongs in the farm
         // account — the thousand rupees Rafeeq collected from Urooj is the
         // farm's thousand rupees, not Rafeeq's.
         if (!hand.outOfPocket &&
             hand.holding > 0 &&
+            loose < hand.holding &&
             partyKey(hand.who) != partyKey(farmAccountName)) ...[
           const SizedBox(height: 7),
           IfCanWrite(

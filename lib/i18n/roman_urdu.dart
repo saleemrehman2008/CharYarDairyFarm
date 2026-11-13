@@ -225,6 +225,9 @@ const Map<String, String> romanUrdu = {
   'Advance still owed': 'Advance abhi baqi hai',
   'Not coming back': 'Wapas nahi aana',
   'Take it back': 'Wapas le lein',
+  'Open his lines': 'Us ki lines kholein',
+  'This is not the farm\'s cash in his pocket. It is %s of his own money put onto his investment with no entry behind it — so a handover cannot put it right.':
+      'Ye farm ka naqd us ki jaib me nahi hai. Ye %s us ka apna paisa hai jo us ke investment per dala gaya aur us ke peeche koi entry nahi — is liye transfer se theek nahi hoga.',
   'Was this his own money?': 'Kya ye us ki apni jaib se tha?',
   'Put it onto what %s has invested, against this entry.':
       'Is entry ke saath %s ke investment me daal dein.',
