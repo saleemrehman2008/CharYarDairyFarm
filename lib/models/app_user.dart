@@ -130,6 +130,7 @@ class AppUser {
     required this.skin,
     this.asFarm = false,
     required this.chatSeenAt,
+    this.langToldAt,
     required this.createdAt,
   });
 
@@ -180,6 +181,14 @@ class AppUser {
   /// after it is what the dot on the tab is counting.
   final DateTime? chatSeenAt;
 
+  /// When this person was told the app speaks Roman Urdu too.
+  ///
+  /// Said once and then left alone. The app opens in English for
+  /// everybody — that is what the farm chose — and a man who would rather
+  /// read it in his own has no way of knowing he can, because the setting
+  /// is on a screen he has no reason to open.
+  final DateTime? langToldAt;
+
   final DateTime createdAt;
 
   bool get canOrder => status == UserStatus.active;
@@ -204,6 +213,7 @@ class AppUser {
       mobile: s(m['mobile']),
       partnerId: m['partnerId'] == null ? null : s(m['partnerId']),
       lang: Lang.parse(m['lang']),
+      langToldAt: dt(m['langToldAt']),
       skin: Skin.byName(m['skin'] as String?),
       asFarm: m['asFarm'] == true,
       chatSeenAt: m['chatSeenAt'] == null ? null : dtOr(m['chatSeenAt']),

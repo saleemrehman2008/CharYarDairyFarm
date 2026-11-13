@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/lang_notice.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
@@ -57,6 +58,7 @@ class CofounderHome extends StatelessWidget {
       children: [
         const TransferInbox(),
         const RefundCard(),
+        const LangNotice(),
         const DecisionBanner(),
 
         // Theirs first.

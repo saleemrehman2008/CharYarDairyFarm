@@ -225,6 +225,15 @@ const Map<String, String> romanUrdu = {
   'Advance still owed': 'Advance abhi baqi hai',
   'Not coming back': 'Wapas nahi aana',
   'Take it back': 'Wapas le lein',
+  'The app reads in Roman Urdu too': 'App Roman Urdu me bhi parhi ja sakti hai',
+  'It opens in English for everybody. If you would rather read it in Roman Urdu, change it on your own account — it changes nothing for anybody else.':
+      'App sab ke liye English me khulti hai. Agar aap Roman Urdu me parhna chahen to apne account se badal lein — kisi aur ke liye kuch nahi badlega.',
+  'Change it': 'Badal lein',
+  'Keep English': 'English hi rakhein',
+  'Take this record off?': 'Ye record hata dein?',
+  '%s comes off the wage list for good. Only a record nothing has been paid against can go — if a wage has been paid to him the app will say so and leave him alone.':
+      '%s hamesha ke liye wage list se hat jayega. Sirf wo record hat sakta hai jis per kuch nahi diya gaya — agar us ko tankhwah mili hai to app bata degi aur us ko chhor degi.',
+  '%s removed': '%s hata diya',
   'Open his lines': 'Us ki lines kholein',
   'This is not the farm\'s cash in his pocket. It is %s of his own money put onto his investment with no entry behind it — so a handover cannot put it right.':
       'Ye farm ka naqd us ki jaib me nahi hai. Ye %s us ka apna paisa hai jo us ke investment per dala gaya aur us ke peeche koi entry nahi — is liye transfer se theek nahi hoga.',

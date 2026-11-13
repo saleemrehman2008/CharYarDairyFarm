@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/lang_notice.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
@@ -56,6 +57,7 @@ class MasterHome extends StatelessWidget {
 
     return PageBody(
       children: [
+        const LangNotice(),
         const DecisionBanner(),
         // Money somebody says he has handed you. It cannot be scrolled
         // past, which on the free plan is the only notification there is.

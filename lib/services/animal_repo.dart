@@ -673,14 +673,26 @@ class AnimalRepo {
     // An animal written off before her ids were kept has none to find. The
     // write-off stays and the master takes it off by hand, which is better
     // than a guess that can take the wrong one.
+    // Taken off the books the way everything else is, not by stamping the
+    // row and walking away.
+    //
+    // A sale of hers may have been settled, may have moved a khaata, may
+    // have had one of their own money against it. Marking it deleted by
+    // hand left every one of those standing: the money stayed collected
+    // on a sale that was no longer on the books. [TxnRepo.softDelete]
+    // unwinds all of it, and is what the master's own delete button
+    // calls.
     for (final id in [animal.writeOffTxnId, animal.saleTxnId]) {
       if (id == null || id.isEmpty) continue;
       try {
-        await Db.transactions.doc(id).update({
-          'deletedAt': FieldValue.serverTimestamp(),
-        });
+        final doc = await Db.transactions.doc(id).get();
+        if (!doc.exists) continue;
+        final row = Txn.fromDoc(doc);
+        if (row.isDeleted) continue;
+        await TxnRepo.softDelete(actor, row);
       } catch (_) {
-        // Already gone, or not ours to touch.
+        // Already gone, in a settled period, or not ours to touch. The
+        // animal is back either way and the row can be taken off by hand.
       }
     }
     try {

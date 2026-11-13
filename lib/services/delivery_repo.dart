@@ -35,6 +35,15 @@ class DeliveryRepo {
     }
 
     if (litres <= 0) {
+      // A day already on a bill cannot be cleared from here. The customer
+      // has been asked for that milk and his khaata carries it; taking the
+      // day away would leave both standing with nothing behind them.
+      if (before != null && before.isBilled) {
+        throw StateError(
+          'That day is already on a bill, so it cannot be cleared here. '
+          'Correct the bill instead.',
+        );
+      }
       await Db.deliveries.doc(id).delete();
       await RiderRepo.countDelivery(
         actor,

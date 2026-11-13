@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/samjhao.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
@@ -366,8 +367,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
               // What is settled is a record — it is read occasionally and
               // acted on never — so it goes underneath, however long it gets.
               if (open.isNotEmpty) ...[
-                SectionTitle(
-                  _owedTab ? l.t(_filter.heading) : l.t('Still open'),
+                Samjhao(
+                  term: 'Still open',
+                  child: SectionTitle(
+                    _owedTab ? l.t(_filter.heading) : l.t('Still open'),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 ..._byName(
@@ -400,8 +404,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
               ],
 
               if (done.isNotEmpty) ...[
-                SectionTitle(
-                  open.isEmpty ? l.t('Everything here') : l.t('Done with'),
+                Samjhao(
+                  term: 'Done with',
+                  child: SectionTitle(
+                    open.isEmpty ? l.t('Everything here') : l.t('Done with'),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 ..._byName(done, periods, l, isMaster, const {}, owing: false),

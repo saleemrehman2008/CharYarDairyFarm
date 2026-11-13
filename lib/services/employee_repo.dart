@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/models.dart';
 import '../util/money.dart';
+import 'accounting.dart';
 import 'db.dart';
 import 'log_service.dart';
 
@@ -178,8 +179,38 @@ class EmployeeRepo {
   /// Master only, and only for a record nothing has ever been paid against.
   ///
   /// A duplicate typed in twice on the same morning is worth removing. One
-  /// with a wage behind it is not — see [left].
-  static Future<void> remove(Actor actor, Employee who) async {
+  /// with a wage behind it is not — see [left]. That was said here and not
+  /// enforced anywhere, so a man could be taken off the list owing an
+  /// advance: the debt stayed in what the farm was worth, correctly, with
+  /// no card left anywhere to show whose it was.
+  ///
+  /// [ledger] is the farm's rows, so this can see what stands against him.
+  static Future<void> remove(
+    Actor actor,
+    Employee who, {
+    List<Txn> ledger = const [],
+  }) async {
+    final his = ledger.where(
+      (t) => !t.isDeleted && partyKey(t.party) == partyKey(who.name),
+    );
+    final wages = his.where((t) => t.category == salariesCategory).length;
+    final owed = advanceOwed(ledger, who: who.name);
+
+    if (owed > 0) {
+      throw StateError(
+        '${who.name} still owes ${rs(owed)} against advances. Give up on it '
+        'or take it off his next wage, then he can come off the list.',
+      );
+    }
+    if (wages > 0) {
+      throw StateError(
+        '$wages wage${wages == 1 ? '' : 's'} have been paid to ${who.name}, '
+        'and those figures are in months the co-founders have been paid '
+        'out of. Mark him as having left instead — the record stays and '
+        'the list stops offering him.',
+      );
+    }
+
     await Db.employees.doc(who.id).delete();
     await Log.write(
       actor,

@@ -186,7 +186,7 @@ service cloud.firestore {
             && changedKeys().hasOnly(['name', 'email', 'photoUrl',
                                       'fcmTokens', 'address', 'mobile',
                                       'lang', 'skin', 'asFarm',
-                                      'chatSeenAt']))
+                                      'chatSeenAt', 'langToldAt']))
         // The pointer to their own capital record, written on first sign-in.
         // It has to be right: the rules on months read it to decide whose
         // share this person may answer for, so it is only accepted when the

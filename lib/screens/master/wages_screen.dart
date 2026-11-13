@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../i18n/samjhao.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
@@ -184,6 +185,43 @@ class _CardState extends State<_Card> {
     }
   }
 
+  /// Takes a record off the wage list for good.
+  ///
+  /// Only one nothing has been paid against. [EmployeeRepo.remove] is the
+  /// one that decides, and it refuses with the reason — a man who has been
+  /// paid is marked as having left instead, so the figures in the months
+  /// he was paid in keep a name.
+  Future<void> _remove() async {
+    final l = L.read(context);
+    final e = widget.who;
+    final ok = await confirm(
+      context,
+      title: l.t('Take this record off?'),
+      body: l.t2(
+        '%s comes off the wage list for good. Only a record nothing has '
+        'been paid against can go — if a wage has been paid to him the '
+        'app will say so and leave him alone.',
+        e.name,
+      ),
+      confirmLabel: l.t('Remove'),
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await EmployeeRepo.remove(
+        context.read<Session>().actor,
+        e,
+        ledger: context.read<FarmStore>().ledger,
+      );
+      if (mounted) toast(context, l.t2('%s removed', e.name));
+    } catch (err) {
+      if (mounted) toast(context, '$err');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Gives up on what a man still owes against advances.
   ///
   /// Named in figures and confirmed, because it is a loss the farm is
@@ -356,9 +394,12 @@ class _CardState extends State<_Card> {
                         Icon(Icons.schedule, size: 14, color: T.moneyDue),
                         const SizedBox(width: 5),
                         Expanded(
-                          child: Text(
-                            l.t('Advance still owed'),
-                            style: T.meta.copyWith(color: T.moneyDue),
+                          child: Samjhao(
+                            term: 'Advance still owed',
+                            child: Text(
+                              l.t('Advance still owed'),
+                              style: T.meta.copyWith(color: T.moneyDue),
+                            ),
                           ),
                         ),
                         Text(
@@ -416,6 +457,16 @@ class _CardState extends State<_Card> {
                   compact: true,
                   onPressed: _busy ? null : _back,
                 ),
+              // A record typed in twice on the same morning. The one with
+              // a wage behind it refuses and says why — those figures are
+              // in months the co-founders have been paid out of.
+              GhostButton(
+                label: l.t('Remove'),
+                icon: Icons.delete_outline,
+                compact: true,
+                danger: true,
+                onPressed: _busy ? null : _remove,
+              ),
             ],
           ),
         ],
