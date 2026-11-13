@@ -717,6 +717,7 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                 value: _from,
                 people: people,
                 hands: hands,
+                tone: T.moneyOut,
                 onPicked: (v) => setState(() => _from = v),
               ),
               const SizedBox(height: T.gap),
@@ -725,8 +726,22 @@ class _HandoverSheetState extends State<_HandoverSheet> {
                 value: _to,
                 people: people,
                 hands: hands,
+                tone: T.moneyIn,
                 onPicked: (v) => setState(() => _to = v),
               ),
+
+              // The two rows of names are identical, and the farm has sent
+              // money down them the wrong way. So once both ends are
+              // picked it is said once more, plainly, with the figure and
+              // an arrow: out of these hands, into those.
+              if (_from != null && _to != null) ...[
+                const SizedBox(height: T.gap),
+                _Direction(
+                  from: _from!,
+                  to: _to!,
+                  amount: num.tryParse(_amount.text.trim()) ?? 0,
+                ),
+              ],
 
               const SizedBox(height: T.gap),
               Field(
@@ -1288,6 +1303,7 @@ class _EntryLine extends StatelessWidget {
 class _Pick extends StatelessWidget {
   const _Pick({
     required this.label,
+    this.tone,
     required this.value,
     required this.people,
     required this.hands,
@@ -1299,6 +1315,9 @@ class _Pick extends StatelessWidget {
   final List<String> people;
   final Map<String, HandsOn> hands;
   final ValueChanged<String> onPicked;
+
+  /// Which way this row moves money for whoever is picked on it.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -1318,6 +1337,7 @@ class _Pick extends StatelessWidget {
                 return held > 0 ? rs(held) : null;
               }(),
               selected: p == value,
+              tone: tone,
               onTap: () => onPicked(p),
             ),
         ],
@@ -1326,11 +1346,80 @@ class _Pick extends StatelessWidget {
   );
 }
 
+/// Out of these hands, into those — said once, in colour, with the
+/// figure.
+///
+/// The farm sent 550 the wrong way down two rows of names that look the
+/// same, and spent an evening getting it back. Two colours and an arrow
+/// is the whole of what was missing.
+class _Direction extends StatelessWidget {
+  const _Direction({
+    required this.from,
+    required this.to,
+    required this.amount,
+  });
+
+  final String from;
+  final String to;
+  final num amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final said = amount > 0 ? rs(amount) : null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: T.fill.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(T.radiusSm),
+        border: Border.all(color: T.n300),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  from,
+                  style: T.bodyMid.copyWith(color: T.moneyOut),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (said != null)
+                  Text('− $said', style: T.meta.copyWith(color: T.moneyOut)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(Icons.arrow_forward, size: 18, color: T.n600),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  to,
+                  style: T.bodyMid.copyWith(color: T.moneyIn),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (said != null)
+                  Text('+ $said', style: T.meta.copyWith(color: T.moneyIn)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.tone,
     this.note,
   });
 
@@ -1338,6 +1427,12 @@ class _Chip extends StatelessWidget {
   final String? note;
   final bool selected;
   final VoidCallback onTap;
+
+  /// What this side of a handover does to a man. Money out of his hands
+  /// reads one way and money into them the other, because the two rows of
+  /// names are identical otherwise and the farm has handed money the
+  /// wrong way down them.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -1348,9 +1443,12 @@ class _Chip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? T.fill : T.surface,
+          color: selected ? (tone ?? T.fill) : T.surface,
           borderRadius: BorderRadius.circular(T.pill),
-          border: Border.all(color: selected ? T.fill : T.n300, width: 1.3),
+          border: Border.all(
+            color: selected ? (tone ?? T.fill) : T.n300,
+            width: 1.3,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
