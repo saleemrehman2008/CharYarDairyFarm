@@ -17,6 +17,87 @@ import '../../widgets/ui.dart';
 
 /// Who is holding the farm's cash, and who is out of pocket.
 ///
+/// One handover still waiting, with the way to take it back.
+///
+/// It had no way back. The function to undo one has been in the app from
+/// the day handovers were written and was wired to nothing, so a handover
+/// sent to the wrong man sat on the page for ever — and pressing it did
+/// nothing, which is worse than no button at all.
+///
+/// Nothing in the books moves either way. A handover writes its rows when
+/// the other man says he has the money, not when it is sent, so one still
+/// waiting is a note between two people and taking it back only tears the
+/// note up.
+class _OnItsWay extends StatefulWidget {
+  const _OnItsWay({required this.move});
+
+  final CashTransfer move;
+
+  @override
+  State<_OnItsWay> createState() => _OnItsWayState();
+}
+
+class _OnItsWayState extends State<_OnItsWay> {
+  bool _busy = false;
+
+  Future<void> _takeBack() async {
+    final l = L.read(context);
+    final t = widget.move;
+    final ok = await confirm(
+      context,
+      title: l.t('Take it back?'),
+      body: l.t4(
+        '%s → %s · %s\n\nNothing in the books moves. A handover writes '
+        'nothing until the other man says he has the money, so this is '
+        'only the note between you being torn up.',
+        t.from,
+        t.to,
+        rs(t.amount),
+      ),
+      confirmLabel: l.t('Take it back'),
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await TransferRepo.cancel(context.read<Session>().actor, t);
+      if (mounted) toast(context, l.t('Taken back'));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final t = widget.move;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${l.t3('%s → %s', t.from, t.to)} · ${rs(t.amount)}',
+              style: T.meta,
+            ),
+          ),
+          IfCanWrite(
+            child: GhostButton(
+              label: l.t('Take it back'),
+              icon: Icons.undo,
+              compact: true,
+              danger: true,
+              onPressed: _busy ? null : _takeBack,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Four friends run this farm and none of them is an accountant. The money
 /// from a shop is taken at the gate by whoever is standing there; the feed is
 /// paid for out of whoever's pocket is nearest; and one of them has been
@@ -225,10 +306,7 @@ class CashHands extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 for (final t in store.transfers.where((t) => t.isWaiting))
-                  Text(
-                    '${l.t3('%s → %s', t.from, t.to)} · ${rs(t.amount)}',
-                    style: T.meta,
-                  ),
+                  _OnItsWay(move: t),
                 const SizedBox(height: 4),
                 Text(
                   l.t(
