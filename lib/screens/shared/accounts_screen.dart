@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
+import '../../services/contribution_repo.dart';
 import '../../services/allocation.dart';
 import '../../services/db.dart';
 import '../../services/statement.dart';
@@ -2643,6 +2644,90 @@ class _DetailFact extends StatelessWidget {
 /// correction afterwards would leave the ledger saying one thing and the
 /// period another with nothing to notice it. That correction goes in as a
 /// fresh entry in the period that is open.
+/// Whose own pocket paid for an entry, shown beside who handled it.
+///
+/// The farm's way of working: a co-founder buys the feed out of his own
+/// money, and afterwards that amount is put onto what he has invested. So
+/// an entry can carry two names and they mean different things — one
+/// handled the farm's cash, the other spent his own — and the app had
+/// them on two different screens looking identical.
+///
+/// Here they sit together, each saying what it moves. The farm asked for
+/// exactly this after an evening spent moving 550 between two men.
+class _WhosePocket extends StatelessWidget {
+  const _WhosePocket({required this.txn});
+
+  final Txn txn;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final store = context.watch<FarmStore>();
+    final mine = store.contributions
+        .where((c) => c.txnId == txn.id && !c.isDeleted)
+        .toList();
+    final put = mine.fold<num>(0, (a, c) => a + c.amount);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Kicker(l.t('Whose own money paid for it')),
+        const SizedBox(height: 5),
+        if (mine.isEmpty)
+          Text(
+            l.t(
+              'Nobody\'s — the farm\'s own cash paid for this. Nothing is '
+              'on anybody\'s investment for it.',
+            ),
+            style: T.meta,
+          )
+        else
+          for (final c in mine)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      store.nameOf[c.partnerId] ?? c.partnerName,
+                      style: T.bodyMid,
+                    ),
+                  ),
+                  Text(rs(c.amount), style: T.bodyMid),
+                ],
+              ),
+            ),
+        const SizedBox(height: 7),
+        GhostButton(
+          label: mine.isEmpty
+              ? l.t('Who paid for this?')
+              : l.t('Change whose money'),
+          icon: Icons.groups_outlined,
+          compact: true,
+          onPressed: () {
+            Navigator.pop(context);
+            showSplitSheet(context, txn);
+          },
+        ),
+        const SizedBox(height: 5),
+        Text(
+          mine.isEmpty
+              ? l.t(
+                  'This is the one that moves what a man has put into the '
+                  'farm. Changing the name above does not.',
+                )
+              : l.t2(
+                  '%s is on their investment for this entry. Changing the '
+                  'name above does not move it — this does.',
+                  rs(put),
+                ),
+          style: T.meta.copyWith(color: mine.isEmpty ? null : T.moneyDue),
+        ),
+      ],
+    );
+  }
+}
+
 class EditEntrySheet extends StatefulWidget {
   const EditEntrySheet({super.key, required this.txn, required this.isMaster});
 
@@ -2776,12 +2861,109 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
         earliest: periodFirstDay(_period(store)),
       );
       if (!mounted) return;
+      await _offerToMoveTheMoney(store);
+      if (!mounted) return;
       Navigator.pop(context);
       toast(context, l.t('Entry corrected'));
     } catch (e) {
       if (mounted) toast(context, '$e');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The name on the entry has moved; the money behind it may have to.
+  ///
+  /// The farm's way of working: a co-founder buys the feed out of his own
+  /// pocket, and afterwards that amount goes onto what he has put into the
+  /// farm. So an entry corrected from one man to another is usually a
+  /// correction about whose money it was — and the app used to move the
+  /// name and leave the money, so the first man went on being credited
+  /// with it and the second went on not being.
+  ///
+  /// Asked, never assumed. The two are genuinely different questions —
+  /// handing over the farm's cash is not the same as spending your own —
+  /// and the farm is the only one who knows which this was.
+  Future<void> _offerToMoveTheMoney(FarmStore store) async {
+    final l = L.read(context);
+    final was = widget.txn.handledBy.trim();
+    final now = _handledBy.text.trim();
+    if (was.isEmpty || now.isEmpty) return;
+    if (partyKey(was) == partyKey(now)) return;
+
+    // Whose own money is on this entry today.
+    final mine = store.contributions
+        .where((c) => c.txnId == widget.txn.id && !c.isDeleted)
+        .toList();
+    if (mine.isEmpty) return;
+
+    // Only the man whose name has just come off it. If the money is
+    // already on somebody else, the farm meant something this cannot
+    // guess at.
+    final his = mine.where((c) {
+      final name = store.nameOf[c.partnerId] ?? c.partnerName;
+      return partyKey(name) == partyKey(was);
+    }).toList();
+    if (his.isEmpty || his.length != mine.length) return;
+
+    final to = store.partners
+        .where((p) => partyKey(p.name) == partyKey(now))
+        .firstOrNull;
+    if (to == null) return;
+
+    final put = his.fold<num>(0, (a, c) => a + c.amount);
+    if (put <= 0) return;
+
+    // Some of it may already have been handed back to him. Moving it then
+    // would leave the farm having refunded money it no longer says he put
+    // in — a debt of his, written nowhere. Say so and leave it alone.
+    final given = his.fold<num>(0, (a, c) => a + c.repaidSoFar);
+    if (given > 0) {
+      await confirm(
+        context,
+        title: l.t('His money cannot move'),
+        body: l.t4(
+          '%s of the %s on this entry has already been paid back to %s. '
+          'Moving it now would leave him owing the farm that much, with '
+          'nothing on the books saying so.\n\nSettle the refund first, '
+          'then change whose money it was.',
+          rs(given),
+          rs(put),
+          was,
+        ),
+        confirmLabel: l.t('I see'),
+      );
+      return;
+    }
+
+    final ok = await confirm(
+      context,
+      title: l.t('Move his money too?'),
+      body: l.t4(
+        '%s of this entry is on %s\'s investment. The name has moved to '
+        '%s — should the money move with it?\n\nIt comes off his '
+        'investment and goes onto theirs. Nothing else changes.',
+        rs(put),
+        was,
+        now,
+      ),
+      confirmLabel: l.t('Move it'),
+    );
+    if (!ok || !mounted) return;
+
+    try {
+      await ContributionRepo.setSplit(
+        context.read<Session>().actor,
+        entry: widget.txn,
+        partners: store.partners,
+        existing: mine,
+        amounts: {
+          for (final p in store.partners) p.id: p.id == to.id ? put : 0,
+        },
+      );
+      if (mounted) toast(context, l.t2('Moved %s', rs(put)));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
     }
   }
 
@@ -2907,10 +3089,39 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
               ),
 
               const SizedBox(height: T.gap),
-              Field(
+              // The same picker the entry form offers, not a box to type a
+              // name into. Typed, a name lands a hair off — "Munawar ali"
+              // against "Munawar Ali" is forgiven, but "Munawar" is not —
+              // and the money goes onto somebody who does not exist. The
+              // farm asked for this twice.
+              WhoField(
                 label: t.type.isIncoming ? l.t('Received by') : l.t('Paid by'),
                 controller: _handledBy,
+                hint: t.type.isIncoming
+                    ? 'Who took the money'
+                    : 'Who handed it over',
+                onChanged: (_) => setState(() {}),
               ),
+              const SizedBox(height: 5),
+              Text(
+                l.t(
+                  'Whose hands the farm\'s money passed through. This alone '
+                  'does not say it was his own money — that is the question '
+                  'below.',
+                ),
+                style: T.meta,
+              ),
+
+              // And the other question, where it can be seen beside the
+              // first. They were a screen apart and look the same, and the
+              // farm spent an evening moving money between two men because
+              // of it: one of them says who handled the cash, the other
+              // says whose pocket it came out of, and only the second one
+              // moves what a man has put into the farm.
+              if (!t.type.isIncoming && !t.type.isSettlement) ...[
+                const SizedBox(height: T.gap),
+                _WhosePocket(txn: t),
+              ],
 
               const SizedBox(height: T.gap),
               Field(label: l.t('Note'), controller: _note, maxLines: 2),

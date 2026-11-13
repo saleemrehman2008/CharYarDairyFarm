@@ -225,6 +225,21 @@ const Map<String, String> romanUrdu = {
   'Advance still owed': 'Advance abhi baqi hai',
   'Not coming back': 'Wapas nahi aana',
   'Take it back': 'Wapas le lein',
+  'Whose own money paid for it': 'Kis ki apni jaib se gaya',
+  'Change whose money': 'Kis ka paisa tha, badlein',
+  'Move his money too?': 'Us ka paisa bhi le jayen?',
+  'Move it': 'Le jayen',
+  'Moved %s': '%s le gaye',
+  'His money cannot move': 'Us ka paisa nahi hil sakta',
+  'I see': 'Samajh gaya',
+  'Nobody\'s — the farm\'s own cash paid for this. Nothing is on anybody\'s investment for it.':
+      'Kisi ki nahi — farm ke apne paison se hua. Kisi ke investment per kuch nahi.',
+  'This is the one that moves what a man has put into the farm. Changing the name above does not.':
+      'Investment yehi hilata hai. Upar wala naam badalne se kuch nahi hilta.',
+  '%s is on their investment for this entry. Changing the name above does not move it — this does.':
+      'Is entry per %s un ke investment me hai. Upar wala naam badalne se wo nahi hilta — yeh hilata hai.',
+  'Whose hands the farm\'s money passed through. This alone does not say it was his own money — that is the question below.':
+      'Farm ka paisa kis ke haath se guzra. Is se ye nahi hota ke paisa us ka apna tha — wo neeche wala sawal hai.',
   'Take it back?': 'Wapas le lein?',
   'Taken back': 'Wapas le liya',
   '%s payment': '%s payment',
