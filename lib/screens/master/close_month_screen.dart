@@ -97,12 +97,12 @@ class _SealStepState extends State<_SealStep> {
                   ),
                 const Divider(height: 18),
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Kicker(l.t('Profit to share')),
                 ),
                 const SizedBox(height: 6),
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     rs(profitToShare),
                     style: T.num26.copyWith(

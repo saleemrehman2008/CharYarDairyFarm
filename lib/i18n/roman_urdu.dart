@@ -164,7 +164,8 @@ const Map<String, String> romanUrdu = {
   'My account': 'Mera account',
   'Theme': 'Rang',
   'Dark': 'Kaala',
-  'Medium dark': 'Darmiyana',
+  'Glow': 'Sabz',
+  'Ember': 'Narangi',
   'Light': 'Safed',
   'Dark is easiest at four in the morning and after sunset. Light is easiest '
           'in the sun. It is yours alone; nobody else on the farm changes '
@@ -225,9 +226,9 @@ const Map<String, String> romanUrdu = {
   'Advance still owed': 'Advance abhi baqi hai',
   'Not coming back': 'Wapas nahi aana',
   'Take it back': 'Wapas le lein',
-  'The app reads in Roman Urdu too': 'App Roman Urdu me bhi parhi ja sakti hai',
-  'It opens in English for everybody. If you would rather read it in Roman Urdu, change it on your own account — it changes nothing for anybody else.':
-      'App sab ke liye English me khulti hai. Agar aap Roman Urdu me parhna chahen to apne account se badal lein — kisi aur ke liye kuch nahi badlega.',
+  'The app reads in Urdu too': 'App Urdu me bhi parhi ja sakti hai',
+  'It opens in English for everybody. You can read it in Roman Urdu — Urdu in English letters — or in Urdu script. Change it on your own account; it changes nothing for anybody else.':
+      'App sab ke liye English me khulti hai. Aap ise Roman Urdu me parh sakte hain — Urdu, English harfon me — ya Urdu ki apni likhai me. Apne account se badal lein; kisi aur ke liye kuch nahi badlega.',
   'Change it': 'Badal lein',
   'Keep English': 'English hi rakhein',
   'Take this record off?': 'Ye record hata dein?',
@@ -1613,4 +1614,29 @@ const Map<String, String> romanUrdu = {
       'Ye un ke baqaya per bichhaya jata hai, sab se purane se shuru — wese hi jese pehli bar liya gaya tha. Barha den to aur agle dinon tak pohnchega; kam kar den to pehle ruk jayega. Tareekh %s hi rahegi.',
   '%s · %s entries settled': '%s · %s entries chukta hueen',
   'Could not change it. %s': 'Badal nahi sake. %s',
+  'Less advance against wages': 'Tankhwah ka advance minus',
+  '%s was given out as advance against wages. It is not counted as a cost above — the money is lent, and it comes off the wage it was taken against.':
+      '%s tankhwah ke advance me diya gaya. Upar is ko kharch nahi gina gaya — ye paisa udhaar hai, aur jis tankhwah per liya gaya us me se kat jayega.',
+  'An advance against wages is taken off the costs, because the money is lent — it comes back off the wage, and the wage itself is the cost.':
+      'Tankhwah ka advance kharchon me se nikal diya jata hai, kyunke ye paisa udhaar hai — ye tankhwah me se wapas aata hai, aur kharch khud tankhwah hai.',
+  '%s of the %s on this entry has already been paid back to %s. Moving it now would leave him owing the farm that much, with nothing on the books saying so.\n\nSettle the refund first, then change whose money it was.':
+      'Is entry ke %s me se %s pehle hi %s ko wapas ja chuka hai. Ab is ko hilaya to us ke zimme farm ka utna qarz ban jayega, aur kitaab me kahin likha nahi hoga.\n\nPehle wo wapasi ka hisaab karen, phir naam badlen.',
+  '%s of this entry is on %s\'s investment. The name has moved to %s — should the money move with it?\n\nIt comes off his investment and goes onto theirs. Nothing else changes.':
+      'Is entry ka %s abhi %s ki investment per hai. Naam badal kar %s ho gaya hai — paisa bhi saath le jayen?\n\nUs ki investment se nikal kar un ki investment me chala jayega. Aur kuch nahi badalta.',
+  '%s → %s · %s\n\nNothing in the books moves. A handover writes nothing until the other man says he has the money, so this is only the note between you being torn up.':
+      '%s → %s · %s\n\nKitaab me kuch nahi hilta. Handover tab tak kuch likhta hi nahi jab tak dusra na kahe ke paisa mil gaya, is liye ye sirf aap dono ke darmiyan ki parchi phaari ja rahi hai.',
+  'Advance against wages': 'Tankhwah ka advance',
+  'out of the cash, and coming back off a wage':
+      'cash me se nikla, aur tankhwah me se wapas aayega',
+  '%s of it': 'is me se %s',
+  '%s others': '%s aur',
+  'Where it came from': 'Paisa kahan se aaya',
+  'Where it went': 'Paisa kahan gaya',
+  'Spent on running the farm': 'Farm chalane per kharch hua',
+  'The farm is owed %s more than it owes.':
+      'Farm ko jitna dena hai us se %s zyada lena hai.',
+  'Cattle, equipment and advances are in this list but not in the cost above — the farm still has the one and is still owed the other.':
+      'Maweshi, saman aur advance is fehrist me hain magar uper wale kharche me nahi — ek ab bhi farm ke paas hai aur doosra farm ko wapas aana hai.',
+  'Nearly all of what was put in is standing in the shed rather than spent. That is why a period can read as a loss while the farm is worth more than it was.':
+      'Jo daala gaya us ka lagbhag sab kuch kharch hone ke bajaye sheds me khara hai. Isi liye koi period ghaate ka dikh sakta hai jab ke farm pehle se zyada ka ho chuka hota hai.',
 };

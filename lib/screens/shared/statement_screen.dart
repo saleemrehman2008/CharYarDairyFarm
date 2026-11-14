@@ -583,9 +583,20 @@ class _StatementScreenState extends State<StatementScreen> {
                 category: _category,
                 everything: _everything,
               ),
-        farmName: l.t('Char Yar Dairy Farm'),
-        forWhom: _party ?? l.t('The whole farm'),
-        period: _periodLine(l),
+        // The PDF is printed in English whatever the reader has chosen.
+        //
+        // Its own headings — Date, Debit, Credit, Balance, Page 1 of 2 —
+        // have always been written straight into the paper rather than
+        // translated, because the page is built to look like the one a bank
+        // sends and goes to people outside the farm. Three lines used to
+        // come through translated all the same, and in Urdu script those
+        // three would have been the only words on an English page that the
+        // PDF's own font cannot draw at all. English throughout, then, and
+        // the statement on screen and the picture it shares still read in
+        // whatever the reader chose.
+        farmName: L.english.t('Char Yar Dairy Farm'),
+        forWhom: _party ?? L.english.t('The whole farm'),
+        period: _periodLine(L.english),
         securityHeld: _party == null ? 0 : store.securityHeldFrom(_party!),
         securityOut: _party == null ? 0 : store.securityOutWith(_party!),
         books: store.books,
@@ -682,7 +693,7 @@ class StatementSheet extends StatelessWidget {
               // every page after the first of a PDF, and on the file the
               // statement is shared as.
               Container(
-                padding: const EdgeInsets.fromLTRB(15, 14, 15, 12),
+                padding: const EdgeInsetsDirectional.fromSTEB(15, 14, 15, 12),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -771,7 +782,7 @@ class StatementSheet extends StatelessWidget {
               // The foot
               Container(
                 color: T.accent100,
-                padding: const EdgeInsets.fromLTRB(15, 12, 15, 13),
+                padding: const EdgeInsetsDirectional.fromSTEB(15, 12, 15, 13),
                 child: Column(
                   children: [
                     if (statement.opening != 0)
@@ -961,7 +972,7 @@ Widget _table(BuildContext context, Statement statement) {
                 width: _balance,
                 child: Text(
                   groupPk(line.balance),
-                  textAlign: TextAlign.right,
+                  textAlign: TextAlign.end,
                   style: T.bodyMid.copyWith(
                     fontSize: 11.5,
                     color: line.balance < 0 ? T.moneyDue : T.accent800,
@@ -979,14 +990,14 @@ Widget _moneyCell(num value, double width, Color tone) => SizedBox(
   width: width,
   child: Text(
     value > 0 ? groupPk(value) : '',
-    textAlign: TextAlign.right,
+    textAlign: TextAlign.end,
     style: T.body.copyWith(fontSize: 11.5, color: tone),
   ),
 );
 
 Widget _h(String text, {bool right = false}) => Text(
   text.toUpperCase(),
-  textAlign: right ? TextAlign.right : TextAlign.left,
+  textAlign: right ? TextAlign.end : TextAlign.start,
   style: T.kicker,
   maxLines: 1,
   overflow: TextOverflow.ellipsis,

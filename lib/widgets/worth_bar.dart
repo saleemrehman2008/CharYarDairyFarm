@@ -28,7 +28,17 @@ class WorthBar extends StatelessWidget {
     final l = L.of(context);
 
     final cash = money.cash + money.withRider;
-    final toCome = money.receivable + money.loansOut + money.securitiesOut;
+    // An advance against a wage belongs here with the loans and the
+    // securities the farm has put out: the farm's own money, in somebody
+    // else's pocket, coming back. [MoneySummary.farmMoney] has counted it
+    // that way from the start and this bar had not, so the bar came up
+    // short by every advance standing — and the bar is the one picture of
+    // what the farm is worth.
+    final toCome =
+        money.receivable +
+        money.loansOut +
+        money.securitiesOut +
+        money.wagesAdvanced;
     final owned = money.assets;
     final owed = money.payable + money.securitiesHeld + money.owedToFounders;
 
@@ -47,7 +57,7 @@ class WorthBar extends StatelessWidget {
           const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(rs(has - owed), style: T.num30),
           ),
           const SizedBox(height: 12),

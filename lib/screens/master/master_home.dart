@@ -619,6 +619,20 @@ class _MoneyCard extends StatelessWidget {
               tone: T.moneyGet,
               outOf: capital,
             ),
+          // The same shape again, one rung down: money handed to a farm hand
+          // before his wage. It is not a cost — the wage is the cost, in the
+          // month he worked — so it sits out here with the loans until the
+          // wage takes it back. It was in [MoneySummary.farmMoney] from the
+          // start and had no line of its own, which is how a figure ends up
+          // on a card with nothing on the page accounting for it.
+          if (money.wagesAdvanced > 0)
+            _MoneyLine(
+              label: l.t('Advance against wages'),
+              value: money.wagesAdvanced,
+              note: l.t('out of the cash, and coming back off a wage'),
+              tone: T.moneyGet,
+              outOf: capital,
+            ),
           // In the box, but not the farm's. It goes back when a contract
           // ends, so it is never counted as anything the farm has made.
           if (money.securitiesHeld > 0)

@@ -99,7 +99,12 @@ class _PickSheetState extends State<_PickSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, 10),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                T.pad,
+                14,
+                T.pad,
+                10,
+              ),
               child: Row(
                 children: [
                   Expanded(child: SectionTitle(widget.title)),
@@ -112,7 +117,12 @@ class _PickSheetState extends State<_PickSheet> {
             ),
             if (widget.options.length > 8)
               Padding(
-                padding: const EdgeInsets.fromLTRB(T.pad, 0, T.pad, 8),
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  T.pad,
+                  0,
+                  T.pad,
+                  8,
+                ),
                 child: TextField(
                   controller: _search,
                   autofocus: true,
@@ -130,7 +140,12 @@ class _PickSheetState extends State<_PickSheet> {
             Flexible(
               child: ListView(
                 shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(T.pad, 0, T.pad, T.pad),
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  T.pad,
+                  0,
+                  T.pad,
+                  T.pad,
+                ),
                 children: [
                   _Option(
                     label: widget.allLabel,
@@ -222,7 +237,7 @@ class PickPill extends StatelessWidget {
       borderRadius: BorderRadius.circular(T.pill),
       child: Container(
         height: 38,
-        padding: EdgeInsets.only(left: 12, right: chosen ? 4 : 12),
+        padding: EdgeInsetsDirectional.only(start: 12, end: chosen ? 4 : 12),
         decoration: BoxDecoration(
           color: chosen ? T.accent100 : T.surface,
           borderRadius: BorderRadius.circular(T.pill),

@@ -187,7 +187,7 @@ class _LoanCardState extends State<LoanCard> {
             if (widget.canDecide) ...[
               const SizedBox(height: 10),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: GhostButton(
                   label: l.t('Remove'),
                   icon: Icons.delete_outline,

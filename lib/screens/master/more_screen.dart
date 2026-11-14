@@ -245,7 +245,7 @@ class _Group extends StatelessWidget {
         for (final (i, row) in rows.indexed) ...[
           if (i > 0)
             const Padding(
-              padding: EdgeInsets.only(left: 56),
+              padding: EdgeInsetsDirectional.only(start: 56),
               child: Divider(height: 1),
             ),
           row,

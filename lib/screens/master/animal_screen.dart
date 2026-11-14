@@ -370,7 +370,7 @@ class _CalfChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(T.pill),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
+        padding: const EdgeInsetsDirectional.fromSTEB(4, 4, 11, 4),
         decoration: BoxDecoration(
           color: T.accent100,
           borderRadius: BorderRadius.circular(T.pill),

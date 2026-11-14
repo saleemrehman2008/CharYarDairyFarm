@@ -34,7 +34,12 @@ void main() {
     expect(Skin.byName(null), Skin.dark);
     expect(Skin.byName('sepia'), Skin.dark);
     expect(Skin.byName('light'), Skin.light);
-    expect(Skin.byName('medium'), Skin.medium);
+    expect(Skin.byName('glow'), Skin.glow);
+    expect(Skin.byName('ember'), Skin.ember);
+    // The two skins these replaced. Anybody still carrying either name on
+    // their account opens dark, which is the nearest thing to what they had.
+    expect(Skin.byName('medium'), Skin.dark);
+    expect(Skin.byName('wallet'), Skin.dark);
   });
 
   for (final skin in Skin.values) {
@@ -278,6 +283,37 @@ void main() {
         throwsStateError,
       );
       expect(T.isDark, isTrue, reason: 'a failed export left the app white');
+    });
+  });
+
+  group('the glow a coloured thing throws', () {
+    test('falls on a black page, where there is dark for it to light', () {
+      for (final skin in [Skin.dark, Skin.glow, Skin.ember]) {
+        skinNow.value = skin;
+        final soft = T.glowOf(T.accent).single;
+        final loud = T.glowOf(T.accent, strong: true).single;
+        expect(soft.color.a, greaterThan(0.2), reason: '${skin.label} soft');
+        expect(loud.color.a, greaterThan(soft.color.a), reason: skin.label);
+        expect(loud.blurRadius, greaterThan(soft.blurRadius));
+      }
+    });
+
+    test('and comes to almost nothing on a pale one', () {
+      // The same shadow under a green chip on white paper is a smudge, so
+      // the pale skins get a hint of one and no more.
+      skinNow.value = Skin.light;
+      final pale = T.glowOf(T.accent, strong: true).single;
+      skinNow.value = Skin.glow;
+      final dark = T.glowOf(T.accent, strong: true).single;
+      expect(pale.color.a, lessThan(dark.color.a / 1.5));
+      expect(pale.color.a, lessThan(0.25));
+    });
+
+    test('and it is the colour it was given, never a grey', () {
+      skinNow.value = Skin.ember;
+      expect(T.glowOf(T.moneyIn).single.color.r, T.moneyIn.r);
+      expect(T.glowOf(T.moneyIn).single.color.g, T.moneyIn.g);
+      expect(T.glowOf(T.moneyIn).single.color.b, T.moneyIn.b);
     });
   });
 }

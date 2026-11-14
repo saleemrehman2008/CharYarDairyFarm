@@ -9,12 +9,16 @@ import '../state/session.dart';
 import '../theme/tokens.dart';
 import 'ui.dart';
 
-/// Said once: the app reads in Roman Urdu too.
+/// Said once: the app reads in Urdu too — in English letters, or in Urdu's
+/// own.
 ///
 /// It opens in English for everybody and will go on doing so — that is
 /// what the farm chose. But the choice lives on a screen a man has no
 /// reason to open, so somebody who would rather read it in his own has no
-/// way of finding out he can.
+/// way of finding out he can. That matters most for the third one: a man
+/// who reads only Urdu script cannot read the notice telling him about it,
+/// which is why the card shows the words themselves rather than describing
+/// them.
 ///
 /// Shown until he has seen it, and then never again. Choosing a language
 /// counts as having seen it: a man who has already gone and set one does
@@ -64,7 +68,7 @@ class _LangNoticeState extends State<LangNotice> {
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
-                    l.t('The app reads in Roman Urdu too'),
+                    l.t('The app reads in Urdu too'),
                     style: T.cardTitle,
                   ),
                 ),
@@ -73,9 +77,10 @@ class _LangNoticeState extends State<LangNotice> {
             const SizedBox(height: 6),
             Text(
               l.t(
-                'It opens in English for everybody. If you would rather '
-                'read it in Roman Urdu, change it on your own account — '
-                'it changes nothing for anybody else.',
+                'It opens in English for everybody. You can read it in '
+                'Roman Urdu — Urdu in English letters — or in Urdu script. '
+                'Change it on your own account; it changes nothing for '
+                'anybody else.',
               ),
               style: T.meta,
             ),

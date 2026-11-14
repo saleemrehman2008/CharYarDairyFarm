@@ -66,3 +66,13 @@ flutter:
           weight: 600
         - asset: assets/fonts/BarlowCondensed-Bold.ttf
           weight: 700
+    # Urdu as it is written. Named behind every style in T, so Latin text
+    # never reaches it and Urdu text always does.
+    - family: NotoNaskhArabic
+      fonts:
+        - asset: assets/fonts/NotoNaskhArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoNaskhArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoNaskhArabic-SemiBold.ttf
+          weight: 600

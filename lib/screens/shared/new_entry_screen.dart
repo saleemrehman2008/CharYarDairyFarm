@@ -1217,7 +1217,7 @@ class DayPicker extends StatelessWidget {
     final tone = isToday ? T.accent600 : T.moneyDue;
     return RegCard(
       stripe: tone,
-      padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 11, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1290,7 +1290,7 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) {
     final coming = flow == MoneyFlow.incoming;
     return Container(
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
+      padding: const EdgeInsetsDirectional.fromSTEB(13, 11, 13, 12),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: T.isDark ? 0.16 : 0.09),
         borderRadius: T.roundSm,

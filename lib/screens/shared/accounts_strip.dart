@@ -75,7 +75,7 @@ class _AccountStripState extends State<AccountStrip> {
             children: [
               for (final name in names)
                 Padding(
-                  padding: const EdgeInsets.only(right: 7),
+                  padding: const EdgeInsetsDirectional.only(end: 7),
                   child: _Name(
                     label: partyKey(name) == partyKey(me)
                         ? l.t2('%s (you)', name)

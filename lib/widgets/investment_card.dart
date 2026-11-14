@@ -77,7 +77,7 @@ class InvestmentCard extends StatelessWidget {
                         width: 96,
                         child: Text(
                           rs(p.inTheFarm),
-                          textAlign: TextAlign.right,
+                          textAlign: TextAlign.end,
                           style: T.bodyMid,
                         ),
                       ),

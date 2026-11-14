@@ -141,7 +141,12 @@ class _SplitSheetState extends State<_SplitSheet> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            14,
+            T.pad,
+            T.pad,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -391,7 +396,7 @@ class _LeftLine extends StatelessWidget {
         Container(
           height: T.tap,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           decoration: BoxDecoration(
             color: T.n100,
             borderRadius: T.roundSm,

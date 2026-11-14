@@ -37,7 +37,7 @@ Future<({Animal? mother})?> pickMother(
     builder: (sheet) => SafeArea(
       top: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.pad, 16, T.pad, T.pad),
+        padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 16, T.pad, T.pad),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -106,7 +106,7 @@ Future<Txn?> pickCattleEntry(
   builder: (sheet) => SafeArea(
     top: false,
     child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(T.pad, 16, T.pad, T.pad),
+      padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 16, T.pad, T.pad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

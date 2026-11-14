@@ -564,7 +564,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         if (isMaster) {
           out.add(
             Padding(
-              padding: const EdgeInsets.only(left: 22, bottom: 9),
+              padding: const EdgeInsetsDirectional.only(start: 22, bottom: 9),
               child: GhostButton(
                 label: l.t('Change this payment'),
                 icon: Icons.edit_outlined,
@@ -1042,7 +1042,7 @@ class _FilterBar extends StatelessWidget {
         children: [
           for (final f in AccountsFilter.values)
             Padding(
-              padding: const EdgeInsets.only(right: 7),
+              padding: const EdgeInsetsDirectional.only(end: 7),
               child: _FilterChip(
                 label: l.t(f.label),
                 tone: f.tone,
@@ -1166,7 +1166,7 @@ class _SettleBar extends StatelessWidget {
 
     return RegCard(
       stripe: incoming ? T.moneyIn : T.moneyOut,
-      padding: const EdgeInsets.fromLTRB(14, 13, 13, 13),
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 13, 13, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1353,7 +1353,7 @@ class _PartyHead extends StatelessWidget {
         boxShadow: T.shadowLift,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
+        padding: const EdgeInsetsDirectional.fromSTEB(18, 16, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1373,7 +1373,7 @@ class _PartyHead extends StatelessWidget {
                       const SizedBox(height: 8),
                       FittedBox(
                         fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: Text(
                           shown,
                           style: T.num30.copyWith(color: T.onHero),
@@ -1740,7 +1740,7 @@ class _LedgerRow extends StatelessWidget {
           ? T.accent600
           : tone,
       wash: settling ? T.accent100 : null,
-      padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 11, 10, 11),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1751,7 +1751,7 @@ class _LedgerRow extends StatelessWidget {
           // happening to them.
           if (showMark)
             Padding(
-              padding: const EdgeInsets.only(right: 10, top: 1),
+              padding: const EdgeInsetsDirectional.only(end: 10, top: 1),
               child: _Mark(
                 done: _done,
                 part: _part,
@@ -1981,7 +1981,10 @@ class _LedgerRow extends StatelessWidget {
     return Padding(
       // Stepped in from the margin when it is money against an earlier
       // entry, so the two are not read as two trades.
-      padding: EdgeInsets.only(left: settling || inset ? 22 : 0, bottom: 9),
+      padding: EdgeInsetsDirectional.only(
+        start: settling || inset ? 22 : 0,
+        bottom: 9,
+      ),
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
@@ -2138,7 +2141,7 @@ Future<void> showEntryDetail(
     builder: (sheet) => SafeArea(
       top: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+        padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 14, T.pad, T.pad),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -2187,7 +2190,7 @@ Future<void> showEntryDetail(
             const SizedBox(height: 12),
 
             Container(
-              padding: const EdgeInsets.fromLTRB(11, 9, 11, 10),
+              padding: const EdgeInsetsDirectional.fromSTEB(11, 9, 11, 10),
               decoration: BoxDecoration(
                 color: markTone.withValues(alpha: T.isDark ? 0.16 : 0.09),
                 borderRadius: T.roundSm,
@@ -3071,7 +3074,12 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            14,
+            T.pad,
+            T.pad,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

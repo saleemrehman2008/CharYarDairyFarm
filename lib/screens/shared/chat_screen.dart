@@ -147,7 +147,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   // Built upside down: a chat is read from the bottom, and
                   // this way it opens there without a scroll jump.
                   reverse: true,
-                  padding: const EdgeInsets.fromLTRB(T.pad, T.gap, T.pad, 6),
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    T.pad,
+                    T.gap,
+                    T.pad,
+                    6,
+                  ),
                   itemCount: store.messages.length,
                   itemBuilder: (_, i) {
                     final m = store.messages[i];
@@ -240,14 +245,18 @@ class _Line extends StatelessWidget {
             children: [
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(11, 8, 11, 7),
+                  padding: const EdgeInsetsDirectional.fromSTEB(11, 8, 11, 7),
                   decoration: BoxDecoration(
                     color: bubble,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(T.radiusSm),
-                      topRight: const Radius.circular(T.radiusSm),
-                      bottomLeft: Radius.circular(mine ? T.radiusSm : 3),
-                      bottomRight: Radius.circular(mine ? 3 : T.radiusSm),
+                    // The squared-off corner is the bubble's tail, and it
+                    // points back at whoever said it. Written by start and
+                    // end rather than left and right so it goes on pointing
+                    // the right way when the room reads from the other side.
+                    borderRadius: BorderRadiusDirectional.only(
+                      topStart: const Radius.circular(T.radiusSm),
+                      topEnd: const Radius.circular(T.radiusSm),
+                      bottomStart: Radius.circular(mine ? T.radiusSm : 3),
+                      bottomEnd: Radius.circular(mine ? 3 : T.radiusSm),
                     ),
                     border: forMe
                         ? Border.all(color: T.accent, width: 1.4)
@@ -396,7 +405,7 @@ class _Composer extends StatelessWidget {
       color: T.surface,
       border: Border(top: BorderSide(color: T.divider)),
     ),
-    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+    padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8),
     child: SafeArea(
       top: false,
       child: Row(

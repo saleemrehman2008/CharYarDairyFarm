@@ -180,7 +180,10 @@ class AboutScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(top: 6, right: 9),
+                        padding: const EdgeInsetsDirectional.only(
+                          top: 6,
+                          end: 9,
+                        ),
                         child: Container(
                           width: 5,
                           height: 5,
@@ -229,7 +232,7 @@ class _Fact extends StatelessWidget {
       const SizedBox(width: 12),
       Expanded(
         flex: wrap ? 2 : 1,
-        child: Text(value, style: T.bodyMid, textAlign: TextAlign.right),
+        child: Text(value, style: T.bodyMid, textAlign: TextAlign.end),
       ),
     ],
   );

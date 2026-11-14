@@ -78,12 +78,16 @@ class DayChart extends StatelessWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               reverse: true,
+              // Oldest first, laid out the way the reader reads. The days
+              // used to be reversed and the row forced right-to-left to
+              // put the newest at the end, which worked while the app only
+              // ran one way — in Urdu it put the month backwards. `reverse`
+              // on the scroll already opens at the newest end whichever
+              // way the page runs.
               child: Row(
-                textDirection: TextDirection.rtl,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  for (final day in days.reversed)
-                    _DayColumn(day: day, peak: peak),
+                  for (final day in days) _DayColumn(day: day, peak: peak),
                 ],
               ),
             ),
@@ -187,6 +191,14 @@ List<DayTotals> dayTotals(List<Txn> txns) {
   for (final t in txns) {
     if (t.isDeleted) continue;
     if (t.type.isSettlement) continue; // the money is on its own entry
+    // Cattle, equipment and anything else the farm keeps are left out, and
+    // so is an advance against a wage, which is money lent rather than
+    // spent. One buffalo bought for lakhs sets the height of every bar on
+    // the chart, and fifty days of real trading — eleven thousand of milk
+    // against four of feed — come out as dust along the floor. What is
+    // left here is the trading, which is the only thing a day-by-day
+    // picture can say anything about.
+    if (t.isCapitalAsset || t.isWageAdvance) continue;
     final key = dayKeyOf(t.date);
     if (t.type.isIncoming) {
       income[key] = (income[key] ?? 0) + t.amount;
@@ -235,10 +247,22 @@ List<DayTotals> _byWeek(
 
 /// A coloured square with a word beside it, for a chart's key.
 class ChartKey extends StatelessWidget {
-  const ChartKey({super.key, required this.colour, required this.label});
+  const ChartKey({
+    super.key,
+    required this.colour,
+    required this.label,
+    this.share,
+  });
 
   final Color colour;
   final String label;
+
+  /// This slice's share of the whole, 0 to 1, written after the name.
+  ///
+  /// A ring says which of two is bigger and never says by how much. The
+  /// farm reads this page to settle an argument, and "money in was 51%"
+  /// settles one that "the green bit looks bigger" does not.
+  final double? share;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -254,6 +278,26 @@ class ChartKey extends StatelessWidget {
       ),
       const SizedBox(width: 7),
       Text(label, style: T.meta.copyWith(fontSize: 12.5)),
+      if (share != null) ...[
+        const SizedBox(width: 5),
+        Text(
+          pct(share!),
+          style: T.meta.copyWith(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: colour,
+          ),
+        ),
+      ],
     ],
   );
+}
+
+/// A share written the way a person says it: 51%, and 0.4% rather than 0%
+/// for something small but real.
+String pct(double share) {
+  final v = share * 100;
+  if (v <= 0) return '0%';
+  if (v < 1) return '${v.toStringAsFixed(1)}%';
+  return '${v.round()}%';
 }

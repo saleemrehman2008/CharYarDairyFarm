@@ -753,7 +753,12 @@ class _HandoverSheetState extends State<_HandoverSheet> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            14,
+            T.pad,
+            T.pad,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1312,7 +1317,7 @@ class _EntryLine extends StatelessWidget {
     final dead = r.isSpokenFor || !selectable;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 15),
+      padding: const EdgeInsetsDirectional.only(start: 15),
       child: InkWell(
         onTap: dead ? null : onTap,
         borderRadius: BorderRadius.circular(T.radiusXs),

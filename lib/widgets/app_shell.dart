@@ -110,7 +110,7 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.read<Session>();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(T.pad, 10, T.pad, 10),
+      padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 10, T.pad, 10),
       child: Row(
         children: [
           if (showBack)
@@ -285,7 +285,7 @@ class FarmHatBand extends StatelessWidget {
           MaterialPageRoute(builder: (_) => const MyAccountScreen()),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(T.pad, 7, T.pad, 7),
+          padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 7, T.pad, 7),
           child: Row(
             children: [
               Icon(
@@ -339,7 +339,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
         if (update == null) return const SizedBox.shrink();
 
         return Container(
-          padding: const EdgeInsets.fromLTRB(T.pad, 8, 8, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 8, 8, 8),
           decoration: BoxDecoration(
             color: T.accent100,
             border: Border(bottom: BorderSide(color: T.divider, width: 1)),
@@ -428,22 +428,32 @@ class FarmTabBar extends StatelessWidget {
                                 height: 26,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
+                                  // The tab you are on is lit, not merely
+                                  // tinted. The farm asked for this off two
+                                  // references that both do it the same
+                                  // way: a solid pill of the accent with
+                                  // dark ink in it, and the light it throws
+                                  // on the bar behind. The name underneath
+                                  // stays — an icon on its own is a riddle
+                                  // to somebody who opens the app twice a
+                                  // week.
                                   color: i == index
-                                      ? T.accent100
+                                      ? T.fill
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(
-                                    T.radiusXs,
-                                  ),
+                                  borderRadius: BorderRadius.circular(T.pill),
+                                  boxShadow: i == index
+                                      ? T.glowOf(T.fill, strong: true)
+                                      : null,
                                 ),
                                 child: Icon(
                                   tab.icon,
                                   size: 20,
-                                  color: i == index ? T.accent : T.n500,
+                                  color: i == index ? T.onFill : T.n500,
                                 ),
                               ),
                               if (tab.badge > 0)
-                                Positioned(
-                                  right: -2,
+                                PositionedDirectional(
+                                  end: -2,
                                   top: -3,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -534,7 +544,7 @@ class PageBody extends StatelessWidget {
           // is most of them on a tablet, and any of them while the farm
           // is still loading.
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(side, T.pad, side, padBottom),
+          padding: EdgeInsetsDirectional.fromSTEB(side, T.pad, side, padBottom),
           children: children,
         ),
       );

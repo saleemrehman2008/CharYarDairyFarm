@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'i18n/words.dart';
 import 'models/models.dart';
 import 'screens/blocked_screen.dart';
 import 'screens/cofounder/cofounder_root.dart';
@@ -107,6 +108,23 @@ class CharYarApp extends StatelessWidget {
         title: 'Char Yar Dairy Farm',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
+        // Urdu is written right to left, so for a reader who has chosen it
+        // the whole page turns round: the back arrow sits on the right, a
+        // row reads from the right, and a figure at the end of a line ends
+        // up on the left. Done once here rather than screen by screen,
+        // because a page half turned is worse than one not turned at all.
+        //
+        // This runs under the providers — they are above the MaterialApp —
+        // so it follows the signed-in reader's own choice and flips the
+        // moment they change it. With no session above it, as on the
+        // Firebase-failed notice, [L] reads English and the page stays
+        // left to right.
+        builder: (context, child) => Directionality(
+          textDirection: L.of(context).rtl
+              ? TextDirection.rtl
+              : TextDirection.ltr,
+          child: child ?? const SizedBox.shrink(),
+        ),
         home: home,
       );
     },

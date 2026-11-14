@@ -26,14 +26,21 @@ class RegCard extends StatelessWidget {
   });
 
   final Widget child;
-  final EdgeInsets padding;
+
+  /// Geometry rather than plain insets, so a card can be padded by the side
+  /// the reader starts on instead of the left-hand side of the glass. In
+  /// English the two are the same; in Urdu they are opposite.
+  final EdgeInsetsGeometry padding;
+
   final VoidCallback? onTap;
 
   /// Blocked users and inactive rows render at 55% opacity.
   final bool dim;
 
-  /// A thick edge down the left, for a row whose state should read from
-  /// across a courtyard: green for done, a soft red for still to go.
+  /// A thick edge down the side the reader starts on, for a row whose state
+  /// should read from across a courtyard: green for done, a soft red for
+  /// still to go. On the left in English, on the right in Urdu — the eye
+  /// meets it before the words either way, which is the whole point of it.
   final Color? stripe;
 
   /// A faint tint behind the card, to go with the stripe.
@@ -68,14 +75,19 @@ class RegCard extends StatelessWidget {
             child: Stack(
               children: [
                 Padding(
+                  // The stripe is four points wide and painted over the
+                  // card, so the content is pushed clear of it by the same
+                  // four — on the side the reader starts on. Added rather
+                  // than summed because EdgeInsetsGeometry, which is what
+                  // lets a caller pass either kind, has no '+'.
                   padding: stripe == null
                       ? padding
-                      : padding + const EdgeInsets.only(left: 4),
+                      : padding.add(const EdgeInsetsDirectional.only(start: 4)),
                   child: child,
                 ),
                 if (stripe != null)
-                  Positioned(
-                    left: 0,
+                  PositionedDirectional(
+                    start: 0,
                     top: 0,
                     bottom: 0,
                     width: 4,
@@ -139,7 +151,7 @@ class HeroCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 16, 18),
+            padding: const EdgeInsetsDirectional.fromSTEB(18, 16, 16, 18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -205,7 +217,7 @@ class HeroChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+    padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 10, 5),
     decoration: BoxDecoration(
       color: T.onHero.withValues(alpha: 0.16),
       borderRadius: BorderRadius.circular(T.pill),
@@ -262,7 +274,7 @@ class StatTile extends StatelessWidget {
             children: [
               Container(height: 3, color: tone),
               Padding(
-                padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+                padding: const EdgeInsetsDirectional.fromSTEB(13, 11, 13, 13),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -276,7 +288,7 @@ class StatTile extends StatelessWidget {
                     const SizedBox(height: 5),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: Text(value, style: T.num26.copyWith(color: tone)),
                     ),
                     if (note != null) ...[
@@ -332,7 +344,7 @@ class ActionTile extends StatelessWidget {
     border: Border.all(color: T.divider, width: 1),
     glow: T.shadow,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(6, 10, 6, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(6, 10, 6, 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -363,12 +375,18 @@ class ActionTile extends StatelessWidget {
                     color: tone.withValues(alpha: 0.30),
                     width: 1,
                   ),
+                  // The light the square throws onto the tile behind it.
+                  // On a black page fourteen errands read as fourteen lit
+                  // signs rather than fourteen grey boxes; on a white one
+                  // it comes to almost nothing, which is right — a glow
+                  // on paper is a smudge.
+                  boxShadow: T.glowOf(tone),
                 ),
                 child: drawn ?? Icon(icon, size: 22, color: tone),
               ),
               if (badge > 0)
-                Positioned(
-                  right: -5,
+                PositionedDirectional(
+                  end: -5,
                   top: -4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -592,15 +610,10 @@ class PrimaryButton extends StatelessWidget {
         onTap: enabled ? onPressed : null,
         gradient: enabled ? T.cta : null,
         face: enabled ? null : T.n300,
-        glow: enabled
-            ? [
-                BoxShadow(
-                  color: T.accent.withValues(alpha: 0.30),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : null,
+        // The button that does the thing is the brightest thing on the
+        // page. Through [T.glowOf] so it answers to the skin: a real glow
+        // on the two black ones, barely a shadow on the two pale ones.
+        glow: enabled ? T.glowOf(T.accent, strong: true) : null,
         child: busy
             ? const SizedBox(
                 width: 18,
@@ -1073,7 +1086,7 @@ class Picker<V> extends StatelessWidget {
             : (_) => [
                 for (final (_, label) in items)
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Text(
                       label,
                       overflow: TextOverflow.ellipsis,
@@ -1315,7 +1328,7 @@ class _WhoFieldState extends State<WhoField> {
           Kicker(widget.label),
           const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.fromLTRB(11, 9, 6, 9),
+            padding: const EdgeInsetsDirectional.fromSTEB(11, 9, 6, 9),
             decoration: BoxDecoration(
               color: T.doneWash,
               borderRadius: BorderRadius.circular(T.radiusXs),
@@ -1570,7 +1583,7 @@ void toast(BuildContext context, String message) {
       SnackBar(
         content: Text(message),
         duration: const Duration(milliseconds: 2400),
-        margin: const EdgeInsets.fromLTRB(T.pad, 0, T.pad, 8),
+        margin: const EdgeInsetsDirectional.fromSTEB(T.pad, 0, T.pad, 8),
       ),
     );
 }
@@ -1803,7 +1816,7 @@ Future<bool> confirm(
     builder: (ctx) => AlertDialog(
       title: Text(title, style: T.screenTitle),
       content: Text(body, style: T.body),
-      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      actionsPadding: const EdgeInsetsDirectional.fromSTEB(12, 0, 12, 12),
       actions: [
         GhostButton(
           label: 'Cancel',

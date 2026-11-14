@@ -97,22 +97,39 @@ enum UserStatus {
   };
 }
 
-/// The two ways the app can be read.
+/// The three ways the app can be read.
 ///
-/// Both are written in the same alphabet — Roman Urdu is Urdu spelled with
-/// English letters, the way the farm already writes on WhatsApp. That keeps
-/// one font, one direction and one set of numerals, so switching costs the
-/// app nothing.
+/// The first two are written in the same alphabet — Roman Urdu is Urdu
+/// spelled with English letters, the way the farm already writes on WhatsApp.
+/// That keeps one font, one direction and one set of numerals, so switching
+/// between them costs the app nothing.
+///
+/// The third is Urdu as it is actually written: its own script, its own font,
+/// and the page running right to left. A man who reads Urdu but not English
+/// letters could not read either of the first two, which on this farm is most
+/// of the people the books are kept for.
+///
+/// Stored ids never change. `ur` has meant Roman Urdu since the first build
+/// and goes on meaning it, so the accounts of everyone who already chose it
+/// keep reading the way they chose; the script is a new id of its own.
 enum Lang {
   en('en', 'English'),
-  ur('ur', 'Roman Urdu');
+  ur('ur', 'Roman Urdu'),
+  urdu('urdu', 'اردو');
 
   const Lang(this.id, this.label);
 
   final String id;
   final String label;
 
-  static Lang parse(Object? v) => s(v) == 'ur' ? Lang.ur : Lang.en;
+  /// Urdu script runs right to left; the other two run left to right.
+  bool get rtl => this == Lang.urdu;
+
+  static Lang parse(Object? v) => switch (s(v)) {
+    'urdu' => Lang.urdu,
+    'ur' => Lang.ur,
+    _ => Lang.en,
+  };
 }
 
 class AppUser {

@@ -6,9 +6,17 @@ import 'package:flutter/material.dart';
 /// three, not a colour wheel. [dark] is what the app opens in — a round is
 /// walked at four in the morning and again after dark, and a white screen at
 /// that hour is a torch in the face.
+///
+/// [wallet] took the place of a second dark skin after the farm was shown
+/// its own home screen beside a payments app and asked for that one. A
+/// middling dark was the least useful of the three: whoever wanted dark
+/// wanted the darkest, and whoever did not wanted white. A name nobody has
+/// chosen for a year falls back to [dark], which is what anybody on the old
+/// middle skin will open into — the nearest thing to what they had.
 enum Skin {
   dark('Dark'),
-  medium('Medium dark'),
+  glow('Glow'),
+  ember('Ember'),
   light('Light');
 
   const Skin(this.label);
@@ -165,52 +173,143 @@ const _light = _Pal(
   lo: Color(0x1F0B2438),
 );
 
-const _medium = _Pal(
+/// The wallet skin: the farm's books in the shape of a payments app.
+///
+/// Asked for by name after a side-by-side with Easypaisa and JazzCash, and
+/// built the way those are built: a white ground, one band of green across
+/// the top, and the figures in black on white cards. Nothing about the
+/// books changes — every page is the same page, every figure the same
+/// figure. Only the paint is different.
+///
+/// Green rather than the farm's blue, because the green is what makes the
+/// app read as a wallet at a glance, and because the farm already has a
+/// blue skin: two blues would have been one choice wearing two coats.
+/// Money in and money out keep their own green and red, a shade apart from
+/// the accent so a receipt never reads as a brand colour.
+/// The ember skin: black, with one orange burning on it.
+///
+/// The third reference he sent, and the opposite half of the same idea as
+/// [_glow] — a page that is simply black, and one hot colour carrying every
+/// button, every lit tab and every heading. Where the glow skin tints its
+/// black green, this one tints it the other way: the neutrals here are warm
+/// greys, so the orange sits on them rather than fighting them.
+///
+/// The money colours take more care here than on any other skin. Orange is
+/// close to red and close to amber, and this app writes money out in a red
+/// and money owed in an amber — so on a page whose chrome is orange, those
+/// two would read as the brand rather than as figures. Money out is pulled
+/// round to a crimson and money owed to a clear yellow-gold, far enough
+/// from the accent that a figure is never mistaken for a button.
+const _ember = _Pal(
   dark: true,
-  bg: Color(0xFF131C27),
-  surface: Color(0xFF1C2836),
-  raised: Color(0xFF243243),
-  text: Color(0xFFE8EEF5),
-  accent: Color(0xFF4FA8DC),
-  accent2: Color(0xFF7FD8FF),
-  divider: Color(0x24E8EEF5),
+  bg: Color(0xFF0A0908),
+  surface: Color(0xFF151311),
+  raised: Color(0xFF1E1A17),
+  text: Color(0xFFF2EEEA),
+  accent: Color(0xFFFF6A1A),
+  accent2: Color(0xFFFF9A5C),
+  divider: Color(0x24F2EEEA),
   acc: [
-    Color(0xFF223245),
-    Color(0xFF283C54),
-    Color(0xFF2F4A66),
-    Color(0xFF2E5D7F),
-    Color(0xFF3A7CA6),
-    Color(0xFF4FA8DC),
-    Color(0xFF78C2EA),
-    Color(0xFFA6D9F3),
-    Color(0xFFD2ECFA),
+    Color(0xFF2A1E14),
+    Color(0xFF32200F),
+    Color(0xFF452810),
+    Color(0xFF653511),
+    Color(0xFFA14914),
+    Color(0xFFFF6A1A),
+    Color(0xFFFF8F4F),
+    Color(0xFFFFB587),
+    Color(0xFFFFDCC4),
   ],
   neu: [
-    Color(0xFF151E29),
-    Color(0xFF1E2A38),
-    Color(0xFF283647),
-    Color(0xFF344456),
-    Color(0xFF64748B),
-    Color(0xFF8E9CAD),
-    Color(0xFFAAB7C6),
-    Color(0xFFC9D3DE),
-    Color(0xFFE6ECF3),
+    Color(0xFF0D0B0A),
+    Color(0xFF171412),
+    Color(0xFF221E1B),
+    Color(0xFF2F2A26),
+    Color(0xFF6A615A),
+    Color(0xFF948A82),
+    Color(0xFFB3A99F),
+    Color(0xFFD3C9C0),
+    Color(0xFFF0EAE4),
   ],
-  done: Color(0xFF2FBF82),
-  doneWash: Color(0xFF13312A),
-  pending: Color(0xFFE58060),
-  pendingWash: Color(0xFF33201A),
-  alert: Color(0xFFF2705C),
-  moneyOut: Color(0xFFF0736E),
-  moneyOutWash: Color(0xFF321C1C),
-  moneyGet: Color(0xFF6FA6E8),
-  moneyGetWash: Color(0xFF1A2739),
-  moneyDue: Color(0xFFD9AE5E),
-  moneyDueWash: Color(0xFF302818),
-  shadowTint: Color(0xFF000814),
-  hero: [Color(0xFF10263F), Color(0xFF1F5E96), Color(0xFF5946CE)],
-  fill: Color(0xFF4FA8DC),
-  onFill: Color(0xFF0B1620),
+  done: Color(0xFF3DDC84),
+  doneWash: Color(0xFF0D2A1B),
+  pending: Color(0xFFFFB07A),
+  pendingWash: Color(0xFF2E1C10),
+  alert: Color(0xFFFF5A4D),
+  moneyOut: Color(0xFFFF4D6D),
+  moneyOutWash: Color(0xFF2E1219),
+  moneyGet: Color(0xFF5BA8FF),
+  moneyGetWash: Color(0xFF0E1E33),
+  moneyDue: Color(0xFFF5C542),
+  moneyDueWash: Color(0xFF2C2410),
+  shadowTint: Color(0xFF000000),
+  hero: [Color(0xFF140A04), Color(0xFF4A1C06), Color(0xFF7A2F08)],
+  fill: Color(0xFFFF6A1A),
+  onFill: Color(0xFF140A04),
+  hi: Color(0x1FFFFFFF),
+  lo: Color(0x66000000),
+);
+
+/// The glow skin: near-black with a green in it, and one vivid green on top.
+///
+/// Asked for from two references he sent — a payments app and a smart-home
+/// app, both black with a single bright green doing all the work. The two
+/// agreed on everything that matters: a ground so dark it is almost black
+/// but tinted green rather than blue, cards barely lifted off it, and one
+/// saturated green carrying every button, every active tab and every figure
+/// that means money came in.
+///
+/// It is not the wallet skin in the dark. The wallet green is the deep
+/// green of a bank's letterhead; this one is a lit sign at night, and the
+/// whole point of it is that the green glows against black. That only works
+/// if nothing else on the page competes: the neutrals here are green-grey,
+/// not blue-grey, so the accent is the only saturated thing in sight.
+const _glow = _Pal(
+  dark: true,
+  bg: Color(0xFF070B09),
+  surface: Color(0xFF101614),
+  raised: Color(0xFF18211D),
+  text: Color(0xFFE8F3EC),
+  accent: Color(0xFF2EE07A),
+  accent2: Color(0xFF7BFFB0),
+  divider: Color(0x24E8F3EC),
+  acc: [
+    Color(0xFF10261A),
+    Color(0xFF133020),
+    Color(0xFF16422A),
+    Color(0xFF1A5D38),
+    Color(0xFF209650),
+    Color(0xFF2EE07A),
+    Color(0xFF5EE99A),
+    Color(0xFF92F2BD),
+    Color(0xFFC8FADF),
+  ],
+  neu: [
+    Color(0xFF0A100D),
+    Color(0xFF121A16),
+    Color(0xFF1B241F),
+    Color(0xFF27332C),
+    Color(0xFF566A5F),
+    Color(0xFF80948A),
+    Color(0xFFA0B2A8),
+    Color(0xFFC4D4CA),
+    Color(0xFFE6F2EB),
+  ],
+  done: Color(0xFF35E07D),
+  doneWash: Color(0xFF0D2A1C),
+  pending: Color(0xFFFFA06A),
+  pendingWash: Color(0xFF2E1B12),
+  alert: Color(0xFFFF6B6B),
+  moneyOut: Color(0xFFFF6B7A),
+  moneyOutWash: Color(0xFF2E1418),
+  moneyGet: Color(0xFF5BC8FF),
+  moneyGetWash: Color(0xFF0F2434),
+  moneyDue: Color(0xFFFFC24D),
+  moneyDueWash: Color(0xFF2E2413),
+  shadowTint: Color(0xFF000000),
+  hero: [Color(0xFF04140C), Color(0xFF0A3B22), Color(0xFF12603A)],
+  fill: Color(0xFF2EE07A),
+  onFill: Color(0xFF04140C),
   hi: Color(0x1FFFFFFF),
   lo: Color(0x66000000),
 );
@@ -273,7 +372,8 @@ const _dark = _Pal(
 extension SkinLook on Skin {
   _Pal get _pal => switch (this) {
     Skin.light => _light,
-    Skin.medium => _medium,
+    Skin.glow => _glow,
+    Skin.ember => _ember,
     Skin.dark => _dark,
   };
 
@@ -297,7 +397,8 @@ abstract final class T {
 
   static _Pal get _p => switch (_forced ?? skinNow.value) {
     Skin.light => _light,
-    Skin.medium => _medium,
+    Skin.glow => _glow,
+    Skin.ember => _ember,
     Skin.dark => _dark,
   };
 
@@ -361,6 +462,27 @@ abstract final class T {
   /// here the lip is part of the button, so it looks like a key you press
   /// rather than a sticker on the page.
   static Color lipOf(Color c) => Color.lerp(c, const Color(0xFF000000), 0.42)!;
+
+  /// The light a coloured thing throws onto the page behind it.
+  ///
+  /// The farm asked for the app to glow, from two references that were both
+  /// black with one hot colour on them. A glow is light, so it only reads
+  /// where there is dark for it to fall on: the same shadow under a green
+  /// chip on a white page is a dirty smudge. So it is strong on the dark
+  /// skins and almost nothing on the pale ones — one call site, four
+  /// answers, and no screen has to know which skin it is wearing.
+  ///
+  /// [strong] is for the few things that are meant to be the brightest on
+  /// the page: the tab you are on, the button that does the thing.
+  static List<BoxShadow> glowOf(Color c, {bool strong = false}) => [
+    BoxShadow(
+      color: c.withValues(
+        alpha: isDark ? (strong ? 0.42 : 0.26) : (strong ? 0.20 : 0.11),
+      ),
+      blurRadius: strong ? 18 : 11,
+      spreadRadius: strong ? 0 : -1,
+    ),
+  ];
 
   /// The face of a raised button: the colour, lit slightly across the top.
   static LinearGradient faceOf(Color c) => LinearGradient(
@@ -569,8 +691,25 @@ abstract final class T {
   static const fontHead = 'BarlowCondensed';
   static const fontBody = 'Barlow';
 
+  /// Urdu as it is written.
+  ///
+  /// Barlow has no Arabic-script glyphs at all, so without this every Urdu
+  /// word falls through to whatever face the phone happens to carry — which
+  /// on a cheap Android is sometimes nothing, and the screen fills with empty
+  /// boxes. Naming the face behind every style settles it on the app's own
+  /// terms: Latin text never reaches the fallback, Urdu text always does.
+  ///
+  /// Naskh rather than Nastaliq on purpose. Nastaliq is the handwriting Urdu
+  /// is set in on a poster, and it slopes — it needs close to twice the line
+  /// height to sit without clipping. This app is a book of accounts: twenty
+  /// rows to a page, a figure on the right of each. Naskh reads cleanly at
+  /// twelve point in a row that tight, and the ledger stays a ledger.
+  static const fontUrdu = 'NotoNaskhArabic';
+  static const urduFaces = <String>[fontUrdu];
+
   static TextStyle get title => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 44,
     height: 1.02,
@@ -578,6 +717,7 @@ abstract final class T {
   );
   static TextStyle get screenTitle => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 22,
     height: 1.1,
@@ -585,6 +725,7 @@ abstract final class T {
   );
   static TextStyle get num36 => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 36,
     height: 1.05,
@@ -592,6 +733,7 @@ abstract final class T {
   );
   static TextStyle get num30 => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 30,
     height: 1.05,
@@ -599,6 +741,7 @@ abstract final class T {
   );
   static TextStyle get num28 => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 28,
     height: 1.05,
@@ -606,6 +749,7 @@ abstract final class T {
   );
   static TextStyle get num26 => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 26,
     height: 1.05,
@@ -613,6 +757,7 @@ abstract final class T {
   );
   static TextStyle get num22 => TextStyle(
     fontFamily: fontHead,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w600,
     fontSize: 22,
     height: 1.05,
@@ -620,6 +765,7 @@ abstract final class T {
   );
   static TextStyle get cardTitle => TextStyle(
     fontFamily: fontBody,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w500,
     fontSize: 17,
     height: 1.25,
@@ -627,6 +773,7 @@ abstract final class T {
   );
   static TextStyle get body => TextStyle(
     fontFamily: fontBody,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w400,
     fontSize: 14,
     height: 1.4,
@@ -634,6 +781,7 @@ abstract final class T {
   );
   static TextStyle get bodyMid => TextStyle(
     fontFamily: fontBody,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w500,
     fontSize: 14,
     height: 1.4,
@@ -641,6 +789,7 @@ abstract final class T {
   );
   static TextStyle get meta => TextStyle(
     fontFamily: fontBody,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w400,
     fontSize: 12,
     height: 1.35,
@@ -648,6 +797,7 @@ abstract final class T {
   );
   static TextStyle get kicker => TextStyle(
     fontFamily: fontBody,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w500,
     fontSize: 11,
     height: 1.3,
@@ -656,6 +806,7 @@ abstract final class T {
   );
   static const tabLabel = TextStyle(
     fontFamily: fontBody,
+    fontFamilyFallback: urduFaces,
     fontWeight: FontWeight.w500,
     fontSize: 11,
     height: 1.2,

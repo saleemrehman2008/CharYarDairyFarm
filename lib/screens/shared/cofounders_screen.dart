@@ -875,7 +875,7 @@ class _Stat extends StatelessWidget {
         const SizedBox(height: 3),
         FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: Text(value, style: T.bodyMid),
         ),
       ],

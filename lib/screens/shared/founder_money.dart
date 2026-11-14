@@ -151,7 +151,12 @@ class _MoneyInSheetState extends State<_MoneyInSheet> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            14,
+            T.pad,
+            T.pad,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -363,7 +368,12 @@ class _PledgeSheetState extends State<_PledgeSheet> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            14,
+            T.pad,
+            T.pad,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -522,7 +532,7 @@ class _LinesSheetState extends State<_LinesSheet> {
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+        padding: const EdgeInsetsDirectional.fromSTEB(T.pad, 14, T.pad, T.pad),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -562,7 +572,12 @@ class _LinesSheetState extends State<_LinesSheet> {
                   padding: const EdgeInsets.only(bottom: 9),
                   child: RegCard(
                     stripe: c.isInvestment ? T.accent600 : T.moneyDue,
-                    padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      12,
+                      10,
+                      10,
+                      10,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -642,7 +657,7 @@ class _LinesSheetState extends State<_LinesSheet> {
               const SizedBox(height: 4),
               RegCard(
                 stripe: T.n400,
-                padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -33,7 +33,7 @@ android {
     defaultConfig {
         applicationId = "com.charyar.dairyfarm"
         // Firebase Auth and Firestore need API 23 or newer.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

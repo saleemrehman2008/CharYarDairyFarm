@@ -287,7 +287,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(right: 6),
+    padding: const EdgeInsetsDirectional.only(end: 6),
     child: InkWell(
       onTap: onTap,
       child: Container(

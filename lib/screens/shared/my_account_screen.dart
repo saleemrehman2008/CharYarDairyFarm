@@ -155,20 +155,20 @@ class _MyAccountScreenState extends State<MyAccountScreen> {
               children: [
                 Kicker(l.t('Language')),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    for (final lang in Lang.values) ...[
-                      if (lang != Lang.values.first) const SizedBox(width: 10),
-                      Expanded(
-                        child: _LangCard(
-                          lang: lang,
-                          chosen: (user?.lang ?? Lang.en) == lang,
-                          onTap: () => _setLang(lang),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                // One under the other, not three across. Three cards in a
+                // row on a phone leave about seventy points of text each,
+                // which breaks "Roman Urdu" over two lines and its sample
+                // over three. Down the page each language gets its own name
+                // on one line with its sample beside it, and the Urdu one
+                // gets room to be read rather than guessed at.
+                for (final lang in Lang.values) ...[
+                  if (lang != Lang.values.first) const SizedBox(height: 8),
+                  _LangCard(
+                    lang: lang,
+                    chosen: (user?.lang ?? Lang.en) == lang,
+                    onTap: () => _setLang(lang),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Text(
                   l.t(
@@ -327,6 +327,7 @@ class _LangCard extends StatelessWidget {
   static const _sample = {
     Lang.en: 'Cash in hand',
     Lang.ur: 'Farm ke paas cash',
+    Lang.urdu: 'فارم کے پاس نقد',
   };
 
   @override
@@ -345,8 +346,14 @@ class _LangCard extends StatelessWidget {
             width: chosen ? 1.6 : 1.2,
           ),
         ),
-        child: Column(
+        child: Row(
           children: [
+            Icon(
+              chosen ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 18,
+              color: chosen ? T.accent700 : T.n500,
+            ),
+            const SizedBox(width: 10),
             Text(
               lang.label,
               style: T.cardTitle.copyWith(
@@ -354,11 +361,16 @@ class _LangCard extends StatelessWidget {
                 color: chosen ? T.accent700 : T.text,
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              _sample[lang]!,
-              textAlign: TextAlign.center,
-              style: T.meta.copyWith(fontSize: 11.5),
+            const SizedBox(width: 10),
+            // The same line of the app in that language, so the choice
+            // needs no translating — a reader recognises his own words.
+            Expanded(
+              child: Text(
+                _sample[lang]!,
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+                style: T.meta.copyWith(fontSize: 12),
+              ),
             ),
           ],
         ),

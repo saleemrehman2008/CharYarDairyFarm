@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../models/models.dart';
 import '../theme/tokens.dart';
+import 'words.dart';
 
 /// What a figure on screen actually means, said in Roman Urdu.
 ///
@@ -97,9 +99,102 @@ const samjhao = <String, String>{
       'Sifar bhi likh sakte hain — baqi agle mahine per chala jayega.',
 };
 
+/// The same sentences in Urdu's own script, for the reader who has chosen
+/// it.
+///
+/// Roman Urdu is written in English letters, so a man who cannot read those
+/// letters cannot read a word of the table above — and he is exactly the
+/// reader this feature exists for. Same keys, same meanings, one alphabet
+/// further.
+const samjhaoUrdu = <String, String>{
+  // ---- Who is holding the money ----
+  'Who is holding the money':
+      'فارم کا نقد اِس وقت کس کس کے پاس ہے۔ جو کسی نے فارم کے لیے لیا، اُس '
+      'میں سے جو اُس نے آگے دے دیا — باقی اُس کے پاس ہے۔\n\n'
+      'یہ اُس کا حصہ یا اُس کی سرمایہ کاری نہیں ہے۔ یہ صرف فارم کا وہ پیسہ '
+      'ہے جو ابھی اُس کے ہاتھ میں ہے۔',
+
+  'in their hand':
+      'فارم کا اِتنا پیسہ ابھی اِس بندے کے پاس ہے۔ جب وہ فارم کے کھاتے میں '
+      'ڈال دے گا یا کسی اور کو دے دے گا، یہ صفر ہو جائے گا۔',
+
+  'farm owes them':
+      'اِس بندے نے فارم کا خرچہ اپنی جیب سے کیا اور اُس کا پیسہ ابھی واپس '
+      'نہیں ملا۔ یعنی فارم اُس کا اِتنا مقروض ہے۔',
+
+  'In their hands':
+      'سب کے پاس ملا کر فارم کا کتنا نقد ہے۔ فارم کا کھاتہ بھی اِس میں شامل '
+      'ہے۔',
+
+  'Out of their pockets':
+      'سب نے مل کر اپنی جیب سے فارم کا کتنا خرچہ کیا جو ابھی واپس نہیں ملا۔ '
+      'فارم اِتنا اُن کا مقروض ہے۔',
+
+  'On its way':
+      'ایک بندے نے دوسرے کو پیسہ دیا ہے، مگر لینے والے نے ابھی «مل گیا» '
+      'نہیں کہا۔ اُس وقت تک وہ پیسہ کسی کے بھی کھاتے میں نہیں گنا جاتا — '
+      'بیچ میں ہوتا ہے۔\n\n'
+      'جیسے ہی لینے والا قبول کرے، اُس کے کھاتے میں چلا جائے گا۔',
+
+  // ---- The two cards at the top ----
+  'Still to come in':
+      'جو مال فارم نے بیچ دیا مگر اُس کی رقم ابھی آنی ہے۔ یہ نقد نہیں ہے — '
+      'یہ وعدہ ہے کہ آئے گا۔',
+
+  'Still to go out':
+      'جو مال فارم نے خرید لیا مگر اُس کی رقم ابھی دینی ہے۔ یہ بھی نقد نہیں '
+      '— یہ فارم کا قرض ہے۔',
+
+  // ---- The entry's two "who" ----
+  'Paid by':
+      'فارم کا پیسہ کس کے ہاتھ سے نکلا۔ صرف اِتنا۔\n\n'
+      'اِس سے یہ نہیں ہوتا کہ پیسہ اُس کا اپنا تھا — وہ الگ سوال ہے، «کیا یہ '
+      'اُس کی اپنی جیب سے تھا؟» والا۔',
+
+  'Received by':
+      'فارم کا پیسہ کس نے وصول کیا۔ جس نے لیا، اُس کے پاس گنا جائے گا جب تک '
+      'وہ آگے نہ دے دے۔',
+
+  'Whose own money paid for it':
+      'کس نے اپنی جیب سے اِس خرچے کا پیسہ دیا۔\n\n'
+      'یہی وہ چیز ہے جو کسی کی سرمایہ کاری کو بڑھاتی ہے۔ اوپر والا نام '
+      '(«کس نے دیا») سرمایہ کاری کو ہاتھ نہیں لگاتا۔',
+
+  'Was this his own money?':
+      'اگر شریک نے اپنی جیب سے یہ خرچہ کیا ہے تو یہ چالو کر دیں — رقم اُس کی '
+      'سرمایہ کاری میں چلی جائے گی، اور اِسی اینٹری کے ساتھ بندھی رہے گی۔'
+      '\n\nبندھی ہونے کا فائدہ: بعد میں اگر اینٹری کا نام بدلیں، تو ایپ خود '
+      'پوچھے گی کہ پیسہ بھی لے جائیں۔',
+
+  // ---- The ledger ----
+  'Still open': 'جن کا حساب ابھی باقی ہے — پیسہ آنا ہے یا دینا ہے۔',
+
+  'Done with': 'جن کا حساب پورا ہو چکا۔ نہ کچھ آنا، نہ دینا۔',
+
+  'One payment, across %s entries — tap to open/close':
+      'ایک ہی رقم جو کئی دنوں کا حساب چکا گئی۔ کھاتے میں وہ ایک لائن کی طرح '
+      'دکھتی ہے؛ دبانے پر وہ سارے دن کھل جاتے ہیں جن پر وہ لگی۔',
+
+  // ---- Wages ----
+  'Advance still owed':
+      'اِس آدمی نے تنخواہ سے پہلے جو پیسہ لیا تھا، اُس میں سے اِتنا ابھی '
+      'واپس نہیں ہوا۔\n\n'
+      'اگلی تنخواہ بناتے وقت ایپ خود پوچھے گی کہ اِس میں سے کتنا کاٹنا ہے۔ '
+      'جو نہ کاٹیں وہ اگلے مہینے پر چلا جاتا ہے۔',
+
+  'Coming off this wage':
+      'اِس مہینے کی تنخواہ میں سے ایڈوانس کا کتنا حصہ کاٹ رہے ہیں۔ صفر بھی '
+      'لکھ سکتے ہیں — باقی اگلے مہینے پر چلا جائے گا۔',
+};
+
+/// The table this reader should be shown.
+Map<String, String> samjhaoFor(Lang lang) =>
+    lang == Lang.urdu ? samjhaoUrdu : samjhao;
+
 /// Shows what one of these means, if the app has a sentence for it.
 Future<void> showSamjhao(BuildContext context, String term) {
-  final said = samjhao[term];
+  final l = L.read(context);
+  final said = samjhaoFor(l.lang)[term];
   if (said == null) return Future.value();
   return showModalBottomSheet<void>(
     context: context,
@@ -110,12 +205,19 @@ Future<void> showSamjhao(BuildContext context, String term) {
     builder: (_) => SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(T.pad, T.pad, T.pad, T.pad),
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          T.pad,
+          T.pad,
+          T.pad,
+          T.pad,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(term, style: T.cardTitle),
+            // The heading reads in the reader's own language, so the sheet
+            // does not open with the one English word he came here about.
+            Text(l.t(term), style: T.cardTitle),
             const SizedBox(height: 10),
             Text(said, style: T.body.copyWith(height: 1.55)),
             const SizedBox(height: T.pad),
@@ -140,7 +242,7 @@ class Samjhao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!samjhao.containsKey(term)) return child;
+    if (!samjhaoFor(L.of(context).lang).containsKey(term)) return child;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => showSamjhao(context, term),

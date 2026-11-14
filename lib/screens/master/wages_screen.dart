@@ -650,7 +650,12 @@ class _FormState extends State<_Form> {
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(T.pad, 14, T.pad, T.pad),
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            14,
+            T.pad,
+            T.pad,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

@@ -153,7 +153,12 @@ class _PartyFieldState extends State<PartyField> {
                 if (mine.isNotEmpty) ...[
                   if (widget.offerNote.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        12,
+                        10,
+                        12,
+                        4,
+                      ),
                       child: Text(widget.offerNote, style: T.meta),
                     ),
                   for (final name in mine)
@@ -167,7 +172,12 @@ class _PartyFieldState extends State<PartyField> {
                   _Option(party: p, onTap: () => _pick(p.name)),
                 if (widget.onlyOffered && mine.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      12,
+                      11,
+                      12,
+                      11,
+                    ),
                     child: Text(
                       needle.isEmpty
                           ? l.t(

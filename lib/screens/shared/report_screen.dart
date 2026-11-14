@@ -15,6 +15,7 @@ import '../../widgets/balance_check.dart';
 import '../../widgets/day_chart.dart';
 import '../../widgets/entry_actions.dart';
 import '../../widgets/investment_card.dart';
+import '../../widgets/report_charts.dart';
 import '../../widgets/ui.dart';
 import 'accounts_screen.dart';
 
@@ -106,14 +107,18 @@ class _ReportScreenState extends State<ReportScreen> {
     final live = txns.where((t) => !t.isDeleted).toList();
     final income = _byCategory(live, incoming: true);
     final spend = _byCategory(live, incoming: false);
-    final assets = live
-        .where((t) => t.isCapitalAsset)
-        .fold<num>(0, (a, t) => a + t.amount);
-
-    final totalIn = income.fold<num>(0, (a, e) => a + e.amount);
-    // Cattle and equipment are not a running cost — the farm still owns them.
-    final totalOut = spend.fold<num>(0, (a, e) => a + e.amount) - assets;
-    final net = totalIn - totalOut;
+    // The figures themselves are worked out beside the books rather than
+    // here, so this page and the summary beside it cannot drift apart. An
+    // advance against a wage is money lent, not money spent — the man owes
+    // it back and it comes off his next wage — and this page was the one
+    // place in the app still calling it a cost, which is what made the same
+    // stretch read 16,000 worse here than it did there.
+    final sums = ReportTotals.of(live);
+    final assets = sums.assets;
+    final advances = sums.advances;
+    final totalIn = sums.moneyIn;
+    final totalOut = sums.moneyOut;
+    final net = sums.net;
 
     return PageBody(
       children: [
@@ -145,12 +150,27 @@ class _ReportScreenState extends State<ReportScreen> {
                   child: _Ring(income: totalIn, spend: totalOut, net: net),
                 ),
                 const SizedBox(height: 14),
+                // The share as well as the colour. A ring shows which of
+                // two is bigger and never says by how much, and this page
+                // is read to settle arguments.
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ChartKey(colour: T.moneyIn, label: l.t('Money in')),
+                    ChartKey(
+                      colour: T.moneyIn,
+                      label: l.t('Money in'),
+                      share: totalIn + totalOut == 0
+                          ? null
+                          : totalIn / (totalIn + totalOut),
+                    ),
                     const SizedBox(width: 18),
-                    ChartKey(colour: T.moneyOut, label: l.t('Money out')),
+                    ChartKey(
+                      colour: T.moneyOut,
+                      label: l.t('Money out'),
+                      share: totalIn + totalOut == 0
+                          ? null
+                          : totalOut / (totalIn + totalOut),
+                    ),
                   ],
                 ),
                 const Divider(height: 24),
@@ -174,10 +194,65 @@ class _ReportScreenState extends State<ReportScreen> {
               ],
             ),
           ),
-          const SizedBox(height: T.gap),
-          _MilkCard(book: MilkBook.from(live)),
+          // 2 — the shape of the stretch. Cattle and advances are already
+          // out of these columns, so one big purchase cannot flatten fifty
+          // days of trading.
           const SizedBox(height: T.gap),
           DayChart(days: dayTotals(live)),
+
+          // 3 — where the money came from, but only once there is more than
+          // one thing being sold. The farm sells milk and little else today,
+          // and a chart with one bar on it says nothing the figure above
+          // has not already said. It appears by itself the day a second
+          // product starts earning.
+          if (income.length > 1) ...[
+            const SizedBox(height: T.gap),
+            RankedBars(
+              title: l.t('Where it came from'),
+              slices: [for (final e in income) Slice(e.label, e.amount)],
+              total: totalIn,
+              tone: T.moneyIn,
+            ),
+          ],
+
+          // 4 — and where it went. This is the one the farm asked for: a
+          // running cost of three lakh used to be a dead figure nobody
+          // could take apart without reading forty entries.
+          if (spend.isNotEmpty) ...[
+            const SizedBox(height: T.gap),
+            RankedBars(
+              title: l.t('Where it went'),
+              slices: [for (final e in spend) Slice(e.label, e.amount)],
+              total: spend.fold<num>(0, (a, e) => a + e.amount),
+              tone: T.moneyOut,
+              note: assets > 0 || advances > 0
+                  ? l.t(
+                      'Cattle, equipment and advances are in this list but '
+                      'not in the cost above — the farm still has the one '
+                      'and is still owed the other.',
+                    )
+                  : null,
+            ),
+          ],
+
+          // 5 — the milk itself, in two halves.
+          const SizedBox(height: T.gap),
+          MilkSplit(book: MilkBook.from(live)),
+          const SizedBox(height: T.gap),
+          _MilkCard(book: MilkBook.from(live)),
+
+          // 7 — the partners' own question: we put in this much, where is it?
+          const SizedBox(height: T.gap),
+          CapitalVsSpend(
+            putIn: store.capitalIn,
+            assets: store.assetsOwned,
+            spent: store.lifetimeRunningCosts,
+          ),
+
+          // 8 — who owes the farm, and whom it owes.
+          const SizedBox(height: T.gap),
+          TwoDebts(owedToUs: store.receivablesDue, owedByUs: store.payablesDue),
+
           if (assets > 0) ...[
             const SizedBox(height: T.gap),
             RegCard(
@@ -187,6 +262,21 @@ class _ReportScreenState extends State<ReportScreen> {
                   '%s of cattle and equipment was bought in this stretch. It '
                   'is not counted as a cost above — the farm owns it.',
                   rs(assets),
+                ),
+                style: T.body,
+              ),
+            ),
+          ],
+          if (advances > 0) ...[
+            const SizedBox(height: T.gap),
+            RegCard(
+              wash: T.accent100,
+              child: Text(
+                l.t2(
+                  '%s was given out as advance against wages. It is not '
+                  'counted as a cost above — the money is lent, and it comes '
+                  'off the wage it was taken against.',
+                  rs(advances),
                 ),
                 style: T.body,
               ),
@@ -204,7 +294,7 @@ class _ReportScreenState extends State<ReportScreen> {
             title: l.t('Money out'),
             tone: T.moneyOut,
             lines: spend,
-            total: totalOut + assets,
+            total: totalOut + assets + advances,
           ),
           const SizedBox(height: T.gap),
           RegCard(
@@ -214,6 +304,14 @@ class _ReportScreenState extends State<ReportScreen> {
                   TotalRow(
                     label: l.t('Less cattle & equipment'),
                     value: assets,
+                    tone: T.accent700,
+                  ),
+                  const Divider(height: 16),
+                ],
+                if (advances > 0) ...[
+                  TotalRow(
+                    label: l.t('Less advance against wages'),
+                    value: advances,
                     tone: T.accent700,
                   ),
                   const Divider(height: 16),
@@ -230,6 +328,17 @@ class _ReportScreenState extends State<ReportScreen> {
                     l.t(
                       'Cattle and equipment are taken off the costs, because '
                       'the money bought something the farm still has.',
+                    ),
+                    style: T.meta,
+                  ),
+                ],
+                if (advances > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    l.t(
+                      'An advance against wages is taken off the costs, '
+                      'because the money is lent — it comes back off the '
+                      'wage, and the wage itself is the cost.',
                     ),
                     style: T.meta,
                   ),
@@ -270,9 +379,7 @@ class _ReportScreenState extends State<ReportScreen> {
       // Skipping every settlement dropped both, so this report disagreed with
       // the profit on the home screen by exactly those two — which is the one
       // thing four partners must never be shown.
-      if (t.type.isSettlement && !t.isLooseReceipt && !t.isLoosePayment) {
-        continue;
-      }
+      if (!countedInReport(t)) continue;
       if (t.type.isIncoming != incoming) continue;
       final key = t.category.isEmpty ? t.type.label : t.category;
       totals[key] = (totals[key] ?? 0) + t.amount;
@@ -389,7 +496,7 @@ class _SpanPicker extends StatelessWidget {
         children: [
           for (final s in _Span.values)
             Padding(
-              padding: const EdgeInsets.only(right: 7),
+              padding: const EdgeInsetsDirectional.only(end: 7),
               child: Material(
                 type: MaterialType.transparency,
                 child: InkWell(
@@ -775,7 +882,7 @@ class _Cell extends StatelessWidget {
         const SizedBox(height: 2),
         FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: Text(rs(value), style: T.bodyMid.copyWith(color: tone)),
         ),
       ],
@@ -963,7 +1070,7 @@ class _Half extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(11, 9, 11, 10),
+    padding: const EdgeInsetsDirectional.fromSTEB(11, 9, 11, 10),
     decoration: BoxDecoration(
       color: tone.withValues(alpha: T.isDark ? 0.16 : 0.09),
       borderRadius: BorderRadius.circular(T.radiusSm),

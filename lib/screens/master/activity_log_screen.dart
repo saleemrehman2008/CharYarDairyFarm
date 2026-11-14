@@ -106,7 +106,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                   children: [
                     for (final s in _Shown.values)
                       Padding(
-                        padding: const EdgeInsets.only(right: 7),
+                        padding: const EdgeInsetsDirectional.only(end: 7),
                         child: _Chip(
                           label: l.t(s.label),
                           selected: s == _shown,
@@ -310,7 +310,7 @@ class _LogRow extends StatelessWidget {
           if (entry.touchedAnEntry) ...[
             const SizedBox(height: 7),
             Padding(
-              padding: const EdgeInsets.only(left: 92),
+              padding: const EdgeInsetsDirectional.only(start: 92),
               child: _LogActions(entry: entry),
             ),
           ],

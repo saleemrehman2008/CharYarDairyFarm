@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../state/session.dart';
 import 'roman_urdu.dart';
+import 'urdu.dart';
 
 /// The app in the reader's own language.
 ///
@@ -49,8 +50,14 @@ class L {
     }
   }
 
-  String t(String english) =>
-      lang == Lang.en ? english : (romanUrdu[english] ?? english);
+  /// Whether the page this reader sees runs right to left.
+  bool get rtl => lang.rtl;
+
+  String t(String english) => switch (lang) {
+    Lang.en => english,
+    Lang.ur => romanUrdu[english] ?? english,
+    Lang.urdu => urduScript[english] ?? english,
+  };
 
   /// A phrase with something dropped into it: `t2('%s ka bill', name)`.
   ///

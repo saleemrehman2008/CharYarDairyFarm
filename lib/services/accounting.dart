@@ -1751,3 +1751,64 @@ num _outWith(Txn t) => t.isDeleted
     : t.isSecurityRefund
     ? -t.amount
     : 0;
+
+/// What a stretch of the ledger made, as the report page adds it up.
+///
+/// The page used to add this up inside itself, and it drifted. Two things
+/// leave the cash without being a cost of running the farm: cattle and
+/// equipment, which the farm still owns, and an advance against a wage,
+/// which the man still owes. The page knew the first and not the second, so
+/// the same stretch read 16,000 worse on the period tab than it did on the
+/// summary beside it — on a page four partners share out on, which is the
+/// one place a figure must never have two answers.
+///
+/// Here instead, beside [Books], which is where the other answer is worked
+/// out. Two figures from one rule cannot disagree.
+class ReportTotals {
+  ReportTotals.of(List<Txn> rows)
+    : moneyIn = rows
+          .where((t) => !t.isDeleted && countedInReport(t) && t.type.isIncoming)
+          .fold<num>(0, (a, t) => a + t.amount),
+      gross = rows
+          .where(
+            (t) => !t.isDeleted && countedInReport(t) && !t.type.isIncoming,
+          )
+          .fold<num>(0, (a, t) => a + t.amount),
+      assets = rows
+          .where((t) => !t.isDeleted && t.isCapitalAsset)
+          .fold<num>(0, (a, t) => a + t.amount),
+      // Only the advances this page actually added up. One typed today is
+      // a payment, which drops out with the other settlements; the ones
+      // typed before the change are expenses and are still in [gross].
+      // Taking off both would take the money off twice.
+      advances = rows
+          .where((t) => !t.isDeleted && t.isWageAdvance && countedInReport(t))
+          .fold<num>(0, (a, t) => a + t.amount);
+
+  /// Everything that came in, before anything is taken off.
+  final num moneyIn;
+
+  /// Everything that went out, cattle and advances still in it.
+  final num gross;
+
+  /// Cattle and equipment: the money bought something the farm still has.
+  final num assets;
+
+  /// Advance against a wage: the money is lent and comes back off the wage.
+  final num advances;
+
+  /// What the stretch cost to run.
+  num get moneyOut => gross - assets - advances;
+
+  /// What it made.
+  num get net => moneyIn - moneyOut;
+}
+
+/// Whether the report counts this row at all.
+///
+/// A receipt against a sale, or a payment against a bill, is the same money
+/// as the entry it settles — counting both would say the farm sold twice
+/// what it did. A receipt or a payment tied to nothing is the only record
+/// of that money, so it stays.
+bool countedInReport(Txn t) =>
+    !(t.type.isSettlement && !t.isLooseReceipt && !t.isLoosePayment);

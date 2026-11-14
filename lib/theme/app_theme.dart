@@ -25,6 +25,7 @@ ThemeData buildAppTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: T.bg,
     fontFamily: T.fontBody,
+    fontFamilyFallback: T.urduFaces,
     splashFactory: InkSparkle.splashFactory,
     dividerColor: T.divider,
     dividerTheme: DividerThemeData(
@@ -38,7 +39,7 @@ ThemeData buildAppTheme() {
       titleMedium: T.cardTitle,
       bodyMedium: T.body,
       labelSmall: T.meta,
-    ).apply(fontFamily: T.fontBody),
+    ).apply(fontFamily: T.fontBody, fontFamilyFallback: T.urduFaces),
     iconTheme: IconThemeData(color: T.text, size: 20, weight: 300),
     appBarTheme: AppBarTheme(
       backgroundColor: T.bg,
