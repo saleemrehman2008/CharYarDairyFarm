@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/contribution_repo.dart';
+import '../../services/txn_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
@@ -54,6 +55,16 @@ class _SplitSheet extends StatefulWidget {
 
 class _SplitSheetState extends State<_SplitSheet> {
   final _boxes = <String, TextEditingController>{};
+
+  /// The farm's own share, which used to be whatever nobody claimed.
+  ///
+  /// The farm hit this on a 24,480 load of feed that one co-founder had put
+  /// 8,000 of his own money into. The sheet handed the other 16,480 to the
+  /// farm's account and said the farm had paid it — which it had not. The
+  /// bill was still owed. So the farm's share is a figure like any other
+  /// now, and what nobody claims is what nobody has paid.
+  final _farm = TextEditingController();
+
   bool _busy = false;
   bool _filled = false;
 
@@ -62,6 +73,7 @@ class _SplitSheetState extends State<_SplitSheet> {
     for (final c in _boxes.values) {
       c.dispose();
     }
+    _farm.dispose();
     super.dispose();
   }
 
@@ -77,7 +89,22 @@ class _SplitSheetState extends State<_SplitSheet> {
     for (final c in mine) {
       _box(c.partnerId).text = '${c.amount.round()}';
     }
+    // Opening the sheet changes nothing by itself. On an entry already
+    // settled the farm's box starts where the old line stood — the
+    // remainder — and on one still owed it starts at what has actually
+    // been paid against it, less the men's own money.
+    final claimed = mine.fold<num>(0, (a, c) => a + c.amount);
+    final farm = widget.entry.paid
+        ? widget.entry.amount - claimed
+        : widget.entry.paidSoFar - claimed;
+    if (farm > 0) _farm.text = '${farm.round()}';
   }
+
+  num get _farmShare => num.tryParse(_farm.text.trim()) ?? 0;
+
+  /// What this sheet says has been paid: the men's own money and the
+  /// farm's own cash. Whatever is left over is what nobody has paid.
+  num get _paidSoFar => _typed + _farmShare;
 
   num get _typed => _boxes.values.fold<num>(
     0,
@@ -96,6 +123,17 @@ class _SplitSheetState extends State<_SplitSheet> {
     setState(() {});
   }
 
+  /// Whether this sheet may also say how much of the entry has been paid.
+  ///
+  /// Only when no receipt stands against it. A receipt is money that moved
+  /// and is vouched for; this sheet records whose pocket it came from, and
+  /// it may not quietly rewrite a figure a receipt is holding up.
+  bool _canSettle(FarmStore store) =>
+      !widget.entry.type.isSettlement &&
+      !store.ledger.any(
+        (t) => t.settlesTxnId == widget.entry.id && !t.isDeleted,
+      );
+
   Future<void> _save(FarmStore store, List<Contribution> mine) async {
     final l = L.read(context);
     final partners = store.partners;
@@ -103,15 +141,29 @@ class _SplitSheetState extends State<_SplitSheet> {
       for (final p in partners) p.id: num.tryParse(_box(p.id).text.trim()) ?? 0,
     };
 
+    final actor = context.read<Session>().actor;
     setState(() => _busy = true);
     try {
       await ContributionRepo.setSplit(
-        context.read<Session>().actor,
+        actor,
         entry: widget.entry,
         partners: partners,
         existing: mine,
         amounts: amounts,
       );
+      // And what that means for the bill itself. A man's own money paying
+      // part of it means the supplier has been paid that much; what
+      // nobody has claimed is what nobody has paid. Said on the sheet
+      // before saving, so this is the promise being kept rather than
+      // something happening behind it.
+      if (_canSettle(store)) {
+        await TxnRepo.saySettledSoFar(
+          actor,
+          widget.entry,
+          _paidSoFar,
+          periodIsOpen: store.periodIsOpen(widget.entry.monthId),
+        );
+      }
       if (!mounted) return;
       Navigator.pop(context);
       toast(context, l.t2('Split saved · %s', rs(_typed)));
@@ -131,7 +183,7 @@ class _SplitSheetState extends State<_SplitSheet> {
     _fillFromWhatIsThere(mine);
 
     final typed = _typed;
-    final left = widget.entry.amount - typed;
+    final left = widget.entry.amount - typed - _farmShare;
     final over = left < 0;
 
     return SafeArea(
@@ -211,7 +263,12 @@ class _SplitSheetState extends State<_SplitSheet> {
                 // No box, because its figure is not a separate fact: it is
                 // the entry less what the men have claimed. Type against a
                 // man above and this comes down by it, in front of you.
-                _LeftLine(amount: over ? 0 : left, short: over),
+                _FarmLine(
+                  box: _farm,
+                  left: over ? 0 : left,
+                  short: over,
+                  onChanged: () => setState(() {}),
+                ),
                 const SizedBox(height: T.gap),
 
                 // What is typed against what the entry is for. The farm
@@ -254,8 +311,8 @@ class _SplitSheetState extends State<_SplitSheet> {
                             : left == 0
                             ? l.t('Adds up to the entry exactly.')
                             : l.t2(
-                                '%s of it is left — that part came out of the '
-                                'farm\'s own cash.',
+                                '%s of it has not been paid by anybody yet. '
+                                'It stands in what the farm still owes.',
                                 rs(left),
                               ),
                         style: T.meta.copyWith(
@@ -284,7 +341,7 @@ class _SplitSheetState extends State<_SplitSheet> {
                 const SizedBox(height: T.pad),
                 Kicker(l.t('What this does')),
                 const SizedBox(height: 6),
-                if (!over && left > 0)
+                if (!over && _farmShare > 0)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 5),
                     child: Text(
@@ -292,9 +349,25 @@ class _SplitSheetState extends State<_SplitSheet> {
                         '%s — %s came out of the farm\'s own cash, so '
                         'nobody\'s investment moves.',
                         l.t(farmAccountName),
-                        rs(left),
+                        rs(_farmShare),
                       ),
                       style: T.meta.copyWith(color: T.accent700),
+                    ),
+                  ),
+                // What the entry itself will say afterwards. The sheet
+                // promises it here so that saving holds no surprise.
+                if (!over && _canSettle(store))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Text(
+                      left > 0
+                          ? l.t3(
+                              'The entry — %s of it paid, %s still owed.',
+                              rs(_paidSoFar),
+                              rs(left),
+                            )
+                          : l.t('The entry — paid in full, nothing owed.'),
+                      style: T.meta.copyWith(color: T.moneyDue),
                     ),
                   ),
                 for (final p in partners)
@@ -370,65 +443,70 @@ class _SplitSheetState extends State<_SplitSheet> {
 /// own, and it now comes off the farm's account where it always said it did.
 /// It also put Rafeeq on the list twice, once as a man with a box and once
 /// as this line, which is how a thing that is wrong usually announces itself.
-class _LeftLine extends StatelessWidget {
-  const _LeftLine({required this.amount, required this.short});
+/// The farm's own share, and what nobody has paid.
+///
+/// This used to be a grey box reading 'whatever is left' — the entry less
+/// what the men had claimed, asserted as the farm's own cash. On a bill
+/// nobody had paid yet that was simply untrue, and it was the farm that
+/// found it: 8,000 of a 24,480 load of feed came out of one co-founder's
+/// pocket and the sheet handed the other 16,480 to the farm's account,
+/// while the bill sat in 'still to pay' all along.
+///
+/// So the farm types its own figure like anybody else, and what is left
+/// after all of them is money nobody has paid.
+class _FarmLine extends StatelessWidget {
+  const _FarmLine({
+    required this.box,
+    required this.left,
+    required this.short,
+    required this.onChanged,
+  });
 
-  final num amount;
+  final TextEditingController box;
 
-  /// More has been typed than the entry comes to, so there is nothing left
-  /// for the farm and a figure above has to come down first.
+  /// What nobody has claimed once the farm has had its say.
+  final num left;
+
+  /// More has been typed than the entry comes to.
   final bool short;
+
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
     final tone = short
         ? T.moneyOut
-        : amount > 0
-        ? T.accent700
-        : T.n500;
+        : left > 0
+        ? T.moneyDue
+        : T.accent700;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Kicker(l.t(farmAccountName)),
-        const SizedBox(height: 5),
-        Container(
-          height: T.tap,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: AlignmentDirectional.centerStart,
-          decoration: BoxDecoration(
-            color: T.n100,
-            borderRadius: T.roundSm,
-            border: Border.all(color: T.divider),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.account_balance_outlined, size: 16, color: tone),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  rs(short ? 0 : amount),
-                  style: T.body.copyWith(color: tone),
-                ),
-              ),
-              Text(l.t('whatever is left'), style: T.meta),
-            ],
-          ),
+        Field(
+          label: l.t(farmAccountName),
+          controller: box,
+          keyboardType: TextInputType.number,
+          hint: '0',
+          onChanged: (_) => onChanged(),
         ),
         const SizedBox(height: 4),
         Text(
           short
               ? l.t(
-                  'Nothing left for the farm — more has been put against '
-                  'the men above than the entry comes to.',
+                  'More has been put against the farm and the men above '
+                  'than the entry comes to.',
                 )
-              : amount <= 0
-              ? l.t('The four of them paid all of it between them.')
+              : left > 0
+              ? l.t2(
+                  '%s of this entry is still paid by nobody. Leave it, and '
+                  'that much stays owed.',
+                  rs(left),
+                )
               : l.t(
-                  'The farm\'s own account paid this part, and it comes off '
-                  'the farm\'s balance. Type against a man above and this '
-                  'comes down by it.',
+                  'Every rupee of this entry is accounted for — the farm '
+                  'and the men above have it between them.',
                 ),
           style: T.meta.copyWith(color: tone),
         ),

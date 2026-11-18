@@ -1775,4 +1775,24 @@ const Map<String, String> urduScript = {
       'مویشی، سامان اور ایڈوانس اِس فہرست میں ہیں مگر اوپر والے خرچے میں نہیں — ایک اب بھی فارم کے پاس ہے اور دوسرا فارم کو واپس آنا ہے۔',
   'Nearly all of what was put in is standing in the shed rather than spent. That is why a period can read as a loss while the farm is worth more than it was.':
       'جو ڈالا گیا اُس کا لگ بھگ سب کچھ خرچ ہونے کے بجائے شیڈ میں کھڑا ہے۔ اسی لیے کوئی مدت گھاٹے کی دکھ سکتی ہے جب کہ فارم پہلے سے زیادہ کا ہو چکا ہوتا ہے۔',
+  'Was the money paid?': 'پیسہ دیا گیا تھا؟',
+  'On the account': 'کھاتے پر',
+  'Money has already been taken against this entry, so this cannot be changed here. Correct that payment in the ledger instead, or say the money never came.':
+      'اِس اینٹری کے مقابل پیسہ پہلے ہی لیا جا چکا ہے، اس لیے یہاں سے یہ نہیں بدل سکتا۔ اُس ادائیگی کو کھاتے میں جا کر ٹھیک کریں، یا کہیں کہ پیسہ آیا ہی نہیں۔',
+  'The money moved on the day above. Nothing is owed on this entry.':
+      'پیسہ اوپر والے دن ہلا تھا۔ اِس اینٹری پر کچھ باقی نہیں۔',
+  'Nothing has been paid on this entry yet. It stands in what is still owed.':
+      'اِس اینٹری پر ابھی کچھ نہیں دیا گیا۔ یہ بقایا میں کھڑی ہے۔',
+  '%s of it has not been paid by anybody yet. It stands in what the farm still owes.':
+      'اِس میں سے %s ابھی کسی نے نہیں دیا۔ وہ فارم کے بقایا میں کھڑا ہے۔',
+  '%s of this entry is still paid by nobody. Leave it, and that much stays owed.':
+      'اِس اینٹری کا %s ابھی کسی نے نہیں دیا۔ ایسے ہی چھوڑ دیں تو اُتنا بقایا رہے گا۔',
+  'Every rupee of this entry is accounted for — the farm and the men above have it between them.':
+      'اِس اینٹری کا ہر روپیہ حساب میں ہے — فارم اور اوپر والے بندوں نے آپس میں پورا کر دیا۔',
+  'More has been put against the farm and the men above than the entry comes to.':
+      'فارم اور اوپر والے بندوں پر اینٹری سے زیادہ لکھ دیا گیا ہے۔',
+  'The entry — %s of it paid, %s still owed.':
+      'اینٹری — %s دیا جا چکا، %s ابھی باقی۔',
+  'The entry — paid in full, nothing owed.':
+      'اینٹری — پورا ادا ہو گیا، کچھ باقی نہیں۔',
 };

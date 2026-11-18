@@ -2802,7 +2802,25 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
   bool? _capital;
   late MilkShift? _shift = widget.txn.shift;
   late DateTime _date = widget.txn.date;
+  late bool _settled = widget.txn.paid;
   bool _busy = false;
+
+  /// Whether the paid flag may be put right from here.
+  ///
+  /// A flag is something somebody typed and can be corrected. A receipt is
+  /// money that moved and is vouched for, and the moment one exists the
+  /// truthful fix is to correct or remove the receipt — the ledger has its
+  /// own doors for both. A settlement row is itself the money, so it has no
+  /// flag of its own to argue with.
+  ///
+  /// Read off the receipts and not off `paidSoFar`, because an entry paid
+  /// in cash as it was written carries the whole amount in `paidSoFar` with
+  /// no receipt behind it at all — and that is exactly the one the farm
+  /// needs to be able to put back. The repo makes the same test against the
+  /// server before it writes anything.
+  bool _canSaySettled(FarmStore store) =>
+      !widget.txn.type.isSettlement &&
+      !store.ledger.any((t) => t.settlesTxnId == widget.txn.id && !t.isDeleted);
 
   /// Which way the money went, so the heading list offers the right side.
   /// It is not changeable here: a sale that should have been a purchase is
@@ -2901,6 +2919,9 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
         amount: amount,
         note: _note.text,
         handledBy: _handledBy.text,
+        // Only when this sheet was allowed to ask. Sent on an entry with
+        // receipts behind it, the repo would refuse the whole correction.
+        settled: _canSaySettled(store) ? _settled : null,
         // Sent whoever is editing. How far it may move is the repo's rule
         // and the server's, not this sheet's — see [TxnRepo.edit].
         date: _date,
@@ -3066,6 +3087,7 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
   Widget build(BuildContext context) {
     final l = L.of(context);
     final t = widget.txn;
+    final canSaySettled = _canSaySettled(context.watch<FarmStore>());
 
     return SafeArea(
       top: false,
@@ -3187,6 +3209,56 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
                 keyboardType: TextInputType.number,
                 hint: '0',
               ),
+
+              // Whether the money moved as this was written.
+              //
+              // The farm found a feed bill typed onto the account that had
+              // been paid in cash at the gate, opened this sheet to put it
+              // right, and found nothing here that said so — only "Paid by",
+              // which is whose hands it passed through and not whether it
+              // was paid at all. The two words look alike and mean quite
+              // different things, which is why the one that was missing
+              // went unnoticed.
+              //
+              // It is a correction, not a payment: nothing is received and
+              // no receipt is written. The entry simply reads the way it
+              // should have read from the start, on its own day.
+              if (canSaySettled) ...[
+                const SizedBox(height: T.pad),
+                Kicker(l.t('Was the money paid?')),
+                const SizedBox(height: 6),
+                Segmented<bool>(
+                  value: _settled,
+                  options: [
+                    (true, l.t('Paid')),
+                    (false, l.t('On the account')),
+                  ],
+                  onChanged: (v) => setState(() => _settled = v),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l.t(
+                    _settled
+                        ? 'The money moved on the day above. Nothing is '
+                              'owed on this entry.'
+                        : 'Nothing has been paid on this entry yet. It '
+                              'stands in what is still owed.',
+                  ),
+                  style: T.meta,
+                ),
+              ] else ...[
+                const SizedBox(height: T.pad),
+                Kicker(l.t('Was the money paid?')),
+                const SizedBox(height: 6),
+                Text(
+                  l.t(
+                    'Money has already been taken against this entry, so '
+                    'this cannot be changed here. Correct that payment in '
+                    'the ledger instead, or say the money never came.',
+                  ),
+                  style: T.meta,
+                ),
+              ],
 
               const SizedBox(height: T.gap),
               // The same picker the entry form offers, not a box to type a

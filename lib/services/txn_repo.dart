@@ -26,6 +26,69 @@ import 'log_service.dart';
 ///    Inside the period is the ordinary correction — the 8th that was the
 ///    6th — and the farm is still writing those days. The day before it is a
 ///    period whose figures have been sent round, agreed and shared out.
+/// Why this entry's paid figure may not be corrected, or null if it may.
+///
+/// A paid flag is something a person typed and can be typed wrong. A
+/// receipt is money that moved and is vouched for by a row of its own. The
+/// first may be put right by saying it was written wrong; the second may
+/// not, and the app has its own doors for correcting or removing a payment.
+///
+/// [takenAgainst] is what the receipts against this entry come to, and -1
+/// when they could not be read. An unreadable answer refuses too: a
+/// correction let through on a figure nobody could read is how two books
+/// stop agreeing.
+String? settledChangeRefusal({
+  required Txn txn,
+  required num takenAgainst,
+  bool periodIsOpen = true,
+}) {
+  if (!periodIsOpen) {
+    return 'That entry belongs to a period that is already settled. Put the '
+        'correction in the open period instead.';
+  }
+  if (txn.type.isSettlement) {
+    return 'This row is the money. It settles nothing else.';
+  }
+  if (takenAgainst != 0) {
+    return 'There is money taken against this entry already. Correct that '
+        'payment instead, or say the money never came.';
+  }
+  return null;
+}
+
+/// What an entry reads once somebody says how much of it has been paid.
+///
+/// Clamped to the entry at both ends — nothing is owed below nought and
+/// nothing is paid above what the entry is worth — and `paidOnCreate` goes
+/// with `paid`, because the cash book reads that rather than the flag and
+/// a corrected entry's money moved on its own day, not on the day somebody
+/// noticed.
+///
+/// [khaataBy] is what a credit customer's running balance moves by: paying
+/// a sale takes it off what he owes, and putting it back on the account
+/// puts it back on.
+({num paidSoFar, bool paid, bool paidOnCreate, num khaataBy}) settledPatch({
+  /// What the entry is worth — the corrected figure where one is being
+  /// corrected in the same breath, so an entry whose amount and paid flag
+  /// both move ends up settled for what it is now worth.
+  required num amount,
+  required num alreadyPaid,
+  required num want,
+}) {
+  final paidSoFar = want < 0
+      ? 0 as num
+      : want > amount
+      ? amount
+      : want;
+  final full = paidSoFar >= amount && amount > 0;
+  return (
+    paidSoFar: paidSoFar,
+    paid: full,
+    paidOnCreate: full,
+    khaataBy: alreadyPaid - paidSoFar,
+  );
+}
+
 String? dateMoveRefusal({
   required bool isMaster,
   required DateTime to,
@@ -519,6 +582,10 @@ class TxnRepo {
     String? note,
     PayVia? payVia,
     String? handledBy,
+
+    /// Whether the money moved as the entry was written. Null leaves it as
+    /// it stands, which is what every caller but the correction sheet wants.
+    bool? settled,
     DateTime? date,
 
     /// The first day somebody who is not the master may date this entry to —
@@ -636,6 +703,54 @@ class TxnRepo {
         field: 'Amount',
         from: _said(txn.amount),
         to: _said(amount),
+      ));
+    }
+
+    // Whether the money moved as the entry was written — corrected, not
+    // settled.
+    //
+    // The farm found a feed bill typed onto the account that had been paid
+    // in cash at the gate, and had no way to say so. Settling it writes a
+    // receipt dated today for money that moved a week ago, and deleting the
+    // entry to type it again loses everything hanging off it. So the flag
+    // itself is correctable, exactly like the amount or the day: this says
+    // what was written down was wrong, not that anything has just happened.
+    //
+    // Refused the moment anything has actually been taken against the
+    // entry, because then there are real receipts in the ledger and the
+    // truthful fix is to correct or remove those — the app has its own
+    // doors for both.
+    if (settled != null && settled != txn.paid) {
+      final refused = settledChangeRefusal(
+        txn: txn,
+        takenAgainst: await _settlementsAgainst(txn.id),
+      );
+      if (refused != null) throw StateError(refused);
+
+      // Against the corrected amount, not the old one: changing both at
+      // once must leave the entry settled for what it is now worth.
+      final worth = amount ?? txn.amount;
+      final patch = settledPatch(
+        amount: worth,
+        alreadyPaid: txn.paidSoFar,
+        want: settled ? worth : 0,
+      );
+      fresh['paid'] = patch.paid;
+      fresh['paidSoFar'] = patch.paidSoFar;
+      // The cash book reads this rather than the flag, so an entry put
+      // right keeps the day the money actually moved — its own.
+      fresh['paidOnCreate'] = patch.paidOnCreate;
+      fresh['paidAt'] = settled
+          ? Timestamp.fromDate(date ?? txn.date)
+          : FieldValue.delete();
+      // A khaata customer's running balance goes the other way: a sale
+      // marked paid comes off what he owes, and one put back on the
+      // account goes on it.
+      await _moveKhaata(txn, patch.khaataBy);
+      changes.add((
+        field: 'Settled',
+        from: txn.paid ? 'Paid' : 'On the account',
+        to: settled ? 'Paid' : 'On the account',
       ));
     }
 
@@ -1184,6 +1299,94 @@ class TxnRepo {
       // Unreadable. Nothing is refused on a figure that could not be read —
       // a correction blocked by a dropped connection is its own trouble.
       return 0;
+    }
+  }
+
+  /// Says how much of an entry has been paid, without writing a receipt.
+  ///
+  /// The other half of the correction the farm asked for. When a man's own
+  /// money pays part of a bill, the supplier has been paid that much —
+  /// 8,000 of a 24,480 load of feed came out of Munawar's pocket, so 8,000
+  /// of it is settled and 16,480 is still owed. The split sheet knew the
+  /// first half and the ledger knew neither, so the bill went on reading as
+  /// wholly unpaid while a co-founder was credited for paying it.
+  ///
+  /// This is a correction of what the entry says about itself, the same as
+  /// the paid flag on the edit sheet, and it carries the entry's own day
+  /// rather than today's. It is refused outright the moment a real receipt
+  /// exists against the entry: then the money is vouched for and the
+  /// truthful fix is to correct the receipt.
+  static Future<void> saySettledSoFar(
+    Actor actor,
+    Txn txn,
+    num paidSoFar, {
+    bool periodIsOpen = true,
+  }) async {
+    if (!periodIsOpen) {
+      throw StateError(
+        'That entry belongs to a period that is already settled. Put the '
+        'correction in the open period instead.',
+      );
+    }
+    if (txn.type.isSettlement) {
+      throw StateError('This row is the money. It settles nothing else.');
+    }
+    final patch = settledPatch(
+      amount: txn.amount,
+      alreadyPaid: txn.paidSoFar,
+      want: paidSoFar,
+    );
+    if (patch.paidSoFar == txn.paidSoFar) return;
+
+    final refused = settledChangeRefusal(
+      txn: txn,
+      takenAgainst: await _settlementsAgainst(txn.id),
+      periodIsOpen: periodIsOpen,
+    );
+    if (refused != null) throw StateError(refused);
+
+    final want = patch.paidSoFar;
+    await Db.transactions.doc(txn.id).update({
+      'paidSoFar': want,
+      'paid': patch.paid,
+      'paidOnCreate': patch.paidOnCreate,
+      if (want > 0)
+        'paidAt': Timestamp.fromDate(txn.date)
+      else
+        'paidAt': FieldValue.delete(),
+    });
+
+    // A khaata customer owes the difference, either way round.
+    await _moveKhaata(txn, patch.khaataBy);
+
+    await Log.write(
+      actor,
+      LogKind.correction,
+      'said ${rs(want)} of ${txn.type.label.toLowerCase()} "${txn.party}" '
+      '${rs(txn.amount)} of ${fmtDateFull(txn.date)} has been paid',
+      refType: 'transaction',
+      refId: txn.id,
+    );
+  }
+
+  /// What has actually been taken against this entry, in receipts.
+  ///
+  /// The guard on correcting the paid flag. A flag is a thing somebody
+  /// typed; a receipt is money that moved and is vouched for. One may be
+  /// put right by saying it was written wrong, and the other may not.
+  static Future<num> _settlementsAgainst(String entryId) async {
+    try {
+      final q = await Db.transactions
+          .where('settlesTxnId', isEqualTo: entryId)
+          .get();
+      return q.docs
+          .map(Txn.fromDoc)
+          .where((t) => !t.isDeleted)
+          .fold<num>(0, (a, t) => a + t.amount);
+    } catch (_) {
+      // Unreadable. Refuse rather than guess: letting a correction through
+      // on a figure nobody could read is how two books stop agreeing.
+      return -1;
     }
   }
 

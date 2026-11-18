@@ -1639,4 +1639,24 @@ const Map<String, String> romanUrdu = {
       'Maweshi, saman aur advance is fehrist me hain magar uper wale kharche me nahi — ek ab bhi farm ke paas hai aur doosra farm ko wapas aana hai.',
   'Nearly all of what was put in is standing in the shed rather than spent. That is why a period can read as a loss while the farm is worth more than it was.':
       'Jo daala gaya us ka lagbhag sab kuch kharch hone ke bajaye sheds me khara hai. Isi liye koi period ghaate ka dikh sakta hai jab ke farm pehle se zyada ka ho chuka hota hai.',
+  'Was the money paid?': 'Paisa diya gaya tha?',
+  'On the account': 'Khaate per',
+  'Money has already been taken against this entry, so this cannot be changed here. Correct that payment in the ledger instead, or say the money never came.':
+      'Is entry ke against paisa pehle hi liya ja chuka hai, is liye yahan se ye nahi badal sakta. Us payment ko ledger mein ja kar theek karen, ya kahen ke paisa aaya hi nahi.',
+  'The money moved on the day above. Nothing is owed on this entry.':
+      'Paisa uper wale din hila tha. Is entry per kuch baqi nahi.',
+  'Nothing has been paid on this entry yet. It stands in what is still owed.':
+      'Is entry per abhi kuch nahi diya gaya. Ye baqaya mein khari hai.',
+  '%s of it has not been paid by anybody yet. It stands in what the farm still owes.':
+      'Is mein se %s abhi kisi ne nahi diya. Wo farm ke baqaya mein khara hai.',
+  '%s of this entry is still paid by nobody. Leave it, and that much stays owed.':
+      'Is entry ka %s abhi kisi ne nahi diya. Aise hi chhor den to utna baqaya rahega.',
+  'Every rupee of this entry is accounted for — the farm and the men above have it between them.':
+      'Is entry ka har rupya hisaab mein hai — farm aur uper wale bandon ne aapas mein poora kar diya.',
+  'More has been put against the farm and the men above than the entry comes to.':
+      'Farm aur uper wale bandon per entry se zyada likh diya gaya hai.',
+  'The entry — %s of it paid, %s still owed.':
+      'Entry — %s diya ja chuka, %s abhi baqi.',
+  'The entry — paid in full, nothing owed.':
+      'Entry — poora ada ho gaya, kuch baqi nahi.',
 };
