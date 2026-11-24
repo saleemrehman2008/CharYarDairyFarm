@@ -58,6 +58,7 @@ enum TxnType {
     TxnType.expense => const [
       'Salaries',
       salaryAdvanceCategory,
+      staffLoanCategory,
       'Rent',
       'Utilities (bijli, gas, pani)',
       'Food & kitchen',
@@ -155,6 +156,7 @@ enum MoneyFlow {
       ('Food & kitchen', TxnType.purchase),
       ('Salaries', TxnType.expense),
       (salaryAdvanceCategory, TxnType.payment),
+      (staffLoanCategory, TxnType.payment),
       ('Rent', TxnType.expense),
       ('Utilities (bijli, gas, pani)', TxnType.expense),
       ('Transport', TxnType.expense),
@@ -235,6 +237,7 @@ EntryKind entryKindOf({
     return category == securityInCategory ||
             category == securityRefundCategory ||
             category == salaryAdvanceBackCategory ||
+            category == staffLoanBackCategory ||
             category == loanRepaidCategory
         ? EntryKind.neither
         : EntryKind.earnings;
@@ -244,6 +247,7 @@ EntryKind entryKindOf({
     return category == securityBackCategory ||
             category == securityOutCategory ||
             category == salaryAdvanceCategory ||
+            category == staffLoanCategory ||
             category == profitShareCategory
         ? EntryKind.neither
         : EntryKind.cost;
@@ -292,6 +296,10 @@ String entryEffect({
       return 'Not earnings — the farm is taking back an advance off a wage. '
           'The cash goes up and the profit does not move.';
     }
+    if (category == staffLoanBackCategory) {
+      return 'Not earnings — the farm is getting its own loan back off a '
+          'wage. The cash goes up and the profit does not move.';
+    }
     return 'Nothing already in the books accounts for this, so it counts as '
         'the farm earning it.';
   }
@@ -303,6 +311,10 @@ String entryEffect({
     return 'Not a cost — the farm expects this back off his wage, so it '
         'goes onto his account. The cash goes down and the profit does not '
         'move.';
+  }
+  if (category == staffLoanCategory) {
+    return 'Not a cost — the farm has lent it and expects it back off his '
+        'wages. The cash goes down and the profit does not move.';
   }
   if (category == advanceGivenUpCategory) {
     return 'The farm giving up on an advance. It counts as money the farm '
@@ -401,6 +413,24 @@ const advanceGivenUpCategory = 'Advance not coming back';
 /// own money, not earning any — so it is kept out of what the month made,
 /// exactly like a customer's deposit going back.
 const salaryAdvanceBackCategory = 'Advance taken back';
+
+/// Money lent to somebody on the wage list.
+///
+/// The same road as a wage advance and a different thing to the men who
+/// take it: an advance is this month's wage taken early, a loan is a sum
+/// borrowed against the months to come, paid off at a figure agreed once
+/// and written on his record.
+///
+/// Not a cost. The farm still owns it — it is in his pocket rather than in
+/// the box — so the cash goes down and the profit does not move, exactly
+/// as with an advance, and it comes back off his wages the same way.
+const staffLoanCategory = 'Loan';
+
+/// An instalment of one coming back off a wage.
+///
+/// Its own line for the reason the advance's is: a man paid his wage less
+/// five thousand should be able to read where the five thousand went.
+const staffLoanBackCategory = 'Loan instalment taken back';
 
 const profitShareCategory = 'Profit share';
 
@@ -674,6 +704,7 @@ class Txn {
     this.pairId,
     this.takeId,
     this.advanceCut,
+    this.wageFor,
     this.capital,
     this.shift,
     this.edits = const [],
@@ -809,6 +840,22 @@ class Txn {
   /// [advanceOwed] assumes of them.
   final num? advanceCut;
 
+  /// Which month's wage this is, as '2026-11'.
+  ///
+  /// The farm always said it in words — October's wage is October's
+  /// whether it goes out on the 31st, the 1st or the 5th of November —
+  /// and the books never wrote it down. A wage was found by the day it
+  /// was handed over, so November's wage paid on the 3rd of December sat
+  /// in December as far as every figure was concerned, and the advance
+  /// guard that reads 'has his wage for this month been paid' could not
+  /// see it.
+  ///
+  /// Written now, so a wage can be handed over in pieces — five thousand,
+  /// then one — and every piece knows which month it belongs to. Null on
+  /// everything written before this, which falls back to the old way of
+  /// looking: the days around the entry. See [wagePaidSoFar].
+  final String? wageFor;
+
   /// Named apart from `type.isSettlement`, which asks a different question:
   /// whether this is a receipt or payment at all.
   bool get settlesAnotherEntry => settlesTxnId != null;
@@ -943,6 +990,7 @@ class Txn {
       !isSecurityBack &&
       !isSecurityOut &&
       !isWageAdvance &&
+      !isStaffLoan &&
       !isLoanOut &&
       // Handed to another co-founder, not spent. The other half of the
       // pair takes it straight back in.
@@ -982,6 +1030,14 @@ class Txn {
   /// from when these were written as an expense.
   bool get isWageAdvance => category == salaryAdvanceCategory;
 
+  /// Money lent to somebody on the wage list, and an instalment of it
+  /// coming back. Kept apart from the advance because the farm keeps them
+  /// apart, and counted the same way because the money behaves the same.
+  bool get isStaffLoan => category == staffLoanCategory;
+
+  bool get isStaffLoanBack =>
+      type == TxnType.receipt && category == staffLoanBackCategory;
+
   /// That advance coming back off a wage. Cash in, and nothing else.
   bool get isWageAdvanceBack =>
       type == TxnType.receipt && category == salaryAdvanceBackCategory;
@@ -1008,6 +1064,7 @@ class Txn {
       !isSecurityIn &&
       !isSecurityRefund &&
       !isWageAdvanceBack &&
+      !isStaffLoanBack &&
       !isLoanBack &&
       !isHandoverIn;
 
@@ -1023,7 +1080,8 @@ class Txn {
   bool get isRunningCost =>
       ((type == TxnType.purchase || type == TxnType.expense) &&
           !isCapitalAsset &&
-          !isWageAdvance) ||
+          !isWageAdvance &&
+          !isStaffLoan) ||
       isLoosePayment;
 
   /// Unpaid sales are receivables; unpaid purchases and expenses are payables.
@@ -1075,6 +1133,7 @@ class Txn {
       pairId: m['pairId'] == null ? null : s(m['pairId']),
       takeId: m['takeId'] == null ? null : s(m['takeId']),
       advanceCut: m['advanceCut'] == null ? null : n(m['advanceCut']),
+      wageFor: m['wageFor'] == null ? null : s(m['wageFor']),
       capital: m['capital'] == null ? null : b(m['capital']),
       shift: MilkShift.parse(m['shift']),
       edits: TxnEdit.listFrom(m['edits']),

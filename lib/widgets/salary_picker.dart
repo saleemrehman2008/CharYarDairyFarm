@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../services/accounting.dart';
 import '../services/employee_repo.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
@@ -26,10 +27,8 @@ class SalaryPicker extends StatelessWidget {
     required this.chosen,
     required this.payingFor,
     required this.onMonth,
-    required this.onSpan,
-    this.spanFrom,
-    this.spanTo,
     required this.onPicked,
+    this.paidThisMonth,
     this.advance = false,
     this.owesAdvance,
     this.alreadyPaid,
@@ -39,6 +38,11 @@ class SalaryPicker extends StatelessWidget {
     this.cut = 0,
     this.cutBox,
     this.onCut,
+    this.owesLoan,
+    this.loanMonthly,
+    this.loanCut = 0,
+    this.loanBox,
+    this.onLoanCut,
   });
 
   /// Handing out part of a wage before the month is out, rather than paying
@@ -93,9 +97,6 @@ class SalaryPicker extends StatelessWidget {
   /// the end of November for the whole of it, so the advance he drew in
   /// October comes off the same payment. Asked a month at a time, that
   /// advance sat in a month nobody was paying for.
-  final DateTime? spanFrom;
-  final DateTime? spanTo;
-  final void Function(DateTime? from, DateTime? to) onSpan;
 
   /// Picked, with what the card says is left to hand him and how much of
   /// his advance that figure has taken off.
@@ -124,14 +125,29 @@ class SalaryPicker extends StatelessWidget {
   /// the advance has come off it and must not come off again.
   final bool Function(Employee who)? alreadyPaid;
 
-  DateTime get _monthStart =>
-      spanFrom ?? DateTime(payingFor.year, payingFor.month, 1);
+  /// What he still owes against loans, which the farm keeps apart from
+  /// advances because the men do.
+  final num Function(Employee who)? owesLoan;
 
-  DateTime get _monthEnd =>
-      spanTo ?? DateTime(payingFor.year, payingFor.month + 1, 0);
+  /// The instalment agreed when the loan was given — what the box offers
+  /// before anybody changes it.
+  final num Function(Employee who)? loanMonthly;
 
-  /// Whether this payment covers something other than the one whole month.
-  bool get _spanned => spanFrom != null || spanTo != null;
+  final num loanCut;
+  final TextEditingController? loanBox;
+  final void Function(Employee who, num cut)? onLoanCut;
+
+  /// What has already gone out against the month on screen.
+  ///
+  /// The farm pays a wage in pieces and the form used to ask for the whole
+  /// of it every time, with nothing on the screen saying what had already
+  /// been handed over — so the man typing had to hold it in his head, and
+  /// a month paid twice looked exactly like a month paid once.
+  final num Function(Employee who)? paidThisMonth;
+
+  DateTime get _monthStart => DateTime(payingFor.year, payingFor.month, 1);
+
+  DateTime get _monthEnd => DateTime(payingFor.year, payingFor.month + 1, 0);
 
   /// What is actually handed over: the wage for the days being paid for,
   /// less what he has already drawn against them, and never less than
@@ -173,13 +189,6 @@ class SalaryPicker extends StatelessWidget {
   /// there is nothing for it to come out of.
   num _wouldTake(Employee who, {required num wage}) =>
       _held(who, wage: wage, cut: owesAdvance?.call(who) ?? 0);
-
-  /// How many days this payment covers, both ends counted.
-  ///
-  /// The farm asked to see it: a window picked on two calendars says
-  /// nothing about how long it is, and "25 Sep to 9 Nov" is not a number
-  /// anybody works out while standing in a shed.
-  int get _days => _monthEnd.difference(_monthStart).inDays + 1;
 
   @override
   Widget build(BuildContext context) {
@@ -296,68 +305,6 @@ class SalaryPicker extends StatelessWidget {
                   style: T.meta,
                 ),
                 const SizedBox(height: 8),
-                // One payment can cover more than a month — the end of
-                // October and the whole of November together — so that an
-                // advance drawn in October comes off it. Asked a month at a
-                // time, that advance sat in a month nobody was paying for.
-                Row(
-                  children: [
-                    Expanded(
-                      child: _Day(
-                        label: _spanned ? fmtDateFull(_monthStart) : 'Pay from',
-                        onTap: () => _pickSpan(context, start: true),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: _Day(
-                        label: _spanned ? fmtDateFull(_monthEnd) : 'Pay to',
-                        onTap: () => _pickSpan(context, start: false),
-                      ),
-                    ),
-                    if (_spanned) ...[
-                      const SizedBox(width: 7),
-                      _Day(
-                        label: 'Whole month',
-                        onTap: () => onSpan(null, null),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 7),
-                // How long the window is, counted. Two dates on two
-                // buttons do not say it, and nobody works out "25 Sep to
-                // 9 Nov" standing in a shed.
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: T.accent600.withValues(alpha: 0.09),
-                    borderRadius: BorderRadius.circular(T.radiusXs),
-                    border: Border.all(
-                      color: T.accent600.withValues(alpha: 0.30),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${fmtDateFull(_monthStart)} to '
-                          '${fmtDateFull(_monthEnd)}',
-                          style: T.meta.copyWith(color: T.accent700),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _days == 1 ? '1 day' : '$_days days',
-                        style: T.bodyMid.copyWith(color: T.accent700),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 11),
               ],
               Kicker(
                 advance ? 'Who is being advanced it' : 'Who is being paid',
@@ -420,10 +367,27 @@ class SalaryPicker extends StatelessWidget {
                   ],
                 ),
 
+                // What the month comes to, what has gone out against it,
+                // and what is left. Three lines, because the farm asked
+                // the same three questions out loud every time it paid
+                // half a wage.
+                if (paidThisMonth != null) ...[
+                  const SizedBox(height: 10),
+                  _Tally(
+                    monthly: who.monthly,
+                    allowance: who.allowance,
+                    allowanceFor: who.allowanceFor,
+                    paid: paidThisMonth!(who),
+                    // What is in the box right now, so the figure answers
+                    // while it is being typed rather than after saving.
+                    typing: wage,
+                  ),
+                ],
+
                 const SizedBox(height: 9),
                 if (wageBox != null)
                   Field(
-                    label: 'Salary for this month',
+                    label: 'Paying now',
                     controller: wageBox!,
                     keyboardType: TextInputType.number,
                     prefix: 'Rs ',
@@ -439,11 +403,9 @@ class SalaryPicker extends StatelessWidget {
                   ),
                 const SizedBox(height: 6),
                 Text(
-                  'The whole wage for these '
-                  '${_days == 1 ? '1 day' : '$_days days'}, before anything '
-                  'comes off it — not the cash you are handing over. '
-                  'Whatever the two of you settled on; nothing is worked '
-                  'out for you.',
+                  'What you are handing over now, before the advance comes '
+                  'off it. The month above takes it off as you type; hand '
+                  'over part and the rest stays on the month for next time.',
                   style: T.meta,
                 ),
 
@@ -509,6 +471,85 @@ class SalaryPicker extends StatelessWidget {
                     ),
                   ),
                 ],
+                // The loan, kept in its own block for the same reason it
+                // has its own name: a man who has both wants to see which
+                // of them this wage is eating.
+                if ((owesLoan?.call(who) ?? 0) > 0) ...[
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  Builder(
+                    builder: (_) {
+                      final owing = owesLoan!(who);
+                      final asked = loanCut < 0 ? 0 as num : loanCut;
+                      final room = wage - _held(who, wage: wage, cut: cut);
+                      final take = asked > owing
+                          ? owing
+                          : asked > room
+                          ? (room < 0 ? 0 as num : room)
+                          : asked;
+                      final after = owing - take;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Loan he still owes',
+                                  style: T.bodyMid.copyWith(color: T.moneyDue),
+                                ),
+                              ),
+                              Text(
+                                rs(owing),
+                                style: T.bodyMid.copyWith(color: T.moneyDue),
+                              ),
+                            ],
+                          ),
+                          if ((loanMonthly?.call(who) ?? 0) > 0) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '${rs(loanMonthly!(who))} a month was agreed.',
+                              style: T.meta,
+                            ),
+                          ],
+                          if (loanBox != null) ...[
+                            const SizedBox(height: 8),
+                            Field(
+                              label: 'Loan coming off this wage',
+                              controller: loanBox!,
+                              keyboardType: TextInputType.number,
+                              prefix: 'Rs ',
+                              onChanged: (v) => onLoanCut?.call(
+                                who,
+                                num.tryParse(v.trim()) ?? 0,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          Text(
+                            wage <= 0
+                                ? 'Put this month\'s salary in first — an '
+                                      'instalment can only come off '
+                                      'something.'
+                                : after <= 0
+                                ? 'That clears his loan.'
+                                : asked > room
+                                ? 'This wage cannot carry more than '
+                                      '${rs(room < 0 ? 0 : room)} once the '
+                                      'advance has had its share. '
+                                      '${rs(after)} stays on his loan.'
+                                : '${rs(after)} stays on his loan and comes '
+                                      'off a later wage.',
+                            style: T.meta.copyWith(
+                              color: after > 0 ? T.moneyDue : null,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
                 if (settled) ...[
                   const SizedBox(height: 7),
                   Text(
@@ -566,40 +607,9 @@ class SalaryPicker extends StatelessWidget {
 
 extension on SalaryPicker {
   /// Picking one end of the run of days this payment covers.
-  Future<void> _pickSpan(BuildContext context, {required bool start}) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: start ? _monthStart : _monthEnd,
-      firstDate: DateTime(now.year - 3),
-      lastDate: DateTime(now.year + 1),
-      helpText: start ? 'Pay from which day' : 'Pay up to which day',
-    );
-    if (picked == null) return;
-
-    // The other end follows rather than arguing: a start after the finish
-    // is a man picking the far end first.
-    final a = start ? picked : _monthStart;
-    final b = start ? _monthEnd : picked;
-    onSpan(a.isAfter(b) ? b : a, b.isBefore(a) ? a : b);
-  }
 }
 
 /// One end of a run of days.
-class _Day extends StatelessWidget {
-  const _Day({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GhostButton(
-    label: label,
-    icon: Icons.event_outlined,
-    compact: true,
-    onPressed: onTap,
-  );
-}
 
 class _Arrow extends StatelessWidget {
   const _Arrow({required this.icon, required this.onTap});
@@ -659,5 +669,120 @@ class _Who extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+/// What this month's wage comes to, what has gone out, and what is left.
+///
+/// The farm hands a wage over in pieces — five thousand one week, a
+/// thousand the next — and until now the form asked for the whole figure
+/// every time with nothing on the screen to say what had already gone. So
+/// it was held in somebody's head, and a month paid twice looked exactly
+/// like a month paid once.
+///
+/// The allowance is named here rather than folded into one figure, because
+/// a man is told "twenty-four and six for the milk" and that is what he
+/// expects the paper to say.
+class _Tally extends StatelessWidget {
+  const _Tally({
+    required this.monthly,
+    required this.allowance,
+    required this.allowanceFor,
+    required this.paid,
+    required this.typing,
+  });
+
+  final num monthly;
+  final num allowance;
+  final String allowanceFor;
+  final num paid;
+
+  /// What is in the box this moment, before it is saved.
+  ///
+  /// The farm asked for this plainly: type twenty-four against a month of
+  /// thirty and the form should take it off and say six, there and then.
+  /// Waiting until the entry is saved to find out is how a wage gets paid
+  /// twice.
+  final num typing;
+
+  @override
+  Widget build(BuildContext context) {
+    final afterThis = paid + (typing > 0 ? typing : 0);
+    final left = wageLeftToPay(monthly: monthly, paidSoFar: afterThis);
+    final over = afterThis > monthly;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: T.accent600.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(T.radiusXs),
+        border: Border.all(color: T.accent600.withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        children: [
+          _Row(
+            label: allowance > 0
+                ? (allowanceFor.trim().isEmpty
+                      ? 'The month, with the allowance'
+                      : 'The month, with ${allowanceFor.trim()}')
+                : 'The month',
+            value: monthly,
+          ),
+          const SizedBox(height: 4),
+          if (paid > 0)
+            _Row(label: 'Already handed over', value: paid, tone: T.moneyOut),
+          if (typing > 0) ...[
+            if (paid > 0) const SizedBox(height: 4),
+            _Row(label: 'Handing over now', value: typing, tone: T.moneyOut),
+          ],
+          const Divider(height: 14),
+          _Row(
+            label: over
+                ? 'More than the month comes to'
+                : typing > 0
+                ? 'Left after this'
+                : 'Still to pay',
+            value: over ? afterThis - monthly : left,
+            tone: over ? T.moneyOut : T.moneyDue,
+            strong: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.label,
+    required this.value,
+    this.tone,
+    this.strong = false,
+  });
+
+  final String label;
+  final num value;
+  final Color? tone;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          label,
+          style: strong
+              ? T.bodyMid.copyWith(color: tone ?? T.accent700)
+              : T.meta.copyWith(color: T.accent700),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text(
+        rs(value),
+        style: strong
+            ? T.num22.copyWith(color: tone ?? T.accent700)
+            : T.bodyMid.copyWith(color: tone ?? T.accent700),
+      ),
+    ],
   );
 }

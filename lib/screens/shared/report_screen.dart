@@ -7,6 +7,7 @@ import '../../i18n/words.dart';
 import '../../models/models.dart';
 import '../../services/accounting.dart';
 import '../../services/db.dart';
+import '../../services/employee_repo.dart';
 import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
@@ -240,6 +241,42 @@ class _ReportScreenState extends State<ReportScreen> {
           MilkSplit(book: MilkBook.from(live)),
           const SizedBox(height: T.gap),
           _MilkCard(book: MilkBook.from(live)),
+
+          // 6b — the month's wages, one line a man. Asked for as a record
+          // to keep: who was on the list, what each was due, what went out
+          // and what is still owed. The crew is a stream of its own rather
+          // than part of the farm's figures, so it is waited on here and
+          // the card simply does not appear until it lands.
+          StreamBuilder<List<Employee>>(
+            stream: EmployeeRepo.watch(),
+            builder: (_, snap) {
+              final crew = snap.data;
+              if (crew == null || crew.isEmpty) return const SizedBox.shrink();
+              // The latest month on the page, which is the one anybody
+              // opening this is asking about.
+              final last = live.isEmpty
+                  ? DateTime.now()
+                  : live
+                        .map((t) => t.date)
+                        .reduce((a, b) => b.isAfter(a) ? b : a);
+              final month = DateTime(last.year, last.month, 1);
+              final key =
+                  '${month.year}-${month.month.toString().padLeft(2, '0')}';
+              return Padding(
+                padding: const EdgeInsets.only(top: T.gap),
+                child: WagesSheet(
+                  monthLabel: monthName(key),
+                  rows: wageSheet(
+                    store.ledger,
+                    crew,
+                    wageFor: key,
+                    from: month,
+                    to: DateTime(month.year, month.month + 1, 0),
+                  ),
+                ),
+              );
+            },
+          ),
 
           // 7 — the partners' own question: we put in this much, where is it?
           const SizedBox(height: T.gap),

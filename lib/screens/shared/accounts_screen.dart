@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../i18n/samjhao.dart';
@@ -312,6 +315,25 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Flexible(
+                  child: PickPill(
+                    icon: _byDate ? Icons.schedule : Icons.format_list_bulleted,
+                    label: _byDate
+                        ? l.t('Newest first')
+                        : l.t('Gathered by name'),
+                    chosen: _byDate,
+                    // Not a filter to be cleared: it is two ways of reading
+                    // the same entries, and one of them is always on.
+                    onClear: () => setState(() => _byDate = false),
+                    onTap: () => setState(() => _byDate = !_byDate),
+                  ),
+                ),
+                const Spacer(),
+              ],
+            ),
             const SizedBox(height: 12),
 
             // One customer's whole account, the moment a name is picked.
@@ -366,54 +388,78 @@ class _AccountsScreenState extends State<AccountsScreen> {
               // to do is a thousand rows below the thing you already know.
               // What is settled is a record — it is read occasionally and
               // acted on never — so it goes underneath, however long it gets.
-              if (open.isNotEmpty) ...[
-                Samjhao(
-                  term: 'Still open',
-                  child: SectionTitle(
-                    _owedTab ? l.t(_filter.heading) : l.t('Still open'),
-                  ),
-                ),
+              // Newest first, in one run, with the period lines still
+              // drawn where the months change. Nothing is hidden and
+              // nothing is grouped — which is the whole point of it.
+              if (_byDate) ...[
+                SectionTitle(l.t('Newest first')),
                 const SizedBox(height: 6),
-                ..._byName(
-                  open,
+                ..._withDividers(
+                  [...rows]..sort((a, b) => b.date.compareTo(a.date)),
                   periods,
                   l,
                   isMaster,
                   _reach(rows),
-                  owing: true,
                 ),
                 const SizedBox(height: 4),
-                _TotalStrip(
-                  said: _comesTo(open, owing: true),
-                  tone: _filter.tone,
-                ),
-                if (_canTick) ...[
-                  const SizedBox(height: 12),
-                  _SettleBar(
-                    owing: _owing(rows),
-                    reach: _reach(rows),
-                    taking: _taken(rows),
-                    incoming: open.first.type.isIncoming,
-                    field: _taking,
-                    busy: _settling,
-                    onSettle: () => _settleMany(rows),
-                    onAmountChanged: () => setState(() {}),
+                _TotalStrip(said: _comesTo(rows), tone: _filter.tone),
+              ] else ...[
+                if (open.isNotEmpty) ...[
+                  Samjhao(
+                    term: 'Still open',
+                    child: SectionTitle(
+                      _owedTab ? l.t(_filter.heading) : l.t('Still open'),
+                    ),
                   ),
+                  const SizedBox(height: 6),
+                  ..._byName(
+                    open,
+                    periods,
+                    l,
+                    isMaster,
+                    _reach(rows),
+                    owing: true,
+                  ),
+                  const SizedBox(height: 4),
+                  _TotalStrip(
+                    said: _comesTo(open, owing: true),
+                    tone: _filter.tone,
+                  ),
+                  if (_canTick) ...[
+                    const SizedBox(height: 12),
+                    _SettleBar(
+                      owing: _owing(rows),
+                      reach: _reach(rows),
+                      taking: _taken(rows),
+                      incoming: open.first.type.isIncoming,
+                      field: _taking,
+                      busy: _settling,
+                      onSettle: () => _settleMany(rows),
+                      onAmountChanged: () => setState(() {}),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
                 ],
-                const SizedBox(height: 20),
-              ],
 
-              if (done.isNotEmpty) ...[
-                Samjhao(
-                  term: 'Done with',
-                  child: SectionTitle(
-                    open.isEmpty ? l.t('Everything here') : l.t('Done with'),
+                if (done.isNotEmpty) ...[
+                  Samjhao(
+                    term: 'Done with',
+                    child: SectionTitle(
+                      open.isEmpty ? l.t('Everything here') : l.t('Done with'),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                ..._byName(done, periods, l, isMaster, const {}, owing: false),
-                const SizedBox(height: 4),
-                _TotalStrip(said: _comesTo(done), tone: T.n600),
+                  const SizedBox(height: 6),
+                  ..._byName(
+                    done,
+                    periods,
+                    l,
+                    isMaster,
+                    const {},
+                    owing: false,
+                  ),
+                  const SizedBox(height: 4),
+                  _TotalStrip(said: _comesTo(done), tone: T.n600),
+                ],
               ],
             ],
 
@@ -907,6 +953,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// and who it is not; the days under a name are the working, and the
   /// working is what you go and look at.
   final _openNames = <String>{};
+
+  /// Newest first, in one list, instead of gathered under names.
+  ///
+  /// Two ways of reading the same entries, and each is useless for the
+  /// other's question. By name settles up with a man; by date says what
+  /// happened on Tuesday. The page only ever did the first.
+  bool _byDate = false;
 
   /// Which handfuls are open, showing the days they paid for.
   ///
@@ -2803,6 +2856,45 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
   late MilkShift? _shift = widget.txn.shift;
   late DateTime _date = widget.txn.date;
   late bool _settled = widget.txn.paid;
+
+  /// How the money moved, and what the quantity was counted in.
+  ///
+  /// Both are asked on the entry form and neither could be put right
+  /// afterwards. A load of feed typed as 288 litres when it was 288 kilos,
+  /// or a payment marked cash that went by bank, had no door back — and
+  /// the farm's rule is that everything it is asked at the gate it can
+  /// correct at the desk. The repo has taken both all along; nothing here
+  /// was sending them.
+  File? _newReceipt;
+  late DateTime _wageMonth = _monthOf(widget.txn);
+
+  /// Which month's wage an entry is for.
+  ///
+  /// Written on everything from now on. On an older one it is worked out
+  /// the way the entry form works it out — a wage handed over in the first
+  /// days of a month is almost always the month just gone — so the picker
+  /// opens on the likely answer rather than on nothing.
+  static DateTime _monthOf(Txn t) {
+    final said = t.wageFor;
+    if (said != null && said.length >= 7) {
+      final y = int.tryParse(said.substring(0, 4));
+      final m = int.tryParse(said.substring(5, 7));
+      if (y != null && m != null) return DateTime(y, m, 1);
+    }
+    return t.date.day <= 10
+        ? DateTime(t.date.year, t.date.month - 1, 1)
+        : DateTime(t.date.year, t.date.month, 1);
+  }
+
+  String get _wageKey =>
+      '${_wageMonth.year}-${_wageMonth.month.toString().padLeft(2, '0')}';
+
+  bool get _isWage =>
+      _category == salariesCategory || _category == salaryAdvanceCategory;
+  late PayVia _payVia = widget.txn.payVia;
+  late String _unit = (widget.txn.unit?.isEmpty ?? true)
+      ? txnUnits.first
+      : widget.txn.unit!;
   bool _busy = false;
 
   /// Whether the paid flag may be put right from here.
@@ -2875,6 +2967,17 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
         : floor;
   }
 
+  /// A fresh photograph of the paper, replacing whatever is on the entry.
+  Future<void> _pickReceipt(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 2000,
+      imageQuality: 88,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _newReceipt = File(picked.path));
+  }
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     // An entry already dated later than today — there should be none, but a
@@ -2916,6 +3019,10 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
         shift: _shift,
         qty: num.tryParse(_qty.text.trim()),
         rate: num.tryParse(_rate.text.trim()),
+        unit: _measured ? _unit : null,
+        payVia: _payVia,
+        receipt: _newReceipt,
+        wageFor: _isWage ? _wageKey : null,
         amount: amount,
         note: _note.text,
         handledBy: _handledBy.text,
@@ -3182,6 +3289,7 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
+                      flex: 5,
                       child: Field(
                         label: l.t('Qty'),
                         controller: _qty,
@@ -3190,7 +3298,20 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // Asked at the gate, so correctable at the desk. 288
+                    // litres of fodder that was 288 kilos had no way back.
                     Expanded(
+                      flex: 4,
+                      child: Picker<String>(
+                        label: l.t('Unit'),
+                        value: _unit,
+                        items: [for (final u in txnUnits) (u, u)],
+                        onChanged: (v) => setState(() => _unit = v),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 5,
                       child: Field(
                         label: l.t('Rate / unit'),
                         controller: _rate,
@@ -3257,6 +3378,124 @@ class _EditEntrySheetState extends State<EditEntrySheet> {
                     'the ledger instead, or say the money never came.',
                   ),
                   style: T.meta,
+                ),
+              ],
+
+              // Which month's wage this is. A salary entry said what it
+              // was and what it cost and never which month it was for, so
+              // one typed against the wrong month could not be moved to
+              // the right one — and the balance on the entry form counted
+              // it under a month nobody was paying.
+              if (_isWage) ...[
+                const SizedBox(height: T.pad),
+                Kicker(l.t('Whose month')),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    GhostButton(
+                      label: '',
+                      icon: Icons.chevron_left,
+                      compact: true,
+                      onPressed: _busy
+                          ? null
+                          : () => setState(
+                              () => _wageMonth = DateTime(
+                                _wageMonth.year,
+                                _wageMonth.month - 1,
+                                1,
+                              ),
+                            ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        monthName(_wageKey),
+                        textAlign: TextAlign.center,
+                        style: T.cardTitle,
+                      ),
+                    ),
+                    GhostButton(
+                      label: '',
+                      icon: Icons.chevron_right,
+                      compact: true,
+                      onPressed: _busy
+                          ? null
+                          : () => setState(
+                              () => _wageMonth = DateTime(
+                                _wageMonth.year,
+                                _wageMonth.month + 1,
+                                1,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  l.t(
+                    'The month he worked, not the day he was handed it. '
+                    'Move it and this wage counts against that month '
+                    'instead — the balance on the entry form follows.',
+                  ),
+                  style: T.meta,
+                ),
+              ],
+
+              // The photograph of the paper. The one thing on an entry that
+              // could only ever be attached once — a slip taken out of
+              // focus, or forgotten on the day, had no way back.
+              const SizedBox(height: T.pad),
+              Kicker(l.t('Receipt')),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (_newReceipt != null)
+                    ClipRRect(
+                      borderRadius: T.roundSm,
+                      child: Image.file(
+                        _newReceipt!,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else if (t.hasReceipt)
+                    FarmPhotoView(data: t.receipt, size: 56),
+                  if (_newReceipt != null || t.hasReceipt)
+                    const SizedBox(width: 10),
+                  GhostButton(
+                    label: l.t(
+                      _newReceipt != null || t.hasReceipt
+                          ? 'Change'
+                          : 'Add photo',
+                    ),
+                    icon: Icons.photo_camera_outlined,
+                    compact: true,
+                    onPressed: _busy
+                        ? null
+                        : () => _pickReceipt(ImageSource.camera),
+                  ),
+                  const SizedBox(width: 8),
+                  GhostButton(
+                    label: l.t('Photo'),
+                    icon: Icons.photo_library_outlined,
+                    compact: true,
+                    onPressed: _busy
+                        ? null
+                        : () => _pickReceipt(ImageSource.gallery),
+                  ),
+                ],
+              ),
+
+              // How the money moved. Only worth asking once it has.
+              if (_settled || t.type.isSettlement) ...[
+                const SizedBox(height: T.pad),
+                Kicker(l.t('How')),
+                const SizedBox(height: 6),
+                Segmented<PayVia>(
+                  value: _payVia,
+                  compact: true,
+                  options: [for (final v in PayVia.values) (v, l.t(v.label))],
+                  onChanged: (v) => setState(() => _payVia = v),
                 ),
               ],
 

@@ -1795,4 +1795,55 @@ const Map<String, String> urduScript = {
       'اینٹری — %s دیا جا چکا، %s ابھی باقی۔',
   'The entry — paid in full, nothing owed.':
       'اینٹری — پورا ادا ہو گیا، کچھ باقی نہیں۔',
+  '%s wage · %s allowance (%s)': '%s تنخواہ · %s الاؤنس (%s)',
+  'What the allowance is for': 'الاؤنس کس چیز کا ہے',
+  'Doodh, chai, kamra…': 'دودھ، چائے، کمرہ…',
+  'Unit': 'یونٹ',
+  '%s left': '%s باقی',
+  '%s paid': '%s دیا گیا',
+  'Paid in full': 'پورا ادا',
+  'The month': 'مہینے کا کل',
+  '%s of wages · %s still to pay': '%s کی تنخواہیں · %s ابھی دینا ہے',
+  '%s paid · %s allowance for %s': '%s دیا گیا · %s الاؤنس %s کا',
+  '%s of it went to his advance, so %s reached his hand':
+      'اِس میں سے %s اُس کے ایڈوانس میں گیا، تو %s اُس کے ہاتھ پہنچا',
+  'Whose month': 'کس مہینے کی',
+  'The month he worked, not the day he was handed it. Move it and this wage counts against that month instead — the balance on the entry form follows.':
+      'جس مہینے اُس نے کام کیا، اُس دن کا نہیں جس دن اُسے ملا۔ بدل دیں تو یہ تنخواہ اُسی مہینے میں گنے گی — اینٹری والے فارم کا بیلنس ساتھ چلتا ہے۔',
+  'If he leaves': 'اگر وہ چھوڑ کر جاتا ہے',
+  '%s days worked': '%s دن کام کیا',
+  '%s · on the farm since %s': '%s · فارم پر %s سے',
+  'Wages already paid': 'تنخواہ جو جا چکی',
+  'The farm owes him': 'فارم نے اُس کو دینا ہے',
+  'He has had more than he has worked for': 'اُس نے کام سے زیادہ لے لیا ہے',
+  'Square — neither owes the other': 'برابر — کسی کا کسی پر کچھ نہیں',
+  'Hand him %s and his account is closed.':
+      'اُس کو %s دے دیں اور اُس کا کھاتہ بند۔',
+  'Nothing is owed to him. He would have to work %s more days — to %s — for his account to come to nothing, at %s a day.':
+      'اُس کو کچھ نہیں دینا۔ اُس کا حساب صفر ہونے کے لیے %s دن اور کام کرنا ہوگا — %s تک — %s روزانہ کے حساب سے۔',
+  'His account is already square. Nothing is owed either way.':
+      'اُس کا حساب پہلے ہی برابر ہے۔ دونوں طرف کچھ نہیں۔',
+  'Worked out to today, both ends counted, each month against its own length — so a February worked right through pays the same as an October. Nothing is written down by looking at this.':
+      'آج تک کا حساب، دونوں دن گن کر، ہر مہینہ اپنی اپنی لمبائی پر — تو پورا فروری اُتنا ہی دیتا ہے جتنا اکتوبر۔ یہ دیکھنے سے کتاب میں کچھ نہیں لکھا جاتا۔',
+  'Last working day': 'آخری کام کا دن',
+  'Move it forward to see what a few more days would do, or back to the day he actually stopped.':
+      'آگے بڑھائیں تو دیکھ لیں کہ چند دن اور سے کیا ہوگا، یا پیچھے لے جائیں اُس دن تک جس دن وہ اصل میں رُکا تھا۔',
+  'Newest first': 'نیا سب سے اوپر',
+  'Gathered by name': 'نام کے حساب سے',
+  'Loan instalment taken back': 'قرض کی قسط واپس لی',
+  'Loan still owed': 'قرض ابھی باقی',
+  'Lend him money': 'اُس کو قرض دیں',
+  'Coming off each month': 'ہر مہینے کتنا کٹے گا',
+  '%s lent': '%s قرض دیا',
+  'Whose hands it went out through': 'کس کے ہاتھ سے گیا',
+  'He still owes %s on an earlier loan.':
+      'اُس پر پہلے والے قرض کا %s ابھی باقی ہے۔',
+  'Not a cost. The farm still owns it — it is in his pocket rather than in the box — and it comes back off his wages at whatever you take each month.':
+      'یہ خرچہ نہیں۔ پیسہ اب بھی فارم کا ہے — تجوری کے بجائے اُس کی جیب میں — اور اُس کی تنخواہ میں سے واپس آتا ہے، جتنا آپ ہر مہینے کاٹ لیں۔',
+  'What you agreed with him. It is offered on every wage after this, never imposed.':
+      'جو آپ نے اُس سے طے کیا۔ اِس کے بعد ہر تنخواہ پر یہ خود بھر جاتا ہے، مگر تھوپا نہیں جاتا۔',
+  'About %s months at that rate. It is offered on every wage and you may always take less.':
+      'اِس حساب سے لگ بھگ %s مہینے۔ ہر تنخواہ پر خود بھر جاتا ہے اور آپ ہمیشہ کم بھی لے سکتے ہیں۔',
+  'Loan he still owes': 'قرض جو ابھی باقی ہے',
+  'Loan coming off this wage': 'اِس تنخواہ میں سے قرض',
 };

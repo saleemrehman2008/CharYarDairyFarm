@@ -1812,3 +1812,334 @@ class ReportTotals {
 /// of that money, so it stays.
 bool countedInReport(Txn t) =>
     !(t.type.isSettlement && !t.isLooseReceipt && !t.isLoosePayment);
+
+/// What has already been handed over against one month's wage.
+///
+/// The farm pays a wage in pieces: five thousand one week, a thousand the
+/// next, the rest at the end of the month. Every piece is its own entry and
+/// the books had no way to put them together, so the form asked for the
+/// whole wage every time and whoever was typing had to remember what had
+/// already gone out.
+///
+/// Entries written from now on carry the month they are for — see
+/// [Txn.wageFor] — and are added up by it. Everything written before this
+/// has no such mark, so those fall back to the old way of looking: wage
+/// entries dated inside [from]..[to]. A month holding some of each adds up
+/// correctly, because the fallback only picks up rows that carry no mark of
+/// their own.
+num wagePaidSoFar(
+  List<Txn> ledger, {
+  required String who,
+  required String wageFor,
+  required DateTime from,
+  required DateTime to,
+}) {
+  final key = partyKey(who);
+  final start = DateTime(from.year, from.month, from.day);
+  final end = DateTime(to.year, to.month, to.day, 23, 59, 59);
+
+  return ledger
+      .where(
+        (t) =>
+            !t.isDeleted &&
+            t.category == salariesCategory &&
+            partyKey(t.party) == key &&
+            (t.wageFor == null
+                ? !t.date.isBefore(start) && !t.date.isAfter(end)
+                : t.wageFor == wageFor),
+      )
+      .fold<num>(0, (a, t) => a + t.amount);
+}
+
+/// What is still to go out on this month's wage.
+///
+/// The whole month's pay — his wage and whatever is allowed on top of it —
+/// less what has already been handed over. Never below nothing: a month
+/// overpaid is a thing to look at on the entries, not a negative figure on
+/// a form.
+num wageLeftToPay({required num monthly, required num paidSoFar}) {
+  final left = monthly - paidSoFar;
+  return left > 0 ? left : 0;
+}
+
+/// One man's line on a month's wage sheet.
+class WageLine {
+  const WageLine({
+    required this.who,
+    required this.monthly,
+    required this.allowance,
+    required this.allowanceFor,
+    required this.paid,
+    required this.advanceOff,
+  });
+
+  final String who;
+
+  /// What the month comes to: his wage and whatever is allowed on top.
+  final num monthly;
+  final num allowance;
+  final String allowanceFor;
+
+  /// What has gone out against this month, in however many pieces.
+  final num paid;
+
+  /// How much of an earlier advance those wages took back.
+  ///
+  /// Shown rather than subtracted: the wage is the cost either way, and
+  /// what the recovery changes is the cash a man walked away with, not
+  /// what the farm owes him for the month.
+  final num advanceOff;
+
+  /// What the farm has still to hand over on this month.
+  num get left => wageLeftToPay(monthly: monthly, paidSoFar: paid);
+
+  /// What he actually took home: the wage paid, less the advance it
+  /// recovered.
+  num get inHand {
+    final got = paid - advanceOff;
+    return got > 0 ? got : 0;
+  }
+
+  bool get settled => left <= 0;
+}
+
+/// A month's wages, one line a man.
+///
+/// The farm asked for this as a record to keep: who was on the list that
+/// month, what each was due, what actually went out and what is still
+/// owed. Built from the ledger rather than stored, so a wage corrected
+/// afterwards corrects the sheet with it.
+///
+/// Men who joined after the month ended, or left before it began, are not
+/// on it — a sheet listing somebody who was not there that month is a sheet
+/// somebody has to explain.
+List<WageLine> wageSheet(
+  List<Txn> ledger,
+  List<Employee> staff, {
+  required String wageFor,
+  required DateTime from,
+  required DateTime to,
+}) {
+  final rows = <WageLine>[];
+  for (final man in staff) {
+    final joined = DateTime(man.joinedOn.year, man.joinedOn.month, 1);
+    if (joined.isAfter(to)) continue;
+    final left = man.leftOn;
+    if (left != null && left.isBefore(from)) continue;
+
+    rows.add(
+      WageLine(
+        who: man.name,
+        monthly: man.monthly,
+        allowance: man.allowance,
+        allowanceFor: man.allowanceFor,
+        paid: wagePaidSoFar(
+          ledger,
+          who: man.name,
+          wageFor: wageFor,
+          from: from,
+          to: to,
+        ),
+        advanceOff: _advanceOffWages(
+          ledger,
+          who: man.name,
+          wageFor: wageFor,
+          from: from,
+          to: to,
+        ),
+      ),
+    );
+  }
+  rows.sort((a, b) => b.monthly.compareTo(a.monthly));
+  return rows;
+}
+
+/// What this month's wages took back off his advance.
+num _advanceOffWages(
+  List<Txn> ledger, {
+  required String who,
+  required String wageFor,
+  required DateTime from,
+  required DateTime to,
+}) {
+  final key = partyKey(who);
+  // The take-back rows point at the wage they came off, so the wages for
+  // this month are found first and their recoveries read off those.
+  final wages = ledger
+      .where(
+        (t) =>
+            !t.isDeleted &&
+            t.category == salariesCategory &&
+            partyKey(t.party) == key &&
+            (t.wageFor == null
+                ? !t.date.isBefore(DateTime(from.year, from.month, from.day)) &&
+                      !t.date.isAfter(
+                        DateTime(to.year, to.month, to.day, 23, 59, 59),
+                      )
+                : t.wageFor == wageFor),
+      )
+      .map((t) => t.id)
+      .toSet();
+  if (wages.isEmpty) return 0;
+
+  return ledger
+      .where(
+        (t) =>
+            !t.isDeleted &&
+            t.isWageAdvanceBack &&
+            wages.contains(t.settlesTxnId),
+      )
+      .fold<num>(0, (a, t) => a + t.amount);
+}
+
+/// Where a man stands if he walks off the farm today.
+class Settlement {
+  const Settlement({
+    required this.upTo,
+    required this.daysWorked,
+    required this.earned,
+    required this.paid,
+    required this.advanceOwed,
+    required this.loanOwed,
+    required this.aDay,
+  });
+
+  /// The day the sum is worked out to, both ends counted.
+  final DateTime upTo;
+  final int daysWorked;
+
+  /// What he has earned since the day he started — each month against its
+  /// own length, so a February he worked right through pays the same as an
+  /// October.
+  final num earned;
+
+  /// Every rupee of wages that has gone out to him, all of it.
+  final num paid;
+
+  /// What is still standing against earlier advances.
+  final num advanceOwed;
+
+  /// And against loans, which are the same money in a different coat: out
+  /// of the farm's cash and in his pocket until a wage takes it back.
+  final num loanOwed;
+
+  /// What a day of his is worth, at the rate of the month he is in.
+  final num aDay;
+
+  /// Earned, less what he has had: wages paid and the advance he still
+  /// owes. Positive means the farm owes him; negative means he has drawn
+  /// more than he has worked for.
+  num get net => earned - paid - advanceOwed - loanOwed;
+
+  bool get farmOwes => net > 0;
+  bool get heOwes => net < 0;
+  bool get square => net == 0;
+
+  /// What the farm would hand over to close his account today.
+  num get toPay => net > 0 ? net : 0;
+
+  /// What he has drawn beyond what he has earned.
+  num get over => net < 0 ? -net : 0;
+
+  /// How many more days he would have to work before his account comes to
+  /// nothing.
+  ///
+  /// Rounded up, because a part day does not square an account — and a man
+  /// told "four and a bit days" will work four and still owe.
+  int get daysToSquare {
+    if (net >= 0 || aDay <= 0) return 0;
+    return (over / aDay).ceil();
+  }
+
+  /// The day that lands on.
+  DateTime get squareOn => upTo.add(Duration(days: daysToSquare));
+}
+
+/// Where a man stands if he leaves — the farm's own question, asked plainly.
+///
+/// Nobody joins on the first. A gawala taken on on the 20th of October is
+/// owed to the 19th of November, and the farm pays him along the way as the
+/// days build up. When he says he is going, two figures decide everything
+/// and neither of them was anywhere in the app: what is left to hand him,
+/// or — if he has drawn ahead of his work — how many more days he has to
+/// stay before the two sides meet.
+///
+/// Worked out over his whole time here rather than over one month, because
+/// that is what settling up means: everything he has earned against
+/// everything he has had.
+Settlement settleUp(List<Txn> ledger, Employee man, {DateTime? upTo}) {
+  final day = upTo ?? DateTime.now();
+  final to = DateTime(day.year, day.month, day.day);
+  // A man who has already left is settled to his last day, not to today.
+  final end = man.leftOn != null && man.leftOn!.isBefore(to)
+      ? DateTime(man.leftOn!.year, man.leftOn!.month, man.leftOn!.day)
+      : to;
+
+  final key = partyKey(man.name);
+  final paid = ledger
+      .where(
+        (t) =>
+            !t.isDeleted &&
+            t.category == salariesCategory &&
+            partyKey(t.party) == key,
+      )
+      .fold<num>(0, (a, t) => a + t.amount);
+
+  return Settlement(
+    upTo: end,
+    daysWorked: man.daysTo(end),
+    // His own months, not the calendar's. A run of 31 days from the 20th
+    // to the 19th is one whole month and pays one whole wage.
+    earned: man.earnedTo(end),
+    paid: paid,
+    advanceOwed: advanceOwed(ledger, who: man.name),
+    loanOwed: staffLoanOwed(ledger, who: man.name),
+    aDay: man.aDay,
+  );
+}
+
+/// What one man on the wage list still owes against loans.
+///
+/// The advance's twin, and simpler than it. An advance has history behind
+/// it: wages written before the taking-back had a row of its own say on
+/// themselves what they recovered, so [advanceOwed] has to read that too.
+/// A loan has no such past — it begins with its own row and every rupee
+/// recovered has one — so the sum is what went out less what came back.
+///
+/// Never below nothing. A man recovered from twice is a thing to look at
+/// on the entries, not a negative balance quietly paying down nothing.
+num staffLoanOwed(List<Txn> ledger, {required String who, String? ignoring}) {
+  final key = partyKey(who);
+  var lent = 0 as num;
+  var back = 0 as num;
+
+  for (final t in ledger) {
+    if (t.isDeleted || t.id == ignoring) continue;
+    if (partyKey(t.party) != key) continue;
+    if (t.isStaffLoan) {
+      lent += t.amount;
+    } else if (t.isStaffLoanBack) {
+      back += t.amount;
+    }
+  }
+
+  final left = lent - back;
+  return left <= 0 ? 0 : left;
+}
+
+/// What the whole wage list owes the farm against loans.
+///
+/// The farm's money, in somebody else's pocket — so it belongs in what the
+/// farm is worth, exactly as an advance does. Counted man by man and never
+/// below nothing for any of them, so one man recovered from twice cannot
+/// quietly pay down another man's loan.
+num staffLoansOwed(List<Txn> ledger) {
+  final names = <String>{};
+  for (final t in ledger) {
+    if (t.isDeleted) continue;
+    if (!t.isStaffLoan && !t.isStaffLoanBack) continue;
+    final key = t.party.trim();
+    if (key.isNotEmpty) names.add(key);
+  }
+  return names.fold<num>(0, (a, name) => a + staffLoanOwed(ledger, who: name));
+}

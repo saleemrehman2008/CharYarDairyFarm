@@ -153,6 +153,7 @@ class TxnRepo {
     /// How much of a man's standing advance this wage recovered. See
     /// [Txn.advanceCut].
     num? advanceCut,
+    String? wageFor,
     PayVia payVia = PayVia.cash,
     String handledBy = '',
     DateTime? date,
@@ -194,6 +195,8 @@ class TxnRepo {
       // and a wage that says nothing at all is read as one of the old ones
       // that swallowed its whole month. See [advanceOwed].
       'advanceCut': ?advanceCut,
+      // Which month's wage this is. See [Txn.wageFor].
+      'wageFor': ?wageFor,
       // Whether the money moved as this row was written. Cash reads this
       // rather than the paid flag, so an entry settled months later is
       // counted on the day it was actually settled.
@@ -586,6 +589,22 @@ class TxnRepo {
     /// Whether the money moved as the entry was written. Null leaves it as
     /// it stands, which is what every caller but the correction sheet wants.
     bool? settled,
+
+    /// Which month's wage this is, as '2026-11'.
+    ///
+    /// A salary entry said what it was and what it cost and never which
+    /// month it was for — so a wage typed against the wrong month could
+    /// not be moved to the right one, and the balance on the form counted
+    /// it under a month nobody was paying.
+    String? wageFor,
+
+    /// A new photograph of the paper, replacing whatever was there.
+    ///
+    /// The farm's rule is that everything it is asked at the gate it can
+    /// correct at the desk, and the receipt was the one thing that could
+    /// only ever be attached once — a slip photographed out of focus, or
+    /// forgotten on the day, had no way back.
+    File? receipt,
     DateTime? date,
 
     /// The first day somebody who is not the master may date this entry to —
@@ -754,6 +773,15 @@ class TxnRepo {
       ));
     }
 
+    if (wageFor != null && wageFor != txn.wageFor) {
+      fresh['wageFor'] = wageFor;
+      changes.add((
+        field: 'Which month',
+        from: txn.wageFor ?? '—',
+        to: wageFor,
+      ));
+    }
+
     if (capital != null && capital != txn.capital) {
       fresh['capital'] = capital;
       changes.add((
@@ -797,6 +825,22 @@ class TxnRepo {
     fresh['edits'] = FieldValue.arrayUnion([record.toMap()]);
 
     await Db.transactions.doc(txn.id).update(fresh);
+
+    // The picture last, and never at the cost of the correction. A wrong
+    // figure put right matters more than a photograph that would not
+    // upload, so a failure here leaves the rest of it standing.
+    if (receipt != null) {
+      try {
+        final photo = await Photos.prepare(receipt, kind: PhotoKind.receipt);
+        await Db.txnPhotos.doc(txn.id).set({
+          'data': photo.full,
+          'at': FieldValue.serverTimestamp(),
+        });
+        await Db.transactions.doc(txn.id).update({'receipt': photo.thumb});
+      } catch (_) {
+        // An entry put right with no picture is worth more than neither.
+      }
+    }
 
     // A settlement corrected has to move the entry it settled, by whatever
     // the correction moved it.

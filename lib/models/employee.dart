@@ -22,6 +22,8 @@ class Employee {
     this.mobile = '',
     required this.basic,
     this.allowance = 0,
+    this.allowanceFor = '',
+    this.loanMonthly = 0,
     required this.joinedOn,
     this.leftOn,
     this.note = '',
@@ -51,6 +53,22 @@ class Employee {
   /// are argued about separately when a wage is raised.
   final num allowance;
 
+  /// What the allowance is for, in the farm's own words — doodh, chai,
+  /// kamra, petrol.
+  ///
+  /// An allowance with no name is a figure nobody can argue with six
+  /// months later, and on this farm every figure has to be one somebody
+  /// can be asked about. It rides along onto the wage and onto the slip,
+  /// so the man being paid reads the same words the record carries.
+  final String allowanceFor;
+
+  /// What was agreed, when a loan was given him, to come off each month.
+  ///
+  /// Offered on the wage and never imposed: the farm may want to take
+  /// less this month, and what it leaves stays on his name. Zero means
+  /// nothing was agreed, and the box opens empty.
+  final num loanMonthly;
+
   final DateTime joinedOn;
 
   /// The day he stopped working here, if he has.
@@ -65,6 +83,23 @@ class Employee {
 
   /// What a full month comes to.
   num get monthly => basic + allowance;
+
+  /// What one day of his is worth.
+  ///
+  /// A month over thirty, whatever month it is. The farm chose this over
+  /// counting each month against its own length, and chose it knowing what
+  /// it costs: half of February comes out at fourteen thousand rather than
+  /// fifteen. What it buys is a figure the farm can check on its fingers —
+  /// thirty thousand a month is a thousand a day — and a wage a man can
+  /// check for himself is worth more here than the last rupee of
+  /// proportion.
+  ///
+  /// A whole month is never worked out from this. It pays the whole wage,
+  /// so a 31-day month does not pay thirty-one thousand and a February
+  /// does not pay twenty-eight.
+  static const daysInAWageMonth = 30;
+
+  num get aDay => monthly / daysInAWageMonth;
 
   bool get isWorking => leftOn == null;
 
@@ -149,12 +184,15 @@ class Employee {
       final on = daysOnIn(a, b);
       if (on <= 0) continue;
 
+      // A whole month pays the whole wage whatever its length; a part of
+      // one is counted a day at a time at the flat rate.
       final len = monthEnd.day;
-      whole += on >= len ? monthly : monthly * on / len;
+      whole += on >= len ? monthly : aDay * on;
     }
     if (whole <= 0) return 0;
 
-    final cut = daysOff > 0 ? monthly * daysOff / lengthOf(to) : 0;
+    // Leave comes off at the same flat rate the days are paid at.
+    final cut = daysOff > 0 ? aDay * daysOff : 0;
     final left = whole - cut;
     return left <= 0 ? 0 : left.round();
   }
@@ -179,6 +217,91 @@ class Employee {
 
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  /// The day his next month begins, counting from one that has.
+  ///
+  /// The same day of the next month, held to that month's last day: a man
+  /// taken on the 31st of January begins his next on the 28th of February,
+  /// because there is no 31st to begin it on.
+  static DateTime _nextCycle(DateTime from) {
+    final len = DateTime(from.year, from.month + 2, 0).day;
+    final day = from.day > len ? len : from.day;
+    return DateTime(from.year, from.month + 1, day);
+  }
+
+  /// What he has earned from the day he started up to [to], both counted.
+  ///
+  /// Every whole month of his own pays a whole wage, whatever the calendar
+  /// says that run holds — the farm settled that and it holds here: 20
+  /// October to 19 November is thirty-one days and one month's pay. What
+  /// is left over at the end, short of a whole month, is counted a day at
+  /// a time at [aDay].
+  ///
+  /// The day he left, if he has, is the furthest this goes — settling a
+  /// man up to today when he stopped three weeks ago would pay him for
+  /// three weeks he was not here.
+  num earnedTo(DateTime to) {
+    final start = _day(joinedOn);
+    var end = _day(to);
+    if (leftOn != null && _day(leftOn!).isBefore(end)) end = _day(leftOn!);
+    if (end.isBefore(start)) return 0;
+
+    var earned = 0 as num;
+    var cursor = start;
+    // A man is not paid five years in one go, and a loop over his wages
+    // should not be the thing that hangs the phone if a date goes wrong.
+    for (var guard = 0; guard < 600; guard++) {
+      final next = _nextCycle(cursor);
+      final last = next.subtract(const Duration(days: 1));
+      if (!last.isAfter(end)) {
+        earned += monthly;
+        cursor = next;
+        continue;
+      }
+      earned += aDay * (end.difference(cursor).inDays + 1);
+      break;
+    }
+    return earned.round();
+  }
+
+  /// How many days he has been here, from his first to [to], both counted.
+  int daysTo(DateTime to) {
+    final start = _day(joinedOn);
+    var end = _day(to);
+    if (leftOn != null && _day(leftOn!).isBefore(end)) end = _day(leftOn!);
+    if (end.isBefore(start)) return 0;
+    return end.difference(start).inDays + 1;
+  }
+
+  /// The run of days his wage for the month ending in [anyDayInIt] covers.
+  ///
+  /// Named by the month it ends in, which is what the farm calls it: a man
+  /// taken on the 20th works 20 October to 19 November and is paid
+  /// November's wage for it. A man taken on the first works the calendar
+  /// month, and nothing about him changes.
+  ({DateTime from, DateTime to}) cycleEndingIn(DateTime anyDayInIt) {
+    final d = joinedOn.day;
+    if (d == 1) {
+      return (
+        from: DateTime(anyDayInIt.year, anyDayInIt.month, 1),
+        to: DateTime(anyDayInIt.year, anyDayInIt.month + 1, 0),
+      );
+    }
+    final thisLen = DateTime(anyDayInIt.year, anyDayInIt.month + 1, 0).day;
+    final prevLen = DateTime(anyDayInIt.year, anyDayInIt.month, 0).day;
+    return (
+      from: DateTime(
+        anyDayInIt.year,
+        anyDayInIt.month - 1,
+        d > prevLen ? prevLen : d,
+      ),
+      to: DateTime(
+        anyDayInIt.year,
+        anyDayInIt.month,
+        d - 1 > thisLen ? thisLen : d - 1,
+      ),
+    );
+  }
+
   Map<String, dynamic> toMap() => {
     'name': name,
     'cnic': cnic,
@@ -199,6 +322,8 @@ class Employee {
       mobile: s(m['mobile']),
       basic: n(m['basic']),
       allowance: n(m['allowance']),
+      allowanceFor: s(m['allowanceFor']),
+      loanMonthly: n(m['loanMonthly']),
       joinedOn: dtOr(m['joinedOn']),
       leftOn: dt(m['leftOn']),
       note: s(m['note']),
@@ -212,6 +337,8 @@ class Employee {
     String? mobile,
     num? basic,
     num? allowance,
+    String? allowanceFor,
+    num? loanMonthly,
     DateTime? joinedOn,
     DateTime? leftOn,
     bool clearLeft = false,
@@ -223,6 +350,8 @@ class Employee {
     mobile: mobile ?? this.mobile,
     basic: basic ?? this.basic,
     allowance: allowance ?? this.allowance,
+    allowanceFor: allowanceFor ?? this.allowanceFor,
+    loanMonthly: loanMonthly ?? this.loanMonthly,
     joinedOn: joinedOn ?? this.joinedOn,
     leftOn: clearLeft ? null : (leftOn ?? this.leftOn),
     note: note ?? this.note,

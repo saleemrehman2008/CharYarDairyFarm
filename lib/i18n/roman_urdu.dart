@@ -1659,4 +1659,55 @@ const Map<String, String> romanUrdu = {
       'Entry — %s diya ja chuka, %s abhi baqi.',
   'The entry — paid in full, nothing owed.':
       'Entry — poora ada ho gaya, kuch baqi nahi.',
+  '%s wage · %s allowance (%s)': '%s tankhwah · %s allowance (%s)',
+  'What the allowance is for': 'Allowance kis cheez ka hai',
+  'Doodh, chai, kamra…': 'Doodh, chai, kamra…',
+  'Unit': 'Unit',
+  '%s left': '%s baqi',
+  '%s paid': '%s diya gaya',
+  'Paid in full': 'Poora ada',
+  'The month': 'Mahine ka kul',
+  '%s of wages · %s still to pay': '%s ki tankhwahein · %s abhi dena hai',
+  '%s paid · %s allowance for %s': '%s diya gaya · %s allowance %s ka',
+  '%s of it went to his advance, so %s reached his hand':
+      'Is me se %s us ke advance me gaya, to %s us ke haath pohncha',
+  'Whose month': 'Kis mahine ki',
+  'The month he worked, not the day he was handed it. Move it and this wage counts against that month instead — the balance on the entry form follows.':
+      'Jis mahine us ne kaam kiya, us din ka nahi jis din use mila. Badal den to ye tankhwah usi mahine me ginegi — entry wale form ka balance saath chalta hai.',
+  'If he leaves': 'Agar wo chhor kar jata hai',
+  '%s days worked': '%s din kaam kiya',
+  '%s · on the farm since %s': '%s · farm per %s se',
+  'Wages already paid': 'Tankhwah jo ja chuki',
+  'The farm owes him': 'Farm ne us ko dena hai',
+  'He has had more than he has worked for': 'Us ne kaam se zyada le liya hai',
+  'Square — neither owes the other': 'Barabar — kisi ka kisi per kuch nahi',
+  'Hand him %s and his account is closed.':
+      'Us ko %s de dein aur us ka khaata band.',
+  'Nothing is owed to him. He would have to work %s more days — to %s — for his account to come to nothing, at %s a day.':
+      'Us ko kuch nahi dena. Us ka hisaab sifar hone ke liye %s din aur kaam karna hoga — %s tak — %s rozana ke hisaab se.',
+  'His account is already square. Nothing is owed either way.':
+      'Us ka hisaab pehle hi barabar hai. Dono taraf kuch nahi.',
+  'Worked out to today, both ends counted, each month against its own length — so a February worked right through pays the same as an October. Nothing is written down by looking at this.':
+      'Aaj tak ka hisaab, dono din gin kar, har mahina apni apni lambai per — to poora February utna hi deta hai jitna October. Ye dekhne se kitaab mein kuch nahi likha jata.',
+  'Last working day': 'Aakhri kaam ka din',
+  'Move it forward to see what a few more days would do, or back to the day he actually stopped.':
+      'Aage barhayen to dekh len ke chand din aur se kya hoga, ya peeche le jayen us din tak jis din wo asal me ruka tha.',
+  'Newest first': 'Naya sab se uper',
+  'Gathered by name': 'Naam ke hisaab se',
+  'Loan instalment taken back': 'Loan ki qist wapas li',
+  'Loan still owed': 'Loan abhi baqi',
+  'Lend him money': 'Us ko qarz dein',
+  'Coming off each month': 'Har mahine kitna katega',
+  '%s lent': '%s qarz diya',
+  'Whose hands it went out through': 'Kis ke haath se gaya',
+  'He still owes %s on an earlier loan.':
+      'Us per pehle wale qarz ka %s abhi baqi hai.',
+  'Not a cost. The farm still owns it — it is in his pocket rather than in the box — and it comes back off his wages at whatever you take each month.':
+      'Ye kharcha nahi. Paisa ab bhi farm ka hai — tijori ke bajaye us ki jeb me — aur us ki tankhwah me se wapas aata hai, jitna aap har mahine kaat len.',
+  'What you agreed with him. It is offered on every wage after this, never imposed.':
+      'Jo aap ne us se tay kiya. Is ke baad har tankhwah per ye khud bhar jata hai, magar thopa nahi jata.',
+  'About %s months at that rate. It is offered on every wage and you may always take less.':
+      'Is hisaab se lagbhag %s mahine. Har tankhwah per khud bhar jata hai aur aap hamesha kam bhi le sakte hain.',
+  'Loan he still owes': 'Qarz jo abhi baqi hai',
+  'Loan coming off this wage': 'Is tankhwah me se qarz',
 };

@@ -523,7 +523,7 @@ void main() {
           from: DateTime(2026, 2, 1),
           to: DateTime(2026, 2, 28),
         ),
-        7714,
+        7200,
       );
       expect(
         gawalo.payForWindow(

@@ -129,6 +129,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     _handledBy.dispose();
     _wage.dispose();
     _advCut.dispose();
+    _loanCut.dispose();
     super.dispose();
   }
 
@@ -141,13 +142,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// until somebody moves it, when it follows the guess below.
   DateTime? _payMonth;
 
-  /// A payment covering a run of days rather than one whole month.
-  ///
-  /// The end of October and the whole of November together, so that the
-  /// advance he drew in October comes off the same payment.
-  DateTime? _spanFrom;
-  DateTime? _spanTo;
-
   /// Paying in the first days of a month almost always means the month just
   /// gone. Almost always is not always, so the card lets it be moved.
   DateTime get _wageMonth =>
@@ -156,11 +150,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           ? DateTime(_when.year, _when.month - 1, 1)
           : DateTime(_when.year, _when.month, 1));
 
-  DateTime get _payStart =>
-      _spanFrom ?? DateTime(_wageMonth.year, _wageMonth.month, 1);
+  /// The month on screen, end to end. The farm used to be able to pick a
+  /// run of days instead; it was a second way of saying the same thing and
+  /// it only ever got picked by accident, so a wage is a month again.
+  DateTime get _payStart => DateTime(_wageMonth.year, _wageMonth.month, 1);
 
-  DateTime get _payEnd =>
-      _spanTo ?? DateTime(_wageMonth.year, _wageMonth.month + 1, 0);
+  DateTime get _payEnd => DateTime(_wageMonth.year, _wageMonth.month + 1, 0);
 
   /// What he still owes against advances already drawn — all of them, not
   /// only this month's. An advance is a debt until it is recovered; see
@@ -202,6 +197,43 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         .firstOrNull;
     return who == null ? 0 : _cutFor(who);
   }
+
+  /// What he still owes against loans — the advance's twin, kept apart
+  /// because the farm keeps them apart.
+  num _owesLoanBy(Employee who) =>
+      staffLoanOwed(context.read<FarmStore>().ledger, who: who.name);
+
+  /// The instalment agreed when the loan was given, offered in the box.
+  num _loanMonthlyBy(Employee who) => who.loanMonthly;
+
+  /// What this wage can actually take off his loan: never more than he
+  /// owes, and never more than is left of the wage once the advance has
+  /// had its share.
+  num get _loanCutSaved {
+    final asked = num.tryParse(_loanCut.text.trim()) ?? 0;
+    if (asked <= 0) return 0;
+    final who = _crew
+        .where((e) => partyKey(e.name) == partyKey(_party.text.trim()))
+        .firstOrNull;
+    if (who == null) return 0;
+    final owing = _owesLoanBy(who);
+    final room = _amount - _cutSaved;
+    final cap = owing < room ? owing : room;
+    return asked > cap ? (cap < 0 ? 0 : cap) : asked;
+  }
+
+  /// What has already gone out against the month on screen.
+  num _wagePaid(Employee who) => wagePaidSoFar(
+    context.read<FarmStore>().ledger,
+    who: who.name,
+    wageFor: _wageKey,
+    from: DateTime(_wageMonth.year, _wageMonth.month, 1),
+    to: DateTime(_wageMonth.year, _wageMonth.month + 1, 0),
+  );
+
+  /// The month on screen, as the entry will carry it.
+  String get _wageKey =>
+      '${_wageMonth.year}-${_wageMonth.month.toString().padLeft(2, '0')}';
 
   bool _wageDone(Employee who) => wagePaidIn(
     context.read<FarmStore>().ledger,
@@ -278,6 +310,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   /// it is also the only way an advance larger than one month's wage can be
   /// recovered at all.
   final _advCut = TextEditingController();
+  final _loanCut = TextEditingController();
 
   /// Something the farm keeps. Off the list when it was picked off the list,
   /// and off what was said at the time when it was written out.
@@ -521,7 +554,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       // row below it.
       final wage = _category == salariesCategory;
       final took = wage ? _cutSaved : 0;
-      final handed = wage ? _amount - took : _amount;
+      final lentBack = wage ? _loanCutSaved : 0;
+      final handed = wage ? _amount - took - lentBack : _amount;
 
       final id = await TxnRepo.add(
         actor: actor,
@@ -566,6 +600,25 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           note:
               'Off the wage of ${fmtDate(_when)} — '
               '${rs(handed)} handed over',
+          payVia: _payVia,
+          handledBy: _handledBy.text.trim(),
+          date: _when,
+          settlesTxnId: id,
+        );
+      }
+      // An instalment of a loan, on its own line for the reason the
+      // advance's is: a man paid his wage less five thousand should be
+      // able to read where the five thousand went.
+      if (wage && lentBack > 0) {
+        await TxnRepo.add(
+          actor: actor,
+          monthId: store.month.id,
+          type: TxnType.receipt,
+          party: party,
+          category: staffLoanBackCategory,
+          amount: lentBack,
+          paid: true,
+          note: 'Off the wage of ${fmtDate(_when)}',
           payVia: _payVia,
           handledBy: _handledBy.text.trim(),
           date: _when,
@@ -707,7 +760,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               chosen: _party.text.trim(),
               payingFor: _when,
               onMonth: (_) {},
-              onSpan: (_, _) {},
               advance: true,
               owesAdvance: _owesBy,
               onPicked: (who, _, _) => setState(() => _party.text = who.name),
@@ -718,22 +770,17 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
             SalaryPicker(
               chosen: _party.text.trim(),
               payingFor: _wageMonth,
-              onMonth: (m) => setState(() {
-                _payMonth = m;
-                _spanFrom = null;
-                _spanTo = null;
-              }),
-              spanFrom: _spanFrom,
-              spanTo: _spanTo,
-              // The window moves and nothing is worked out from it. What
-              // it changes is the count of days the card shows, and the
-              // month an advance is looked for in.
-              onSpan: (a, b) => setState(() {
-                _spanFrom = a;
-                _spanTo = b;
-              }),
+              onMonth: (m) => setState(() => _payMonth = m),
               owesAdvance: _owesBy,
               alreadyPaid: _wageDone,
+              // What has already gone out against this month, so a wage
+              // handed over in pieces shows its own balance.
+              paidThisMonth: _wagePaid,
+              owesLoan: _owesLoanBy,
+              loanMonthly: _loanMonthlyBy,
+              loanCut: num.tryParse(_loanCut.text.trim()) ?? 0,
+              loanBox: _loanCut,
+              onLoanCut: (_, _) => setState(() {}),
               wage: _wageSaid,
               wageBox: _wage,
               // Typed by hand, and the only figure this month's pay comes
@@ -755,6 +802,18 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 setState(() {
                   _party.text = who.name;
                   _advCut.text = cut > 0 ? '${cut.round()}' : '';
+                  // The instalment that was agreed when the loan was
+                  // given, offered rather than imposed — the farm may
+                  // want to take less this month, and what it leaves
+                  // stays on his name.
+                  final owing = _owesLoanBy(who);
+                  final plan = who.loanMonthly;
+                  final offer = plan <= 0
+                      ? 0 as num
+                      : plan > owing
+                      ? owing
+                      : plan;
+                  _loanCut.text = offer > 0 ? '${offer.round()}' : '';
                 });
               },
             ),

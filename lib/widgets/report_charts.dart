@@ -6,6 +6,7 @@ import '../services/accounting.dart';
 import '../theme/tokens.dart';
 import '../util/money.dart';
 import 'day_chart.dart' show pct;
+import 'investment_card.dart' show TotalRow;
 import 'ui.dart';
 
 /// The pictures the report draws beside the ring.
@@ -480,6 +481,158 @@ class TwoDebts extends StatelessWidget {
               rs(inTotal - outTotal),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// A month's wages, one line a man — the sheet the farm asked to keep.
+///
+/// Who was on the list that month, what each was due, what actually went
+/// out and what is still owed. Built from the ledger every time it is
+/// drawn, so a wage corrected afterwards corrects the sheet with it, and
+/// nobody is ever reading a frozen copy of a figure that has since moved.
+class WagesSheet extends StatelessWidget {
+  const WagesSheet({super.key, required this.rows, required this.monthLabel});
+
+  final List<WageLine> rows;
+  final String monthLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    final due = rows.fold<num>(0, (a, r) => a + r.monthly);
+    final paid = rows.fold<num>(0, (a, r) => a + r.paid);
+    final owed = rows.fold<num>(0, (a, r) => a + r.left);
+
+    return RegCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Kicker(l.t('Wages'))),
+              Tag(monthLabel),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l.t3('%s of wages · %s still to pay', rs(due), rs(owed)),
+            style: T.meta,
+          ),
+          const SizedBox(height: 12),
+          for (final r in rows) ...[
+            _WageRow(line: r),
+            const SizedBox(height: 9),
+          ],
+          const Divider(height: 10),
+          const SizedBox(height: 8),
+          TotalRow(label: l.t('The month'), value: due, tone: T.accent700),
+          TotalRow(label: l.t('Handed over'), value: paid, tone: T.moneyOut),
+          TotalRow(
+            label: l.t('Still to pay'),
+            value: owed,
+            tone: owed > 0 ? T.moneyDue : T.moneyIn,
+            strong: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WageRow extends StatelessWidget {
+  const _WageRow({required this.line});
+
+  final WageLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final share = line.monthly <= 0
+        ? 0.0
+        : (line.paid / line.monthly).clamp(0.0, 1.0).toDouble();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                line.who,
+                style: T.bodyMid,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              rs(line.monthly),
+              style: T.bodyMid.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          // The allowance is named here because a man is told "twenty-four
+          // and six for the milk", and the paper should say what he heard.
+          line.allowance > 0 && line.allowanceFor.trim().isNotEmpty
+              ? l.t4(
+                  '%s paid · %s allowance for %s',
+                  rs(line.paid),
+                  rs(line.allowance),
+                  line.allowanceFor.trim(),
+                )
+              : l.t2('%s paid', rs(line.paid)),
+          style: T.meta,
+        ),
+        if (line.advanceOff > 0)
+          Text(
+            l.t3(
+              '%s of it went to his advance, so %s reached his hand',
+              rs(line.advanceOff),
+              rs(line.inHand),
+            ),
+            style: T.meta.copyWith(color: T.moneyDue),
+          ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Stack(
+                  children: [
+                    Container(height: 8, color: T.n200),
+                    FractionallySizedBox(
+                      widthFactor: share,
+                      child: Container(
+                        height: 8,
+                        color: line.settled ? T.moneyIn : T.moneyDue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            SizedBox(
+              width: 86,
+              child: Text(
+                line.settled
+                    ? l.t('Paid in full')
+                    : l.t2('%s left', rs(line.left)),
+                textAlign: TextAlign.end,
+                style: T.meta.copyWith(
+                  color: line.settled ? T.moneyIn : T.moneyDue,
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

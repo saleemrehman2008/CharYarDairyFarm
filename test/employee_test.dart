@@ -86,22 +86,28 @@ void main() {
       expect(forMonth(both, 2026, 2), 28000);
     });
 
-    test('half of February is half a wage, not fourteen thirtieths', () {
-      // Fourteen of twenty-eight days. Counted against thirty it would have
-      // been 12,000 — eight hundred rupees light, for no reason a man could
-      // be told.
+    test('half of February is fourteen days at the flat rate', () {
+      // Fourteen days of a 24,000 wage, at eight hundred a day. Against
+      // February's own length it would have been 12,000 — the exact half —
+      // and the farm chose the flat day knowing that, because a figure it
+      // can check on its fingers is worth more to it than the last eight
+      // hundred rupees of proportion.
       final e = _e(basic: 24000, joinedOn: DateTime(2026, 2, 15));
       expect(
         e.payForWindow(from: DateTime(2026, 2, 1), to: DateTime(2026, 2, 28)),
-        12000,
+        11200,
       );
     });
 
-    test('and twelve days of October are twelve thirty-firsts', () {
+    test('and twelve days of October are twelve flat days', () {
+      // The other side of the same choice: against October's thirty-one
+      // days this would be 9,290, so the flat day pays a little over. It
+      // runs the farm's way in February and the man's way in October, and
+      // neither of them has to be told why.
       final e = _e(basic: 24000, joinedOn: DateTime(2026, 10, 20));
       expect(
         e.payForWindow(from: DateTime(2026, 10, 1), to: DateTime(2026, 10, 31)),
-        9290,
+        9600,
       );
     });
 
@@ -262,15 +268,15 @@ void main() {
       expect(e.daysOnIn(oct.$1, oct.$2), 13);
     });
 
-    test('and his wage is thirteen thirtieths of the month', () {
+    test('and his wage is thirteen days at the flat rate', () {
       final e = _e(
         basic: 27000,
         allowance: 3000,
         joinedOn: DateTime(2026, 10, 7),
         leftOn: DateTime(2026, 10, 19),
       );
-      expect(e.payForWindow(from: oct.$1, to: oct.$2), 12581);
-      expect(e.monthly - e.payForWindow(from: oct.$1, to: oct.$2), 17419);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 13000);
+      expect(e.monthly - e.payForWindow(from: oct.$1, to: oct.$2), 17000);
     });
 
     test('days off come off on top of the days he was here', () {
@@ -281,7 +287,7 @@ void main() {
         joinedOn: DateTime(2026, 10, 7),
         leftOn: DateTime(2026, 10, 19),
       );
-      expect(e.payForWindow(from: oct.$1, to: oct.$2, daysOff: 2), 10645);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2, daysOff: 2), 11000);
     });
 
     test('a man who started before the month gets the whole of it', () {
@@ -613,7 +619,7 @@ void main() {
       expect(
         wrong.payForWindow(from: oct.$1, to: oct.$2) -
             right.payForWindow(from: oct.$1, to: oct.$2),
-        742,
+        766,
       );
     });
 
@@ -625,7 +631,7 @@ void main() {
       );
       final now = was.copyWith(leftOn: DateTime(2026, 10, 15));
       expect(now.daysOnIn(oct.$1, oct.$2), 9);
-      expect(now.payForWindow(from: oct.$1, to: oct.$2), 6677);
+      expect(now.payForWindow(from: oct.$1, to: oct.$2), 6900);
     });
 
     test('taking the last day off puts him back on the list', () {
@@ -658,7 +664,7 @@ void main() {
         leftOn: DateTime(2026, 10, 7),
       );
       expect(e.daysOnIn(oct.$1, oct.$2), 1);
-      expect(e.payForWindow(from: oct.$1, to: oct.$2), 968);
+      expect(e.payForWindow(from: oct.$1, to: oct.$2), 1000);
     });
 
     test('a last day before he started leaves nothing owed', () {
@@ -693,7 +699,7 @@ void main() {
       );
       expect(gone.isWorking, isFalse);
       expect(gone.daysOnIn(oct.$1, oct.$2), 14);
-      expect(gone.payForWindow(from: oct.$1, to: oct.$2), 10387);
+      expect(gone.payForWindow(from: oct.$1, to: oct.$2), 10733);
     });
 
     test('so he is on the list the month is paid from', () {
@@ -884,12 +890,12 @@ void main() {
 
     test('and his pay for it is 33,600', () {
       // 24,000 x 12/30 for October, plus a whole month of November.
-      expect(jatt.payForWindow(from: from, to: to), 33290);
+      expect(jatt.payForWindow(from: from, to: to), 33600);
     });
 
     test('less the advance, he is handed 17,600', () {
       // Which is the figure the farm came for.
-      expect(jatt.payForWindow(from: from, to: to) - 16000, 17290);
+      expect(jatt.payForWindow(from: from, to: to) - 16000, 17600);
     });
 
     test('and the advance is found, because the range reaches back to it', () {
@@ -950,7 +956,7 @@ void main() {
     });
 
     test('days off come off the whole payment, once', () {
-      expect(jatt.payForWindow(from: from, to: to, daysOff: 3), 30890);
+      expect(jatt.payForWindow(from: from, to: to, daysOff: 3), 31200);
     });
 
     test('and never below nothing, however many days off', () {
@@ -966,7 +972,7 @@ void main() {
       );
       // Twelve days of October and ten of November.
       expect(gone.daysOnBetween(from, to), 22);
-      expect(gone.payForWindow(from: from, to: to), 17290);
+      expect(gone.payForWindow(from: from, to: to), 17600);
     });
 
     test('a range entirely before he started pays nothing', () {
@@ -1026,7 +1032,7 @@ void main() {
           to: novEnd,
           drawn: 16000,
         ),
-        17290,
+        17600,
       );
     });
 
@@ -1063,7 +1069,7 @@ void main() {
     });
 
     test('a month he was not here for owes him nothing', () {
-      expect(wageToHand(who: jatt, from: oct, to: octEnd, drawn: 0), 9290);
+      expect(wageToHand(who: jatt, from: oct, to: octEnd, drawn: 0), 9600);
       expect(
         wageToHand(
           who: jatt,

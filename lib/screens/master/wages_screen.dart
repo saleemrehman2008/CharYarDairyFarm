@@ -8,12 +8,14 @@ import '../../models/models.dart';
 import '../../services/accounting.dart';
 import '../../services/txn_repo.dart';
 import '../../services/employee_repo.dart';
+import '../../services/month_repo.dart';
 import '../../state/farm_store.dart';
 import '../../state/session.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
 import '../../widgets/app_shell.dart';
 import '../shared/statement_screen.dart';
+import '../../widgets/investment_card.dart' show TotalRow;
 import '../../widgets/ui.dart';
 
 /// Who the farm pays a wage to, and what it pays them.
@@ -327,9 +329,18 @@ class _CardState extends State<_Card> {
           ),
           const SizedBox(height: 2),
           Text(
-            e.allowance > 0
+            e.allowance <= 0
+                ? l.t('A month')
+                : e.allowanceFor.trim().isEmpty
                 ? l.t3('%s wage · %s allowance', rs(e.basic), rs(e.allowance))
-                : l.t('A month'),
+                // Named, because an allowance nobody can put a word to is
+                // a figure nobody can be asked about six months later.
+                : l.t4(
+                    '%s wage · %s allowance (%s)',
+                    rs(e.basic),
+                    rs(e.allowance),
+                    e.allowanceFor.trim(),
+                  ),
             style: T.meta,
           ),
           const SizedBox(height: 8),
@@ -431,6 +442,18 @@ class _CardState extends State<_Card> {
             runSpacing: 8,
             children: [
               GhostButton(
+                label: l.t('Loan'),
+                icon: Icons.account_balance_outlined,
+                compact: true,
+                onPressed: _busy ? null : () => showGiveLoan(context, e),
+              ),
+              GhostButton(
+                label: l.t('If he leaves'),
+                icon: Icons.exit_to_app,
+                compact: true,
+                onPressed: _busy ? null : () => showSettleUp(context, e),
+              ),
+              GhostButton(
                 label: l.t('Salary slip'),
                 icon: Icons.receipt_long_outlined,
                 compact: true,
@@ -514,6 +537,9 @@ class _FormState extends State<_Form> {
         ? widget.editing!.basic.toStringAsFixed(0)
         : '',
   );
+  late final _allowanceFor = TextEditingController(
+    text: widget.editing?.allowanceFor ?? '',
+  );
   late final _allowance = TextEditingController(
     text: (widget.editing?.allowance ?? 0) > 0
         ? widget.editing!.allowance.toStringAsFixed(0)
@@ -538,6 +564,7 @@ class _FormState extends State<_Form> {
     _mobile.dispose();
     _basic.dispose();
     _allowance.dispose();
+    _allowanceFor.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -605,6 +632,7 @@ class _FormState extends State<_Form> {
           name: name,
           basic: basic,
           allowance: allowance,
+          allowanceFor: _allowanceFor.text,
           cnic: _cnic.text,
           mobile: _mobile.text,
           joinedOn: _joined,
@@ -618,6 +646,7 @@ class _FormState extends State<_Form> {
           name: name,
           basic: basic,
           allowance: allowance,
+          allowanceFor: _allowanceFor.text,
           cnic: _cnic.text,
           mobile: _mobile.text,
           joinedOn: _joined,
@@ -724,6 +753,18 @@ class _FormState extends State<_Form> {
                   ),
                 ],
               ),
+              // What the allowance is for, in the farm's own words. A
+              // figure with no name is one nobody can be asked about six
+              // months later, and it rides onto the wage and the slip.
+              if (allowance > 0) ...[
+                const SizedBox(height: T.gap),
+                Field(
+                  label: l.t('What the allowance is for'),
+                  controller: _allowanceFor,
+                  hint: l.t('Doodh, chai, kamra…'),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
               if (basic > 0) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -859,6 +900,424 @@ class MobileFormat extends TextInputFormatter {
     return TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
+/// Where a man stands if he walks off the farm today.
+///
+/// The farm's own question, and the one it had no way to answer. Nobody
+/// joins on the first: a gawala taken on on the 20th of October is owed to
+/// the 19th of November, and he is paid along the way as the days build up.
+/// When he says he is going, two figures decide everything — what is left
+/// to hand him, or how many more days he owes before the two sides meet —
+/// and both were being worked out on the back of a receipt, differently
+/// each time.
+Future<void> showSettleUp(BuildContext context, Employee who) {
+  final store = context.read<FarmStore>();
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: T.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
+    ),
+    builder: (_) => ChangeNotifierProvider<FarmStore>.value(
+      value: store,
+      child: _SettleSheet(who: who),
+    ),
+  );
+}
+
+class _SettleSheet extends StatefulWidget {
+  const _SettleSheet({required this.who});
+
+  final Employee who;
+
+  @override
+  State<_SettleSheet> createState() => _SettleSheetState();
+}
+
+class _SettleSheetState extends State<_SettleSheet> {
+  /// The day he would stop. Today unless somebody says otherwise — the
+  /// farm does not always ask on the day a man goes, and "if he works to
+  /// Friday, what then" is the same question with a different date in it.
+  late DateTime _upTo = widget.who.leftOn ?? DateTime.now();
+
+  Future<void> _pickDay() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _upTo,
+      // Not before he started: there is nothing to settle for days he was
+      // not here. Forward is open, because the whole use of this is asking
+      // what a few more days would do.
+      firstDate: widget.who.joinedOn,
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) setState(() => _upTo = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final who = widget.who;
+    final s = settleUp(context.watch<FarmStore>().ledger, who, upTo: _upTo);
+
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          T.pad,
+          T.pad,
+          T.pad,
+          T.pad,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.t('If he leaves'), style: T.screenTitle),
+            const SizedBox(height: 3),
+            Text(
+              l.t3(
+                '%s · on the farm since %s',
+                who.name,
+                fmtDateFull(who.joinedOn),
+              ),
+              style: T.meta,
+            ),
+            const SizedBox(height: T.pad),
+
+            Kicker(l.t('Last working day')),
+            const SizedBox(height: 6),
+            GhostButton(
+              label: fmtDateFull(s.upTo),
+              icon: Icons.calendar_today_outlined,
+              onPressed: _pickDay,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              l.t(
+                'Move it forward to see what a few more days would do, or '
+                'back to the day he actually stopped.',
+              ),
+              style: T.meta,
+            ),
+            const SizedBox(height: T.pad),
+
+            // The working, in the order a person would say it out loud.
+            RegCard(
+              child: Column(
+                children: [
+                  TotalRow(
+                    label: l.t2('%s days worked', '${s.daysWorked}'),
+                    value: s.earned,
+                    tone: T.accent700,
+                  ),
+                  TotalRow(
+                    label: l.t('Wages already paid'),
+                    value: s.paid,
+                    tone: T.moneyOut,
+                  ),
+                  if (s.advanceOwed > 0)
+                    TotalRow(
+                      label: l.t('Advance still owed'),
+                      value: s.advanceOwed,
+                      tone: T.moneyDue,
+                    ),
+                  if (s.loanOwed > 0)
+                    TotalRow(
+                      label: l.t('Loan still owed'),
+                      value: s.loanOwed,
+                      tone: T.moneyDue,
+                    ),
+                  const Divider(height: 16),
+                  TotalRow(
+                    label: s.farmOwes
+                        ? l.t('The farm owes him')
+                        : s.heOwes
+                        ? l.t('He has had more than he has worked for')
+                        : l.t('Square — neither owes the other'),
+                    // One figure, one meaning: what the farm owes him,
+                    // and below nothing when he has drawn ahead of his
+                    // work. A minus sign says it faster than a sentence.
+                    value: s.net,
+                    tone: s.farmOwes
+                        ? T.moneyDue
+                        : s.heOwes
+                        ? T.moneyOut
+                        : T.moneyIn,
+                    strong: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: T.gap),
+
+            // And what to do about it, said as a sentence rather than left
+            // for somebody to work out from the figures above.
+            RegCard(
+              wash: s.heOwes ? T.moneyOutWash : T.moneyGetWash,
+              child: Text(
+                s.farmOwes
+                    ? l.t2(
+                        'Hand him %s and his account is closed.',
+                        rs(s.toPay),
+                      )
+                    : s.heOwes
+                    ? l.t4(
+                        'Nothing is owed to him. He would have to work %s '
+                            'more days — to %s — for his account to come to '
+                            'nothing, at %s a day.',
+                        '${s.daysToSquare}',
+                        fmtDateFull(s.squareOn),
+                        rs(s.aDay.round()),
+                      )
+                    : l.t(
+                        'His account is already square. Nothing is owed '
+                        'either way.',
+                      ),
+                style: T.body,
+              ),
+            ),
+            const SizedBox(height: T.gap),
+            Text(
+              l.t(
+                'Worked out to today, both ends counted, each month against '
+                'its own length — so a February worked right through pays '
+                'the same as an October. Nothing is written down by looking '
+                'at this.',
+              ),
+              style: T.meta,
+            ),
+            const SizedBox(height: T.pad),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Lending money to somebody on the wage list.
+///
+/// Two figures and a day: what he is being lent, and what comes off each
+/// month. The instalment is written on his record and offered on every
+/// wage after this, never imposed — the farm may want to take less in a
+/// hard month, and what it leaves stays on his name.
+///
+/// The money leaves as an ordinary entry, the same row the entry form
+/// would write for it. Nothing here is a private path into the books.
+Future<void> showGiveLoan(BuildContext context, Employee who) {
+  final store = context.read<FarmStore>();
+  final session = context.read<Session>();
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: T.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(T.radius)),
+    ),
+    builder: (_) => MultiProvider(
+      providers: [
+        ChangeNotifierProvider<FarmStore>.value(value: store),
+        ChangeNotifierProvider<Session>.value(value: session),
+      ],
+      child: _LoanSheet(who: who),
+    ),
+  );
+}
+
+class _LoanSheet extends StatefulWidget {
+  const _LoanSheet({required this.who});
+
+  final Employee who;
+
+  @override
+  State<_LoanSheet> createState() => _LoanSheetState();
+}
+
+class _LoanSheetState extends State<_LoanSheet> {
+  final _amount = TextEditingController();
+  late final _monthly = TextEditingController(
+    text: widget.who.loanMonthly > 0
+        ? widget.who.loanMonthly.round().toString()
+        : '',
+  );
+  final _handledBy = TextEditingController();
+  DateTime _day = DateTime.now();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _monthly.dispose();
+    _handledBy.dispose();
+    super.dispose();
+  }
+
+  num get _said => num.tryParse(_amount.text.trim()) ?? 0;
+  num get _each => num.tryParse(_monthly.text.trim()) ?? 0;
+
+  Future<void> _give(FarmStore store) async {
+    final l = L.read(context);
+    if (_said <= 0) {
+      toast(context, l.t('Add the total amount.'));
+      return;
+    }
+    if (_handledBy.text.trim().isEmpty) {
+      toast(
+        context,
+        l.t(
+          'This one is needed. Money that moved with no name '
+          'against it cannot be asked about a month later.',
+        ),
+      );
+      return;
+    }
+
+    final actor = context.read<Session>().actor;
+    setState(() => _busy = true);
+    try {
+      await MonthRepo.ensureOpen(store.month.id);
+      await TxnRepo.add(
+        actor: actor,
+        monthId: store.month.id,
+        type: TxnType.payment,
+        party: widget.who.name,
+        category: staffLoanCategory,
+        amount: _said,
+        paid: true,
+        note: _each > 0 ? '${rs(_each)} a month agreed' : '',
+        handledBy: _handledBy.text.trim(),
+        date: _day,
+      );
+      // What was agreed, kept on his record so every wage after this can
+      // offer it without anybody having to remember.
+      await EmployeeRepo.edit(actor, widget.who, loanMonthly: _each);
+      if (!mounted) return;
+      Navigator.pop(context);
+      toast(context, l.t2('%s lent', rs(_said)));
+    } catch (e) {
+      if (mounted) toast(context, '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = L.of(context);
+    final store = context.watch<FarmStore>();
+    final owing = staffLoanOwed(store.ledger, who: widget.who.name);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            T.pad,
+            T.pad,
+            T.pad,
+            T.pad,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.t('Lend him money'), style: T.screenTitle),
+              const SizedBox(height: 3),
+              Text(
+                l.t(
+                  'Not a cost. The farm still owns it — it is in his pocket '
+                  'rather than in the box — and it comes back off his wages '
+                  'at whatever you take each month.',
+                ),
+                style: T.meta,
+              ),
+              const SizedBox(height: T.pad),
+
+              if (owing > 0) ...[
+                RegCard(
+                  wash: T.moneyDueWash,
+                  child: Text(
+                    l.t2('He still owes %s on an earlier loan.', rs(owing)),
+                    style: T.body.copyWith(color: T.moneyDue),
+                  ),
+                ),
+                const SizedBox(height: T.gap),
+              ],
+
+              Field(
+                label: l.t('How much'),
+                controller: _amount,
+                keyboardType: TextInputType.number,
+                prefix: 'Rs ',
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: T.gap),
+              Field(
+                label: l.t('Coming off each month'),
+                controller: _monthly,
+                keyboardType: TextInputType.number,
+                prefix: 'Rs ',
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                _said > 0 && _each > 0
+                    ? l.t2(
+                        'About %s months at that rate. It is offered on every '
+                            'wage and you may always take less.',
+                        '${(_said / _each).ceil()}',
+                      )
+                    : l.t(
+                        'What you agreed with him. It is offered on every '
+                        'wage after this, never imposed.',
+                      ),
+                style: T.meta,
+              ),
+              const SizedBox(height: T.gap),
+              WhoField(
+                label: l.t('Paid by'),
+                controller: _handledBy,
+                hint: l.t('Whose hands it went out through'),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: T.gap),
+              Kicker(l.t('Which day')),
+              const SizedBox(height: 6),
+              GhostButton(
+                label: fmtDateFull(_day),
+                icon: Icons.calendar_today_outlined,
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _day,
+                          firstDate: DateTime(_day.year - 2),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null && mounted) {
+                          setState(() => _day = picked);
+                        }
+                      },
+              ),
+              const SizedBox(height: T.pad),
+              PrimaryButton(
+                label: l.t('Hand it over'),
+                icon: Icons.check,
+                busy: _busy,
+                onPressed: _busy || _said <= 0 ? null : () => _give(store),
+              ),
+              const SizedBox(height: T.pad),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
