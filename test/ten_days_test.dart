@@ -94,7 +94,16 @@ void main() {
 
     test('and each stretch keeps its days newest first', () {
       expect(stretches.first.rows.map((t) => t.date.day).toList(), [
-        30, 29, 28, 27, 26, 25, 24, 23, 22, 21,
+        30,
+        29,
+        28,
+        27,
+        26,
+        25,
+        24,
+        23,
+        22,
+        21,
       ]);
     });
   });
@@ -193,11 +202,7 @@ void main() {
     });
 
     test('while the days around it fall where their own dates say', () {
-      final s = tenDayStretches([
-        _sale(25),
-        ...take,
-        _sale(3),
-      ]);
+      final s = tenDayStretches([_sale(25), ...take, _sale(3)]);
       // The take's three slices sit in the 21st–30th with the 25th; only
       // the 3rd is in the first stretch.
       expect(s.length, 2);

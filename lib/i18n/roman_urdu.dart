@@ -1711,30 +1711,20 @@ const Map<String, String> romanUrdu = {
       'Is hisaab se lagbhag %s mahine. Har tankhwah per khud bhar jata hai aur aap hamesha kam bhi le sakte hain.',
   'Loan he still owes': 'Qarz jo abhi baqi hai',
   'Loan coming off this wage': 'Is tankhwah me se qarz',
-  'Where the money goes':
-      'Paisa kahan ja raha hai',
+  'Where the money goes': 'Paisa kahan ja raha hai',
   'Each zone as a share of what came in. The bands are what a dairy usually runs at — a yardstick, not a rule.':
       'Har zone, aane wale paise ka hissa. Band wo hai jahan ek dairy aam tor par chalti hai — paimana, qanoon nahi.',
-  'Left over':
-      'Bacha',
-  'Usually %s':
-      'Aam tor par %s',
-  'Over by %s':
-      '%s ziyada',
-  'Look here first':
-      'Pehle yahan dekhein',
-  'Every zone is inside its band.':
-      'Har zone apne band ke andar hai.',
-  'Everything else':
-      'Baqi sab',
+  'Left over': 'Bacha',
+  'Usually %s': 'Aam tor par %s',
+  'Over by %s': '%s ziyada',
+  'Look here first': 'Pehle yahan dekhein',
+  'Every zone is inside its band.': 'Har zone apne band ke andar hai.',
+  'Everything else': 'Baqi sab',
   'Trading, not a farm cost — no band for it.':
       'Ye kaarobar hai, farm ka kharch nahi — is ka koi band nahi.',
-  'How the farm is doing':
-      'Farm ka haal',
-  'Pace':
-      'Raftar',
-  'vs the stretch before':
-      'pichli baar ke muqable mein',
+  'How the farm is doing': 'Farm ka haal',
+  'Pace': 'Raftar',
+  'vs the stretch before': 'pichli baar ke muqable mein',
   'Nothing before this to compare with':
       'Is se pehle kuch nahi jis se muqabla ho',
   'This stretch lost %s — more went out than came in.':
@@ -1747,16 +1737,11 @@ const Map<String, String> romanUrdu = {
       'Chalane ke kharche ne aamdani ka %s kha liya. Chaar bate paanch se uper kuch bantne ko nahi bachta.',
   '%s is %s past the share a dairy usually keeps it inside. That is the money to go after.':
       '%s us hissey se %s ziyada hai jahan ek dairy ise rakhti hai. Asal paisa yahi hai.',
-  '%s better than the stretch before it.':
-      'Pichli baar se %s behtar.',
-  '%s worse than the stretch before it.':
-      'Pichli baar se %s kam.',
-  'Much the same as the stretch before it.':
-      'Pichli baar jaisa hi hai.',
-  '%s is still to come in.':
-      '%s abhi aana hai.',
-  '%s is still to go out.':
-      '%s abhi dena hai.',
+  '%s better than the stretch before it.': 'Pichli baar se %s behtar.',
+  '%s worse than the stretch before it.': 'Pichli baar se %s kam.',
+  'Much the same as the stretch before it.': 'Pichli baar jaisa hi hai.',
+  '%s is still to come in.': '%s abhi aana hai.',
+  '%s is still to go out.': '%s abhi dena hai.',
   '%s is still to go out — more than is coming in.':
       '%s abhi dena hai — jitna aana hai us se zyada.',
   'Read off your own entries, not guessed. Every line here can be checked against the ledger.':
