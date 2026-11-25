@@ -229,7 +229,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
         // list: a customer who has never traded is not worth offering.
         // One row per person, under the spelling the farm uses most — not
         // one row per way anybody has ever typed it.
-        final parties = [for (final p in store.partyBook) p.name];
+        // Who you can narrow the page to — which is not the same list as
+        // the names you may write on an entry.
+        //
+        // This filter already looks at both halves of a name on an entry:
+        // who the trade was with, and whose hands the money went through
+        // (see [_narrow]). The list offered, though, was only ever the
+        // first half — so a man who has only ever handled money could not
+        // be picked at all, and the farm went hunting thirteen entries
+        // one tab at a time under a name the page would have found in one
+        // press if it had been on the list.
+        final parties = _withHandlers(store.partyBook, everything);
         final categories = _distinct(everything, (t) => t.category);
 
         return PageBody(
@@ -499,6 +509,27 @@ class _AccountsScreenState extends State<AccountsScreen> {
       )
       .where((t) => _category == null || t.category == _category)
       .toList();
+
+  /// The names on the books, and after them anybody who has only ever
+  /// handled the farm's money.
+  ///
+  /// The traded-with names keep their order — commonest first, which is
+  /// what the farm reaches for — and the handlers follow alphabetically.
+  /// Folded the way every name here is folded, so "Munawar Ali" and
+  /// "Munawar ali" are one line and not two.
+  static List<String> _withHandlers(List<PartySummary> book, List<Txn> rows) {
+    final out = [for (final p in book) p.name];
+    final seen = {for (final p in book) partyKey(p.name)};
+    final extra = <String, String>{};
+    for (final t in rows) {
+      final said = t.handledBy.trim();
+      if (said.isEmpty) continue;
+      final k = partyKey(said);
+      if (seen.contains(k)) continue;
+      extra.putIfAbsent(k, () => said);
+    }
+    return out..addAll(extra.values.toList()..sort());
+  }
 
   /// Every distinct value in the ledger, alphabetically, blanks left out — an
   /// entry with no name against it offers nothing to pick.
