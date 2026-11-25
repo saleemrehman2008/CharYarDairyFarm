@@ -1881,4 +1881,36 @@ const Map<String, String> urduScript = {
       '%s ابھی دینا ہے — جتنا آنا ہے اُس سے زیادہ۔',
   'Read off your own entries, not guessed. Every line here can be checked against the ledger.':
       'یہ سب آپ کی اپنی اینٹریز سے نکلا ہے، اندازہ نہیں۔ ہر لائن لیجر سے ملا کر چیک کی جا سکتی ہے۔',
+  '%s came in. Every share below is of that.':
+      '%s آیا۔ نیچے ہر حصہ اِسی کا ہے۔',
+  'This month': 'یہ مہینہ',
+  'Audit': 'آڈٹ',
+  '%s entries read.': '%s اینٹریز پڑھی گئیں۔',
+  'Nothing is out of place. Every entry adds up, every settlement has something to settle, and the farm holds what the books say it holds.':
+      'کوئی چیز اپنی جگہ سے ہٹی ہوئی نہیں۔ ہر اینٹری پوری بنتی ہے، ہر سیٹلمنٹ کے پیچھے اُس کی اپنی اینٹری موجود ہے، اور فارم کے پاس اُتنا ہی ہے جتنا کتابوں میں لکھا ہے۔',
+  'This cannot be right': 'یہ صحیح نہیں ہو سکتا',
+  'Worth a look': 'ایک نظر ڈال لیں',
+  'This page only reads. It never changes an entry — a check that can also mend things is a check nobody can trust. Open an entry to correct it yourself.':
+      'یہ صفحہ صرف پڑھتا ہے، کسی اینٹری کو کبھی نہیں بدلتا — جو چیک خود چیزیں ٹھیک بھی کر سکتا ہو اُس پر بھروسہ نہیں کیا جاتا۔ اینٹری کھول کر خود درست کریں۔',
+  '%s more has been taken against this entry than the entry is for.':
+      'اِس اینٹری کے خلاف اُس سے %s زیادہ لیا جا چکا ہے جتنی اینٹری خود ہے۔',
+  'Marked settled, and %s is still owed on it.':
+      'ادا شدہ لکھی ہوئی ہے، اور اِس پر %s ابھی باقی ہے۔',
+  'This money was taken against an entry that is no longer on the books, so nothing came down by it.':
+      'یہ پیسہ اُس اینٹری کے خلاف لیا گیا جو اب کتابوں میں ہے ہی نہیں، اِس لیے کوئی بیلنس کم نہیں ہوا۔',
+  '%s more has been settled against this entry than it was ever for.':
+      'اِس اینٹری کے خلاف اُس سے %s زیادہ سیٹل ہو چکا ہے جتنی وہ کبھی تھی۔',
+  'Half a handover: one pair of hands went down and no other went up.':
+      'آدھا ہینڈ اوور: ایک ہاتھ سے پیسہ گیا اور کسی دوسرے ہاتھ میں آیا ہی نہیں۔',
+  '%s more advance has come back off him than was ever handed to him.':
+      'اُس سے %s زیادہ ایڈوانس واپس لیا جا چکا ہے جتنا کبھی دیا گیا تھا۔',
+  '%s more has come back off his loan than was ever lent to him.':
+      'اُس کے قرض میں سے %s زیادہ واپس لیا جا چکا ہے جتنا کبھی دیا گیا تھا۔',
+  'An entry with nobody and nothing on it.':
+      'ایسی اینٹری جس پر نہ کوئی نام ہے نہ کوئی ہیڈنگ۔',
+  'Dated after today.': 'آج کے بعد کی تاریخ۔',
+  'The same name, day, amount and heading more than once. It can be real — but this is the commonest way a figure goes wrong.':
+      'وہی نام، وہی دن، وہی رقم اور وہی ہیڈنگ ایک سے زیادہ بار۔ ہو سکتا ہے اصلی ہو — مگر فِگر سب سے زیادہ اِسی طرح غلط ہوتا ہے۔',
+  'What the farm holds is out by %s against what it should hold. It is nearly always one entry typed twice or one never typed at all.':
+      'فارم کے پاس جو ہے اور جو ہونا چاہیے، اُن میں %s کا فرق ہے۔ عام طور پر یا ایک اینٹری دو بار لکھی گئی ہے یا ایک لکھی ہی نہیں گئی۔',
 };

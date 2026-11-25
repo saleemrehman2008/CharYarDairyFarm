@@ -16,6 +16,7 @@ import '../shared/bills_screen.dart';
 import '../shared/deliveries_screen.dart';
 import '../shared/my_account_screen.dart';
 import '../shared/about_screen.dart';
+import '../shared/audit_screen.dart';
 import '../shared/products_screen.dart';
 import 'wages_screen.dart';
 import '../shared/report_screen.dart';
@@ -108,6 +109,15 @@ class MoreScreen extends StatelessWidget {
               icon: Icons.receipt_long_outlined,
               tone: T.accent700,
               onTap: () => _push(context, store, const StatementScreen()),
+            ),
+            // The books checked against themselves. Beside the report
+            // rather than buried in settings: it is a thing the four of
+            // them do together, not a setting one of them keeps.
+            _Row(
+              label: l.t('Audit'),
+              icon: Icons.fact_check_outlined,
+              tone: T.moneyDue,
+              onTap: () => _push(context, store, const AuditScreen()),
             ),
             _Row(
               label: l.t('About'),

@@ -129,6 +129,19 @@ void main() {
     test('and a month with every zone in its band names nothing', () {
       expect(_has(_read(_good()), Note.zoneOver), isFalse);
     });
+
+    test('and a small overshoot is said quietly, not in red', () {
+      // Six thousand past the band on a month that earned a fifth is
+      // worth knowing and is not an emergency.
+      // Everything else reaches 130,000 of a million, where the band
+      // stops at 120,000: ten thousand past it, and a fiftieth of what
+      // came in is twenty.
+      final r = _read([..._good(), _spent('Transport', 40000)]);
+      final f = _find(r, Note.zoneOver);
+      expect(f.amount, 10000);
+      expect(f.tone, Tone.watch);
+      expect(r.findings.first.tone, isNot(Tone.bad));
+    });
   });
 
   group('the running cost', () {

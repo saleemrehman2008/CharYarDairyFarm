@@ -245,6 +245,8 @@ void main() {
     });
   });
 
+  _howLoud();
+
   group('a month with nothing in it', () {
     test('has no percentages, and does not divide by nothing', () {
       final z = spendZones(const []);
@@ -264,6 +266,46 @@ void main() {
       expect(z.lines.single.share, 0);
       expect(z.lines.single.over, 0);
       expect(z.focus, isNull);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// How loud to say it.
+//
+// The farm's own month: five lakh in, twenty-three per cent earned, and one
+// zone six thousand past its band. That is worth knowing and it is not an
+// emergency — and a page that shouts at six thousand will be ignored the
+// month something real goes wrong.
+void _howLoud() {
+  group('whether the focus is worth the loud colour', () {
+    test('a small overshoot on a good month is not', () {
+      final rows = [
+        _sale(515200),
+        _spent('Fodder / feed', 240945),
+        _spent(salariesCategory, 60000),
+        // 13.3% of what came in, against a band that stops at 12%.
+        _spent('Transport', 68560),
+        _spent('Utilities (bijli, gas, pani)', 27448),
+      ];
+      final z = spendZones(rows);
+      expect(z.focus!.zone, Zone.other);
+      expect(z.focus!.over, closeTo(6736, 1));
+      expect(z.focusMatters, isFalse);
+      // And the month is still a good one.
+      expect(z.profitShare, closeTo(0.23, 0.005));
+    });
+
+    test('and one that is eating the month is', () {
+      final rows = [..._aMonth(), _spent('Fodder / feed', 150000)];
+      final z = spendZones(rows);
+      // 50,000 past the band on a million: five per cent of what came in.
+      expect(z.focus!.over, 50000);
+      expect(z.focusMatters, isTrue);
+    });
+
+    test('and nothing past its band is never loud', () {
+      expect(spendZones(_aMonth()).focusMatters, isFalse);
     });
   });
 }

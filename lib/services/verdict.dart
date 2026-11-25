@@ -215,7 +215,11 @@ MonthRead readTheBooks({
     found.add(
       Finding(
         note: Note.zoneOver,
-        tone: Tone.bad,
+        // Red only when the zone is actually eating the month. Six
+        // thousand past the band on a month that earned twenty-three per
+        // cent is worth knowing and is not an emergency, and a page that
+        // shouts at that gets ignored the month it matters.
+        tone: zones.focusMatters ? Tone.bad : Tone.watch,
         amount: focus.over,
         share: focus.share,
         zone: focus.zone,

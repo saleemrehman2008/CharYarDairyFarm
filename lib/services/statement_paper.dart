@@ -224,6 +224,29 @@ class StatementPaper {
                   cell('BALANCE', head: true, right: true),
                 ],
               ),
+              // Where the balance stood before any of this. The first line
+              // of every bank statement there has ever been, and the one
+              // thing this page used to keep in a box underneath instead.
+              if (statement.opening != 0)
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xFFEDF4FA),
+                  ),
+                  children: [
+                    cell(''),
+                    cell(
+                      statement.kind == StatementKind.cashBook
+                          ? 'Put in by the co-founders'
+                          : 'Brought forward',
+                    ),
+                    cell(''),
+                    cell(''),
+                    cell(''),
+                    cell(''),
+                    cell(groupPk(statement.opening), right: true),
+                  ],
+                ),
+
               for (final run in runs) ...[
                 for (final line in run.lines)
                   pw.TableRow(
@@ -267,6 +290,24 @@ class StatementPaper {
                     ],
                   ),
               ],
+
+              // And where it stands now, closing the table the way a bank
+              // closes a page — both totals beside the balance.
+              if (statement.lines.isNotEmpty)
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xFFE3EEF8),
+                  ),
+                  children: [
+                    cell(''),
+                    cell(statement.kind.footLabel.toUpperCase(), head: true),
+                    cell(''),
+                    cell(''),
+                    cell(groupPk(statement.debits), right: true),
+                    cell(groupPk(statement.credits), right: true),
+                    cell(groupPk(statement.closing), right: true),
+                  ],
+                ),
             ],
           ),
           pw.SizedBox(height: 12),

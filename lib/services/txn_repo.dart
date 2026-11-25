@@ -295,6 +295,23 @@ class TxnRepo {
     var taken = 0 as num;
     var finished = 0;
 
+    // All of it in one write.
+    //
+    // This used to be a loop of awaits: the entry, then its receipt, then
+    // the log, one network trip each, one entry at a time. Twenty-three
+    // days of milk was seventy trips in a row — half a minute of spinner on
+    // a phone in a shed, and the Sheet rewriting itself behind all of it.
+    //
+    // A batch is one trip however many entries are in it, and it is all or
+    // nothing: the old way could stop halfway and leave eleven days settled
+    // against a payment that was never finished, with no way to tell which
+    // eleven.
+    final batch = Db.fs.batch();
+
+    // What each customer's khaata moves by, added up first so one customer
+    // with nine unpaid days is one change to his balance and not nine.
+    final khaata = <String, num>{};
+
     for (final landing in landings) {
       final txn = landing.entry;
       final take = landing.take;
@@ -304,7 +321,7 @@ class TxnRepo {
       final settledInFull = landing.finishes;
       if (settledInFull) finished++;
 
-      await Db.transactions.doc(txn.id).update({
+      batch.update(Db.transactions.doc(txn.id), {
         'paidSoFar': nowPaid,
         // The flag still says "nothing more to collect", which is what the
         // unpaid query asks. A part-settled entry is still outstanding.
@@ -315,35 +332,56 @@ class TxnRepo {
       });
 
       final isSale = txn.type == TxnType.sale;
-      await add(
-        actor: actor,
-        monthId: MonthRepo.bookingId,
-        type: isSale ? TxnType.receipt : TxnType.payment,
-        party: txn.party,
-        category: isSale ? khaataReceiptCategory : _paymentCategory(txn),
-        amount: take,
-        paid: true,
-        note: settledInFull
+      batch.set(Db.transactions.doc(), {
+        'date': Timestamp.fromDate(now),
+        'monthId': MonthRepo.bookingId,
+        'type': (isSale ? TxnType.receipt : TxnType.payment).name,
+        'party': txn.party,
+        'customerId': ?txn.customerId,
+        'category': isSale ? khaataReceiptCategory : _paymentCategory(txn),
+        'amount': take,
+        'paid': true,
+        'paidSoFar': take,
+        'paidAt': Timestamp.fromDate(now),
+        'paidOnCreate': true,
+        'note': settledInFull
             ? 'Settles ${txn.type.label.toLowerCase()} of '
                   '${fmtDate(txn.date)}'
             : 'Part of ${txn.type.label.toLowerCase()} of '
                   '${fmtDate(txn.date)} — ${rs(txn.amount - nowPaid)} still '
                   'to come',
-        customerId: txn.customerId,
         // The entry above carrying what it has taken is what moved the cash.
         // Tagging this row keeps it in the ledger and the Sheet without the
         // balance counting the same rupees twice.
-        settlesTxnId: txn.id,
-        takeId: handful,
-        payVia: payVia,
-        handledBy: handledBy,
-        date: now,
-      );
+        'settlesTxnId': txn.id,
+        'takeId': handful,
+        'payVia': payVia.name,
+        'handledBy': handledBy,
+        'createdBy': actor.uid,
+        'createdByName': actor.name,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
       // An udhaar customer's balance drops by whatever just landed on it.
-      if (isSale) {
-        await _moveKhaata(txn, -take);
+      final customerId = txn.customerId;
+      if (isSale && customerId != null && customerId.isNotEmpty) {
+        khaata[customerId] = (khaata[customerId] ?? 0) - take;
       }
+    }
+
+    await batch.commit();
+
+    // The khaata balances after it, and not inside it.
+    //
+    // Most milk goes to shops with no khaata account at all, and a write to
+    // a document that is not there either fails the whole batch or quietly
+    // creates a stub account for somebody who never had one. Neither is
+    // worth having. Out here each one can fail on its own and be ignored,
+    // exactly as it always could — and it is still one write a customer
+    // rather than one a day of milk.
+    for (final e in khaata.entries) {
+      if (e.value == 0) continue;
+      await _moveKhaataById(e.key, e.value);
     }
 
     await Log.write(
@@ -1437,6 +1475,12 @@ class TxnRepo {
   static Future<void> _moveKhaata(Txn txn, num by) async {
     final customerId = txn.customerId;
     if (by == 0 || customerId == null || customerId.isEmpty) return;
+    await _moveKhaataById(customerId, by);
+  }
+
+  /// The same, where the account is already known by its id.
+  static Future<void> _moveKhaataById(String customerId, num by) async {
+    if (by == 0 || customerId.isEmpty) return;
     try {
       await Db.udhaarAccounts.doc(customerId).update({
         'balance': FieldValue.increment(by),

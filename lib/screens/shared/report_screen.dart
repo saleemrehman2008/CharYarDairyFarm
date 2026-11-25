@@ -37,6 +37,19 @@ class ReportScreen extends StatefulWidget {
 
 enum _Span {
   summary('Summary'),
+
+  /// The 1st to the last day of the month, which is how a month is read
+  /// everywhere else in the world.
+  ///
+  /// Its own thing and not the same as [thisPeriod]. A farm period runs
+  /// from the day the last one was sealed to the day this one is — the
+  /// farm's open period ran the 25th of September to the 25th of November,
+  /// which is two months of trading under one heading, and every share on
+  /// the page was a share of those two months. Both readings are wanted:
+  /// the period is what the four of them share out, the month is what
+  /// anybody means by "this month".
+  thisMonth('This month'),
+
   thisPeriod('This period'),
   lastThree('Last 3 months'),
   thisYear('This year'),
@@ -49,11 +62,21 @@ enum _Span {
   /// The earliest date this span takes in. Null means no limit.
   DateTime? get from => switch (this) {
     _Span.summary => null,
+    _Span.thisMonth => DateTime(DateTime.now().year, DateTime.now().month),
     _Span.thisPeriod => null,
     _Span.lastThree => DateTime.now().subtract(const Duration(days: 92)),
     _Span.thisYear => DateTime(DateTime.now().year),
     _Span.everything => null,
   };
+
+  /// What to call it over the figures. A month is called by its name, not
+  /// by the words on its button — "November 2026" says which month it was
+  /// when the page is read again in March.
+  String saidAs(L l) {
+    if (this != _Span.thisMonth) return l.t(label);
+    final now = DateTime.now();
+    return monthName('${now.year}-${now.month.toString().padLeft(2, '0')}');
+  }
 }
 
 enum _View { ring, list }
@@ -94,7 +117,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 if (txns == null) {
                   return PageBody(children: [EmptyNote(l.t('Loading…'))]);
                 }
-                return _body(context, l, store, txns, l.t(_span.label));
+                return _body(context, l, store, txns, _span.saidAs(l));
               },
             ),
     );

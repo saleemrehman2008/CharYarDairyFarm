@@ -148,6 +148,19 @@ class SpendZones {
     return worst;
   }
 
+  /// A zone has to be past its band by this much of what came in before
+  /// the page says it in red.
+  ///
+  /// Six thousand rupees past the band on a five-lakh month that earned
+  /// twenty-three per cent is worth knowing and is not an emergency, and
+  /// a page that shouts at that will be ignored the month it matters. So
+  /// the red is kept for a zone that is actually eating the month.
+  static const focusIsBig = 0.02;
+
+  /// Whether [focus] is worth the loud colour.
+  bool get focusMatters =>
+      focus != null && sales > 0 && focus!.over >= sales * focusIsBig;
+
   bool get isEmpty => sales <= 0 && spent <= 0;
 }
 

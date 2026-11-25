@@ -731,7 +731,8 @@ class ZoneMeters extends StatelessWidget {
           else
             _Verdict(
               icon: Icons.my_location,
-              tone: T.moneyOut,
+              // Loud only when it is a lot of money — see [focusMatters].
+              tone: zones.focusMatters ? T.moneyOut : T.moneyDue,
               title: l.t('Look here first'),
               note:
                   '${l.t(focus.zone.label)} — '
@@ -1242,6 +1243,14 @@ class HealthCard extends StatelessWidget {
       children: [
         SectionTitle(l.t('How the farm is doing')),
         Text(spanLabel, style: T.meta),
+        // What every share below is a share of. The dials read 23% and
+        // 77% and 47% and the page never said of what — and a figure
+        // nobody can work back to is a figure nobody trusts.
+        if (z.sales > 0)
+          Text(
+            l.t2('%s came in. Every share below is of that.', rs(z.sales)),
+            style: T.meta.copyWith(color: T.accent700),
+          ),
         const SizedBox(height: 10),
 
         Row(

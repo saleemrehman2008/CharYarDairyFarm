@@ -939,13 +939,96 @@ Widget _table(BuildContext context, Statement statement) {
           ],
         ),
       ),
+
+      // Where the balance stood before any of this — the first line of
+      // every bank statement ever printed, and the one thing this page
+      // kept in a box at the foot instead. A column of running balances
+      // that starts in the middle of nowhere cannot be followed.
+      if (statement.opening != 0)
+        _edgeRow(
+          label: l.t(
+            statement.kind == StatementKind.cashBook
+                ? 'Put in by the co-founders'
+                : 'Brought forward',
+          ),
+          balance: statement.opening,
+        ),
       for (final run in runs) ...[
         for (final line in run.lines) _lineRow(line),
         if (cut) _runRow(l, run),
       ],
+
+      // And where it stands now, on the last line of the table rather than
+      // only in the box underneath — with both totals beside it, the way a
+      // bank closes a page.
+      if (statement.lines.isNotEmpty)
+        _edgeRow(
+          label: l.t(statement.kind.footLabel),
+          balance: statement.closing,
+          debit: statement.debits,
+          credit: statement.credits,
+          strong: true,
+        ),
     ],
   );
 }
+
+/// The opening or closing line of the account: no date, a name, and the
+/// balance it stood at.
+Widget _edgeRow({
+  required String label,
+  required num balance,
+  num debit = 0,
+  num credit = 0,
+  bool strong = false,
+}) => Container(
+  decoration: BoxDecoration(
+    color: T.accent100,
+    border: Border(
+      top: BorderSide(color: T.accent700, width: strong ? 1.4 : 0.8),
+    ),
+  ),
+  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+  child: Row(
+    children: [
+      SizedBox(width: _date, child: const SizedBox.shrink()),
+      Expanded(
+        child: Text(
+          label,
+          style: T.bodyMid.copyWith(fontSize: 11.5, color: T.accent800),
+        ),
+      ),
+      SizedBox(
+        width: _money,
+        child: Text(
+          debit > 0 ? groupPk(debit) : '',
+          textAlign: TextAlign.end,
+          style: T.bodyMid.copyWith(fontSize: 11.5, color: T.moneyOut),
+        ),
+      ),
+      SizedBox(
+        width: _money,
+        child: Text(
+          credit > 0 ? groupPk(credit) : '',
+          textAlign: TextAlign.end,
+          style: T.bodyMid.copyWith(fontSize: 11.5, color: T.moneyIn),
+        ),
+      ),
+      SizedBox(
+        width: _balance,
+        child: Text(
+          groupPk(balance),
+          textAlign: TextAlign.end,
+          style: T.bodyMid.copyWith(
+            fontSize: strong ? 13 : 11.5,
+            fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
+            color: balance < 0 ? T.moneyDue : T.accent800,
+          ),
+        ),
+      ),
+    ],
+  ),
+);
 
 /// One line of the account.
 Widget _lineRow(StatementLine line) {

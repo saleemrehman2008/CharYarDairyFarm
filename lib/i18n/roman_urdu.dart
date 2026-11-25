@@ -1746,4 +1746,36 @@ const Map<String, String> romanUrdu = {
       '%s abhi dena hai — jitna aana hai us se zyada.',
   'Read off your own entries, not guessed. Every line here can be checked against the ledger.':
       'Ye sab aap ki apni entries se nikla hai, andaza nahi. Har line ledger se mila kar check ki ja sakti hai.',
+  '%s came in. Every share below is of that.':
+      '%s aaya. Neeche har hissa isi ka hai.',
+  'This month': 'Ye mahina',
+  'Audit': 'Audit',
+  '%s entries read.': '%s entries parhi gayin.',
+  'Nothing is out of place. Every entry adds up, every settlement has something to settle, and the farm holds what the books say it holds.':
+      'Koi cheez apni jagah se hati hui nahi. Har entry poori banti hai, har settlement ke peeche us ki apni entry mojood hai, aur farm ke paas utna hi hai jitna kitabon mein likha hai.',
+  'This cannot be right': 'Ye sahi nahi ho sakta',
+  'Worth a look': 'Ek nazar daal lein',
+  'This page only reads. It never changes an entry — a check that can also mend things is a check nobody can trust. Open an entry to correct it yourself.':
+      'Ye safha sirf parhta hai, kisi entry ko kabhi nahi badalta — jo check khud cheezen theek bhi kar sakta ho us par bharosa nahi kiya jata. Entry khol kar khud durust karein.',
+  '%s more has been taken against this entry than the entry is for.':
+      'Is entry ke khilaf us se %s ziyada liya ja chuka hai jitni entry khud hai.',
+  'Marked settled, and %s is still owed on it.':
+      'Ada shuda likhi hui hai, aur is par %s abhi baqi hai.',
+  'This money was taken against an entry that is no longer on the books, so nothing came down by it.':
+      'Ye paisa us entry ke khilaf liya gaya jo ab kitabon mein hai hi nahi, is liye koi balance kam nahi hua.',
+  '%s more has been settled against this entry than it was ever for.':
+      'Is entry ke khilaf us se %s ziyada settle ho chuka hai jitni wo kabhi thi.',
+  'Half a handover: one pair of hands went down and no other went up.':
+      'Aadha handover: ek haath se paisa gaya aur kisi doosre haath mein aaya hi nahi.',
+  '%s more advance has come back off him than was ever handed to him.':
+      'Us se %s ziyada advance wapas liya ja chuka hai jitna kabhi diya gaya tha.',
+  '%s more has come back off his loan than was ever lent to him.':
+      'Us ke qarz mein se %s ziyada wapas liya ja chuka hai jitna kabhi diya gaya tha.',
+  'An entry with nobody and nothing on it.':
+      'Aisi entry jis par na koi naam hai na koi heading.',
+  'Dated after today.': 'Aaj ke baad ki tareekh.',
+  'The same name, day, amount and heading more than once. It can be real — but this is the commonest way a figure goes wrong.':
+      'Wohi naam, wohi din, wohi raqam aur wohi heading ek se zyada bar. Ho sakta hai asli ho — magar figure sab se zyada isi tarah ghalat hota hai.',
+  'What the farm holds is out by %s against what it should hold. It is nearly always one entry typed twice or one never typed at all.':
+      'Farm ke paas jo hai aur jo hona chahiye, un mein %s ka farq hai. Aam tor par ya ek entry do bar likhi gayi hai ya ek likhi hi nahi gayi.',
 };

@@ -172,7 +172,8 @@ class SheetSync {
     _retry?.cancel();
     _retry = null;
     try {
-      final result = await push(await read(), force: force);
+      final books = await read();
+      final result = await push(books, force: force);
       // Anything but a write leaves the change in the app and not in the
       // Sheet, so come back to it rather than waiting for the farm to type
       // something else.
@@ -190,12 +191,34 @@ class SheetSync {
       // back round, which is what stopped a change from being stranded.
       if (result == SyncResult.denied) return;
       if (result != SyncResult.written) {
-        _retry = Timer(_cooldown, () => _attempt(read, force: force));
+        _retry = Timer(
+          _waitAfter(result, books),
+          () => _attempt(read, force: force),
+        );
       }
     } catch (e) {
       _lastError = '$e';
       _retry = Timer(_cooldown, () => _attempt(read));
     }
+  }
+
+  /// How long to wait before trying again.
+  ///
+  /// A write skipped because another phone wrote four seconds ago used to
+  /// wait another whole forty-five, so a change made just after somebody
+  /// else's write sat for a minute and a half while the farm watched a
+  /// Sheet that would not move. It only has to wait out what is left of
+  /// the cooldown.
+  ///
+  /// Anything else — no signal, Google saying no — waits the full time.
+  /// Hammering a connection that is not there mends nothing.
+  static Duration _waitAfter(SyncResult result, SheetBooks books) {
+    if (result != SyncResult.skipped || books.lastSyncAt == null) {
+      return _cooldown;
+    }
+    final left = _cooldown - DateTime.now().difference(books.lastSyncAt!);
+    const floor = Duration(seconds: 3);
+    return left < floor ? floor : left + const Duration(seconds: 1);
   }
 
   static void stop() {
