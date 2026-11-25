@@ -61,6 +61,12 @@ class StatementPaper {
     const faint = PdfColor.fromInt(0xFF8B96A2);
     const rule = PdfColor.fromInt(0xFFE6EAEE);
 
+    // Ten days at a time, the way milk is settled — the same stretches the
+    // app shows, so the paper and the phone read alike. Only once the page
+    // holds more than one of them.
+    final runs = tenDayRuns(statement.lines);
+    final cut = runs.length > 1;
+
     pw.Widget cell(String text, {bool head = false, bool right = false}) =>
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4.5),
@@ -218,24 +224,49 @@ class StatementPaper {
                   cell('BALANCE', head: true, right: true),
                 ],
               ),
-              for (final line in statement.lines)
-                pw.TableRow(
-                  children: [
-                    cell(fmtDate(line.date)),
-                    cell(line.party),
-                    cell(line.detail),
-                    cell(line.enteredBy),
-                    cell(
-                      line.debit > 0 ? groupPk(line.debit) : '',
-                      right: true,
+              for (final run in runs) ...[
+                for (final line in run.lines)
+                  pw.TableRow(
+                    children: [
+                      cell(fmtDate(line.date)),
+                      cell(line.party),
+                      cell(line.detail),
+                      cell(line.enteredBy),
+                      cell(
+                        line.debit > 0 ? groupPk(line.debit) : '',
+                        right: true,
+                      ),
+                      cell(
+                        line.credit > 0 ? groupPk(line.credit) : '',
+                        right: true,
+                      ),
+                      cell(groupPk(line.balance), right: true),
+                    ],
+                  ),
+                // What the ten days came to, and the balance the two sides
+                // settle on before the next ten begin.
+                if (cut)
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColor.fromInt(0xFFEDF4FA),
                     ),
-                    cell(
-                      line.credit > 0 ? groupPk(line.credit) : '',
-                      right: true,
-                    ),
-                    cell(groupPk(line.balance), right: true),
-                  ],
-                ),
+                    children: [
+                      cell(''),
+                      cell('${daySpan(run.from, run.to)} total'),
+                      cell(''),
+                      cell(''),
+                      cell(
+                        run.debits > 0 ? groupPk(run.debits) : '',
+                        right: true,
+                      ),
+                      cell(
+                        run.credits > 0 ? groupPk(run.credits) : '',
+                        right: true,
+                      ),
+                      cell(groupPk(run.closing), right: true),
+                    ],
+                  ),
+              ],
             ],
           ),
           pw.SizedBox(height: 12),

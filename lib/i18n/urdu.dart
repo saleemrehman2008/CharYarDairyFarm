@@ -1476,6 +1476,7 @@ const Map<String, String> urduScript = {
       'فارم نے فی الحال ڈلیوری بند کی ہوئی ہے، اس لیے لے جانے کو کچھ نہیں۔ '
       'ماسٹر کے دوبارہ چالو کرتے ہی یہ صفحہ پھر بھر جائے گا۔',
   'Particulars': 'تفصیل',
+  '%s total': '%s کا کل',
   'Showing': 'دکھا رہا ہے',
   'Show everything, paid or not': 'سب کچھ دکھائیں، ادا ہو یا نہ ہو',
   'Feed bought on credit, a buffalo that died, milk still owed for. The running total stops being the cash in the box and becomes the total of what is on the page.':
@@ -1846,4 +1847,54 @@ const Map<String, String> urduScript = {
       'اِس حساب سے لگ بھگ %s مہینے۔ ہر تنخواہ پر خود بھر جاتا ہے اور آپ ہمیشہ کم بھی لے سکتے ہیں۔',
   'Loan he still owes': 'قرض جو ابھی باقی ہے',
   'Loan coming off this wage': 'اِس تنخواہ میں سے قرض',
+  'Where the money goes':
+      'پیسہ کہاں جا رہا ہے',
+  'Each zone as a share of what came in. The bands are what a dairy usually runs at — a yardstick, not a rule.':
+      'ہر زون، آنے والے پیسے کا حصہ۔ بینڈ وہ ہے جہاں ایک ڈیری عام طور پر چلتی ہے — پیمانہ، قانون نہیں۔',
+  'Left over':
+      'بچا',
+  'Usually %s':
+      'عام طور پر %s',
+  'Over by %s':
+      '%s زیادہ',
+  'Look here first':
+      'پہلے یہاں دیکھیں',
+  'Every zone is inside its band.':
+      'ہر زون اپنے بینڈ کے اندر ہے۔',
+  'Everything else':
+      'باقی سب',
+  'Trading, not a farm cost — no band for it.':
+      'یہ کاروبار ہے، فارم کا خرچ نہیں — اس کا کوئی بینڈ نہیں۔',
+  'How the farm is doing':
+      'فارم کا حال',
+  'Pace':
+      'رفتار',
+  'vs the stretch before':
+      'پچھلی بار کے مقابلے میں',
+  'Nothing before this to compare with':
+      'اِس سے پہلے کچھ نہیں جس سے مقابلہ ہو',
+  'This stretch lost %s — more went out than came in.':
+      'اِس عرصے میں %s کا نقصان ہوا — جتنا آیا اُس سے زیادہ گیا۔',
+  'It earned %s, which is %s of everything that came in. Under a sixth is a stretch that ran rather than one that earned.':
+      '%s بچے، جو کُل آمدنی کا %s ہے۔ چھٹے حصے سے کم کا مطلب: عرصہ چلا ہے، کمایا نہیں۔',
+  'It earned %s — %s of everything that came in. That is a stretch that earned.':
+      '%s بچے — کُل آمدنی کا %s۔ یہ کمانے والا عرصہ ہے۔',
+  'Running cost ate %s of what came in. Past four fifths there is nothing left to share.':
+      'چلانے کے خرچے نے آمدنی کا %s کھا لیا۔ چار بٹے پانچ سے اوپر کچھ بانٹنے کو نہیں بچتا۔',
+  '%s is %s past the share a dairy usually keeps it inside. That is the money to go after.':
+      '%s اُس حصے سے %s زیادہ ہے جہاں ایک ڈیری اِسے رکھتی ہے۔ اصل پیسہ یہی ہے۔',
+  '%s better than the stretch before it.':
+      'پچھلی بار سے %s بہتر۔',
+  '%s worse than the stretch before it.':
+      'پچھلی بار سے %s کم۔',
+  'Much the same as the stretch before it.':
+      'پچھلی بار جیسا ہی ہے۔',
+  '%s is still to come in.':
+      '%s ابھی آنا ہے۔',
+  '%s is still to go out.':
+      '%s ابھی دینا ہے۔',
+  '%s is still to go out — more than is coming in.':
+      '%s ابھی دینا ہے — جتنا آنا ہے اُس سے زیادہ۔',
+  'Read off your own entries, not guessed. Every line here can be checked against the ledger.':
+      'یہ سب آپ کی اپنی اینٹریز سے نکلا ہے، اندازہ نہیں۔ ہر لائن لیجر سے ملا کر چیک کی جا سکتی ہے۔',
 };

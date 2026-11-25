@@ -1386,6 +1386,7 @@ const Map<String, String> romanUrdu = {
   'The farm has deliveries switched off at the moment, so there is nothing to take out. This screen will fill up again as soon as the master switches them back on.':
       'Farm ne filhal delivery band ki hui hai, is liye le jane ko kuch nahi. Master ke dobara chalu karte hi ye safha phir bhar jayega.',
   'Particulars': 'Tafseel',
+  '%s total': '%s ka total',
   'Showing': 'Dikha raha hai',
   'Show everything, paid or not': 'Sab kuch dikhayen, ada ho ya na ho',
   'Feed bought on credit, a buffalo that died, milk still owed for. The running total stops being the cash in the box and becomes the total of what is on the page.':
@@ -1710,4 +1711,54 @@ const Map<String, String> romanUrdu = {
       'Is hisaab se lagbhag %s mahine. Har tankhwah per khud bhar jata hai aur aap hamesha kam bhi le sakte hain.',
   'Loan he still owes': 'Qarz jo abhi baqi hai',
   'Loan coming off this wage': 'Is tankhwah me se qarz',
+  'Where the money goes':
+      'Paisa kahan ja raha hai',
+  'Each zone as a share of what came in. The bands are what a dairy usually runs at — a yardstick, not a rule.':
+      'Har zone, aane wale paise ka hissa. Band wo hai jahan ek dairy aam tor par chalti hai — paimana, qanoon nahi.',
+  'Left over':
+      'Bacha',
+  'Usually %s':
+      'Aam tor par %s',
+  'Over by %s':
+      '%s ziyada',
+  'Look here first':
+      'Pehle yahan dekhein',
+  'Every zone is inside its band.':
+      'Har zone apne band ke andar hai.',
+  'Everything else':
+      'Baqi sab',
+  'Trading, not a farm cost — no band for it.':
+      'Ye kaarobar hai, farm ka kharch nahi — is ka koi band nahi.',
+  'How the farm is doing':
+      'Farm ka haal',
+  'Pace':
+      'Raftar',
+  'vs the stretch before':
+      'pichli baar ke muqable mein',
+  'Nothing before this to compare with':
+      'Is se pehle kuch nahi jis se muqabla ho',
+  'This stretch lost %s — more went out than came in.':
+      'Is arse mein %s ka nuksan hua — jitna aaya us se zyada gaya.',
+  'It earned %s, which is %s of everything that came in. Under a sixth is a stretch that ran rather than one that earned.':
+      '%s bache, jo kul aamdani ka %s hai. Chhate hissey se kam ka matlab: arsa chala hai, kamaya nahi.',
+  'It earned %s — %s of everything that came in. That is a stretch that earned.':
+      '%s bache — kul aamdani ka %s. Ye kamane wala arsa hai.',
+  'Running cost ate %s of what came in. Past four fifths there is nothing left to share.':
+      'Chalane ke kharche ne aamdani ka %s kha liya. Chaar bate paanch se uper kuch bantne ko nahi bachta.',
+  '%s is %s past the share a dairy usually keeps it inside. That is the money to go after.':
+      '%s us hissey se %s ziyada hai jahan ek dairy ise rakhti hai. Asal paisa yahi hai.',
+  '%s better than the stretch before it.':
+      'Pichli baar se %s behtar.',
+  '%s worse than the stretch before it.':
+      'Pichli baar se %s kam.',
+  'Much the same as the stretch before it.':
+      'Pichli baar jaisa hi hai.',
+  '%s is still to come in.':
+      '%s abhi aana hai.',
+  '%s is still to go out.':
+      '%s abhi dena hai.',
+  '%s is still to go out — more than is coming in.':
+      '%s abhi dena hai — jitna aana hai us se zyada.',
+  'Read off your own entries, not guessed. Every line here can be checked against the ledger.':
+      'Ye sab aap ki apni entries se nikla hai, andaza nahi. Har line ledger se mila kar check ki ja sakti hai.',
 };

@@ -192,6 +192,7 @@ final _dayMonth = DateFormat('d MMM');
 final _dayMonthYear = DateFormat('d MMM yyyy');
 final _monthName = DateFormat('MMMM yyyy');
 final _monthShort = DateFormat('MMM yyyy');
+final _monthOnly = DateFormat('MMM');
 final _timeStamp = DateFormat('d MMM, h:mm a');
 final _clock = DateFormat('h:mm a');
 
@@ -200,6 +201,15 @@ String fmtDate(DateTime d) => d.year == DateTime.now().year
     : _dayMonthYear.format(d);
 
 String fmtDateFull(DateTime d) => _dayMonthYear.format(d);
+
+/// The days of one stretch inside a single month: `1–10 Nov`, and
+/// `1–10 Nov 2025` once the year is no longer this one.
+String daySpan(DateTime from, DateTime to) {
+  final month = from.year == DateTime.now().year
+      ? _monthOnly.format(from)
+      : _monthShort.format(from);
+  return '${from.day}–${to.day} $month';
+}
 
 String fmtStamp(DateTime d) => _timeStamp.format(d);
 

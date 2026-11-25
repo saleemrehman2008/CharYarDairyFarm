@@ -8,6 +8,8 @@ import '../../models/models.dart';
 import '../../services/accounting.dart';
 import '../../services/db.dart';
 import '../../services/employee_repo.dart';
+import '../../services/verdict.dart';
+import '../../services/zones.dart';
 import '../../state/farm_store.dart';
 import '../../theme/tokens.dart';
 import '../../util/money.dart';
@@ -121,8 +123,29 @@ class _ReportScreenState extends State<ReportScreen> {
     final totalOut = sums.moneyOut;
     final net = sums.net;
 
+    // The stretch before this one, the same length, for the pace. Taken
+    // off the whole ledger because what is on screen is this stretch and
+    // nothing else.
+    final before = theStretchBefore(store.ledger, live);
+
     return PageBody(
       children: [
+        // 0 — the whole thing on four dials, and what they add up to said
+        // in words. The farm asked for the page to do the thinking: are we
+        // all right at this speed, and which zone is losing money. Every
+        // figure under it was already in the app, in six different cards,
+        // and nobody was going to put them together on a phone at night.
+        HealthCard(
+          read: readTheBooks(
+            now: live,
+            before: before,
+            owedToUs: store.receivablesDue,
+            owedByUs: store.payablesDue,
+          ),
+          spanLabel: spanLabel,
+        ),
+        const SizedBox(height: 20),
+
         HeroCard(
           label: l.t('Net'),
           value: rs(net),
@@ -235,6 +258,16 @@ class _ReportScreenState extends State<ReportScreen> {
                   : null,
             ),
           ],
+
+          // 4b — and whether too much went there. "Where it went" ranks the
+          // headings and stops; the farm's next question was which of them
+          // is out of hand, and a column of rupees cannot answer it. Five
+          // lakh of feed is an ordinary month and fifty thousand of repairs
+          // is not. So each zone is drawn against the share of sales a
+          // dairy usually keeps it inside, and the one furthest past its
+          // band — in rupees, which is what is worth chasing — is named.
+          const SizedBox(height: T.gap),
+          ZoneMeters(zones: spendZones(live)),
 
           // 5 — the milk itself, in two halves.
           const SizedBox(height: T.gap),

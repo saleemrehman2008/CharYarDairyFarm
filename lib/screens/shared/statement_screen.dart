@@ -918,6 +918,12 @@ const _date = 42.0;
 
 Widget _table(BuildContext context, Statement statement) {
   final l = L.of(context);
+
+  // Ten days at a time, the way milk is settled — but only once the page
+  // holds more than one stretch. A statement of four days is four days.
+  final runs = tenDayRuns(statement.lines);
+  final cut = runs.length > 1;
+
   return Column(
     children: [
       Container(
@@ -933,58 +939,109 @@ Widget _table(BuildContext context, Statement statement) {
           ],
         ),
       ),
-      for (final line in statement.lines)
-        Container(
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: T.n200)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: _date,
-                child: Text(
-                  fmtDate(line.date),
-                  style: T.body.copyWith(fontSize: 11),
-                ),
-              ),
-              // Who, what, and whose hand wrote it — one under the other,
-              // because on a phone these are the three that can afford to
-              // wrap and the money is the one that cannot.
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(line.party, style: T.bodyMid.copyWith(fontSize: 12)),
-                    Text(line.detail, style: T.meta.copyWith(fontSize: 10.5)),
-                    if (line.enteredBy.isNotEmpty)
-                      Text(
-                        line.enteredBy,
-                        style: T.meta.copyWith(fontSize: 10, color: T.n500),
-                      ),
-                  ],
-                ),
-              ),
-              _moneyCell(line.debit, _money, T.moneyOut),
-              _moneyCell(line.credit, _money, T.moneyIn),
-              SizedBox(
-                width: _balance,
-                child: Text(
-                  groupPk(line.balance),
-                  textAlign: TextAlign.end,
-                  style: T.bodyMid.copyWith(
-                    fontSize: 11.5,
-                    color: line.balance < 0 ? T.moneyDue : T.accent800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      for (final run in runs) ...[
+        for (final line in run.lines) _lineRow(line),
+        if (cut) _runRow(l, run),
+      ],
     ],
   );
 }
+
+/// One line of the account.
+Widget _lineRow(StatementLine line) {
+  return Container(
+    decoration: BoxDecoration(
+      border: Border(top: BorderSide(color: T.n200)),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: _date,
+          child: Text(fmtDate(line.date), style: T.body.copyWith(fontSize: 11)),
+        ),
+        // Who, what, and whose hand wrote it — one under the other,
+        // because on a phone these are the three that can afford to
+        // wrap and the money is the one that cannot.
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(line.party, style: T.bodyMid.copyWith(fontSize: 12)),
+              Text(line.detail, style: T.meta.copyWith(fontSize: 10.5)),
+              if (line.enteredBy.isNotEmpty)
+                Text(
+                  line.enteredBy,
+                  style: T.meta.copyWith(fontSize: 10, color: T.n500),
+                ),
+            ],
+          ),
+        ),
+        _moneyCell(line.debit, _money, T.moneyOut),
+        _moneyCell(line.credit, _money, T.moneyIn),
+        SizedBox(
+          width: _balance,
+          child: Text(
+            groupPk(line.balance),
+            textAlign: TextAlign.end,
+            style: T.bodyMid.copyWith(
+              fontSize: 11.5,
+              color: line.balance < 0 ? T.moneyDue : T.accent800,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// The foot of one ten-day stretch: what it took, what it gave, and where
+/// the balance stood when it ended.
+Widget _runRow(L l, StatementRun run) => Container(
+  decoration: BoxDecoration(
+    color: T.accent100,
+    border: Border(top: BorderSide(color: T.accent700, width: 1.1)),
+  ),
+  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+  child: Row(
+    children: [
+      Expanded(
+        child: Text(
+          l.t2('%s total', daySpan(run.from, run.to)),
+          style: T.bodyMid.copyWith(fontSize: 11.5, color: T.accent800),
+        ),
+      ),
+      SizedBox(
+        width: _money,
+        child: Text(
+          run.debits > 0 ? groupPk(run.debits) : '',
+          textAlign: TextAlign.end,
+          style: T.bodyMid.copyWith(fontSize: 11.5, color: T.moneyOut),
+        ),
+      ),
+      SizedBox(
+        width: _money,
+        child: Text(
+          run.credits > 0 ? groupPk(run.credits) : '',
+          textAlign: TextAlign.end,
+          style: T.bodyMid.copyWith(fontSize: 11.5, color: T.moneyIn),
+        ),
+      ),
+      SizedBox(
+        width: _balance,
+        child: Text(
+          groupPk(run.closing),
+          textAlign: TextAlign.end,
+          style: T.bodyMid.copyWith(
+            fontSize: 11.5,
+            color: run.closing < 0 ? T.moneyDue : T.accent800,
+          ),
+        ),
+      ),
+    ],
+  ),
+);
 
 Widget _moneyCell(num value, double width, Color tone) => SizedBox(
   width: width,

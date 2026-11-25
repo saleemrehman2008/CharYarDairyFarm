@@ -662,3 +662,84 @@ Statement loanAccount({required Partner partner, required List<Txn> rows}) {
     kind: StatementKind.loan,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Ten days at a time.
+
+/// One ten-day stretch of a statement, and what it came to.
+///
+/// A statement of account is read the way the two sides settle, and milk is
+/// settled every ten days: the 1st to the 10th, the 11th to the 20th, and
+/// the 21st to the end of the month. So the page carries a line under each
+/// of those with the stretch's own debit and credit on it, and the balance
+/// as it stood when the stretch ended — which is the figure the customer
+/// and the farm actually agree on before the next ten days begin.
+class StatementRun {
+  const StatementRun({
+    required this.from,
+    required this.to,
+    required this.lines,
+  });
+
+  /// The first day of the stretch and the last, both counted. Named by the
+  /// stretch rather than by the days that happen to have entries, so a
+  /// stretch with trade on three days of it is still called 1–10.
+  final DateTime from;
+  final DateTime to;
+
+  /// Its lines, in the order the statement has them — oldest first, so the
+  /// balance still runs down the page.
+  final List<StatementLine> lines;
+
+  num get debits => lines.fold<num>(0, (a, l) => a + l.debit);
+  num get credits => lines.fold<num>(0, (a, l) => a + l.credit);
+
+  /// Where the balance stood when the stretch ended.
+  ///
+  /// Taken off the last line rather than added up here, so the subtotal
+  /// line can never disagree with the line above it.
+  num get closing => lines.last.balance;
+}
+
+/// Which of the three stretches a day falls in: 0, 1 or 2.
+int _tenDayPart(int day) => day <= 10 ? 0 : (day <= 20 ? 1 : 2);
+
+/// A statement's lines, cut into ten-day stretches.
+///
+/// Walked in the order the statement has them and cut wherever the stretch
+/// changes, rather than gathered by stretch — because the balance on these
+/// lines only means anything in the order it was worked out. A back-dated
+/// entry sitting among a later month's days opens its own stretch where it
+/// sits, which is where the balance moved.
+List<StatementRun> tenDayRuns(List<StatementLine> lines) {
+  final out = <StatementRun>[];
+  var i = 0;
+  while (i < lines.length) {
+    final on = lines[i].date;
+    final part = _tenDayPart(on.day);
+    var j = i;
+    while (j < lines.length &&
+        lines[j].date.year == on.year &&
+        lines[j].date.month == on.month &&
+        _tenDayPart(lines[j].date.day) == part) {
+      j++;
+    }
+    final firstDay = part == 0 ? 1 : (part == 1 ? 11 : 21);
+    final lastDay = part == 0
+        ? 10
+        : part == 1
+        ? 20
+        // The 0th of next month is the last day of this one, whatever it
+        // holds — 28, 30 or 31.
+        : DateTime(on.year, on.month + 1, 0).day;
+    out.add(
+      StatementRun(
+        from: DateTime(on.year, on.month, firstDay),
+        to: DateTime(on.year, on.month, lastDay),
+        lines: lines.sublist(i, j),
+      ),
+    );
+    i = j;
+  }
+  return out;
+}

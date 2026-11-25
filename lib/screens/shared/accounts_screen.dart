@@ -535,13 +535,33 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// because those two part company on purpose: an entry made the evening a
   /// period was sealed carries that evening's date and belongs to the period
   /// that opened, and the line has to fall where the books say it does.
+  ///
+  /// With [inChunks] the rows of each period are read ten days at a time —
+  /// see [_inStretches]. With [bare] no period line is drawn at all, which
+  /// is how [_inStretches] asks for a stretch's rows and nothing else.
   List<Widget> _withDividers(
     List<Txn> rows,
     List<FarmMonth> periods,
     L l,
     bool isMaster,
-    Map<String, num> reach,
-  ) {
+    Map<String, num> reach, {
+    bool inChunks = false,
+    bool owing = false,
+    bool bare = false,
+    String shelf = '',
+  }) {
+    if (inChunks) {
+      return _inStretches(
+        rows,
+        periods,
+        l,
+        isMaster,
+        reach,
+        owing: owing,
+        shelf: shelf,
+      );
+    }
+
     final out = <Widget>[];
     String? current;
 
@@ -555,7 +575,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final behind = daysBehindTakes(context.read<FarmStore>().ledger);
 
     for (final txn in rows) {
-      if (txn.monthId != current && drawn.add(txn.monthId)) {
+      if (!bare && txn.monthId != current && drawn.add(txn.monthId)) {
         final period = periods.where((p) => p.id == txn.monthId).firstOrNull;
         out.add(_divider(period, txn.monthId, l));
       }
@@ -727,7 +747,105 @@ class _AccountsScreenState extends State<AccountsScreen> {
       );
 
       if (open) {
-        out.addAll(_withDividers(mine, periods, l, isMaster, reach));
+        // Ten days at a time, once this name's entries fall in more than
+        // one stretch — which is to say once there is more than one figure
+        // to show. One day's trade is still just that day, and a head over
+        // a single row says nothing the row does not.
+        out.addAll(
+          _withDividers(
+            mine,
+            periods,
+            l,
+            isMaster,
+            reach,
+            inChunks: tenDayStretches(mine).length > 1,
+            owing: owing,
+            shelf: shelf,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  /// The same rows, read ten days at a time.
+  ///
+  /// The farm sells milk to Amir Dairy every morning, so opening that name
+  /// gives thirty days in a column and no figure anybody settles on. What
+  /// the two of them actually settle is the ten days: the 1st to the 10th,
+  /// the 11th to the 20th, and the 21st to the end of the month. So each of
+  /// those gets a head carrying its own total, worked out by the page's one
+  /// counting function — which is why the three heads add up to the name's
+  /// own line and can never say anything else.
+  ///
+  /// The period lines stay where they were, above the stretches they hold.
+  /// A name that traded in two months shows each month's stretches under
+  /// that month's line.
+  ///
+  /// The stretches come up shut. Opening Amir Dairy and getting thirty days
+  /// in a column is the thing this was built to stop — so what you get is
+  /// three lines with three figures, and the ten days are under whichever
+  /// one you press.
+  List<Widget> _inStretches(
+    List<Txn> rows,
+    List<FarmMonth> periods,
+    L l,
+    bool isMaster,
+    Map<String, num> reach, {
+    required bool owing,
+    required String shelf,
+  }) {
+    final out = <Widget>[];
+    final drawn = <String>{};
+
+    // Walked in runs of one period rather than row by row, because a head
+    // is drawn over a run of days and not under a single entry.
+    var i = 0;
+    while (i < rows.length) {
+      final id = rows[i].monthId;
+      var j = i;
+      while (j < rows.length && rows[j].monthId == id) {
+        j++;
+      }
+      final run = rows.sublist(i, j);
+      i = j;
+
+      if (drawn.add(id)) {
+        out.add(_divider(periods.where((p) => p.id == id).firstOrNull, id, l));
+      }
+
+      for (final stretch in tenDayStretches(run)) {
+        final said = _comesTo(stretch.rows, owing: owing, signed: true);
+        // Keyed on the name's own shelf as well as the days, so opening
+        // Amir Dairy's first ten days does not open everybody's.
+        final key = '$shelf|$id|${stretch.from.millisecondsSinceEpoch}';
+        final open = _openStretches.contains(key);
+
+        out.add(
+          _StretchHead(
+            label: daySpan(stretch.from, stretch.to),
+            note: _counted(l, said),
+            total: said.total,
+            owing: owing,
+            open: open,
+            onTap: () => setState(() {
+              if (!_openStretches.remove(key)) _openStretches.add(key);
+            }),
+          ),
+        );
+
+        if (open) {
+          out.addAll(
+            _withDividers(
+              stretch.rows,
+              periods,
+              l,
+              isMaster,
+              reach,
+              bare: true,
+            ),
+          );
+        }
       }
     }
     return out;
@@ -953,6 +1071,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
   /// and who it is not; the days under a name are the working, and the
   /// working is what you go and look at.
   final _openNames = <String>{};
+
+  /// Which ten-day stretches are open, showing their days.
+  ///
+  /// Shut to begin with, like the names above them. A name opens into three
+  /// figures; a stretch opens into the days behind one of them.
+  final _openStretches = <String>{};
 
   /// Newest first, in one list, instead of gathered under names.
   ///
@@ -1670,6 +1794,98 @@ class _TotalStrip extends StatelessWidget {
           ),
           Text(rs(said.total), style: T.num22.copyWith(color: tone)),
         ],
+      ),
+    );
+  }
+}
+
+/// The head of one ten-day stretch, inside an opened name.
+///
+/// Inset and slimmer than a name's own card, so it reads as a part of what
+/// is under that name rather than as another name. The figure on it is the
+/// one the farm and its customer settle on — worked out by the same
+/// counting function as the name's line above it, so the heads add up to
+/// it.
+class _StretchHead extends StatelessWidget {
+  const _StretchHead({
+    required this.label,
+    required this.note,
+    required this.total,
+    required this.owing,
+    required this.open,
+    required this.onTap,
+  });
+
+  /// `1–10 Nov`, the days it covers.
+  final String label;
+
+  /// What is in it, counted.
+  final String note;
+
+  final num total;
+
+  /// Still owed, as against done with — the same meaning it carries on the
+  /// name's line, and the same colour.
+  final bool owing;
+
+  /// Open, showing the days behind the figure.
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = owing
+        ? T.moneyDue
+        : total < 0
+        ? T.moneyOut
+        : T.moneyIn;
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(start: 10, top: 8, bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(T.radiusSm),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+          decoration: BoxDecoration(
+            color: tone.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(T.radiusSm),
+            border: Border.all(color: tone.withValues(alpha: 0.28)),
+          ),
+          child: Row(
+            children: [
+              // Turned down when the stretch is open — the one thing on the
+              // line that says whether a press will show the days or hide
+              // them.
+              Icon(
+                open ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                size: 16,
+                color: tone,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: T.bodyMid.copyWith(
+                        color: tone,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(note, style: T.meta),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                owing ? rs(total) : signedRs(total.abs(), incoming: total >= 0),
+                style: T.num22.copyWith(fontSize: 18, color: tone),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

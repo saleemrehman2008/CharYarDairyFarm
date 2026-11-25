@@ -2143,3 +2143,102 @@ num staffLoansOwed(List<Txn> ledger) {
   }
   return names.fold<num>(0, (a, name) => a + staffLoanOwed(ledger, who: name));
 }
+
+// ---------------------------------------------------------------------------
+// Ten days at a time.
+
+/// One stretch of a month, and the entries dated inside it.
+class Stretch {
+  const Stretch({required this.from, required this.to, required this.rows});
+
+  /// The first day of the stretch and the last, both counted.
+  final DateTime from;
+  final DateTime to;
+
+  /// The entries that fall in it, in the order they were handed in — so a
+  /// list read newest first stays newest first inside each stretch.
+  final List<Txn> rows;
+
+  /// Which of the three it is: 0 for the 1st to the 10th, 1 for the 11th to
+  /// the 20th, 2 for the 21st to the month's end.
+  int get part => from.day <= 10 ? 0 : (from.day <= 20 ? 1 : 2);
+}
+
+/// Which of the three stretches a day falls in: 0, 1 or 2.
+int _partOf(int day) => day <= 10 ? 0 : (day <= 20 ? 1 : 2);
+
+/// The three stretches a running account is read in: the 1st to the 10th,
+/// the 11th to the 20th, and the 21st to whatever day the month ends on.
+///
+/// This is how milk is actually billed. The farm sells to Amir Dairy every
+/// morning, so one name holds thirty entries a month, and the question put
+/// to the page is never "what is the month" — the name's own line already
+/// says that. It is "what does the first ten days come to", because that is
+/// the figure the two of them settle on, and counting thirty rows on a phone
+/// to find it is how a figure gets argued over.
+///
+/// Three stretches and not four: the last one carries the 29th, 30th and
+/// 31st, so a month is read the same way whether it holds 28 days or 31 —
+/// the same rule the wages already follow.
+///
+/// A stretch with nothing in it is not returned. A name traded with twice in
+/// the month shows the two stretches those days fell in and no empty third.
+///
+/// One handful of money that settled many days stays whole: every row of a
+/// take goes where the take's first row went, so adding the stretches up
+/// comes to exactly what the name comes to and the page cannot disagree
+/// with itself.
+List<Stretch> tenDayStretches(List<Txn> rows) {
+  final held = <String, List<Txn>>{};
+  final where = <String, ({int year, int month, int part})>{};
+  final takeAt = <String, String>{};
+
+  String keyOf(({int year, int month, int part}) at) =>
+      '${at.year}-${at.month}-${at.part}';
+
+  for (final txn in rows) {
+    var at = (
+      year: txn.date.year,
+      month: txn.date.month,
+      part: _partOf(txn.date.day),
+    );
+
+    // A take's slices are one payment. Wherever its first row landed, the
+    // rest land with it.
+    if (txn.isPartOfATake) {
+      final seen = takeAt[txn.takeId!];
+      if (seen != null) {
+        at = where[seen]!;
+      } else {
+        takeAt[txn.takeId!] = keyOf(at);
+      }
+    }
+
+    final key = keyOf(at);
+    where[key] = at;
+    held.putIfAbsent(key, () => []).add(txn);
+  }
+
+  final out = <Stretch>[];
+  for (final key in held.keys) {
+    final at = where[key]!;
+    final firstDay = at.part == 0 ? 1 : (at.part == 1 ? 11 : 21);
+    final lastDay = at.part == 0
+        ? 10
+        : at.part == 1
+        ? 20
+        // The 0th of next month is the last of this one, whatever it holds.
+        : DateTime(at.year, at.month + 1, 0).day;
+    out.add(
+      Stretch(
+        from: DateTime(at.year, at.month, firstDay),
+        to: DateTime(at.year, at.month, lastDay),
+        rows: held[key]!,
+      ),
+    );
+  }
+
+  // Newest first, matching the list they came from.
+  out.sort((a, b) => b.from.compareTo(a.from));
+  return out;
+}
